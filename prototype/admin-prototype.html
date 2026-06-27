@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Lumi-Draw 管理后台</title>
+<link href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.min.css" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#F0F2F5;--bg-card:#FFFFFF;--bg-sidebar:#FFFFFF;--bg-hover:#F5F7FA;--bg-soft:#F0F4FF;
+  --fg:#1A1A2E;--fg-secondary:#5A6175;--fg-muted:#9CA3B8;
+  --accent:#5B9FE8;--accent-deep:#4A85C8;--accent-soft:rgba(91,159,232,0.12);--accent-glow:rgba(91,159,232,0.25);
+  --border:#E8ECF1;--border-strong:#D0D5DD;
+  --mint:#4ECBA0;--mint-soft:rgba(78,203,160,0.12);
+  --rose:#E85B7A;--rose-soft:rgba(232,91,122,0.12);
+  --peach:#F0A060;--peach-soft:rgba(240,160,96,0.12);
+  --lavender:#8B6FC0;--lavender-soft:rgba(139,111,192,0.12);
+  --lemon:#D4A520;--lemon-soft:rgba(212,165,32,0.12);
+  --radius:12px;--radius-sm:8px;--radius-lg:16px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.06);--shadow-md:0 4px 12px rgba(0,0,0,0.08);--shadow-lg:0 8px 24px rgba(0,0,0,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+  background:var(--bg);color:var(--fg);min-height:100vh;display:flex;}
+a{text-decoration:none;color:inherit;}
+button{border:none;cursor:pointer;font-family:inherit;}
+input,select,textarea{font-family:inherit;outline:none;}
+
+/* ============ Sidebar ============ */
+.sidebar{width:240px;background:var(--bg-sidebar);border-right:1px solid var(--border);height:100vh;position:fixed;left:0;top:0;
+  display:flex;flex-direction:column;z-index:100;transition:transform 0.3s cubic-bezier(0.16,1,0.3,1);}
+.sidebar-logo{padding:20px 20px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+.sidebar-logo .logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#5B9FE8,#4ECBA0);
+  display:flex;align-items:center;justify-content:center;color:white;font-size:18px;font-weight:800;}
+.sidebar-logo .logo-text{font-size:16px;font-weight:700;color:var(--fg);}
+.sidebar-logo .logo-sub{font-size:11px;color:var(--fg-muted);margin-top:1px;}
+.sidebar-nav{flex:1;overflow-y:auto;padding:12px 8px;}
+.nav-group{margin-bottom:8px;}
+.nav-group-title{font-size:11px;font-weight:600;color:var(--fg-muted);text-transform:uppercase;letter-spacing:0.5px;padding:8px 12px 4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--radius-sm);cursor:pointer;
+  color:var(--fg-secondary);font-size:13px;font-weight:500;transition:all 0.2s;margin-bottom:2px;}
+.nav-item:hover{background:var(--bg-hover);color:var(--fg);}
+.nav-item.active{background:var(--accent-soft);color:var(--accent-deep);font-weight:600;}
+.nav-item i{font-size:18px;width:20px;text-align:center;}
+.nav-item .nav-badge{margin-left:auto;min-width:18px;height:18px;border-radius:9px;background:var(--rose);color:white;
+  font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+.sidebar-footer{padding:12px 16px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.sidebar-footer .admin-avatar{width:32px;height:32px;border-radius:8px;background:var(--accent);color:white;
+  display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;}
+
+/* ============ Main ============ */
+.main{margin-left:240px;flex:1;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{height:56px;background:var(--bg-card);border-bottom:1px solid var(--border);display:flex;align-items:center;
+  padding:0 24px;gap:16px;position:sticky;top:0;z-index:50;}
+.topbar .hamburger{display:none;width:36px;height:36px;border-radius:var(--radius-sm);background:transparent;
+  align-items:center;justify-content:center;font-size:22px;color:var(--fg-secondary);cursor:pointer;}
+.topbar .page-title{font-size:18px;font-weight:700;flex:1;}
+.topbar .topbar-actions{display:flex;align-items:center;gap:8px;}
+.topbar-btn{width:36px;height:36px;border-radius:var(--radius-sm);background:var(--bg-hover);display:flex;
+  align-items:center;justify-content:center;font-size:18px;color:var(--fg-secondary);transition:all 0.2s;}
+.topbar-btn:hover{background:var(--accent-soft);color:var(--accent);}
+.content{flex:1;padding:24px;overflow-y:auto;}
+
+/* ============ Components ============ */
+.card{background:var(--bg-card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--border);}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-bottom:24px;}
+.stat-card{padding:20px;display:flex;align-items:flex-start;gap:14px;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.stat-card .stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;}
+.stat-card .stat-value{font-size:24px;font-weight:700;line-height:1.2;}
+.stat-card .stat-label{font-size:12px;color:var(--fg-muted);margin-top:2px;}
+.stat-card .stat-trend{font-size:11px;font-weight:600;margin-top:4px;display:flex;align-items:center;gap:2px;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius-sm);font-size:13px;
+  font-weight:600;transition:all 0.2s;}
+.btn-primary{background:var(--accent);color:white;}
+.btn-primary:hover{background:var(--accent-deep);box-shadow:0 4px 12px var(--accent-glow);}
+.btn-soft{background:var(--accent-soft);color:var(--accent-deep);}
+.btn-soft:hover{background:rgba(91,159,232,0.2);}
+.btn-danger{background:var(--rose-soft);color:var(--rose);}
+.btn-danger:hover{background:rgba(232,91,122,0.2);}
+.btn-ghost{background:transparent;color:var(--fg-secondary);}
+.btn-ghost:hover{background:var(--bg-hover);}
+.btn-sm{padding:5px 10px;font-size:12px;border-radius:6px;}
+.btn-icon{width:32px;height:32px;padding:0;justify-content:center;border-radius:var(--radius-sm);}
+
+.input{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;
+  color:var(--fg);background:var(--bg-card);transition:border-color 0.2s;}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.input-group{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.input-group label{font-size:13px;font-weight:600;color:var(--fg-secondary);white-space:nowrap;min-width:80px;}
+textarea.input{resize:vertical;min-height:80px;}
+select.input{cursor:pointer;appearance:auto;}
+
+.table-wrap{overflow-x:auto;margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--bg-hover);}
+th{padding:10px 14px;text-align:left;font-weight:600;color:var(--fg-secondary);white-space:nowrap;border-bottom:1px solid var(--border);}
+td{padding:10px 14px;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle;}
+tr:hover td{background:var(--bg-hover);}
+.table-img{width:40px;height:40px;border-radius:8px;object-fit:cover;}
+.table-avatar{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;
+  color:white;font-size:11px;font-weight:700;flex-shrink:0;vertical-align:middle;}
+
+.tag{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;font-size:11px;font-weight:600;border-radius:999px;}
+.tag-accent{background:var(--accent-soft);color:var(--accent-deep);}
+.tag-mint{background:var(--mint-soft);color:var(--mint);}
+.tag-rose{background:var(--rose-soft);color:var(--rose);}
+.tag-peach{background:var(--peach-soft);color:var(--peach);}
+.tag-lavender{background:var(--lavender-soft);color:var(--lavender);}
+.tag-lemon{background:var(--lemon-soft);color:var(--lemon);}
+
+.badge-status{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;}
+.badge-status::before{content:'';width:6px;height:6px;border-radius:50%;}
+.badge-status.status-active::before{background:var(--mint);}
+.badge-status.status-active{color:var(--mint);}
+.badge-status.status-pending::before{background:var(--peach);}
+.badge-status.status-pending{color:var(--peach);}
+.badge-status.status-banned::before{background:var(--rose);}
+.badge-status.status-banned{color:var(--rose);}
+.badge-status.status-off::before{background:var(--fg-muted);}
+.badge-status.status-off{color:var(--fg-muted);}
+
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:12px 0;}
+.page-btn{min-width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:500;color:var(--fg-secondary);background:var(--bg-card);border:1px solid var(--border);cursor:pointer;transition:all 0.2s;}
+.page-btn:hover{border-color:var(--accent);color:var(--accent);}
+.page-btn.active{background:var(--accent);color:white;border-color:var(--accent);}
+.page-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+.switch{position:relative;width:40px;height:22px;background:var(--border-strong);border-radius:11px;cursor:pointer;transition:background 0.3s;}
+.switch.on{background:var(--accent);}
+.switch::after{content:'';position:absolute;top:2px;left:2px;width:18px;height:18px;background:white;border-radius:50%;
+  box-shadow:0 1px 4px rgba(0,0,0,0.15);transition:left 0.3s;}
+.switch.on::after{left:20px;}
+
+.sub-tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--bg-hover);border-radius:var(--radius-sm);padding:3px;width:fit-content;}
+.sub-tab{padding:7px 16px;border-radius:6px;font-size:13px;font-weight:500;color:var(--fg-secondary);cursor:pointer;transition:all 0.2s;}
+.sub-tab.active{background:var(--bg-card);color:var(--accent-deep);font-weight:600;box-shadow:var(--shadow-sm);}
+
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+.section-title{font-size:16px;font-weight:700;}
+.filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+.model-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;}
+.model-card{overflow:hidden;transition:transform 0.2s,box-shadow 0.2s;cursor:pointer;}
+.model-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.model-card .mc-img{width:100%;height:140px;object-fit:cover;}
+.model-card .mc-body{padding:14px;}
+.model-card .mc-name{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.model-card .mc-desc{font-size:12px;color:var(--fg-muted);margin-bottom:8px;}
+.model-card .mc-footer{display:flex;align-items:center;justify-content:space-between;}
+.model-card .mc-price{font-size:16px;font-weight:700;color:var(--accent);}
+
+.ops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
+.ops-card{overflow:hidden;cursor:pointer;transition:transform 0.2s;}
+.ops-card:hover{transform:translateY(-2px);}
+.ops-card img{width:100%;aspect-ratio:1;object-fit:cover;}
+.ops-card .ops-body{padding:10px;}
+.ops-card .ops-name{font-size:13px;font-weight:600;margin-bottom:2px;}
+.ops-card .ops-meta{font-size:11px;color:var(--fg-muted);}
+
+.banner-item{display:flex;align-items:center;gap:14px;padding:14px;border-bottom:1px solid var(--border);}
+.banner-item:last-child{border-bottom:none;}
+.banner-item .bi-img{width:120px;height:50px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;}
+.banner-item .bi-info{flex:1;min-width:0;}
+.banner-item .bi-title{font-size:14px;font-weight:600;}
+.banner-item .bi-url{font-size:11px;color:var(--fg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.banner-item .bi-actions{display:flex;gap:6px;align-items:center;}
+
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;}
+.tag-item{display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:999px;background:var(--bg-hover);
+  border:1px solid var(--border);font-size:13px;font-weight:500;cursor:grab;}
+.tag-item .tag-del{width:16px;height:16px;border-radius:50%;background:var(--fg-muted);color:white;display:flex;
+  align-items:center;justify-content:center;font-size:10px;cursor:pointer;opacity:0.6;transition:opacity 0.2s;}
+.tag-item .tag-del:hover{opacity:1;background:var(--rose);}
+
+/* ============ Modal ============ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:500;display:none;align-items:center;justify-content:center;padding:24px;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg-card);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);width:100%;max-width:520px;max-height:85vh;overflow-y:auto;}
+.modal-header{padding:20px 24px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.modal-header h3{font-size:16px;font-weight:700;}
+.modal-close{width:32px;height:32px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;
+  font-size:20px;color:var(--fg-muted);cursor:pointer;transition:all 0.2s;}
+.modal-close:hover{background:var(--bg-hover);color:var(--fg);}
+.modal-body{padding:20px 24px;}
+.modal-footer{padding:12px 24px 20px;display:flex;justify-content:flex-end;gap:8px;}
+
+.form-group{margin-bottom:16px;}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--fg-secondary);margin-bottom:6px;}
+
+/* ============ Toast ============ */
+.toast{position:fixed;top:72px;right:24px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:12px 20px;box-shadow:var(--shadow-lg);z-index:9999;font-size:13px;color:var(--fg);display:flex;align-items:center;gap:8px;
+  animation:slideInRight 0.4s cubic-bezier(0.16,1,0.3,1);}
+.toast.out{animation:slideOutRight 0.3s forwards;}
+@keyframes slideInRight{from{opacity:0;transform:translateX(40px);}to{opacity:1;transform:translateX(0);}}
+@keyframes slideOutRight{to{opacity:0;transform:translateX(40px);}}
+
+/* ============ Empty state ============ */
+.empty-state{padding:60px 20px;text-align:center;color:var(--fg-muted);}
+.empty-state i{font-size:40px;margin-bottom:12px;opacity:0.4;}
+.empty-state p{font-size:14px;}
+
+/* ============ Chart ============ */
+.chart-bar-group{display:flex;align-items:flex-end;gap:6px;height:180px;padding:16px 0 0;}
+.chart-bar{flex:1;border-radius:6px 6px 0 0;min-width:0;transition:height 0.6s cubic-bezier(0.16,1,0.3,1);position:relative;cursor:pointer;}
+.chart-bar:hover{opacity:0.8;}
+.chart-bar .bar-label{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--fg-muted);white-space:nowrap;}
+.chart-bar .bar-value{position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:var(--fg-secondary);white-space:nowrap;}
+.chart-legend{display:flex;gap:16px;margin-top:32px;justify-content:center;}
+.chart-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--fg-secondary);}
+.chart-legend-item::before{content:'';width:10px;height:10px;border-radius:3px;}
+.detail-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.detail-summary .ds-item{text-align:center;padding:14px;background:var(--bg-hover);border-radius:var(--radius-sm);}
+.detail-summary .ds-value{font-size:20px;font-weight:700;margin-bottom:2px;}
+.detail-summary .ds-label{font-size:11px;color:var(--fg-muted);}
+@media(max-width:768px){.detail-summary{grid-template-columns:repeat(2,1fr);}}
+
+/* ============ Page sections ============ */
+.page-section{display:none;}
+.page-section.active{display:block;}
+
+/* ============ Mobile responsive ============ */
+.mobile-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:90;display:none;}
+.mobile-overlay.show{display:block;}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .main{margin-left:0;}
+  .topbar .hamburger{display:flex;}
+  .content{padding:16px;}
+  .stat-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
+  .stat-card{padding:14px;}
+  .stat-card .stat-value{font-size:20px;}
+  .model-grid{grid-template-columns:1fr;}
+  .ops-grid{grid-template-columns:repeat(2,1fr);}
+  .filter-bar{width:100%;}
+  .filter-bar .input{flex:1;}
+  .sub-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap;}
+  .sub-tab{white-space:nowrap;flex-shrink:0;}
+  table{font-size:12px;}
+  th,td{padding:8px 10px;}
+  .banner-item{flex-wrap:wrap;}
+  .banner-item .bi-img{width:100%;height:80px;}
+}
+@media(max-width:480px){
+  .stat-grid{grid-template-columns:1fr 1fr;gap:8px;}
+  .stat-card{padding:12px;flex-direction:column;gap:8px;}
+  .stat-card .stat-icon{width:36px;height:36px;font-size:16px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ Sidebar ============ -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">L</div>
+    <div>
+      <div class="logo-text">Lumi-Draw</div>
+      <div class="logo-sub">管理后台</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-item active" onclick="switchPage('dashboard',this)">
+        <i class="ri-dashboard-3-line"></i><span>仪表盘</span>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">内容管理</div>
+      <div class="nav-item" onclick="switchPage('users',this)">
+        <i class="ri-user-line"></i><span>用户管理</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('works',this)">
+        <i class="ri-gallery-line"></i><span>作品管理</span><span class="nav-badge">3</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('moderation',this)">
+        <i class="ri-shield-check-line"></i><span>内容审核</span><span class="nav-badge">5</span>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">运营</div>
+      <div class="nav-item" onclick="switchPage('operations',this)">
+        <i class="ri-settings-4-line"></i><span>运营配置</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('finance',this)">
+        <i class="ri-money-cny-circle-line"></i><span>财务管理</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('messages',this)">
+        <i class="ri-message-2-line"></i><span>消息管理</span>
+      </div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-title">系统</div>
+      <div class="nav-item" onclick="switchPage('settings',this)">
+        <i class="ri-settings-3-line"></i><span>系统设置</span>
+      </div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="admin-avatar">A</div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:600;">Admin</div>
+      <div style="font-size:11px;color:var(--fg-muted);">超级管理员</div>
+    </div>
+    <i class="ri-logout-box-r-line" style="font-size:18px;color:var(--fg-muted);cursor:pointer;" title="退出登录"></i>
+  </div>
+</aside>
+
+<!-- ============ Main ============ -->
+<div class="main">
+  <header class="topbar">
+    <div class="hamburger" onclick="toggleSidebar()"><i class="ri-menu-line"></i></div>
+    <div class="page-title" id="pageTitle">仪表盘</div>
+    <div class="topbar-actions">
+      <div class="topbar-btn" title="刷新" onclick="showToast('数据已刷新')"><i class="ri-refresh-line"></i></div>
+      <div class="topbar-btn" title="通知" style="position:relative;">
+        <i class="ri-notification-3-line"></i>
+        <span style="position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--rose);border:2px solid var(--bg-card);"></span>
+      </div>
+    </div>
+  </header>
+  <div class="content" id="contentArea">
+
+    <!-- ==================== 1. Dashboard ==================== -->
+    <div class="page-section active" id="page-dashboard">
+      <div class="stat-grid">
+        <div class="card stat-card" onclick="openStatDetail('users')">
+          <div class="stat-icon" style="background:var(--accent-soft);color:var(--accent);"><i class="ri-user-line"></i></div>
+          <div><div class="stat-value">12,856</div><div class="stat-label">总用户数</div>
+          <div class="stat-trend" style="color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+8.3% 较上月</div></div>
+        </div>
+        <div class="card stat-card" onclick="openStatDetail('newUsers')">
+          <div class="stat-icon" style="background:var(--mint-soft);color:var(--mint);"><i class="ri-user-add-line"></i></div>
+          <div><div class="stat-value">238</div><div class="stat-label">今日新增</div>
+          <div class="stat-trend" style="color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+12.5%</div></div>
+        </div>
+        <div class="card stat-card" onclick="openStatDetail('works')">
+          <div class="stat-icon" style="background:var(--lavender-soft);color:var(--lavender);"><i class="ri-image-line"></i></div>
+          <div><div class="stat-value">86,432</div><div class="stat-label">总作品数</div>
+          <div class="stat-trend" style="color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+15.2%</div></div>
+        </div>
+        <div class="card stat-card" onclick="openStatDetail('generates')">
+          <div class="stat-icon" style="background:var(--peach-soft);color:var(--peach);"><i class="ri-sparkling-line"></i></div>
+          <div><div class="stat-value">1,420</div><div class="stat-label">今日生成</div>
+          <div class="stat-trend" style="color:var(--rose);"><i class="ri-arrow-down-s-fill"></i>-3.1%</div></div>
+        </div>
+        <div class="card stat-card" onclick="openStatDetail('revenue')">
+          <div class="stat-icon" style="background:var(--rose-soft);color:var(--rose);"><i class="ri-money-cny-circle-line"></i></div>
+          <div><div class="stat-value">¥328,560</div><div class="stat-label">总收入</div>
+          <div class="stat-trend" style="color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+22.8%</div></div>
+        </div>
+        <div class="card stat-card" onclick="openStatDetail('todayRevenue')">
+          <div class="stat-icon" style="background:var(--lemon-soft);color:var(--lemon);"><i class="ri-coins-line"></i></div>
+          <div><div class="stat-value">¥4,680</div><div class="stat-label">今日收入</div>
+          <div class="stat-trend" style="color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+5.6%</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:20px;margin-bottom:16px;">
+        <div class="section-title" style="margin-bottom:14px;">今日 vs 昨日</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+          <div style="padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:12px;color:var(--fg-muted);margin-bottom:4px;">新增用户</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-size:20px;font-weight:700;">238</span><span style="font-size:11px;font-weight:600;color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+26</span></div><div style="font-size:11px;color:var(--fg-muted);margin-top:2px;">昨日 212</div></div>
+          <div style="padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:12px;color:var(--fg-muted);margin-bottom:4px;">生成作品</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-size:20px;font-weight:700;">1,420</span><span style="font-size:11px;font-weight:600;color:var(--rose);"><i class="ri-arrow-down-s-fill"></i>-46</span></div><div style="font-size:11px;color:var(--fg-muted);margin-top:2px;">昨日 1,466</div></div>
+          <div style="padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:12px;color:var(--fg-muted);margin-bottom:4px;">充值收入</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-size:20px;font-weight:700;">¥4,680</span><span style="font-size:11px;font-weight:600;color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+¥520</span></div><div style="font-size:11px;color:var(--fg-muted);margin-top:2px;">昨日 ¥4,160</div></div>
+          <div style="padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:12px;color:var(--fg-muted);margin-bottom:4px;">活跃用户</div><div style="display:flex;align-items:baseline;gap:6px;"><span style="font-size:20px;font-weight:700;">3,260</span><span style="font-size:11px;font-weight:600;color:var(--mint);"><i class="ri-arrow-up-s-fill"></i>+180</span></div><div style="font-size:11px;color:var(--fg-muted);margin-top:2px;">昨日 3,080</div></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card" style="padding:20px;">
+          <div class="section-header"><div class="section-title">最近注册用户</div><a class="btn btn-ghost btn-sm" onclick="switchPage('users',document.querySelectorAll('.nav-item')[1])">查看全部 <i class="ri-arrow-right-s-line"></i></a></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>用户</th><th>注册时间</th><th>状态</th></tr></thead>
+            <tbody>
+              <tr><td><span class="table-avatar" style="background:var(--accent);">梦</span> 云端造梦师</td><td>2小时前</td><td><span class="badge-status status-active">正常</span></td></tr>
+              <tr><td><span class="table-avatar" style="background:var(--mint);">星</span> 星辰大海</td><td>5小时前</td><td><span class="badge-status status-active">正常</span></td></tr>
+              <tr><td><span class="table-avatar" style="background:var(--peach);">月</span> 月光如水</td><td>8小时前</td><td><span class="badge-status status-active">正常</span></td></tr>
+              <tr><td><span class="table-avatar" style="background:var(--lavender);">风</span> 风之绘师</td><td>1天前</td><td><span class="badge-status status-active">正常</span></td></tr>
+              <tr><td><span class="table-avatar" style="background:var(--lemon);">光</span> 光影魔术</td><td>1天前</td><td><span class="badge-status status-active">正常</span></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+        <div class="card" style="padding:20px;">
+          <div class="section-header"><div class="section-title">待审核作品</div><a class="btn btn-ghost btn-sm" onclick="switchPage('works',document.querySelectorAll('.nav-item')[2])">查看全部 <i class="ri-arrow-right-s-line"></i></a></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>作品</th><th>作者</th><th>提交时间</th></tr></thead>
+            <tbody>
+              <tr><td style="display:flex;align-items:center;gap:8px;"><img class="table-img" src="https://picsum.photos/seed/w13/80/80"/> 花园里的可爱机器人</td><td>云端造梦师</td><td>30分钟前</td></tr>
+              <tr><td style="display:flex;align-items:center;gap:8px;"><img class="table-img" src="https://picsum.photos/seed/w14/80/80"/> 发光蘑菇的魔法森林</td><td>云端造梦师</td><td>1小时前</td></tr>
+              <tr><td style="display:flex;align-items:center;gap:8px;"><img class="table-img" src="https://picsum.photos/seed/w15/80/80"/> 星空下的灯塔</td><td>云端造梦师</td><td>2小时前</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 2. Users ==================== -->
+    <div class="page-section" id="page-users">
+      <div class="section-header">
+        <div class="filter-bar">
+          <input class="input" style="max-width:240px;" placeholder="搜索用户名/ID..." />
+          <select class="input" style="max-width:130px;"><option>全部状态</option><option>正常</option><option>封禁</option></select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;color:var(--fg-muted);">共 12,856 位用户</span><button class="btn btn-ghost btn-sm" onclick="showToast('用户数据已导出')"><i class="ri-download-2-line"></i>导出</button></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="card" style="flex:1;min-width:120px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;"><i class="ri-vip-crown-2-fill" style="font-size:16px;color:var(--accent);"></i></div>
+          <div><div style="font-size:18px;font-weight:700;">1,286</div><div style="font-size:11px;color:var(--fg-muted);">会员总数</div></div>
+        </div>
+        <div class="card" style="flex:1;min-width:120px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-line" style="font-size:16px;color:var(--accent);"></i></div>
+          <div><div style="font-size:18px;font-weight:700;">486</div><div style="font-size:11px;color:var(--fg-muted);">月卡</div></div>
+        </div>
+        <div class="card" style="flex:1;min-width:120px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--lavender-soft);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:16px;color:var(--lavender);"></i></div>
+          <div><div style="font-size:18px;font-weight:700;">528</div><div style="font-size:11px;color:var(--fg-muted);">季卡</div></div>
+        </div>
+        <div class="card" style="flex:1;min-width:120px;padding:12px 16px;display:flex;align-items:center;gap:10px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:var(--peach-soft);display:flex;align-items:center;justify-content:center;"><i class="ri-vip-diamond-line" style="font-size:16px;color:var(--peach);"></i></div>
+          <div><div style="font-size:18px;font-weight:700;">272</div><div style="font-size:11px;color:var(--fg-muted);">年卡</div></div>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th>用户</th><th>ID</th><th style="cursor:pointer;" onclick="sortUsers('works')">作品 <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th style="cursor:pointer;" onclick="sortUsers('credits')">积分 <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th style="cursor:pointer;" onclick="sortUsers('recharged')">充值(元) <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th>会员</th><th style="cursor:pointer;" onclick="sortUsers('regTime')">注册时间 <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="userTableBody"></tbody>
+      </table></div></div>
+      <div class="pagination" id="userPagination"></div>
+    </div>
+
+    <!-- ==================== 3. Works ==================== -->
+    <div class="page-section" id="page-works">
+      <div class="sub-tabs" id="worksTabs">
+        <div class="sub-tab active" onclick="switchWorksTab(this,'all')">全部</div>
+        <div class="sub-tab" onclick="switchWorksTab(this,'pending')">待审核 <span style="color:var(--rose);font-size:11px;">(3)</span></div>
+        <div class="sub-tab" onclick="switchWorksTab(this,'published')">已发布</div>
+        <div class="sub-tab" onclick="switchWorksTab(this,'removed')">已下架</div>
+      </div>
+      <div class="section-header">
+        <div class="filter-bar">
+          <input class="input" style="max-width:200px;" placeholder="搜索作品标题..."/>
+          <select class="input" style="max-width:120px;"><option>全部模型</option><option>GPT Image 2</option><option>Nano Banana 2</option><option>Flux Pro</option><option>SDXL</option><option>DALL-E 3</option><option>Midjourney</option></select>
+          <select class="input" style="max-width:110px;"><option>全部风格</option><option>赛博朋克</option><option>国风</option><option>二次元</option><option>写实</option><option>水彩</option></select>
+        </div>
+      </div>
+      <div id="worksBatchBar" style="display:none;padding:10px 16px;background:var(--accent-soft);border-radius:var(--radius-sm);margin-bottom:12px;align-items:center;gap:10px;">
+        <span style="font-size:13px;font-weight:600;color:var(--accent-deep);" id="worksSelectedCount">已选 0 项</span>
+        <div style="flex:1;"></div>
+        <button class="btn btn-soft btn-sm" onclick="showToast('已批量通过')"><i class="ri-check-line"></i>批量通过</button>
+        <button class="btn btn-primary btn-sm" onclick="showToast('已批量精选')"><i class="ri-star-line"></i>批量精选</button>
+        <button class="btn btn-danger btn-sm" onclick="showToast('已批量下架')"><i class="ri-forbid-line"></i>批量下架</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearWorksSelection()">取消</button>
+      </div>
+      <div class="card"><div class="table-wrap"><table>
+        <thead><tr><th style="width:36px;"><input type="checkbox" id="worksSelectAll" onchange="toggleWorksSelectAll(this.checked)" style="cursor:pointer;"/></th><th style="cursor:pointer;" onclick="sortWorks('id')">ID <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th>作品</th><th>作者</th><th>模型</th><th>风格</th><th>分辨率</th><th style="cursor:pointer;text-align:right;" onclick="sortWorks('likes')">点赞 <i class="ri-arrow-up-down-line" style="font-size:12px;color:var(--fg-muted);"></i></th><th>状态</th><th>时间</th><th>操作</th></tr></thead>
+        <tbody id="worksTableBody"></tbody>
+      </table></div></div>
+      <div class="pagination" id="worksPagination"></div>
+    </div>
+
+    <!-- ==================== 4. Models ==================== -->
+
+    <!-- ==================== 5. Operations ==================== -->
+    <div class="page-section" id="page-operations">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchOpsTab(this,'banners')">Banner</div>
+        <div class="sub-tab" onclick="switchOpsTab(this,'gameplays')">玩法模板</div>
+        <div class="sub-tab" onclick="switchOpsTab(this,'styles')">风格</div>
+        <div class="sub-tab" onclick="switchOpsTab(this,'hotSearch')">热搜词</div>
+      </div>
+      <div id="opsContent"></div>
+    </div>
+
+    <!-- ==================== 6. Finance ==================== -->
+    <div class="page-section" id="page-finance">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchFinTab(this,'recharge')">充值方案</div>
+        <div class="sub-tab" onclick="switchFinTab(this,'member')">会员方案</div>
+        <div class="sub-tab" onclick="switchFinTab(this,'checkin')">签到配置</div>
+        <div class="sub-tab" onclick="switchFinTab(this,'invite')">邀请奖励</div>
+        <div class="sub-tab" onclick="switchFinTab(this,'transactions')">交易记录</div>
+      </div>
+      <div id="finContent"></div>
+    </div>
+
+    <!-- ==================== 7. Moderation ==================== -->
+    <div class="page-section" id="page-moderation">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchModTab(this,'reports')">举报管理</div>
+        <div class="sub-tab" onclick="switchModTab(this,'queue')">审核队列</div>
+      </div>
+      <div id="modContent"></div>
+    </div>
+
+    <!-- ==================== 8. Messages ==================== -->
+    <div class="page-section" id="page-messages">
+      <div class="sub-tabs">
+        <div class="sub-tab active" onclick="switchMsgTab(this,'notifications')">公告管理</div>
+        <div class="sub-tab" onclick="switchMsgTab(this,'feedback')">用户反馈</div>
+      </div>
+      <div id="msgContent"></div>
+    </div>
+
+
+    <!-- ==================== Settings ==================== -->
+    <div class="page-section" id="page-settings">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="card" style="padding:24px;">
+          <div class="section-title" style="margin-bottom:20px;">审核设置</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;">
+            <div>
+              <div style="font-size:14px;font-weight:600;">作品人工审核</div>
+              <div style="font-size:12px;color:var(--fg-muted);margin-top:2px;">开启后，用户发布的作品需管理员审核后才会公开显示</div>
+            </div>
+            <div class="switch on" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'已开启人工审核':'已关闭人工审核')"></div>
+          </div>
+        </div>
+        <div class="card" style="padding:24px;">
+          <div class="section-title" style="margin-bottom:20px;">版本管理</div>
+          <div class="form-group"><label>当前版本号</label><input class="input" value="v1.0.0"/></div>
+          <div class="form-group"><label>更新日志</label><textarea class="input" style="min-height:60px;">- 新增玩法模板功能&#10;- 优化创作页布局&#10;- 修复若干已知问题</textarea></div>
+          <div class="form-group"><label>强制更新</label><div class="switch" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'已开启强制更新':'已关闭强制更新')"></div></div>
+          <button class="btn btn-primary" onclick="showToast('版本信息已保存')"><i class="ri-check-line"></i>保存</button>
+        </div>
+      </div>
+      <div class="card" style="padding:24px;margin-top:16px;">
+        <div class="section-title" style="margin-bottom:16px;">协议管理</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>协议名称</th><th>最后更新</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr><td style="font-weight:600;">用户协议</td><td>2025-06-01</td><td><span class="badge-status status-active">已发布</span></td><td><button class="btn btn-soft btn-sm" onclick="openAgreementEdit('用户协议')"><i class="ri-edit-line"></i>编辑</button></td></tr>
+            <tr><td style="font-weight:600;">隐私政策</td><td>2025-06-01</td><td><span class="badge-status status-active">已发布</span></td><td><button class="btn btn-soft btn-sm" onclick="openAgreementEdit('隐私政策')"><i class="ri-edit-line"></i>编辑</button></td></tr>
+            <tr><td style="font-weight:600;">充值协议</td><td>2025-05-15</td><td><span class="badge-status status-active">已发布</span></td><td><button class="btn btn-soft btn-sm" onclick="openAgreementEdit('充值协议')"><i class="ri-edit-line"></i>编辑</button></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ==================== Stat Detail ==================== -->
+    <div class="page-section" id="page-statDetail">
+      <div style="margin-bottom:16px;">
+        <button class="btn btn-ghost" onclick="switchPage('dashboard',document.querySelectorAll('.nav-item')[0])"><i class="ri-arrow-left-line"></i> 返回仪表盘</button>
+      </div>
+      <div class="section-header"><div class="section-title" id="statDetailTitle">数据详情</div>
+        <div class="filter-bar">
+          <select class="input" style="max-width:120px;" onchange="renderStatChart()"><option value="7">近7天</option><option value="14">近14天</option><option value="30" selected>近30天</option></select>
+        </div>
+      </div>
+      <div class="detail-summary" id="statSummary"></div>
+      <div class="card" style="padding:20px;">
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px;" id="statChartTitle">趋势图</div>
+        <div class="chart-bar-group" id="statChart"></div>
+        <div class="chart-legend" id="statLegend"></div>
+      </div>
+      <div class="card" style="padding:20px;margin-top:16px;">
+        <div style="font-size:14px;font-weight:600;margin-bottom:12px;">每日明细</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>日期</th><th style="text-align:right;">数值</th><th style="text-align:right;">环比</th></tr></thead>
+          <tbody id="statTableBody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ Model Edit Modal ============ -->
+<div class="modal-overlay" id="modelModal" onclick="if(event.target===this)closeModal('modelModal')">
+  <div class="modal">
+    <div class="modal-header"><h3>编辑模型</h3><div class="modal-close" onclick="closeModal('modelModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>模型名称</label><input class="input" placeholder="例如: GPT Image 2"/></div>
+      <div class="form-group"><label>描述</label><input class="input" placeholder="例如: 画质细腻·理解力强"/></div>
+      <div class="form-group"><label>标签（逗号分隔）</label><input class="input" placeholder="写实, 高清"/></div>
+      <div class="form-group"><label>单次积分</label><input class="input" type="number" placeholder="15"/></div>
+      <div class="form-group"><label>封面图</label>
+        <div id="modelCoverUpload" onclick="document.getElementById('modelCoverInput').click()" style="width:100%;height:120px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;background:var(--bg-hover);transition:border-color 0.2s;color:var(--fg-muted);" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-strong)'">
+          <i class="ri-image-add-line" style="font-size:24px;"></i>
+          <span style="font-size:12px;">点击上传封面图</span>
+          <span style="font-size:11px;color:var(--fg-muted);">建议尺寸 400×200，支持 JPG/PNG</span>
+        </div>
+        <input type="file" id="modelCoverInput" accept="image/*" style="display:none;" onchange="previewModelCover(this)"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Badge 文字</label><input class="input" placeholder="推荐"/></div>
+        <div class="form-group"><label>Badge 颜色</label><select class="input"><option value="accent">蓝色</option><option value="mint">绿色</option><option value="rose">红色</option><option value="peach">橙色</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modelModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('modelModal');showToast('模型已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Notification Modal ============ -->
+<div class="modal-overlay" id="notifModal" onclick="if(event.target===this)closeModal('notifModal')">
+  <div class="modal">
+    <div class="modal-header"><h3 id="notifModalTitle">发布公告</h3><div class="modal-close" onclick="closeModal('notifModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>公告标题</label><input class="input" id="notifTitleInput" placeholder="例如: 夏日创作季活动"/></div>
+      <div class="form-group"><label>公告内容</label><textarea class="input" id="notifContentInput" placeholder="请输入公告正文..."></textarea></div>
+      <div class="form-group"><label>封面图</label>
+        <div id="notifImgUpload" onclick="document.getElementById('notifImgInput').click()" style="width:100%;height:100px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;background:var(--bg-hover);color:var(--fg-muted);">
+          <i class="ri-image-add-line" style="font-size:22px;"></i>
+          <span style="font-size:12px;">上传公告封面图</span>
+        </div>
+        <input type="file" id="notifImgInput" accept="image/*" style="display:none;" onchange="previewUpload(this,'notifImgUpload')"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>按钮文案</label><input class="input" id="notifBtnInput" placeholder="例如: 立即参与"/></div>
+        <div class="form-group"><label>跳转页面</label>
+          <select class="input" id="notifJumpSelect"><option>创作页</option><option>充值页</option><option>会员中心</option><option>广场</option><option>无跳转</option></select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>推送范围</label>
+          <select class="input" id="notifScopeSelect"><option>全部用户</option><option>会员用户</option><option>活跃用户（7天内）</option></select>
+        </div>
+        <div class="form-group"><label>弹窗展示</label>
+          <div style="padding-top:6px;"><div class="switch" id="notifPopupSwitch" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+      </div>
+      <div class="form-group"><label>发布方式</label>
+        <select class="input" id="notifStatusSelect" onchange="document.getElementById('notifScheduleGroup').style.display=this.value==='scheduled'?'block':'none'"><option value="published">立即发布</option><option value="scheduled">定时发布</option><option value="draft">保存草稿</option></select>
+      </div>
+      <div class="form-group" id="notifScheduleGroup" style="display:none;"><label>定时发布时间</label><input class="input" id="notifScheduleInput" type="datetime-local"/></div>
+      <div style="margin-top:12px;padding:14px;background:var(--bg-hover);border-radius:var(--radius-sm);border:1px dashed var(--border);">
+        <div style="font-size:12px;font-weight:600;color:var(--fg-secondary);margin-bottom:8px;"><i class="ri-smartphone-line" style="margin-right:4px;"></i>弹窗预览</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <div style="width:60px;height:40px;border-radius:6px;background:var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;"><i class="ri-image-line" style="color:var(--fg-muted);"></i></div>
+          <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="notifPreviewTitle">公告标题</div><div style="font-size:10px;color:var(--fg-muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="notifPreviewContent">公告内容预览...</div></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px;"><div style="flex:1;padding:4px;border-radius:4px;background:var(--border);text-align:center;font-size:10px;color:var(--fg-muted);">稍后再看</div><div style="flex:1;padding:4px;border-radius:4px;background:var(--accent);text-align:center;font-size:10px;color:white;" id="notifPreviewBtn">立即参与</div></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('notifModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('notifModal');showToast('公告已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Banner Edit Modal ============ -->
+<div class="modal-overlay" id="bannerModal" onclick="if(event.target===this)closeModal('bannerModal')">
+  <div class="modal">
+    <div class="modal-header"><h3 id="bannerModalTitle">新增 Banner</h3><div class="modal-close" onclick="closeModal('bannerModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Banner 标题</label><input class="input" id="bannerTitleInput" placeholder="例如: 夏日创作季"/></div>
+      <div class="form-group"><label>跳转链接</label><input class="input" id="bannerUrlInput" placeholder="例如: /summer"/></div>
+      <div class="form-group"><label>Banner 图片</label>
+        <div id="bannerImgUpload" onclick="document.getElementById('bannerImgInput').click()" style="width:100%;height:100px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;background:var(--bg-hover);color:var(--fg-muted);">
+          <i class="ri-image-add-line" style="font-size:22px;"></i>
+          <span style="font-size:12px;">点击上传 Banner 图片</span>
+          <span style="font-size:11px;">建议尺寸 700×300</span>
+        </div>
+        <input type="file" id="bannerImgInput" accept="image/*" style="display:none;" onchange="previewUpload(this,'bannerImgUpload')"/>
+      </div>
+      <div class="form-group"><label>状态</label>
+        <select class="input" id="bannerStatusInput"><option value="on">启用</option><option value="off">禁用</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('bannerModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('bannerModal');showToast('Banner 已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Gameplay Edit Modal ============ -->
+<div class="modal-overlay" id="gameplayModal" onclick="if(event.target===this)closeModal('gameplayModal')">
+  <div class="modal">
+    <div class="modal-header"><h3 id="gameplayModalTitle">新增玩法模板</h3><div class="modal-close" onclick="closeModal('gameplayModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>模板名称</label><input class="input" id="gpNameInput" placeholder="例如: 人物美颜"/></div>
+      <div class="form-group"><label>封面图</label>
+        <div id="gpImgUpload" onclick="document.getElementById('gpImgInput').click()" style="width:120px;height:120px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;background:var(--bg-hover);color:var(--fg-muted);">
+          <i class="ri-image-add-line" style="font-size:22px;"></i>
+          <span style="font-size:11px;">上传封面</span>
+        </div>
+        <input type="file" id="gpImgInput" accept="image/*" style="display:none;" onchange="previewUpload(this,'gpImgUpload')"/>
+      </div>
+      <div class="form-group"><label>使用人数（万）</label><input class="input" type="number" step="0.1" id="gpUsesInput" placeholder="例如: 12.6"/></div>
+      <div class="form-group"><label>标记为热门</label>
+        <div class="switch" id="gpHotSwitch" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('gameplayModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('gameplayModal');showToast('玩法模板已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Style Edit Modal ============ -->
+<div class="modal-overlay" id="styleModal" onclick="if(event.target===this)closeModal('styleModal')">
+  <div class="modal">
+    <div class="modal-header"><h3 id="styleModalTitle">新增风格</h3><div class="modal-close" onclick="closeModal('styleModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>风格名称</label><input class="input" id="styleNameInput" placeholder="例如: 赛博朋克"/></div>
+      <div class="form-group"><label>风格示例图</label>
+        <div id="styleImgUpload" onclick="document.getElementById('styleImgInput').click()" style="width:120px;height:120px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;background:var(--bg-hover);color:var(--fg-muted);">
+          <i class="ri-image-add-line" style="font-size:22px;"></i>
+          <span style="font-size:11px;">上传示例图</span>
+        </div>
+        <input type="file" id="styleImgInput" accept="image/*" style="display:none;" onchange="previewUpload(this,'styleImgUpload')"/>
+      </div>
+      <div class="form-group"><label>排序权重（越小越靠前）</label><input class="input" type="number" id="styleSortInput" value="0" style="max-width:100px;"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('styleModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('styleModal');showToast('风格已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Simple Add Modal (分类/热搜/标签) ============ -->
+<div class="modal-overlay" id="simpleAddModal" onclick="if(event.target===this)closeModal('simpleAddModal')">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header"><h3 id="simpleAddTitle">新增</h3><div class="modal-close" onclick="closeModal('simpleAddModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label id="simpleAddLabel">名称</label><input class="input" id="simpleAddInput" placeholder=""/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('simpleAddModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('simpleAddModal');showToast('已添加')"><i class="ri-check-line"></i>添加</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Hot Search Edit Modal ============ -->
+<div class="modal-overlay" id="hotSearchModal" onclick="if(event.target===this)closeModal('hotSearchModal')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3 id="hotSearchModalTitle">编辑热搜词</h3><div class="modal-close" onclick="closeModal('hotSearchModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>关键词</label><input class="input" id="hsKeywordInput" placeholder="例如: 赛博朋克"/></div>
+      <div class="form-group"><label>搜索量</label><input class="input" type="number" id="hsVolumeInput" placeholder="例如: 12860"/></div>
+      <div class="form-group"><label>启用状态</label><div style="padding-top:4px;"><div class="switch on" id="hsEnabledSwitch" onclick="this.classList.toggle('on')"></div></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('hotSearchModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('hotSearchModal');showToast('热搜词已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Recharge Edit Modal ============ -->
+<div class="modal-overlay" id="rechargeModal" onclick="if(event.target===this)closeModal('rechargeModal')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3 id="rechargeModalTitle">编辑充值方案</h3><div class="modal-close" onclick="closeModal('rechargeModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>价格 (元)</label><input class="input" type="number" id="rechargePriceInput" placeholder="68"/></div>
+      <div class="form-group"><label>积分数量</label><input class="input" type="number" id="rechargeCreditsInput" placeholder="680"/></div>
+      <div class="form-group"><label>赠送积分</label><input class="input" type="number" id="rechargeBonusInput" placeholder="100" value="0"/></div>
+      <div class="form-group"><label>标记为热门</label><div class="switch" id="rechargeHotSwitch" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('rechargeModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('rechargeModal');showToast('充值方案已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Member Edit Modal ============ -->
+<div class="modal-overlay" id="memberModal" onclick="if(event.target===this)closeModal('memberModal')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3 id="memberModalTitle">编辑会员方案</h3><div class="modal-close" onclick="closeModal('memberModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>方案名称</label><input class="input" id="memberNameInput" placeholder="例如: 月卡"/></div>
+      <div class="form-group"><label>价格 (元)</label><input class="input" type="number" id="memberPriceInput" placeholder="18"/></div>
+      <div class="form-group"><label>权益描述</label><textarea class="input" id="memberBenefitsInput" placeholder="例如: 每日签到双倍积分、专属风格解锁"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('memberModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('memberModal');showToast('会员方案已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Milestone Edit Modal ============ -->
+<div class="modal-overlay" id="milestoneModal" onclick="if(event.target===this)closeModal('milestoneModal')">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header"><h3 id="milestoneModalTitle">编辑里程碑</h3><div class="modal-close" onclick="closeModal('milestoneModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>连续天数</label><input class="input" type="number" id="milestoneDaysInput" placeholder="7"/></div>
+      <div class="form-group"><label>奖励积分</label><input class="input" type="number" id="milestoneRewardInput" placeholder="50"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('milestoneModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('milestoneModal');showToast('里程碑已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Agreement Edit Modal ============ -->
+<div class="modal-overlay" id="agreementModal" onclick="if(event.target===this)closeModal('agreementModal')">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><h3 id="agreementModalTitle">编辑协议</h3><div class="modal-close" onclick="closeModal('agreementModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div class="form-group"><label>协议内容</label><textarea class="input" id="agreementContent" style="min-height:300px;font-size:13px;line-height:1.8;">第一条 总则
+
+本协议是用户（以下简称"您"）与 Lumi-Draw 平台（以下简称"平台"）之间关于使用平台服务所订立的协议。
+
+第二条 服务内容
+
+平台为您提供 AI 图像生成服务，包括但不限于文本转图像、风格迁移等功能。
+
+第三条 用户行为规范
+
+您在使用平台服务时，应遵守相关法律法规，不得利用平台服务从事违法违规活动。</textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('agreementModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('agreementModal');showToast('协议已保存')"><i class="ri-check-line"></i>保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Credits Adjust Modal ============ -->
+<div class="modal-overlay" id="creditsModal" onclick="if(event.target===this)closeModal('creditsModal')">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header"><h3>积分调整</h3><div class="modal-close" onclick="closeModal('creditsModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body">
+      <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);margin-bottom:16px;">
+        <div class="table-avatar" id="creditUserAvatar" style="width:36px;height:36px;font-size:14px;">梦</div>
+        <div><div style="font-size:14px;font-weight:600;" id="creditUserName">云端造梦师</div><div style="font-size:12px;color:var(--fg-muted);">当前积分：<span id="creditUserBalance" style="font-weight:600;color:var(--accent);">2860</span></div></div>
+      </div>
+      <div class="form-group"><label>调整类型</label>
+        <select class="input" id="creditTypeSelect"><option value="add">增加积分</option><option value="sub">扣除积分</option></select>
+      </div>
+      <div class="form-group"><label>积分数量</label><input class="input" type="number" id="creditAmountInput" placeholder="输入积分数量"/></div>
+      <div class="form-group"><label>调整原因</label>
+        <select class="input" id="creditReasonSelect"><option>活动补偿</option><option>Bug补偿</option><option>违规扣除</option><option>手动充值</option><option>其他</option></select>
+      </div>
+      <div class="form-group"><label>备注</label><input class="input" id="creditNoteInput" placeholder="可选，备注信息"/></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('creditsModal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('creditsModal');showToast('积分已调整')"><i class="ri-check-line"></i>确认调整</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ User Detail Drawer ============ -->
+<div class="modal-overlay" id="userDetailModal" onclick="if(event.target===this)closeModal('userDetailModal')">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header"><h3>用户详情</h3><div class="modal-close" onclick="closeModal('userDetailModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body" id="userDetailBody"></div>
+  </div>
+</div>
+
+<!-- ============ Work Detail Drawer ============ -->
+<div class="modal-overlay" id="workDetailModal" onclick="if(event.target===this)closeModal('workDetailModal')">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header"><h3>作品详情</h3><div class="modal-close" onclick="closeModal('workDetailModal')"><i class="ri-close-line"></i></div></div>
+    <div class="modal-body" id="workDetailBody"></div>
+  </div>
+</div>
+
+<script>
+/* ============ Data ============ */
+var MODELS=[
+  {id:'gpt2',name:'GPT Image 2',desc:'画质细腻·理解力强',tags:['写实','高清'],cost:15,img:'https://picsum.photos/seed/gpt2/400/200',badge:'推荐',badgeColor:'accent',enabled:true},
+  {id:'nano',name:'Nano Banana 2',desc:'速度极快·性价比高',tags:['快速','全能'],cost:8,img:'https://picsum.photos/seed/nano/400/200',badge:'性价比',badgeColor:'mint',enabled:true},
+  {id:'flux',name:'Flux Pro',desc:'艺术感强·细节丰富',tags:['艺术','创意'],cost:12,img:'https://picsum.photos/seed/flux/400/200',badge:'NEW',badgeColor:'rose',enabled:true},
+  {id:'sdxl',name:'SDXL',desc:'开源之王·风格多样',tags:['多样','自定义'],cost:6,img:'https://picsum.photos/seed/sdxl/400/200',badge:'性价比',badgeColor:'mint',enabled:true},
+  {id:'dalle3',name:'DALL-E 3',desc:'语义理解·精准还原',tags:['精准','还原'],cost:14,img:'https://picsum.photos/seed/dalle/400/200',badge:'',badgeColor:'',enabled:true},
+  {id:'mj',name:'Midjourney',desc:'艺术天花板·极致美学',tags:['美学','艺术'],cost:20,img:'https://picsum.photos/seed/mj/400/200',badge:'推荐',badgeColor:'accent',enabled:false}
+];
+var USERS=[
+  {id:1,name:'云端造梦师',avatar:'梦',color:'#5B9FE8',works:48,credits:2860,recharged:680,member:'季卡',regTime:'2025-01-15',status:'active'},
+  {id:2,name:'星辰大海',avatar:'星',color:'#4ECBA0',works:36,credits:1580,recharged:318,member:'月卡',regTime:'2025-02-20',status:'active'},
+  {id:3,name:'月光如水',avatar:'月',color:'#F0A060',works:52,credits:3200,recharged:896,member:'年卡',regTime:'2025-01-08',status:'active'},
+  {id:4,name:'风之绘师',avatar:'风',color:'#8B6FC0',works:29,credits:890,recharged:128,member:'',regTime:'2025-03-12',status:'active'},
+  {id:5,name:'光影魔术',avatar:'光',color:'#D4A520',works:41,credits:1950,recharged:456,member:'季卡',regTime:'2025-02-05',status:'active'},
+  {id:6,name:'违规用户A',avatar:'X',color:'#999',works:3,credits:0,recharged:0,member:'',regTime:'2025-04-01',status:'banned'},
+  {id:7,name:'小白画家',avatar:'白',color:'#E85B7A',works:5,credits:120,recharged:18,member:'',regTime:'2025-05-10',status:'active'},
+  {id:8,name:'AI探索者',avatar:'探',color:'#5B9FE8',works:18,credits:640,recharged:198,member:'月卡',regTime:'2025-04-22',status:'active'}
+];
+var WORKS=[
+  {id:1001,img:'https://picsum.photos/seed/w1/80/80',title:'霓虹都市',author:'星辰大海',model:'GPT Image 2',style:'赛博朋克',resolution:'2K',likes:328,status:'published',time:'2小时前'},
+  {id:1002,img:'https://picsum.photos/seed/w2/80/80',title:'山水之间',author:'月光如水',model:'Flux Pro',style:'国风',resolution:'4K',likes:512,status:'published',time:'3小时前'},
+  {id:1003,img:'https://picsum.photos/seed/w3/80/80',title:'少女与猫',author:'云端造梦师',model:'Nano Banana 2',style:'二次元',resolution:'1K',likes:680,status:'published',time:'5小时前'},
+  {id:1004,img:'https://picsum.photos/seed/w13/80/80',title:'花园里的可爱机器人',author:'云端造梦师',model:'GPT Image 2',style:'梦幻',resolution:'2K',likes:0,status:'pending',time:'30分钟前'},
+  {id:1005,img:'https://picsum.photos/seed/w14/80/80',title:'发光蘑菇的魔法森林',author:'云端造梦师',model:'Nano Banana 2',style:'梦幻',resolution:'1K',likes:0,status:'pending',time:'1小时前'},
+  {id:1006,img:'https://picsum.photos/seed/w15/80/80',title:'星空下的灯塔',author:'云端造梦师',model:'Flux Pro',style:'写实',resolution:'4K',likes:0,status:'pending',time:'2小时前'},
+  {id:1007,img:'https://picsum.photos/seed/w5/80/80',title:'古风少女',author:'云端造梦师',model:'Midjourney',style:'国风',resolution:'2K',likes:892,status:'published',time:'8小时前'},
+  {id:1008,img:'https://picsum.photos/seed/w9/80/80',title:'暗黑天使',author:'星辰大海',model:'Midjourney',style:'暗黑',resolution:'4K',likes:723,status:'published',time:'1天前'},
+  {id:1009,img:'https://picsum.photos/seed/w10/80/80',title:'蒸汽城市',author:'月光如水',model:'GPT Image 2',style:'蒸汽波',resolution:'2K',likes:356,status:'removed',time:'2天前'}
+];
+var BANNERS=[
+  {img:'https://picsum.photos/seed/b1/400/160',title:'夏日创作季',url:'/summer',enabled:true},
+  {img:'https://picsum.photos/seed/b2/400/160',title:'新模型上线',url:'/models',enabled:true},
+  {img:'https://picsum.photos/seed/b3/400/160',title:'会员特惠',url:'/member',enabled:true},
+  {img:'https://picsum.photos/seed/b4/400/160',title:'社区精选',url:'/featured',enabled:false}
+];
+var GAMEPLAYS=[
+  {name:'人物美颜',img:'https://picsum.photos/seed/gp1/160/160',uses:'12.6w',hot:true},
+  {name:'证件照',img:'https://picsum.photos/seed/gp2/160/160',uses:'8.3w',hot:true},
+  {name:'宠物头像',img:'https://picsum.photos/seed/gp3/160/160',uses:'5.1w',hot:false},
+  {name:'古风国潮',img:'https://picsum.photos/seed/gp4/160/160',uses:'4.8w',hot:false},
+  {name:'Q版头像',img:'https://picsum.photos/seed/gp5/160/160',uses:'6.2w',hot:true},
+  {name:'Logo设计',img:'https://picsum.photos/seed/gp6/160/160',uses:'3.9w',hot:false},
+  {name:'壁纸',img:'https://picsum.photos/seed/gp7/160/160',uses:'7.5w',hot:false},
+  {name:'表情包',img:'https://picsum.photos/seed/gp8/160/160',uses:'9.0w',hot:true}
+];
+var STYLES=['赛博朋克','赛璐碌','黑白','国风','油画','水彩','二次元','写实','3D','像素','蒸汽波','极简','梦幻','暗黑','复古'];
+var CATEGORIES=['全部','二次元','风景','建筑','表情包','写实','国风','人像','动物','抽象'];
+var HOT_SEARCHES=[
+  {keyword:'赛博朋克',volume:12860,enabled:true},{keyword:'古风少女',volume:9420,enabled:true},
+  {keyword:'证件照',volume:8350,enabled:true},{keyword:'宠物头像',volume:6780,enabled:true},
+  {keyword:'二次元',volume:5930,enabled:true},{keyword:'国风山水',volume:4510,enabled:true},
+  {keyword:'Logo设计',volume:3280,enabled:true},{keyword:'表情包',volume:2960,enabled:false}
+];
+var PUBLISH_TAGS={themes:['人物','风景','建筑','动物','美食','科幻','奇幻'],styles:['写实','二次元','水彩','油画','像素','3D'],scenes:['日常','节日','游戏','壁纸','头像','表情包']};
+var RECHARGE_TIERS=[{price:6,credits:60,bonus:0,popular:false},{price:18,credits:180,bonus:10,popular:false},{price:30,credits:300,bonus:30,popular:false},{price:68,credits:680,bonus:100,popular:true},{price:128,credits:1280,bonus:280,popular:false}];
+var MEMBER_PLANS=[{name:'月卡',price:18,benefits:'每日签到双倍积分、专属风格解锁'},{name:'季卡',price:48,benefits:'月卡权益 + 每月赠100积分'},{name:'年卡',price:168,benefits:'季卡权益 + 专属模型 + 4K画质'}];
+var REPORTS=[
+  {id:1,reporter:'光影魔术',content:'作品「违规图片」',reason:'色情低俗',time:'1小时前',status:'pending'},
+  {id:2,reporter:'星辰大海',content:'作品「广告推销」',reason:'垃圾广告',time:'3小时前',status:'pending'},
+  {id:3,reporter:'月光如水',content:'用户「违规用户A」',reason:'侵权盗版',time:'5小时前',status:'pending'},
+  {id:4,reporter:'风之绘师',content:'作品「抄袭作品」',reason:'侵权盗版',time:'1天前',status:'handled'},
+  {id:5,reporter:'云端造梦师',content:'评论内容',reason:'煽动仇恨',time:'2天前',status:'handled'}
+];
+var FEEDBACKS=[
+  {id:2001,user:'云端造梦师',type:'功能建议',content:'建议增加批量下载功能',time:'2小时前',status:'pending',hasImg:false},
+  {id:2002,user:'星辰大海',type:'Bug反馈',content:'生成速度偏慢，希望优化',time:'5小时前',status:'pending',hasImg:true},
+  {id:2003,user:'月光如水',type:'功能建议',content:'新风格很好看，希望多出一些',time:'1天前',status:'adopted',hasImg:false},
+  {id:2004,user:'风之绘师',type:'体验问题',content:'移动端页面偶尔卡顿',time:'1天前',status:'done',hasImg:true},
+  {id:2005,user:'光影魔术',type:'功能建议',content:'希望增加AI自动配色功能',time:'2天前',status:'ignored',hasImg:false},
+  {id:2006,user:'小白画家',type:'Bug反馈',content:'上传图片偶尔失败',time:'3天前',status:'done',hasImg:true}
+];
+var NOTIFICATIONS=[
+  {id:4001,title:'夏日创作季活动',content:'活动期间创作作品即可参与抽奖，有机会获得1000积分大奖',scope:'全部用户',status:'published',popup:true,btnText:'立即参与',jumpTo:'创作页',scheduleTime:'',time:'2025-06-25 10:00'},
+  {id:4002,title:'新模型上线',content:'GPT Image 2已上线，欢迎体验',scope:'全部用户',status:'published',popup:false,btnText:'去体验',jumpTo:'创作页',scheduleTime:'',time:'2025-06-20 09:00'},
+  {id:4003,title:'积分充值优惠',content:'充值满68元赠100积分',scope:'活跃用户',status:'published',popup:false,btnText:'去充值',jumpTo:'充值页',scheduleTime:'',time:'2025-06-15 14:00'},
+  {id:4004,title:'七月活动预告',content:'七月将推出暑期创作大赛',scope:'全部用户',status:'scheduled',popup:false,btnText:'了解详情',jumpTo:'广场',scheduleTime:'2025-07-01 08:00',time:''},
+  {id:4005,title:'系统维护通知',content:'将于7月5日凌晨进行系统维护',scope:'全部用户',status:'draft',popup:false,btnText:'',jumpTo:'无跳转',scheduleTime:'',time:''}
+];
+var REPORT_REASONS=['垃圾广告','色情低俗','违法违规','侵权盗版','煽动仇恨','虚假信息','其他原因'];
+var TRANSACTIONS=[
+  {id:3001,user:'云端造梦师',type:'收入',channel:'充值',amount:'+680',money:'¥68',time:'06-18 14:30'},
+  {id:3002,user:'星辰大海',type:'支出',channel:'创作',amount:'-15',money:'',time:'06-18 16:20'},
+  {id:3003,user:'月光如水',type:'收入',channel:'充值',amount:'+180',money:'¥18',time:'06-17 20:15'},
+  {id:3004,user:'风之绘师',type:'支出',channel:'创作',amount:'-8',money:'',time:'06-17 15:30'},
+  {id:3005,user:'光影魔术',type:'收入',channel:'充值',amount:'+1280',money:'¥128',time:'06-16 09:40'},
+  {id:3006,user:'云端造梦师',type:'支出',channel:'创作',amount:'-20',money:'',time:'06-15 14:30'},
+  {id:3007,user:'云端造梦师',type:'收入',channel:'签到',amount:'+10',money:'',time:'06-15 09:12'},
+  {id:3008,user:'星辰大海',type:'收入',channel:'会员每日积分',amount:'+5',money:'',time:'06-15 00:00'},
+  {id:3009,user:'月光如水',type:'支出',channel:'反推提示词',amount:'-5',money:'',time:'06-14 18:40'},
+  {id:3010,user:'风之绘师',type:'收入',channel:'签到',amount:'+10',money:'',time:'06-14 08:55'}
+];
+
+/* ============ Core ============ */
+function showToast(msg){var t=document.createElement('div');t.className='toast';t.innerHTML='<i class="ri-check-line" style="color:var(--mint);font-size:16px;"></i>'+msg;document.body.appendChild(t);setTimeout(function(){t.classList.add('out');setTimeout(function(){t.remove()},300)},2500)}
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('mobileOverlay').classList.toggle('show')}
+
+var PAGE_TITLES={dashboard:'仪表盘',users:'用户管理',works:'作品管理',models:'模型管理',operations:'运营配置',finance:'财务管理',moderation:'内容审核',messages:'消息管理',settings:'系统设置'};
+function switchPage(pageId,navEl){
+  document.querySelectorAll('.page-section').forEach(function(p){p.classList.remove('active')});
+  document.getElementById('page-'+pageId).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active')});
+  if(navEl)navEl.classList.add('active');
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[pageId]||pageId;
+  if(window.innerWidth<769){document.getElementById('sidebar').classList.remove('open');document.getElementById('mobileOverlay').classList.remove('show')}
+  if(pageId==='users')renderUsers();
+  if(pageId==='works')renderWorks('all');
+  if(pageId==='models')renderModels();
+  if(pageId==='operations')renderOps('banners');
+  if(pageId==='finance')renderFin('recharge');
+  if(pageId==='moderation')renderMod('reports');
+  if(pageId==='messages')renderMsg('notifications');
+}
+
+/* ============ Shared Pagination ============ */
+function renderPagination(elId,total,perPage,currentPage,onPageChange){
+  var totalPages=Math.ceil(total/perPage);
+  var pg=document.getElementById(elId);if(!pg)return;
+  var html='<span style="font-size:12px;color:var(--fg-muted);margin-right:auto;">共 '+total+' 条，每页 <select class="input" style="width:60px;padding:3px 6px;font-size:12px;display:inline;" onchange="'+onPageChange.replace('PAGE','1')+';this.closest(\'.pagination\').querySelector(\'[data-perpage]\').value=this.value">';
+  [5,10,20].forEach(function(n){html+='<option value="'+n+'"'+(n===perPage?' selected':'')+'>'+n+'</option>'});
+  html+='</select> 条</span>';
+  html+='<button class="page-btn" onclick="'+onPageChange.replace('PAGE',Math.max(1,currentPage-1))+'" '+(currentPage<=1?'disabled':'')+'><i class="ri-arrow-left-s-line"></i></button>';
+  var start=Math.max(1,currentPage-2);var end=Math.min(totalPages,start+4);start=Math.max(1,end-4);
+  if(start>1){html+='<button class="page-btn" onclick="'+onPageChange.replace('PAGE','1')+'">1</button>';if(start>2)html+='<span style="padding:0 4px;color:var(--fg-muted);">…</span>'}
+  for(var i=start;i<=end;i++){html+='<button class="page-btn'+(i===currentPage?' active':'')+'" onclick="'+onPageChange.replace('PAGE',i)+'">'+i+'</button>'}
+  if(end<totalPages){if(end<totalPages-1)html+='<span style="padding:0 4px;color:var(--fg-muted);">…</span>';html+='<button class="page-btn" onclick="'+onPageChange.replace('PAGE',totalPages)+'">'+totalPages+'</button>'}
+  html+='<button class="page-btn" onclick="'+onPageChange.replace('PAGE',Math.min(totalPages,currentPage+1))+'" '+(currentPage>=totalPages?'disabled':'')+'><i class="ri-arrow-right-s-line"></i></button>';
+  html+=' <span style="font-size:12px;color:var(--fg-muted);margin-left:8px;">跳至</span><input class="input" style="width:46px;padding:3px 6px;font-size:12px;text-align:center;margin:0 4px;" value="'+currentPage+'" onkeydown="if(event.key===\'Enter\'){var p=Math.max(1,Math.min('+totalPages+',parseInt(this.value)||1));'+onPageChange.replace('PAGE','p')+'}"/><span style="font-size:12px;color:var(--fg-muted);">页</span>';
+  pg.innerHTML=html;
+}
+
+/* ============ Users ============ */
+var userSortKey='id';var userSortAsc=true;var userPage=1;var userPerPage=5;
+function sortUsers(key){if(userSortKey===key){userSortAsc=!userSortAsc}else{userSortKey=key;userSortAsc=false}userPage=1;renderUsers()}
+function setUserPage(p){userPage=p;renderUsers()}
+function renderUsers(){
+  var sorted=USERS.slice().sort(function(a,b){var va=a[userSortKey],vb=b[userSortKey];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase()}return userSortAsc?(va>vb?1:-1):(va<vb?1:-1)});
+  var totalPages=Math.ceil(sorted.length/userPerPage);
+  if(userPage>totalPages)userPage=totalPages||1;
+  var paged=sorted.slice((userPage-1)*userPerPage,userPage*userPerPage);
+  var tb=document.getElementById('userTableBody');tb.innerHTML='';
+  paged.forEach(function(u){
+    var statusCls=u.status==='active'?'status-active':'status-banned';
+    var statusText=u.status==='active'?'正常':'封禁';
+    var rechargeHtml=u.recharged>0?'<span style="font-weight:600;color:var(--mint);">¥'+u.recharged+'</span>':'<span style="color:var(--fg-muted);">—</span>';
+    var banBtn=u.status==='active'?'<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();showToast(\'已封禁 '+u.name+'\')">封禁</button>':'<button class="btn btn-soft btn-sm" onclick="event.stopPropagation();showToast(\'已解封 '+u.name+'\')">解封</button>';
+    var actionBtn='<div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openUserDetail(USERS.find(function(x){return x.id==='+u.id+'}))" title="查看详情"><i class="ri-eye-line"></i></button><button class="btn btn-soft btn-sm" onclick="event.stopPropagation();openCreditsAdjust(USERS.find(function(x){return x.id==='+u.id+'}))" title="积分调整"><i class="ri-coins-line"></i></button>'+banBtn+'</div>';
+    var memberMap={'月卡':'tag-accent','季卡':'tag-lavender','年卡':'tag-peach'};
+    var memberHtml=u.member?'<span class="tag '+(memberMap[u.member]||'tag-accent')+'"><i class="ri-vip-crown-2-fill" style="font-size:10px;"></i>'+u.member+'</span>':'<span style="color:var(--fg-muted);">—</span>';
+    tb.innerHTML+='<tr><td><span class="table-avatar" style="background:'+u.color+';">'+u.avatar+'</span> '+u.name+'</td><td style="color:var(--fg-muted);">LUMI'+u.id+'</td><td>'+u.works+'</td><td>'+u.credits+'</td><td>'+rechargeHtml+'</td><td>'+memberHtml+'</td><td>'+u.regTime+'</td><td><span class="badge-status '+statusCls+'">'+statusText+'</span></td><td>'+actionBtn+'</td></tr>';
+  });
+  renderPagination('userPagination',sorted.length,userPerPage,userPage,'setUserPage(PAGE)');
+}
+
+/* ============ Works ============ */
+var worksSortKey='id';var worksSortAsc=false;var worksPage=1;var worksPerPage=5;var worksTab='all';
+function switchWorksTab(el,tab){el.parentElement.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active')});el.classList.add('active');worksTab=tab;worksPage=1;renderWorks(tab)}
+function sortWorks(key){if(worksSortKey===key){worksSortAsc=!worksSortAsc}else{worksSortKey=key;worksSortAsc=key==='id'?true:false}worksPage=1;renderWorks(worksTab)}
+function setWorksPage(p){worksPage=p;renderWorks(worksTab)}
+function renderWorks(tab){
+  var filtered=tab==='all'?WORKS.slice():WORKS.filter(function(w){return w.status===tab});
+  filtered.sort(function(a,b){var va=a[worksSortKey],vb=b[worksSortKey];if(typeof va==='string'){va=va.toLowerCase();vb=vb.toLowerCase()}return worksSortAsc?(va>vb?1:-1):(va<vb?1:-1)});
+  var totalPages=Math.ceil(filtered.length/worksPerPage);
+  if(worksPage>totalPages)worksPage=totalPages||1;
+  var paged=filtered.slice((worksPage-1)*worksPerPage,worksPage*worksPerPage);
+  var tb=document.getElementById('worksTableBody');tb.innerHTML='';
+  paged.forEach(function(w){
+    var statusMap={published:{cls:'status-active',text:'已发布'},pending:{cls:'status-pending',text:'待审核'},removed:{cls:'status-off',text:'已下架'}};
+    var s=statusMap[w.status]||statusMap.published;
+    var resTag=w.resolution==='4K'?'tag-lavender':w.resolution==='2K'?'tag-accent':'tag-peach';
+    var actions='<div style="display:flex;gap:4px;">';
+    if(w.status==='pending')actions+='<button class="btn btn-soft btn-sm" onclick="showToast(\'已通过\')"><i class="ri-check-line"></i></button><button class="btn btn-danger btn-sm" onclick="showToast(\'已拒绝\')"><i class="ri-close-line"></i></button>';
+    else if(w.status==='published')actions+='<button class="btn btn-soft btn-sm" onclick="event.stopPropagation();this.innerHTML=this.textContent.trim()===\'精选\'?\'<i class=\\\'ri-star-fill\\\'></i>已精选\':\'精选\';showToast(this.textContent.trim()===\'已精选\'?\'已设为精选\':\'已取消精选\')" title="设为精选"><i class="ri-star-line"></i>精选</button><button class="btn btn-danger btn-sm" onclick="showToast(\'已下架\')">下架</button>';
+    else actions+='<button class="btn btn-soft btn-sm" onclick="showToast(\'已恢复\')">恢复</button>';
+    actions+='</div>';
+    tb.innerHTML+='<tr style="cursor:pointer;" onclick="openWorkDetail('+w.id+')"><td onclick="event.stopPropagation()"><input type="checkbox" class="work-checkbox" data-id="'+w.id+'" onchange="updateWorksSelection()" style="cursor:pointer;"/></td><td style="color:var(--fg-muted);font-size:12px;">#'+w.id+'</td><td><div style="display:flex;align-items:center;gap:8px;"><img class="table-img" src="'+w.img+'"/>'+w.title+'</div></td><td>'+w.author+'</td><td><span class="tag tag-accent">'+w.model+'</span></td><td>'+w.style+'</td><td><span class="tag '+resTag+'">'+w.resolution+'</span></td><td style="text-align:right;">'+w.likes+'</td><td><span class="badge-status '+s.cls+'">'+s.text+'</span></td><td>'+w.time+'</td><td onclick="event.stopPropagation()">'+actions+'</td></tr>';
+  });
+  renderPagination('worksPagination',filtered.length,worksPerPage,worksPage,'setWorksPage(PAGE)');
+}
+
+/* ============ Models ============ */
+function previewModelCover(input){previewUpload(input,'modelCoverUpload')}
+function previewUpload(input,targetId){
+  if(!input.files||!input.files[0])return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var el=document.getElementById(targetId);
+    el.innerHTML='<img src="'+e.target.result+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+function openHotSearchEdit(h){
+  document.getElementById('hotSearchModalTitle').textContent=h?'编辑热搜词':'新增热搜词';
+  document.getElementById('hsKeywordInput').value=h?h.keyword:'';
+  document.getElementById('hsVolumeInput').value=h?h.volume:'';
+  var sw=document.getElementById('hsEnabledSwitch');if(h&&h.enabled)sw.classList.add('on');else if(h)sw.classList.remove('on');else sw.classList.add('on');
+  openModal('hotSearchModal');
+}
+function openSimpleAdd(title,label,placeholder){
+  document.getElementById('simpleAddTitle').textContent=title;
+  document.getElementById('simpleAddLabel').textContent=label;
+  document.getElementById('simpleAddInput').placeholder=placeholder;
+  document.getElementById('simpleAddInput').value='';
+  openModal('simpleAddModal');
+}
+function openBannerEdit(b){
+  document.getElementById('bannerModalTitle').textContent=b?'编辑 Banner':'新增 Banner';
+  document.getElementById('bannerTitleInput').value=b?b.title:'';
+  document.getElementById('bannerUrlInput').value=b?b.url:'';
+  document.getElementById('bannerStatusInput').value=b&&b.enabled?'on':'off';
+  var upload=document.getElementById('bannerImgUpload');
+  if(b){upload.innerHTML='<img src="'+b.img+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>';}
+  else{upload.innerHTML='<i class="ri-image-add-line" style="font-size:22px;"></i><span style="font-size:12px;">点击上传 Banner 图片</span><span style="font-size:11px;">建议尺寸 700×300</span>';}
+  openModal('bannerModal');
+}
+function openGameplayEdit(g){
+  document.getElementById('gameplayModalTitle').textContent=g?'编辑玩法模板':'新增玩法模板';
+  document.getElementById('gpNameInput').value=g?g.name:'';
+  document.getElementById('gpUsesInput').value=g?parseFloat(g.uses):'';
+
+  var sw=document.getElementById('gpHotSwitch');
+  if(g&&g.hot)sw.classList.add('on');else sw.classList.remove('on');
+  var upload=document.getElementById('gpImgUpload');
+  if(g){upload.innerHTML='<img src="'+g.img+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>';}
+  else{upload.innerHTML='<i class="ri-image-add-line" style="font-size:22px;"></i><span style="font-size:11px;">上传封面</span>';}
+  openModal('gameplayModal');
+}
+function openStyleEdit(s){
+  document.getElementById('styleModalTitle').textContent=s?'编辑风格':'新增风格';
+  document.getElementById('styleNameInput').value=s||'';
+  document.getElementById('styleSortInput').value=0;
+  var upload=document.getElementById('styleImgUpload');
+  if(s){upload.innerHTML='<img src="https://picsum.photos/seed/'+encodeURIComponent(s)+'/160/160" style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>';}
+  else{upload.innerHTML='<i class="ri-image-add-line" style="font-size:22px;"></i><span style="font-size:11px;">上传示例图</span>';}
+  openModal('styleModal');
+}
+function updateWorksSelection(){
+  var checked=document.querySelectorAll('.work-checkbox:checked');
+  var bar=document.getElementById('worksBatchBar');
+  var allCb=document.getElementById('worksSelectAll');
+  var total=document.querySelectorAll('.work-checkbox').length;
+  document.getElementById('worksSelectedCount').textContent='已选 '+checked.length+' 项';
+  bar.style.display=checked.length>0?'flex':'none';
+  allCb.checked=checked.length===total&&total>0;
+}
+function toggleWorksSelectAll(checked){
+  document.querySelectorAll('.work-checkbox').forEach(function(cb){cb.checked=checked});
+  updateWorksSelection();
+}
+function clearWorksSelection(){
+  document.querySelectorAll('.work-checkbox').forEach(function(cb){cb.checked=false});
+  document.getElementById('worksSelectAll').checked=false;
+  updateWorksSelection();
+}
+function renderModels(){
+  var g=document.getElementById('modelGrid');g.innerHTML='';
+  MODELS.forEach(function(m){
+    var badgeHtml=m.badge?'<span class="tag tag-'+m.badgeColor+'" style="font-size:10px;">'+m.badge+'</span>':'';
+    g.innerHTML+='<div class="card model-card" onclick="openModal(\'modelModal\')"><img class="mc-img" src="'+m.img+'"/><div class="mc-body"><div class="mc-name">'+m.name+' '+badgeHtml+'</div><div class="mc-desc">'+m.desc+'</div><div style="display:flex;gap:4px;margin-bottom:10px;">'+m.tags.map(function(t){return'<span class="tag tag-accent">'+t+'</span>'}).join('')+'</div><div class="mc-footer"><div class="mc-price">'+m.cost+' <span style="font-size:11px;color:var(--fg-muted);font-weight:400;">积分/次</span></div><div style="display:flex;align-items:center;gap:8px;"><button class="btn btn-danger btn-icon btn-sm" onclick="event.stopPropagation();showToast(\'已删除 '+m.name+'\')" title="删除"><i class="ri-delete-bin-line"></i></button><div class="switch '+(m.enabled?'on':'')+'" onclick="event.stopPropagation();this.classList.toggle(\'on\');showToast(\''+(m.enabled?'已禁用':'已启用')+'\')"></div></div></div></div></div>';
+  });
+}
+
+/* ============ Operations ============ */
+function switchOpsTab(el,tab){el.parentElement.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active')});el.classList.add('active');renderOps(tab)}
+function renderOps(tab){
+  var c=document.getElementById('opsContent');
+  if(tab==='banners'){
+    var html='<div class="section-header"><div class="section-title">Banner列表</div><button class="btn btn-primary btn-sm" onclick="openBannerEdit(null)"><i class="ri-add-line"></i>新增</button></div><div class="card">';
+    BANNERS.forEach(function(b,i){
+      html+='<div class="banner-item"><span style="font-size:14px;font-weight:700;color:var(--fg-muted);width:20px;text-align:center;flex-shrink:0;">'+(i+1)+'</span><img class="bi-img" src="'+b.img+'"/><div class="bi-info"><div class="bi-title">'+b.title+'</div><div class="bi-url">'+b.url+'</div></div><div class="bi-actions"><button class="btn btn-ghost btn-sm" onclick="showToast(\'上移\')" title="上移"'+(i===0?' disabled':'')+'><i class="ri-arrow-up-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'下移\')" title="下移"'+(i===BANNERS.length-1?' disabled':'')+'><i class="ri-arrow-down-line"></i></button><div class="switch '+(b.enabled?'on':'')+'" onclick="this.classList.toggle(\'on\')"></div><button class="btn btn-ghost btn-sm" onclick="openBannerEdit(BANNERS['+i+'])"><i class="ri-edit-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);"></i></button></div></div>';
+    });
+    c.innerHTML=html+'</div>';
+  }else if(tab==='gameplays'){
+    var html='<div class="section-header"><div class="section-title">玩法模板</div><button class="btn btn-primary btn-sm" onclick="openGameplayEdit(null)"><i class="ri-add-line"></i>新增</button></div><div class="ops-grid">';
+    GAMEPLAYS.forEach(function(g,i){
+      html+='<div class="card ops-card" onclick="openGameplayEdit(GAMEPLAYS['+i+'])"><img src="'+g.img+'"/><div class="ops-body"><div style="display:flex;align-items:center;justify-content:space-between;"><div class="ops-name">'+g.name+(g.hot?' <span class="tag tag-rose" style="font-size:9px;">HOT</span>':'')+'</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);font-size:14px;"></i></button></div><div class="ops-meta"><i class="ri-fire-line"></i> '+g.uses+'人用过</div></div></div>';
+    });
+    c.innerHTML=html+'</div>';
+  }else if(tab==='styles'){
+    var html='<div class="section-header"><div class="section-title">风格管理</div><button class="btn btn-primary btn-sm" onclick="openStyleEdit(null)"><i class="ri-add-line"></i>新增</button></div><div class="ops-grid">';
+    STYLES.forEach(function(s){
+      html+='<div class="card ops-card" onclick="openStyleEdit(\''+s+'\')"><img src="https://picsum.photos/seed/'+encodeURIComponent(s)+'/160/160"/><div class="ops-body"><div style="display:flex;align-items:center;justify-content:space-between;"><div class="ops-name">'+s+'</div><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);font-size:14px;"></i></button></div></div></div>';
+    });
+    c.innerHTML=html+'</div>';
+  }else if(tab==='categories'){
+    c.innerHTML='<div class="section-header"><div class="section-title">分类管理</div><button class="btn btn-primary btn-sm" onclick="openSimpleAdd(\'新增分类\',\'分类名称\',\'例如: 风景\')"><i class="ri-add-line"></i>新增</button></div><div class="tag-list">'+CATEGORIES.map(function(cat){return'<div class="tag-item"><i class="ri-draggable" style="color:var(--fg-muted);cursor:grab;"></i>'+cat+'<div class="tag-del" onclick="showToast(\'已删除\')"><i class="ri-close-line"></i></div></div>'}).join('')+'</div>';
+  }else if(tab==='hotSearch'){
+    var html='<div class="section-header"><div class="section-title">热搜词管理</div><button class="btn btn-primary btn-sm" onclick="openSimpleAdd(\'新增热搜词\',\'搜索关键词\',\'例如: 赛博朋克\')"><i class="ri-add-line"></i>新增</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th style="width:50px;">排名</th><th>关键词</th><th style="text-align:right;">搜索量</th><th>启用</th><th>操作</th></tr></thead><tbody>';
+    HOT_SEARCHES.forEach(function(h,i){
+      var rankStyle=i<3?'font-weight:700;color:'+(i===0?'var(--rose)':i===1?'var(--peach)':'var(--accent)')+';':'color:var(--fg-muted);';
+      html+='<tr><td style="'+rankStyle+'font-size:15px;">'+(i+1)+'</td><td style="font-weight:600;"><i class="ri-search-line" style="font-size:13px;color:var(--fg-muted);margin-right:6px;"></i>'+h.keyword+'</td><td style="text-align:right;font-weight:500;">'+h.volume.toLocaleString()+'</td><td><div class="switch '+(h.enabled?'on':'')+'" onclick="this.classList.toggle(\'on\');showToast(this.classList.contains(\'on\')?\'已启用\':\'已禁用\')"></div></td><td><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="openHotSearchEdit(HOT_SEARCHES['+i+'])" title="编辑"><i class="ri-edit-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'上移\')" title="上移"'+(i===0?' disabled':'')+' ><i class="ri-arrow-up-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'下移\')" title="下移"'+(i===HOT_SEARCHES.length-1?' disabled':'')+' ><i class="ri-arrow-down-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);"></i></button></div></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div>';
+  }else if(tab==='pubTags'){
+    var html='<div class="section-title" style="margin-bottom:16px;">发布标签管理</div>';
+    var groups={themes:'主题',styles:'风格',scenes:'场景'};
+    for(var key in groups){
+      html+='<div class="card" style="padding:16px;margin-bottom:12px;"><div class="section-header"><div style="font-size:14px;font-weight:600;">'+groups[key]+'</div><button class="btn btn-soft btn-sm" onclick="openSimpleAdd(\'新增'+groups[key]+'标签\',\'标签名称\',\'输入标签名称...\')"><i class="ri-add-line"></i>新增</button></div><div class="tag-list">'+PUBLISH_TAGS[key].map(function(t){return'<div class="tag-item">'+t+'<div class="tag-del" onclick="showToast(\'已删除\')"><i class="ri-close-line"></i></div></div>'}).join('')+'</div></div>';
+    }
+    c.innerHTML=html;
+  }
+}
+
+/* ============ Finance ============ */
+var finTab='recharge';var txPage=1;var txPerPage=5;
+function switchFinTab(el,tab){el.parentElement.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active')});el.classList.add('active');finTab=tab;txPage=1;renderFin(tab)}
+function setTxPage(p){txPage=p;renderFin('transactions')}
+function openRechargeEdit(r){
+  document.getElementById('rechargeModalTitle').textContent=r?'编辑充值方案':'新增充值方案';
+  document.getElementById('rechargePriceInput').value=r?r.price:'';
+  document.getElementById('rechargeCreditsInput').value=r?r.credits:'';
+  document.getElementById('rechargeBonusInput').value=r?r.bonus:0;
+  var sw=document.getElementById('rechargeHotSwitch');if(r&&r.popular)sw.classList.add('on');else sw.classList.remove('on');
+  openModal('rechargeModal');
+}
+function openMemberEdit(p){
+  document.getElementById('memberModalTitle').textContent=p?'编辑会员方案':'新增会员方案';
+  document.getElementById('memberNameInput').value=p?p.name:'';
+  document.getElementById('memberPriceInput').value=p?p.price:'';
+  document.getElementById('memberBenefitsInput').value=p?p.benefits:'';
+  openModal('memberModal');
+}
+function openMilestoneEdit(days,reward){
+  document.getElementById('milestoneModalTitle').textContent=days?'编辑里程碑':'新增里程碑';
+  document.getElementById('milestoneDaysInput').value=days||'';
+  document.getElementById('milestoneRewardInput').value=reward||'';
+  openModal('milestoneModal');
+}
+function renderFin(tab){
+  var c=document.getElementById('finContent');
+  if(tab==='recharge'){
+    var html='<div class="section-header"><div class="section-title">充值方案</div><button class="btn btn-primary btn-sm" onclick="openRechargeEdit(null)"><i class="ri-add-line"></i>新增</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>价格(元)</th><th>积分</th><th>赠送</th><th>热门</th><th>操作</th></tr></thead><tbody>';
+    RECHARGE_TIERS.forEach(function(r,i){
+      html+='<tr><td style="font-weight:600;">¥'+r.price+'</td><td>'+r.credits+'</td><td>'+(r.bonus||'-')+'</td><td>'+(r.popular?'<span class="tag tag-rose">热门</span>':'-')+'</td><td><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="openRechargeEdit(RECHARGE_TIERS['+i+'])"><i class="ri-edit-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);"></i></button></div></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div>';
+  }else if(tab==='member'){
+    var html='<div class="section-header"><div class="section-title">会员方案</div><button class="btn btn-primary btn-sm" onclick="openMemberEdit(null)"><i class="ri-add-line"></i>新增</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>名称</th><th>价格(元)</th><th>权益描述</th><th>操作</th></tr></thead><tbody>';
+    MEMBER_PLANS.forEach(function(p,i){
+      html+='<tr><td style="font-weight:600;">'+p.name+'</td><td>¥'+p.price+'</td><td style="max-width:300px;">'+p.benefits+'</td><td><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="openMemberEdit(MEMBER_PLANS['+i+'])"><i class="ri-edit-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);"></i></button></div></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div>';
+  }else if(tab==='checkin'){
+    var MILESTONES=[{days:3,reward:20},{days:7,reward:50},{days:14,reward:100},{days:30,reward:300}];
+    var msHtml='';MILESTONES.forEach(function(ms){msHtml+='<tr><td>'+ms.days+'天</td><td>'+ms.reward+'</td><td><button class="btn btn-ghost btn-sm" onclick="openMilestoneEdit('+ms.days+','+ms.reward+')"><i class="ri-edit-line"></i></button></td></tr>'});
+    c.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div class="card" style="padding:20px;"><div class="section-title" style="margin-bottom:12px;">每日签到奖励</div><div class="input-group"><label>每日积分</label><input class="input" type="number" value="10" style="max-width:100px;"/></div><button class="btn btn-primary btn-sm" onclick="showToast(\'已保存\')"><i class="ri-check-line"></i>保存</button></div><div class="card" style="padding:20px;"><div class="section-header"><div class="section-title">里程碑奖励</div><button class="btn btn-soft btn-sm" onclick="openMilestoneEdit(null,null)"><i class="ri-add-line"></i>新增</button></div><table><thead><tr><th>连续天数</th><th>奖励积分</th><th>操作</th></tr></thead><tbody>'+msHtml+'</tbody></table></div></div>';
+  }else if(tab==='invite'){
+    c.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"><div class="card" style="padding:24px;"><div class="section-title" style="margin-bottom:16px;">邀请奖励设置</div><div class="input-group"><label>邀请人奖励</label><input class="input" type="number" value="50" style="max-width:100px;"/><span style="font-size:13px;color:var(--fg-muted);">积分</span></div><div class="input-group"><label>被邀请人奖励</label><input class="input" type="number" value="30" style="max-width:100px;"/><span style="font-size:13px;color:var(--fg-muted);">积分</span></div><button class="btn btn-primary" onclick="showToast(\'已保存\')"><i class="ri-check-line"></i>保存</button></div><div class="card" style="padding:24px;"><div class="section-title" style="margin-bottom:16px;">新用户赠送</div><div class="input-group"><label>赠送积分</label><input class="input" type="number" value="100" style="max-width:100px;"/><span style="font-size:13px;color:var(--fg-muted);">积分</span></div><button class="btn btn-primary" onclick="showToast(\'已保存\')"><i class="ri-check-line"></i>保存</button></div></div>';
+  }else if(tab==='transactions'){
+    var totalPages=Math.ceil(TRANSACTIONS.length/txPerPage);
+    if(txPage>totalPages)txPage=totalPages||1;
+    var paged=TRANSACTIONS.slice((txPage-1)*txPerPage,txPage*txPerPage);
+    var html='<div class="section-header"><div class="filter-bar"><input class="input" style="max-width:200px;" placeholder="搜索用户..."/><select class="input" style="max-width:100px;"><option>全部类型</option><option>收入</option><option>支出</option></select><select class="input" style="max-width:130px;"><option>全部途径</option><option>签到</option><option>充值</option><option>会员每日积分</option><option>创作</option><option>反推提示词</option></select></div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>用户</th><th>类型</th><th>途径</th><th>金额</th><th>积分变动</th><th>时间</th></tr></thead><tbody>';
+    paged.forEach(function(t){
+      var typeCls=t.type==='收入'?'tag-mint':'tag-rose';
+      var channelMap={'签到':'tag-peach','充值':'tag-accent','会员每日积分':'tag-lavender','创作':'tag-rose','反推提示词':'tag-lemon'};
+      var chCls=channelMap[t.channel]||'tag-accent';
+      html+='<tr><td style="color:var(--fg-muted);font-size:12px;">#'+t.id+'</td><td>'+t.user+'</td><td><span class="tag '+typeCls+'">'+t.type+'</span></td><td><span class="tag '+chCls+'">'+t.channel+'</span></td><td>'+(t.money||'—')+'</td><td style="font-weight:600;color:'+(t.type==='收入'?'var(--mint)':'var(--rose)')+';">'+t.amount+'</td><td>'+t.time+'</td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div><div class="pagination" id="txPagination"></div>';
+    renderPagination('txPagination',TRANSACTIONS.length,txPerPage,txPage,'setTxPage(PAGE)');
+  }
+}
+
+/* ============ Moderation ============ */
+var modPage=1;var modPerPage=5;var modTab='reports';
+function switchModTab(el,tab){el.parentElement.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active')});el.classList.add('active');modTab=tab;modPage=1;renderMod(tab)}
+function setModPage(p){modPage=p;renderMod(modTab)}
+function renderMod(tab){
+  var c=document.getElementById('modContent');
+  if(tab==='reports'){
+    var sorted=REPORTS.slice();
+    var totalPages=Math.ceil(sorted.length/modPerPage);
+    if(modPage>totalPages)modPage=totalPages||1;
+    var paged=sorted.slice((modPage-1)*modPerPage,modPage*modPerPage);
+    var html='<div class="section-header" style="margin-bottom:12px;"><div class="filter-bar"><select class="input" style="max-width:120px;"><option>全部状态</option><option>待处理</option><option>已处理</option></select><select class="input" style="max-width:120px;"><option>全部原因</option><option>垃圾广告</option><option>色情低俗</option><option>违法违规</option><option>侵权盗版</option><option>煽动仇恨</option><option>虚假信息</option></select></div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>举报人</th><th>被举报内容</th><th>原因</th><th>时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    paged.forEach(function(r){
+      var isPending=r.status==='pending';
+      var statusHtml=isPending?'<span class="badge-status status-pending">待处理</span>':'<span class="badge-status status-active">已处理</span>';
+      var actions=isPending?'<div style="display:flex;gap:4px;"><button class="btn btn-soft btn-sm" onclick="showToast(\'已通过\')">通过</button><button class="btn btn-danger btn-sm" onclick="showToast(\'已下架\')">下架</button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已忽略\')">忽略</button></div>':'-';
+      html+='<tr><td>'+r.reporter+'</td><td>'+r.content+'</td><td><span class="tag tag-peach">'+r.reason+'</span></td><td>'+r.time+'</td><td>'+statusHtml+'</td><td>'+actions+'</td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div><div class="pagination" id="modPagination"></div>';
+    renderPagination('modPagination',sorted.length,modPerPage,modPage,'setModPage(PAGE)');
+  }else{
+    var pending=WORKS.filter(function(w){return w.status==='pending'});
+    if(pending.length===0){c.innerHTML='<div class="empty-state"><i class="ri-check-double-line"></i><p>暂无待审核内容</p></div>';return}
+    var html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">';
+    pending.forEach(function(w){
+      html+='<div class="card" style="overflow:hidden;"><img src="'+w.img+'" style="width:100%;height:140px;object-fit:cover;"/><div style="padding:14px;"><div style="font-size:14px;font-weight:600;margin-bottom:4px;">'+w.title+'</div><div style="font-size:12px;color:var(--fg-muted);margin-bottom:10px;">'+w.author+' · '+w.time+'</div><div style="display:flex;gap:6px;"><button class="btn btn-primary btn-sm" style="flex:1;" onclick="showToast(\'已通过\')"><i class="ri-check-line"></i>通过</button><button class="btn btn-danger btn-sm" style="flex:1;" onclick="showToast(\'已拒绝\')"><i class="ri-close-line"></i>拒绝</button></div></div></div>';
+    });
+    c.innerHTML=html+'</div>';
+  }
+}
+
+/* ============ Messages ============ */
+var msgTab='notifications';var notifPage=1;var notifPerPage=5;var fbPage=1;var fbPerPage=5;
+function switchMsgTab(el,tab){el.parentElement.querySelectorAll('.sub-tab').forEach(function(t){t.classList.remove('active')});el.classList.add('active');msgTab=tab;notifPage=1;fbPage=1;renderMsg(tab)}
+function setNotifPage(p){notifPage=p;renderMsg('notifications')}
+function setFbPage(p){fbPage=p;renderMsg('feedback')}
+function renderMsg(tab){
+  var c=document.getElementById('msgContent');
+  if(tab==='notifications'){
+    var totalPages=Math.ceil(NOTIFICATIONS.length/notifPerPage);
+    if(notifPage>totalPages)notifPage=totalPages||1;
+    var paged=NOTIFICATIONS.slice((notifPage-1)*notifPerPage,notifPage*notifPerPage);
+    var html='<div class="section-header"><div class="section-title">公告列表</div><button class="btn btn-primary btn-sm" onclick="openNotifEdit(null)"><i class="ri-add-line"></i>发布公告</button></div><div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>标题</th><th>内容</th><th>范围</th><th>弹窗</th><th>状态</th><th>时间</th><th>操作</th></tr></thead><tbody>';
+    paged.forEach(function(n,i){
+      var statusMap={published:{cls:'status-active',text:'已发布'},scheduled:{cls:'status-pending',text:'定时'},draft:{cls:'status-off',text:'草稿'}};
+      var s=statusMap[n.status]||statusMap.draft;
+      var timeText=n.status==='scheduled'?'<span style="font-size:11px;">定时 '+n.scheduleTime+'</span>':(n.time||'—');
+      html+='<tr><td style="color:var(--fg-muted);font-size:12px;">#'+n.id+'</td><td style="font-weight:600;">'+n.title+'</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+n.content+'</td><td><span class="tag tag-accent">'+n.scope+'</span></td><td><div class="switch '+(n.popup?'on':'')+'" onclick="this.classList.toggle(\'on\');showToast(this.classList.contains(\'on\')?\'已开启弹窗\':\'已关闭弹窗\')"></div></td><td><span class="badge-status '+s.cls+'">'+s.text+'</span></td><td style="font-size:12px;">'+timeText+'</td><td><div style="display:flex;gap:4px;"><button class="btn btn-ghost btn-sm" onclick="openNotifEdit(NOTIFICATIONS['+(((notifPage-1)*notifPerPage)+i)+'])"><i class="ri-edit-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已删除\')"><i class="ri-delete-bin-line" style="color:var(--rose);"></i></button></div></td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div><div class="pagination" id="notifPagination"></div>';
+    renderPagination('notifPagination',NOTIFICATIONS.length,notifPerPage,notifPage,'setNotifPage(PAGE)');
+  }else{
+    var totalPages=Math.ceil(FEEDBACKS.length/fbPerPage);
+    if(fbPage>totalPages)fbPage=totalPages||1;
+    var paged=FEEDBACKS.slice((fbPage-1)*fbPerPage,fbPage*fbPerPage);
+    var html='<div class="section-header"><div class="section-title">用户反馈</div><div class="filter-bar"><select class="input" style="max-width:120px;"><option>全部类型</option><option>功能建议</option><option>Bug反馈</option><option>体验问题</option></select><select class="input" style="max-width:120px;"><option>全部状态</option><option>待处理</option><option>已完成</option><option>已采纳</option><option>已忽略</option></select></div></div><div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>用户</th><th>类型</th><th>内容</th><th>附图</th><th>时间</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    paged.forEach(function(f){
+      var statusMap={pending:{cls:'status-pending',text:'待处理'},done:{cls:'status-active',text:'已完成'},adopted:{cls:'status-active',text:'已采纳',color:'var(--accent)'},ignored:{cls:'status-off',text:'已忽略'}};
+      var s=statusMap[f.status]||statusMap.pending;
+      var typeMap={'功能建议':'tag-accent','Bug反馈':'tag-rose','体验问题':'tag-peach'};
+      var typeCls=typeMap[f.type]||'tag-accent';
+      var actions='';
+      if(f.status==='pending'){actions='<div style="display:flex;gap:4px;flex-wrap:nowrap;"><button class="btn btn-soft btn-sm" onclick="showToast(\'已完成\')" title="已完成"><i class="ri-check-line"></i></button><button class="btn btn-primary btn-sm" onclick="showToast(\'已采纳\')" title="采纳"><i class="ri-thumb-up-line"></i></button><button class="btn btn-ghost btn-sm" onclick="showToast(\'已忽略\')" title="忽略"><i class="ri-close-line"></i></button></div>'}else{actions='<span style="color:var(--fg-muted);">—</span>'}
+      html+='<tr><td style="color:var(--fg-muted);font-size:12px;">#'+f.id+'</td><td>'+f.user+'</td><td><span class="tag '+typeCls+'">'+f.type+'</span></td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+f.content+'</td><td>'+(f.hasImg?'<i class="ri-image-line" style="color:var(--accent);"></i>':'—')+'</td><td>'+f.time+'</td><td><span class="badge-status '+s.cls+'">'+s.text+'</span></td><td>'+actions+'</td></tr>';
+    });
+    c.innerHTML=html+'</tbody></table></div></div><div class="pagination" id="fbPagination"></div>';
+    renderPagination('fbPagination',FEEDBACKS.length,fbPerPage,fbPage,'setFbPage(PAGE)');
+  }
+}
+
+/* ============ Settings ============ */
+function renderSettings(){}
+
+/* ============ Agreement Edit ============ */
+function openNotifEdit(n){
+  document.getElementById('notifModalTitle').textContent=n?'编辑公告':'发布公告';
+  document.getElementById('notifTitleInput').value=n?n.title:'';
+  document.getElementById('notifContentInput').value=n?n.content:'';
+  document.getElementById('notifBtnInput').value=n?n.btnText:'立即参与';
+  var jumpSel=document.getElementById('notifJumpSelect');for(var i=0;i<jumpSel.options.length;i++){if(jumpSel.options[i].text===(n?n.jumpTo:'创作页'))jumpSel.selectedIndex=i}
+  var scopeSel=document.getElementById('notifScopeSelect');for(var i=0;i<scopeSel.options.length;i++){if(scopeSel.options[i].text===(n?n.scope:'全部用户'))scopeSel.selectedIndex=i}
+  var sw=document.getElementById('notifPopupSwitch');if(n&&n.popup)sw.classList.add('on');else sw.classList.remove('on');
+  var statusSel=document.getElementById('notifStatusSelect');statusSel.value=n?n.status:'published';
+  var schedGrp=document.getElementById('notifScheduleGroup');schedGrp.style.display=(n&&n.status==='scheduled')?'block':'none';
+  document.getElementById('notifScheduleInput').value=n&&n.scheduleTime?n.scheduleTime.replace(' ','T'):'';
+  var upload=document.getElementById('notifImgUpload');
+  upload.innerHTML='<i class="ri-image-add-line" style="font-size:22px;"></i><span style="font-size:12px;">上传公告封面图</span>';
+  document.getElementById('notifPreviewTitle').textContent=n?n.title:'公告标题';
+  document.getElementById('notifPreviewContent').textContent=n?n.content:'公告内容预览...';
+  document.getElementById('notifPreviewBtn').textContent=n?n.btnText:'立即参与';
+  var titleIn=document.getElementById('notifTitleInput');var contentIn=document.getElementById('notifContentInput');var btnIn=document.getElementById('notifBtnInput');
+  titleIn.oninput=function(){document.getElementById('notifPreviewTitle').textContent=this.value||'公告标题'};
+  contentIn.oninput=function(){document.getElementById('notifPreviewContent').textContent=this.value||'公告内容预览...'};
+  btnIn.oninput=function(){document.getElementById('notifPreviewBtn').textContent=this.value||'立即参与'};
+  openModal('notifModal');
+}
+function openAgreementEdit(name){
+  document.getElementById('agreementModalTitle').textContent='编辑'+name;
+  openModal('agreementModal');
+}
+
+/* ============ Credits Adjust ============ */
+function openCreditsAdjust(u){
+  document.getElementById('creditUserAvatar').textContent=u.avatar;
+  document.getElementById('creditUserAvatar').style.background=u.color;
+  document.getElementById('creditUserName').textContent=u.name;
+  document.getElementById('creditUserBalance').textContent=u.credits;
+  document.getElementById('creditAmountInput').value='';
+  document.getElementById('creditNoteInput').value='';
+  openModal('creditsModal');
+}
+
+/* ============ User Detail ============ */
+function openUserDetail(u){
+  var statusCls=u.status==='active'?'status-active':'status-banned';
+  var statusText=u.status==='active'?'正常':'封禁';
+  var memberMap={'月卡':'tag-accent','季卡':'tag-lavender','年卡':'tag-peach'};
+  var memberHtml=u.member?'<span class="tag '+(memberMap[u.member]||'tag-accent')+'"><i class="ri-vip-crown-2-fill" style="font-size:10px;"></i>'+u.member+'</span>':'<span style="color:var(--fg-muted);">非会员</span>';
+  var html='<div style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--bg-hover);border-radius:var(--radius);margin-bottom:16px;">';
+  html+='<div class="table-avatar" style="width:52px;height:52px;font-size:20px;border-radius:14px;background:'+u.color+';">'+u.avatar+'</div>';
+  html+='<div style="flex:1;"><div style="font-size:18px;font-weight:700;">'+u.name+'</div><div style="font-size:12px;color:var(--fg-muted);margin-top:2px;">ID: LUMI'+u.id+' · 注册于 '+u.regTime+'</div></div>';
+  html+='<span class="badge-status '+statusCls+'" style="font-size:13px;">'+statusText+'</span></div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">';
+  html+='<div style="text-align:center;padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:18px;font-weight:700;color:var(--accent);">'+u.works+'</div><div style="font-size:11px;color:var(--fg-muted);">作品</div></div>';
+  html+='<div style="text-align:center;padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:18px;font-weight:700;color:var(--mint);">'+u.credits+'</div><div style="font-size:11px;color:var(--fg-muted);">积分</div></div>';
+  html+='<div style="text-align:center;padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);"><div style="font-size:18px;font-weight:700;color:var(--peach);">¥'+u.recharged+'</div><div style="font-size:11px;color:var(--fg-muted);">充值</div></div>';
+  html+='<div style="text-align:center;padding:12px;background:var(--bg-hover);border-radius:var(--radius-sm);">'+memberHtml+'<div style="font-size:11px;color:var(--fg-muted);margin-top:2px;">会员</div></div></div>';
+  html+='<div class="section-title" style="margin-bottom:8px;">操作日志</div>';
+  html+='<div class="card" style="overflow:hidden;margin-bottom:16px;"><table><thead><tr><th>时间</th><th>操作</th><th>详情</th></tr></thead><tbody>';
+  html+='<tr><td>06-18 16:20</td><td>生成作品</td><td>使用 GPT Image 2 生成「霓虹都市」</td></tr>';
+  html+='<tr><td>06-18 14:30</td><td>充值</td><td>充值 ¥68，获得 680 积分</td></tr>';
+  html+='<tr><td>06-17 09:12</td><td>签到</td><td>连续签到第7天，+10 积分</td></tr>';
+  html+='<tr><td>06-16 20:15</td><td>发布作品</td><td>发布「山水之间」</td></tr>';
+  html+='</tbody></table></div>';
+  html+='<div style="display:flex;gap:8px;"><button class="btn btn-soft" onclick="closeModal(\'userDetailModal\');openCreditsAdjust(USERS.find(function(x){return x.id==='+u.id+'}))" ><i class="ri-coins-line"></i>调整积分</button>';
+  var actionBtn=u.status==='active'?'<button class="btn btn-danger" onclick="closeModal(\'userDetailModal\');showToast(\'已封禁 '+u.name+'\')"><i class="ri-forbid-line"></i>封禁用户</button>':'<button class="btn btn-soft" onclick="closeModal(\'userDetailModal\');showToast(\'已解封 '+u.name+'\')"><i class="ri-check-line"></i>解封用户</button>';
+  html+=actionBtn+'</div>';
+  document.getElementById('userDetailBody').innerHTML=html;
+  openModal('userDetailModal');
+}
+
+/* ============ Work Detail ============ */
+var WORK_DETAILS=[
+  {id:1001,img:'https://picsum.photos/seed/w1/400/530',title:'霓虹都市',author:'星辰大海',prompt:'cyberpunk city at night, neon lights, rain, reflective streets, ultra detailed',model:'GPT Image 2',style:'赛博朋克',ratio:'3:4',resolution:'2K',likes:328,favorites:92,remakes:45,status:'published',time:'2025-06-18 16:20'},
+  {id:1002,img:'https://picsum.photos/seed/w2/400/300',title:'山水之间',author:'月光如水',prompt:'Chinese ink painting, mountains, river, misty, traditional art style',model:'Flux Pro',style:'国风',ratio:'4:3',resolution:'4K',likes:512,favorites:186,remakes:78,status:'published',time:'2025-06-18 13:45'},
+  {id:1004,img:'https://picsum.photos/seed/w13/400/530',title:'花园里的可爱机器人',author:'云端造梦师',prompt:'花园里的可爱机器人，鲜花蝴蝶环绕，柔和阳光，梦幻氛围',model:'GPT Image 2',style:'梦幻',ratio:'3:4',resolution:'2K',likes:0,favorites:0,remakes:0,status:'pending',time:'2025-06-18 17:30'}
+];
+function openWorkDetail(workId){
+  var w=WORK_DETAILS.find(function(x){return x.id===workId})||WORK_DETAILS[0];
+  var statusMap={published:{cls:'status-active',text:'已发布'},pending:{cls:'status-pending',text:'待审核'},removed:{cls:'status-off',text:'已下架'}};
+  var s=statusMap[w.status]||statusMap.published;
+  var html='<div style="display:flex;gap:20px;flex-wrap:wrap;">';
+  html+='<div style="flex-shrink:0;"><img src="'+w.img+'" style="width:200px;max-height:280px;object-fit:cover;border-radius:var(--radius);box-shadow:var(--shadow-md);"/></div>';
+  html+='<div style="flex:1;min-width:200px;">';
+  html+='<div style="font-size:18px;font-weight:700;margin-bottom:4px;">'+w.title+'</div>';
+  html+='<div style="font-size:12px;color:var(--fg-muted);margin-bottom:12px;">ID: #'+w.id+' · '+w.time+'</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"><span class="tag tag-accent">'+w.model+'</span><span class="tag tag-lavender">'+w.style+'</span><span class="tag tag-mint">'+w.ratio+'</span><span class="tag tag-peach">'+w.resolution+'</span><span class="badge-status '+s.cls+'" style="font-size:12px;">'+s.text+'</span></div>';
+  html+='<div style="display:flex;gap:16px;margin-bottom:14px;">';
+  html+='<div><span style="font-size:16px;font-weight:700;color:var(--rose);">'+w.likes+'</span><span style="font-size:11px;color:var(--fg-muted);margin-left:3px;">点赞</span></div>';
+  html+='<div><span style="font-size:16px;font-weight:700;color:var(--accent);">'+w.favorites+'</span><span style="font-size:11px;color:var(--fg-muted);margin-left:3px;">收藏</span></div>';
+  html+='<div><span style="font-size:16px;font-weight:700;color:var(--mint);">'+w.remakes+'</span><span style="font-size:11px;color:var(--fg-muted);margin-left:3px;">同款</span></div>';
+  html+='</div>';
+  html+='<div style="font-size:12px;color:var(--fg-muted);margin-bottom:4px;">作者</div><div style="font-size:14px;font-weight:600;margin-bottom:12px;">'+w.author+'</div>';
+  html+='</div></div>';
+  html+='<div class="card" style="padding:14px;margin-top:16px;"><div style="font-size:12px;font-weight:600;color:var(--fg-secondary);margin-bottom:6px;">提示词 Prompt</div><div style="font-size:13px;color:var(--fg);line-height:1.6;background:var(--bg-hover);padding:10px 12px;border-radius:var(--radius-sm);">'+w.prompt+'</div></div>';
+  html+='<div style="display:flex;gap:8px;margin-top:16px;">';
+  if(w.status==='pending'){html+='<button class="btn btn-primary" onclick="closeModal(\'workDetailModal\');showToast(\'已通过审核\')"><i class="ri-check-line"></i>通过</button><button class="btn btn-danger" onclick="closeModal(\'workDetailModal\');showToast(\'已拒绝\')"><i class="ri-close-line"></i>拒绝</button>'}
+  else if(w.status==='published'){html+='<button class="btn btn-soft" onclick="showToast(\'已设为精选\')"><i class="ri-star-line"></i>精选</button><button class="btn btn-danger" onclick="closeModal(\'workDetailModal\');showToast(\'已下架\')"><i class="ri-forbid-line"></i>下架</button>'}
+  else{html+='<button class="btn btn-soft" onclick="closeModal(\'workDetailModal\');showToast(\'已恢复\')"><i class="ri-refresh-line"></i>恢复</button>'}
+  html+='</div>';
+  document.getElementById('workDetailBody').innerHTML=html;
+  openModal('workDetailModal');
+}
+
+/* ============ Stat Detail ============ */
+var STAT_CONFIGS={
+  users:{title:'用户数据',chartTitle:'用户增长趋势',color:'var(--accent)',summary:[{label:'总用户',value:'12,856'},{label:'本月新增',value:'1,842'},{label:'日均活跃',value:'3,260'},{label:'月留存率',value:'68.5%'}],baseValue:320,variance:80},
+  newUsers:{title:'新增用户',chartTitle:'每日新增用户',color:'var(--mint)',summary:[{label:'今日新增',value:'238'},{label:'本周新增',value:'1,456'},{label:'本月新增',value:'1,842'},{label:'环比增长',value:'+12.5%'}],baseValue:200,variance:60},
+  works:{title:'作品数据',chartTitle:'作品发布趋势',color:'var(--lavender)',summary:[{label:'总作品',value:'86,432'},{label:'今日发布',value:'562'},{label:'待审核',value:'3'},{label:'已下架',value:'24'}],baseValue:480,variance:120},
+  generates:{title:'生成数据',chartTitle:'每日生成量',color:'var(--peach)',summary:[{label:'今日生成',value:'1,420'},{label:'本周生成',value:'9,856'},{label:'成功率',value:'97.2%'},{label:'平均耗时',value:'8.3s'}],baseValue:1300,variance:300},
+  revenue:{title:'收入数据',chartTitle:'每日收入趋势 (元)',color:'var(--rose)',summary:[{label:'总收入',value:'¥328,560'},{label:'本月收入',value:'¥42,680'},{label:'充值笔数',value:'3,256'},{label:'ARPU',value:'¥25.5'}],baseValue:4200,variance:1500},
+  todayRevenue:{title:'今日收入',chartTitle:'24小时收入分布 (元)',color:'var(--lemon)',summary:[{label:'今日收入',value:'¥4,680'},{label:'充值笔数',value:'86'},{label:'会员开通',value:'12'},{label:'均单价',value:'¥54.4'}],baseValue:180,variance:90}
+};
+function openStatDetail(key){
+  var cfg=STAT_CONFIGS[key];if(!cfg)return;
+  document.querySelectorAll('.page-section').forEach(function(p){p.classList.remove('active')});
+  document.getElementById('page-statDetail').classList.add('active');
+  document.getElementById('pageTitle').textContent=cfg.title;
+  document.getElementById('statDetailTitle').textContent=cfg.title;
+  document.getElementById('statChartTitle').textContent=cfg.chartTitle;
+  var sumHtml='';cfg.summary.forEach(function(s){sumHtml+='<div class="ds-item"><div class="ds-value">'+s.value+'</div><div class="ds-label">'+s.label+'</div></div>'});
+  document.getElementById('statSummary').innerHTML=sumHtml;
+  var days=key==='todayRevenue'?24:14;
+  var bars='';var rows='';var maxVal=0;
+  var data=[];for(var i=0;i<days;i++){var v=Math.round(cfg.baseValue+Math.random()*cfg.variance-(cfg.variance*0.3));data.push(v);if(v>maxVal)maxVal=v}
+  data.forEach(function(v,i){
+    var h=Math.round((v/maxVal)*160);
+    var label=key==='todayRevenue'?(i+'时'):((i+5)+'日');
+    bars+='<div class="chart-bar" style="height:'+h+'px;background:'+cfg.color+';"><div class="bar-value">'+v+'</div><div class="bar-label">'+label+'</div></div>';
+    var change=i>0?((v-data[i-1])/data[i-1]*100).toFixed(1)+'%':'-';
+    var changeColor=i>0?(v>=data[i-1]?'var(--mint)':'var(--rose)'):'var(--fg-muted)';
+    var changeIcon=i>0?(v>=data[i-1]?'ri-arrow-up-s-fill':'ri-arrow-down-s-fill'):'';
+    rows+='<tr><td>6月'+label+'</td><td style="text-align:right;font-weight:600;">'+v+'</td><td style="text-align:right;color:'+changeColor+';font-weight:500;">'+(changeIcon?'<i class="'+changeIcon+'"></i>':'')+change+'</td></tr>';
+  });
+  document.getElementById('statChart').innerHTML=bars;
+  document.getElementById('statTableBody').innerHTML=rows;
+  document.getElementById('statLegend').innerHTML='<div class="chart-legend-item" style="--c:'+cfg.color+';"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+cfg.color+';"></span> '+cfg.chartTitle+'</div>';
+}
+
+/* ============ Init ============ */
+renderSettings();
+</script>
+</body>
+</html>
