@@ -1,22 +1,876 @@
 <template>
   <view class="page-plaza">
-    <view class="placeholder">plaza 页面</view>
+    <!-- 毛玻璃刘海层 -->
+    <view class="glass-header" />
+    <!-- 状态栏 -->
+    <view class="status-bar">
+      <text class="sb-time">9:41</text>
+      <view class="sb-right">
+        <text class="sb-icon">●●●●</text>
+        <text class="sb-icon">▲</text>
+        <text class="sb-battery">▮</text>
+      </view>
+    </view>
+    <!-- 导航 -->
+    <view class="nav-header">
+      <text class="nav-title">广场</text>
+    </view>
+    <!-- 胶囊 -->
+    <view class="capsule">
+      <view class="cap-btn">⋯</view>
+      <view class="cap-divider" />
+      <view class="cap-btn">✕</view>
+    </view>
+
+    <!-- 可滚动内容 -->
+    <scroll-view
+      scroll-y
+      class="content-scroll"
+      :style="{ height: scrollH + 'px' }"
+      :refresher-enabled="true"
+      :refresher-triggered="isRefreshing"
+      @refresherrefresh="onRefresh"
+      @scrolltolower="onLoadMore"
+    >
+      <!-- 顶部操作栏: 汉堡 | Tab居中 | 搜索 -->
+      <view class="plaza-top">
+        <view class="top-menu" @click="openDrawer">
+          <text class="top-menu-icon">☰</text>
+        </view>
+        <view class="top-tabs">
+          <text
+            v-for="(t, i) in plazaTabs"
+            :key="i"
+            :class="['plaza-tab', { active: curTab === i }]"
+            @click="switchTab(i)"
+          >{{ t }}</text>
+          <view class="tab-indicator" :style="{ left: indicatorLeft + 'px' }" />
+        </view>
+        <view class="top-search" @click="goSearch">
+          <text class="top-search-icon">🔍</text>
+        </view>
+      </view>
+
+      <!-- 分类芯片行 -->
+      <view class="cat-row">
+        <scroll-view scroll-x class="cat-scroll" :show-scrollbar="false">
+          <view class="cat-list">
+            <view
+              v-for="(c, i) in categories"
+              :key="i"
+              :class="['cat-chip', { active: curCat === i }]"
+              @click="selectCat(i)"
+            >
+              <text :class="['cat-text', { active: curCat === i }]">{{ c }}</text>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="cat-fade" />
+        <view class="filter-btn" @click="openFilter">
+          <text class="filter-icon">⚙</text>
+        </view>
+      </view>
+
+      <!-- Tab切换loading -->
+      <view v-if="tabLoading" class="tab-loading">
+        <view class="tab-spinner" />
+      </view>
+
+      <!-- 瀑布流 -->
+      <view
+        v-else
+        class="waterfall-wrap"
+        :class="{ 'wf-anim-left': animDir === 'left', 'wf-anim-right': animDir === 'right' }"
+        :key="animKey"
+      >
+        <view class="waterfall">
+          <view v-for="w in leftCol" :key="w.id" class="wf-item">
+            <view class="wf-card">
+              <view class="wf-img-wrap" @click="goWorkDetail(w)">
+                <image :src="w.img" mode="widthFix" class="wf-img" />
+              </view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title || w.prompt?.substring(0, 20) || '未命名' }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author" @click.stop="goUserProfile(w.userId)">
+                    <view class="wf-avatar" :style="{ background: getUser(w.userId).color }">
+                      <text class="wf-avatar-text">{{ getUser(w.userId).avatar }}</text>
+                    </view>
+                    <text class="wf-author-name">{{ getUser(w.userId).name }}</text>
+                  </view>
+                  <view class="wf-like" @click.stop="toggleLike(w)">
+                    <text
+                      class="wf-like-icon"
+                      :class="{ 'like-bounce': w.bouncing }"
+                      :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }"
+                    >{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="waterfall">
+          <view v-for="w in rightCol" :key="w.id" class="wf-item">
+            <view class="wf-card">
+              <view class="wf-img-wrap" @click="goWorkDetail(w)">
+                <image :src="w.img" mode="widthFix" class="wf-img" />
+              </view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title || w.prompt?.substring(0, 20) || '未命名' }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author" @click.stop="goUserProfile(w.userId)">
+                    <view class="wf-avatar" :style="{ background: getUser(w.userId).color }">
+                      <text class="wf-avatar-text">{{ getUser(w.userId).avatar }}</text>
+                    </view>
+                    <text class="wf-author-name">{{ getUser(w.userId).name }}</text>
+                  </view>
+                  <view class="wf-like" @click.stop="toggleLike(w)">
+                    <text
+                      class="wf-like-icon"
+                      :class="{ 'like-bounce': w.bouncing }"
+                      :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }"
+                    >{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 加载更多 -->
+      <view class="load-more">
+        <view v-if="loading" class="load-spinner" />
+        <text v-else class="load-text">{{ noMore ? '没有更多了' : '上拉加载更多' }}</text>
+      </view>
+    </scroll-view>
+
+    <!-- 左侧抽屉遮罩 -->
+    <view v-if="drawerOpen" class="drawer-overlay" @click="closeDrawer" />
+    <!-- 左侧抽屉 -->
+    <view :class="['left-drawer', { show: drawerOpen }]">
+      <view class="drawer-header">
+        <view class="drawer-user">
+          <view class="drawer-avatar">
+            <text class="drawer-avatar-text">梦</text>
+          </view>
+          <view class="drawer-user-info">
+            <text class="drawer-name">云端造梦师</text>
+            <view class="drawer-credits">
+              <text class="drawer-credits-num">2860</text>
+              <text class="drawer-credits-label">积分</text>
+            </view>
+          </view>
+        </view>
+        <view class="drawer-shortcuts">
+          <view class="drawer-shortcut" @click="goPage('recharge')">
+            <view class="shortcut-icon" style="background:linear-gradient(135deg,#a8d8f8,#b0e6d0)">💰</view>
+            <text class="shortcut-text">充值</text>
+          </view>
+          <view class="drawer-shortcut" @click="goPage('checkin')">
+            <view class="shortcut-icon" style="background:linear-gradient(135deg,#FFD4C8,#FFC8D6)">📅</view>
+            <text class="shortcut-text">签到</text>
+          </view>
+          <view class="drawer-shortcut" @click="goPage('membership')">
+            <view class="shortcut-icon" style="background:linear-gradient(135deg,#D4C8F0,#B8A8E0)">👑</view>
+            <text class="shortcut-text">会员</text>
+          </view>
+          <view class="drawer-shortcut" @click="goPage('invite')">
+            <view class="shortcut-icon" style="background:linear-gradient(135deg,#A3E4CC,#8BD8B8)">👤</view>
+            <text class="shortcut-text">邀请</text>
+          </view>
+        </view>
+      </view>
+      <view class="drawer-menu">
+        <view class="drawer-row" @click="goPage('publish')">
+          <text class="drawer-row-icon" style="color:#5B9FE8">✦</text>
+          <text class="drawer-row-text">发布作品</text>
+          <text class="drawer-row-arrow">›</text>
+        </view>
+        <view class="drawer-row" @click="goPage('history')">
+          <text class="drawer-row-icon" style="color:#6FD4B0">🕐</text>
+          <text class="drawer-row-text">浏览记录</text>
+          <text class="drawer-row-arrow">›</text>
+        </view>
+        <view class="drawer-row" @click="goPage('messages')">
+          <text class="drawer-row-icon" style="color:#FFA8B8">💬</text>
+          <text class="drawer-row-text">消息中心</text>
+          <view class="drawer-badge">5</view>
+          <text class="drawer-row-arrow">›</text>
+        </view>
+        <view class="drawer-row" @click="goPage('following')">
+          <text class="drawer-row-icon" style="color:#FFB59A">❤</text>
+          <text class="drawer-row-text">我的关注</text>
+          <text class="drawer-row-arrow">›</text>
+        </view>
+        <view class="drawer-row" @click="goPage('followers')">
+          <text class="drawer-row-icon" style="color:#FFE08A">👥</text>
+          <text class="drawer-row-text">我的粉丝</text>
+          <text class="drawer-row-arrow">›</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 筛选遮罩 -->
+    <view v-if="filterOpen" class="drawer-overlay" @click="closeFilter" />
+    <!-- 筛选底部弹窗 -->
+    <view :class="['filter-sheet', { show: filterOpen }]">
+      <view class="sheet-handle" />
+      <view class="sheet-body">
+        <text class="filter-section-title">分类</text>
+        <view class="filter-chips">
+          <view
+            v-for="(c, i) in categories"
+            :key="'fc'+i"
+            :class="['filter-chip', { active: filterCats.includes(i) }]"
+            @click="toggleFilterCat(i)"
+          >{{ c }}</view>
+        </view>
+
+        <text class="filter-section-title">模型</text>
+        <view class="filter-chips">
+          <view v-for="m in models" :key="'fm'+m" :class="['filter-chip', { active: filterModels.includes(m) }]" @click="toggleFilterModel(m)">{{ m }}</view>
+        </view>
+
+        <text class="filter-section-title">尺寸</text>
+        <view class="filter-chips">
+          <view v-for="r in ratios" :key="'fr'+r" :class="['filter-chip', { active: filterRatios.includes(r) }]" @click="toggleFilterRatio(r)">{{ r }}</view>
+        </view>
+
+        <text class="filter-section-title">精度</text>
+        <view class="filter-chips">
+          <view v-for="q in qualities" :key="'fq'+q" :class="['filter-chip', { active: filterQualities.includes(q) }]" @click="toggleFilterQuality(q)">{{ q }}</view>
+        </view>
+
+        <view class="filter-actions">
+          <view class="filter-btn-reset" @click="resetFilter">重置</view>
+          <view class="filter-btn-confirm" @click="applyFilter">确认</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+
+// 状态
+const plazaTabs = ['推荐', '热门', '最新'];
+const curTab = ref(0);
+const curCat = ref(0);
+const categories = ['全部', '二次元', '风景', '建筑', '表情包', '写实', '国风', '人像', '动物', '抽象'];
+const models = ['全部', 'GPT Image 2', 'Nano Banana 2', 'Flux Pro', 'SDXL', 'DALL-E 3', 'Midjourney'];
+const ratios = ['全部', '1:1', '3:4', '4:3', '16:9', '9:16'];
+const qualities = ['全部', '标清', '高清', '超清'];
+
+const drawerOpen = ref(false);
+const filterOpen = ref(false);
+const tabLoading = ref(false);
+const loading = ref(false);
+const noMore = ref(false);
+const isRefreshing = ref(false);
+const animDir = ref('');
+const animKey = ref(0);
+const indicatorLeft = ref(0);
+const scrollH = ref(700);
+
+// 筛选条件
+const filterCats = ref<number[]>([0]);
+const filterModels = ref<string[]>([]);
+const filterRatios = ref<string[]>([]);
+const filterQualities = ref<string[]>([]);
+
+interface Work {
+  id: number; img: string; userId: number; title: string;
+  prompt: string; likes: number; liked: boolean; bouncing: boolean;
+}
+
+const users = [
+  { id: 1, name: '云端造梦师', avatar: '梦', color: '#5B9FE8' },
+  { id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0' },
+  { id: 3, name: '月光如水', avatar: '月', color: '#FFB59A' },
+  { id: 4, name: '风之绘师', avatar: '风', color: '#B8A5E3' },
+  { id: 5, name: '光影魔术', avatar: '光', color: '#FFE08A' },
+];
+
+const allWorks: Work[] = [
+  { id: 1, img: 'https://picsum.photos/seed/w1/300/420', userId: 2, title: '霓虹都市', prompt: '', likes: 328, liked: false, bouncing: false },
+  { id: 2, img: 'https://picsum.photos/seed/w2/300/225', userId: 3, title: '山水之间', prompt: '', likes: 512, liked: false, bouncing: false },
+  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', userId: 1, title: '少女与猫', prompt: '', likes: 680, liked: false, bouncing: false },
+  { id: 4, img: 'https://picsum.photos/seed/w4/300/300', userId: 5, title: '抽象梦境', prompt: '', likes: 234, liked: false, bouncing: false },
+  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', userId: 1, title: '古风少女', prompt: '', likes: 892, liked: false, bouncing: false },
+  { id: 6, img: 'https://picsum.photos/seed/w6/300/225', userId: 3, title: '赛博精灵', prompt: '', likes: 445, liked: false, bouncing: false },
+  { id: 7, img: 'https://picsum.photos/seed/w7/300/400', userId: 4, title: '水彩猫咪', prompt: '', likes: 567, liked: false, bouncing: false },
+  { id: 8, img: 'https://picsum.photos/seed/w8/300/300', userId: 5, title: '极简几何', prompt: '', likes: 189, liked: false, bouncing: false },
+  { id: 9, img: 'https://picsum.photos/seed/w9/300/530', userId: 2, title: '暗黑天使', prompt: '', likes: 723, liked: false, bouncing: false },
+  { id: 10, img: 'https://picsum.photos/seed/w10/300/225', userId: 3, title: '蒸汽城市', prompt: '', likes: 356, liked: false, bouncing: false },
+  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', userId: 1, title: '油画风景', prompt: '', likes: 489, liked: false, bouncing: false },
+  { id: 12, img: 'https://picsum.photos/seed/w12/300/300', userId: 5, title: '像素冒险', prompt: '', likes: 278, liked: false, bouncing: false },
+];
+
+const works = ref<Work[]>([...allWorks]);
+const leftCol = computed(() => works.value.filter((_, i) => i % 2 === 0));
+const rightCol = computed(() => works.value.filter((_, i) => i % 2 === 1));
+
+const getUser = (id: number) => users.find(u => u.id === id) || users[0];
+
+// Tab 切换 (带loading)
+const switchTab = (idx: number) => {
+  if (curTab.value === idx) return;
+  const oldIdx = curTab.value;
+  curTab.value = idx;
+  animDir.value = idx > oldIdx ? 'left' : 'right';
+  tabLoading.value = true;
+  setTimeout(() => {
+    tabLoading.value = false;
+    animKey.value++;
+    if (idx === 1) {
+      works.value = [...allWorks].sort((a, b) => b.likes - a.likes);
+    } else if (idx === 2) {
+      works.value = [...allWorks].reverse();
+    } else {
+      works.value = [...allWorks];
+    }
+    setTimeout(() => { animDir.value = ''; }, 400);
+  }, 300);
+};
+
+// 分类选择 (带loading)
+const selectCat = (idx: number) => {
+  if (curCat.value === idx) return;
+  const oldIdx = curCat.value;
+  curCat.value = idx;
+  animDir.value = idx > oldIdx ? 'left' : 'right';
+  tabLoading.value = true;
+  setTimeout(() => {
+    tabLoading.value = false;
+    animKey.value++;
+    works.value = [...allWorks];
+    setTimeout(() => { animDir.value = ''; }, 400);
+  }, 300);
+};
+
+// 点赞
+const toggleLike = (w: Work) => {
+  w.liked = !w.liked;
+  w.likes += w.liked ? 1 : -1;
+  if (w.liked) {
+    w.bouncing = true;
+    setTimeout(() => { w.bouncing = false; }, 400);
+  }
+};
+
+// 抽屉
+const openDrawer = () => { drawerOpen.value = true; };
+const closeDrawer = () => { drawerOpen.value = false; };
+
+// 筛选
+const openFilter = () => { filterOpen.value = true; };
+const closeFilter = () => { filterOpen.value = false; };
+const toggleFilterCat = (i: number) => {
+  const idx = filterCats.value.indexOf(i);
+  if (idx >= 0) filterCats.value.splice(idx, 1);
+  else filterCats.value = [i];
+};
+const toggleFilterModel = (m: string) => {
+  const idx = filterModels.value.indexOf(m);
+  if (idx >= 0) filterModels.value.splice(idx, 1);
+  else filterModels.value.push(m);
+};
+const toggleFilterRatio = (r: string) => {
+  const idx = filterRatios.value.indexOf(r);
+  if (idx >= 0) filterRatios.value.splice(idx, 1);
+  else filterRatios.value.push(r);
+};
+const toggleFilterQuality = (q: string) => {
+  const idx = filterQualities.value.indexOf(q);
+  if (idx >= 0) filterQualities.value.splice(idx, 1);
+  else filterQualities.value.push(q);
+};
+const resetFilter = () => {
+  filterCats.value = [];
+  filterModels.value = [];
+  filterRatios.value = [];
+  filterQualities.value = [];
+  uni.showToast({ title: '已重置筛选', icon: 'none' });
+};
+const applyFilter = () => {
+  filterOpen.value = false;
+  uni.showToast({ title: '筛选已应用', icon: 'none' });
+};
+
+// 下拉刷新
+const onRefresh = () => {
+  isRefreshing.value = true;
+  setTimeout(() => {
+    works.value = [...allWorks];
+    noMore.value = false;
+    isRefreshing.value = false;
+  }, 800);
+};
+
+// 上拉加载更多
+const onLoadMore = () => {
+  if (loading.value || noMore.value) return;
+  loading.value = true;
+  setTimeout(() => {
+    noMore.value = true;
+    loading.value = false;
+  }, 600);
+};
+
+// 导航
+const goSearch = () => uni.showToast({ title: '搜索页开发中', icon: 'none' });
+const goWorkDetail = (w: Work) => uni.showToast({ title: `作品「${w.title || '未命名'}」详情开发中`, icon: 'none' });
+const goUserProfile = (userId: number) => uni.showToast({ title: `${getUser(userId).name}主页开发中`, icon: 'none' });
+const goPage = (name: string) => {
+  closeDrawer();
+  uni.showToast({ title: `${name}页开发中`, icon: 'none' });
+};
+
+onMounted(() => {
+  const sys = uni.getSystemInfoSync();
+  scrollH.value = sys.windowHeight - 80;
+});
 </script>
 
 <style lang="scss" scoped>
 .page-plaza {
   min-height: 100vh;
-  .placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    color: #8497B5;
-    font-size: 14px;
+  background: #EEF4FC;
+  position: relative;
+}
+
+// 毛玻璃
+.glass-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 74px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  z-index: 98;
+  border-bottom: 0.5px solid rgba(91, 159, 232, 0.14);
+}
+
+// 状态栏
+.status-bar {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 120;
+}
+.sb-time { font-size: 13px; font-weight: 600; color: #fff; }
+.sb-right { display: flex; align-items: center; gap: 5px; }
+.sb-icon { font-size: 10px; color: #fff; }
+.sb-battery { font-size: 12px; color: #fff; }
+
+.nav-header {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 24px; left: 0; right: 0;
+  z-index: 120;
+}
+.nav-title { font-size: 17px; font-weight: 600; color: #fff; }
+
+.capsule {
+  position: fixed;
+  right: 7px; top: 28px;
+  width: 87px; height: 32px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 200;
+  border: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+.cap-btn {
+  width: 43.5px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 14px;
+}
+.cap-divider {
+  width: 0.5px; height: 16px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.content-scroll { padding-top: 74px; }
+
+// 顶部操作栏
+.plaza-top {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  gap: 10px;
+}
+.top-menu { padding: 4px; }
+.top-menu-icon { font-size: 22px; color: #0E1F3A; }
+.top-tabs {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  position: relative;
+  padding-bottom: 4px;
+}
+.plaza-tab {
+  font-size: 16px;
+  font-weight: 500;
+  color: #8497B5;
+  transition: color 0.3s;
+  &.active {
+    font-weight: 700;
+    color: #5B9FE8;
   }
 }
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  width: 24px; height: 3px;
+  border-radius: 999px;
+  background: #5B9FE8;
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.top-search { padding: 4px; }
+.top-search-icon { font-size: 22px; color: #0E1F3A; }
+
+// 分类芯片
+.cat-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.cat-scroll {
+  flex: 1;
+  white-space: nowrap;
+}
+.cat-list {
+  display: inline-flex;
+  padding: 0 16px;
+  gap: 0;
+}
+.cat-chip {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  transition: all 0.3s;
+}
+.cat-text {
+  font-size: 14px;
+  font-weight: 400;
+  color: #445876;
+  &.active {
+    font-weight: 600;
+    color: #5B9FE8;
+  }
+}
+.cat-fade {
+  position: absolute;
+  right: 44px;
+  top: 0; bottom: 0;
+  width: 30px;
+  background: linear-gradient(to right, transparent, #EEF4FC);
+  pointer-events: none;
+}
+.filter-btn {
+  width: 44px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  border-left: 0.5px solid rgba(91, 159, 232, 0.14);
+}
+.filter-icon { font-size: 18px; color: #0E1F3A; }
+
+// 瀑布流
+.waterfall-wrap {
+  padding: 0 12px;
+  display: flex;
+  gap: 8px;
+}
+.wf-anim-left { animation: wfSlideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.wf-anim-right { animation: wfSlideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes wfSlideLeft {
+  from { opacity: 0.3; transform: translateX(-36px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes wfSlideRight {
+  from { opacity: 0.3; transform: translateX(36px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.waterfall {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wf-card {
+  background: #fff;
+  border: 1px solid rgba(91, 159, 232, 0.14);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.wf-img-wrap {
+  width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+  &:active {
+    transform: scale(0.97);
+    transition: transform 0.15s ease;
+  }
+}
+.wf-img { width: 100%; display: block; }
+.wf-info { padding: 8px 10px 8px; }
+.wf-title {
+  font-size: 13px; font-weight: 600; color: #0E1F3A;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block; margin-bottom: 4px;
+}
+.wf-meta { display: flex; align-items: center; justify-content: space-between; }
+.wf-author {
+  display: flex; align-items: center; gap: 5px;
+  flex: 1; overflow: hidden;
+}
+.wf-avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.wf-avatar-text { font-size: 10px; color: #fff; font-weight: 700; }
+.wf-author-name {
+  font-size: 11px; color: #445876;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-like {
+  display: flex; align-items: center; gap: 3px;
+  flex-shrink: 0; padding: 2px 4px; border-radius: 8px;
+}
+.wf-like-icon {
+  font-size: 20px;
+  transition: transform 0.15s ease;
+  &.like-bounce { animation: likeBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+}
+@keyframes likeBounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.45); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.wf-like-num { font-size: 14px; font-weight: 600; }
+
+// 加载更多
+.load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0 30px;
+}
+.load-spinner {
+  width: 24px; height: 24px;
+  border: 2.5px solid rgba(91, 159, 232, 0.2);
+  border-top-color: #5B9FE8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-text { font-size: 12px; color: #8497B5; }
+
+// Tab loading
+.tab-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+.tab-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(91, 159, 232, 0.15);
+  border-top-color: #5B9FE8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+// 左侧抽屉
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 150;
+  animation: fadeIn 0.3s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.left-drawer {
+  position: fixed;
+  top: 0; bottom: 0; left: 0;
+  width: 280px;
+  background: #fff;
+  z-index: 200;
+  transform: translateX(-100%);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 24px 56px rgba(60, 120, 200, 0.16);
+  display: flex;
+  flex-direction: column;
+  &.show { transform: translateX(0); }
+}
+.drawer-header {
+  padding: 90px 20px 24px;
+  background: linear-gradient(180deg, #E1EBF8 0%, #F5F9FE 100%);
+  border-bottom: 1px solid rgba(91, 159, 232, 0.14);
+}
+.drawer-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.drawer-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #B8A5E3, #5B9FE8, #6FD4B0);
+  display: flex; align-items: center; justify-content: center;
+}
+.drawer-avatar-text { font-size: 20px; color: #fff; font-weight: 700; }
+.drawer-user-info { flex: 1; }
+.drawer-name { font-size: 17px; font-weight: 700; color: #0E1F3A; }
+.drawer-credits {
+  display: flex; gap: 4px; margin-top: 3px;
+}
+.drawer-credits-num { font-size: 16px; font-weight: 700; color: #5B9FE8; }
+.drawer-credits-label { font-size: 14px; color: #8497B5; }
+.drawer-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.drawer-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.shortcut-icon {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.shortcut-text { font-size: 12px; color: #445876; }
+
+.drawer-menu {
+  flex: 1;
+  padding: 12px 0;
+}
+.drawer-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  transition: background 0.2s;
+  &:active { background: rgba(91, 159, 232, 0.08); }
+}
+.drawer-row-icon { font-size: 22px; width: 22px; text-align: center; flex-shrink: 0; }
+.drawer-row-text { flex: 1; font-size: 15px; color: #0E1F3A; }
+.drawer-row-arrow { color: #8497B5; font-size: 18px; }
+.drawer-badge {
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  background: #FFA8B8;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+// 筛选底部弹窗
+.filter-sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 24px 56px rgba(60, 120, 200, 0.16);
+  z-index: 200;
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s;
+  max-height: 80%;
+  overflow-y: auto;
+  &.show {
+    transform: translateY(0);
+    visibility: visible;
+  }
+}
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: rgba(91, 159, 232, 0.3);
+  border-radius: 2px;
+  margin: 10px auto 4px;
+}
+.sheet-body {
+  padding: 8px 20px 20px;
+}
+.filter-section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0E1F3A;
+  margin-bottom: 12px;
+  display: block;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.filter-chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid rgba(91, 159, 232, 0.32);
+  color: #445876;
+  transition: all 0.3s;
+  &.active {
+    background: rgba(91, 159, 232, 0.12);
+    border-color: #5B9FE8;
+    color: #3B7PC8;
+  }
+}
+.filter-actions {
+  display: flex;
+  gap: 10px;
+}
+.filter-btn-reset {
+  flex: 1;
+  padding: 10px 0;
+  text-align: center;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0E1F3A;
+  background: #fff;
+  border: 1px solid rgba(91, 159, 232, 0.32);
+}
+.filter-btn-confirm {
+  flex: 1;
+  padding: 10px 0;
+  text-align: center;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #B8A5E3 0%, #5B9FE8 50%, #6FD4B0 100%);
+}
 </style>
+
