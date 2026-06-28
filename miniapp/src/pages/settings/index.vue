@@ -39,7 +39,7 @@
           <text class="menu-icon">🗑</text><text class="menu-text">清除缓存</text>
           <text class="menu-value">12.5MB</text><text class="menu-arrow">›</text>
         </view>
-        <view class="menu-row">
+        <view class="menu-row" @click="goChangelog">
           <text class="menu-icon">ℹ</text><text class="menu-text">当前版本</text>
           <text class="menu-value">v1.0.0</text><text class="menu-arrow">›</text>
         </view>
@@ -55,6 +55,7 @@ import { ref } from 'vue';
 const darkMode = ref(false);
 const goBack = () => uni.navigateBack();
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
+const goChangelog = () => uni.navigateTo({ url: '/pages/changelog/index' });
 const clearCache = () => uni.showToast({ title: '缓存已清除', icon: 'none' });
 const logout = () => uni.showToast({ title: '已退出登录', icon: 'none' });
 </script>
