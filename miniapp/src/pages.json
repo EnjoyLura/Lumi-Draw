@@ -4,7 +4,14 @@
     { "path": "pages/plaza/index", "style": { "navigationBarTitleText": "广场", "navigationStyle": "custom" } },
     { "path": "pages/create/index", "style": { "navigationBarTitleText": "创作", "navigationStyle": "custom" } },
     { "path": "pages/gallery/index", "style": { "navigationBarTitleText": "画廊", "navigationStyle": "custom" } },
-    { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } }
+    { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } },
+    { "path": "pages/search/index", "style": { "navigationBarTitleText": "搜索", "navigationStyle": "custom" } },
+    { "path": "pages/work-detail/index", "style": { "navigationBarTitleText": "作品详情", "navigationStyle": "custom" } },
+    { "path": "pages/user-profile/index", "style": { "navigationBarTitleText": "用户主页", "navigationStyle": "custom" } },
+    { "path": "pages/edit-profile/index", "style": { "navigationBarTitleText": "编辑资料", "navigationStyle": "custom" } },
+    { "path": "pages/settings/index", "style": { "navigationBarTitleText": "设置", "navigationStyle": "custom" } },
+    { "path": "pages/recharge/index", "style": { "navigationBarTitleText": "积分充值", "navigationStyle": "custom" } },
+    { "path": "pages/all-gameplays/index", "style": { "navigationBarTitleText": "全部玩法", "navigationStyle": "custom" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
@@ -25,20 +32,4 @@
       { "pagePath": "pages/mine/index", "text": "我的", "iconPath": "static/tab/mine.png", "selectedIconPath": "static/tab/mine-active.png" }
     ]
   }
-}
-{
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
-			}
-		}
-	],
-	"globalStyle": {
-		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
-	}
 }
