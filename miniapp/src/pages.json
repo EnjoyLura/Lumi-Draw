@@ -1,0 +1,44 @@
+{
+  "pages": [
+    { "path": "pages/home/index", "style": { "navigationBarTitleText": "绘光", "navigationStyle": "custom" } },
+    { "path": "pages/plaza/index", "style": { "navigationBarTitleText": "广场", "navigationStyle": "custom" } },
+    { "path": "pages/create/index", "style": { "navigationBarTitleText": "创作", "navigationStyle": "custom" } },
+    { "path": "pages/gallery/index", "style": { "navigationBarTitleText": "画廊", "navigationStyle": "custom" } },
+    { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Lumi-Draw",
+    "navigationBarBackgroundColor": "#EEF4FC",
+    "backgroundColor": "#EEF4FC"
+  },
+  "tabBar": {
+    "color": "#8497B5",
+    "selectedColor": "#5B9FE8",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "首页", "iconPath": "static/tab/home.png", "selectedIconPath": "static/tab/home-active.png" },
+      { "pagePath": "pages/plaza/index", "text": "广场", "iconPath": "static/tab/plaza.png", "selectedIconPath": "static/tab/plaza-active.png" },
+      { "pagePath": "pages/create/index", "text": "创作", "iconPath": "static/tab/create.png", "selectedIconPath": "static/tab/create-active.png" },
+      { "pagePath": "pages/gallery/index", "text": "画廊", "iconPath": "static/tab/gallery.png", "selectedIconPath": "static/tab/gallery-active.png" },
+      { "pagePath": "pages/mine/index", "text": "我的", "iconPath": "static/tab/mine.png", "selectedIconPath": "static/tab/mine-active.png" }
+    ]
+  }
+}
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "uni-app"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	}
+}
