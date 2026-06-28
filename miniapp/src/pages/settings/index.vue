@@ -75,6 +75,9 @@ const logout = () => uni.showToast({ title: '已退出登录', icon: 'none' });
 .menu-arrow { color: #8497B5; font-size: 18px; }
 .menu-value { font-size: 12px; color: #8497B5; margin-right: 6px; }
 .bind-tag { padding: 2px 8px; background: rgba(111,212,176,0.16); color: #6FD4B0; font-size: 11px; font-weight: 600; border-radius: 999px; }
-.toggle-switch { width: 44px; height: 26px; border-radius: 999px; background: #E1EBF8; border: 1px solid rgba(91,159,232,0.14); position: relative; flex-shrink: 0; transition: all 0.3s; &::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); transition: all 0.3s; } &.on { background: #5B9FE8; border-color: #5B9FE8; &::after { left: 22px; } } }
+.toggle-switch { width: 44px; height: 26px; border-radius: 999px; background: #E1EBF8; border: 1px solid rgba(91,159,232,0.14); position: relative; flex-shrink: 0; transition: all 0.3s; }
+.toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); transition: all 0.3s; }
+.toggle-switch.on { background: #5B9FE8; border-color: #5B9FE8; }
+.toggle-switch.on::after { left: 22px; }
 .logout-btn { width: 100%; padding: 14px 0; text-align: center; background: #FBFDFF; color: #FFA8B8; font-size: 15px; font-weight: 500; border-radius: 14px; border: 1px solid rgba(91,159,232,0.14); margin-top: 8px; &:active { transform: scale(0.97); } }
 </style>

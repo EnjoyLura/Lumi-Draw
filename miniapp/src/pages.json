@@ -18,7 +18,14 @@
     { "path": "pages/messages/index", "style": { "navigationBarTitleText": "消息", "navigationStyle": "custom" } },
     { "path": "pages/msg-detail/index", "style": { "navigationBarTitleText": "消息详情", "navigationStyle": "custom" } },
     { "path": "pages/publish/index", "style": { "navigationBarTitleText": "发布作品", "navigationStyle": "custom" } },
-    { "path": "pages/edit-work/index", "style": { "navigationBarTitleText": "编辑作品", "navigationStyle": "custom" } }
+    { "path": "pages/edit-work/index", "style": { "navigationBarTitleText": "编辑作品", "navigationStyle": "custom" } },
+    { "path": "pages/reverse-prompt/index", "style": { "navigationBarTitleText": "反推提示词", "navigationStyle": "custom" } },
+    { "path": "pages/feedback/index", "style": { "navigationBarTitleText": "意见反馈", "navigationStyle": "custom" } },
+    { "path": "pages/report/index", "style": { "navigationBarTitleText": "举报", "navigationStyle": "custom" } },
+    { "path": "pages/history/index", "style": { "navigationBarTitleText": "浏览记录", "navigationStyle": "custom" } },
+    { "path": "pages/drafts/index", "style": { "navigationBarTitleText": "草稿箱", "navigationStyle": "custom" } },
+    { "path": "pages/follow-list/index", "style": { "navigationBarTitleText": "关注列表", "navigationStyle": "custom" } },
+    { "path": "pages/changelog/index", "style": { "navigationBarTitleText": "更新日志", "navigationStyle": "custom" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

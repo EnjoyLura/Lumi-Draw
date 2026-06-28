@@ -269,7 +269,7 @@ const uploadImg = () => {
   promptImg.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
   uni.showToast({ title: '图片已上传', icon: 'none' });
 };
-const goReversePrompt = () => uni.showToast({ title: '反推提示词页开发中', icon: 'none' });
+const goReversePrompt = () => uni.navigateTo({ url: '/pages/reverse-prompt/index' });
 const openModelDrawer = () => uni.showToast({ title: '模型选择抽屉开发中', icon: 'none' });
 const openGameplayDrawer = () => uni.showToast({ title: '玩法选择抽屉开发中', icon: 'none' });
 const openAllStyles = () => uni.showToast({ title: '全部风格弹窗开发中', icon: 'none' });

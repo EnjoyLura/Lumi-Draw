@@ -107,6 +107,10 @@ const pageRoutes: Record<string, string> = {
   membership: '/pages/membership/index',
   messages: '/pages/messages/index',
   publish: '/pages/publish/index',
+  history: '/pages/history/index',
+  drafts: '/pages/drafts/index',
+  following: '/pages/follow-list/index',
+  feedback: '/pages/feedback/index',
 };
 const goPage = (name: string) => {
   if (pageRoutes[name]) {
