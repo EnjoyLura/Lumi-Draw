@@ -37,15 +37,16 @@
         <view class="top-menu" @click="openDrawer">
           <text class="top-menu-icon">☰</text>
         </view>
-        <view class="top-tabs" id="topTabs">
-          <text
+        <view class="top-tabs">
+          <view
             v-for="(t, i) in plazaTabs"
             :key="i"
-            :class="['plaza-tab', { active: curTab === i }]"
-            :ref="(el: any) => tabRefs[i] = el"
+            class="tab-wrap"
             @click="switchTab(i)"
-          >{{ t }}</text>
-          <view class="tab-indicator" :style="indicatorStyle" />
+          >
+            <text :class="['plaza-tab', { active: curTab === i }]">{{ t }}</text>
+            <view v-if="curTab === i" class="tab-indicator" />
+          </view>
         </view>
         <view class="top-search" @click="goSearch">
           <text class="top-search-icon">🔍</text>
@@ -256,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 
 // 状态
 const plazaTabs = ['推荐', '热门', '最新'];
@@ -275,21 +276,7 @@ const noMore = ref(false);
 const isRefreshing = ref(false);
 const animDir = ref('');
 const animKey = ref(0);
-const indicatorLeft = ref(0);
-const indicatorWidth = ref(24);
-const tabRefs = ref<any[]>([]);
 const scrollH = ref(700);
-
-const indicatorStyle = computed(() => {
-  const el = tabRefs.value[curTab.value];
-  if (!el) return { left: '0px', width: '24px' };
-  const parent = el.$el?.parentElement || el.parentElement;
-  if (!parent) return { left: '0px', width: '24px' };
-  const pRect = parent.getBoundingClientRect();
-  const elRect = (el.$el || el).getBoundingClientRect();
-  const left = elRect.left - pRect.left + elRect.width / 2 - 12;
-  return { left: left + 'px', width: '24px' };
-});
 
 // 筛选条件
 const filterCats = ref<number[]>([0]);
@@ -338,7 +325,6 @@ const switchTab = (idx: number) => {
   curTab.value = idx;
   animDir.value = idx > oldIdx ? 'left' : 'right';
   tabLoading.value = true;
-  nextTick(() => {});
   setTimeout(() => {
     tabLoading.value = false;
     animKey.value++;
@@ -449,10 +435,6 @@ const goPage = (name: string) => {
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
   scrollH.value = sys.windowHeight - 80;
-  nextTick(() => {
-    // force indicator recalc
-    curTab.value = 0;
-  });
 });
 </script>
 
@@ -531,7 +513,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 4px 16px;
-  padding-right: 100px; // 给胶囊留空间
   gap: 10px;
   position: relative;
   z-index: 95;
@@ -544,6 +525,11 @@ onMounted(() => {
   justify-content: center;
   gap: 28px;
   position: relative;
+}
+.tab-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding-bottom: 4px;
 }
 .plaza-tab {
@@ -557,14 +543,13 @@ onMounted(() => {
   }
 }
 .tab-indicator {
-  position: absolute;
-  bottom: 0;
-  width: 24px; height: 3px;
+  width: 24px;
+  height: 3px;
   border-radius: 999px;
   background: #5B9FE8;
-  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 4px;
 }
-.top-search { padding: 4px; }
+.top-search { padding: 4px; flex-shrink: 0; }
 .top-search-icon { font-size: 22px; color: #0E1F3A; }
 
 // 分类芯片
