@@ -60,8 +60,8 @@ services:
       - KIE_API_BASE=https://api.kie.ai
       - KIE_API_KEY=009ee8a806d45dbda1a2bc37ef3a2165
       - KIE_CALLBACK_URL=https://ejoyflie.cloud/api/generate/callback
-      - OSS_ACCESS_KEY_ID=YOUR_OSS_ACCESS_KEY_ID
-      - OSS_ACCESS_KEY_SECRET=YOUR_OSS_ACCESS_KEY_SECRET
+      - OSS_ACCESS_KEY_ID=${OSS_ACCESS_KEY_ID}
+      - OSS_ACCESS_KEY_SECRET=${OSS_ACCESS_KEY_SECRET}
       - OSS_BUCKET=lumidraw
       - OSS_ENDPOINT=oss-cn-beijing.aliyuncs.com
       - OSS_REGION=oss-cn-beijing
