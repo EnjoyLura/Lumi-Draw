@@ -1,5 +1,14 @@
 <template>
   <view class="page-gallery">
+    <!-- 毛玻璃刘海层 -->
+    <view class="glass-header" />
+    <!-- 状态栏 -->
+    <view class="status-bar">
+      <text class="sb-time">9:41</text>
+      <view class="sb-right"><text class="sb-icon">●●●●</text><text class="sb-icon">▲</text><text class="sb-battery">▮</text></view>
+    </view>
+    <view class="nav-header"><text class="nav-title">画廊</text></view>
+    <view class="capsule"><view class="cap-btn">⋯</view><view class="cap-divider" /><view class="cap-btn">✕</view></view>
     <!-- 头部背景区域 -->
     <view class="gallery-header">
       <!-- 顶部操作栏 -->
@@ -262,13 +271,46 @@ onMounted(() => {
   position: relative;
 }
 
+// 毛玻璃
+.glass-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 74px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  z-index: 90;
+  border-bottom: 0.5px solid rgba(91, 159, 232, 0.14);
+}
+.status-bar {
+  height: 24px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; position: fixed; top: 0; left: 0; right: 0; z-index: 120;
+}
+.sb-time { font-size: 13px; font-weight: 600; color: #0E1F3A; }
+.sb-right { display: flex; align-items: center; gap: 5px; }
+.sb-icon { font-size: 10px; color: #0E1F3A; }
+.sb-battery { font-size: 12px; color: #0E1F3A; }
+.nav-header {
+  height: 50px; display: flex; align-items: center; justify-content: center;
+  position: fixed; top: 24px; left: 0; right: 0; z-index: 120;
+}
+.nav-title { font-size: 17px; font-weight: 600; color: #0E1F3A; }
+.capsule {
+  position: fixed; right: 7px; top: 28px; width: 87px; height: 32px;
+  border-radius: 16px; background: rgba(0, 0, 0, 0.06);
+  display: flex; align-items: center; justify-content: space-around;
+  z-index: 200; border: 0.5px solid rgba(0, 0, 0, 0.08);
+}
+.cap-btn { width: 43.5px; height: 32px; display: flex; align-items: center; justify-content: center; color: #0E1F3A; font-size: 14px; }
+.cap-divider { width: 0.5px; height: 16px; background: rgba(0, 0, 0, 0.15); }
+
 // 头部
 .gallery-header {
   padding-bottom: 8px;
 }
 .header-top {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 16px; padding-top: 30px;
+  padding: 4px 16px; padding-top: 78px;
 }
 .header-menu { padding: 4px; }
 .header-menu-icon { font-size: 22px; color: #0E1F3A; }
