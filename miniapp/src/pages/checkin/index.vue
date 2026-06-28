@@ -22,7 +22,7 @@
         <view v-for="m in milestones" :key="m.days" :class="['milestone-card', { claimed: m.status === 'claimed', available: m.status === 'available', locked: m.status === 'locked' }]">
           <text class="ms-days">{{ m.days }}天</text>
           <text class="ms-reward" :style="{ color: m.color }">+{{ m.reward }}</text>
-          <text class="ms-status">{{ m.label }}</text>
+          <text :class="['ms-status', m.status]">{{ m.label }}</text>
         </view>
       </view>
 
@@ -56,11 +56,11 @@ const milestones = [
 ];
 
 const signedDays = [1, 2, 3, 4, 5, 6, 7];
+// June 2026 starts on Monday (index 1 in the grid)
 const calendarDays = Array.from({ length: 35 }, (_, i) => {
-  const day = i - 0; // June 2026 starts on Monday (index 1), so offset = -1+1=0... let me simplify
-  const d = i - 0 + 1; // day of week for first day
-  if (d < 1 || d > 30) return { day: '', empty: true, signed: false, today: false };
-  return { day: d, empty: false, signed: signedDays.includes(d), today: d === 28 };
+  const dayNum = i; // 0=empty(Sun), 1-30=days, 31-34=empty
+  if (dayNum < 1 || dayNum > 30) return { day: '', empty: true, signed: false, today: false };
+  return { day: dayNum, empty: false, signed: signedDays.includes(dayNum), today: dayNum === 28 };
 });
 
 const doCheckin = () => {
@@ -92,15 +92,23 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .section-title { font-size: 16px; font-weight: 700; color: #0E1F3A; }
 
 .milestone-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-.milestone-card { background: #fff; border-radius: 16px; border: 1px solid rgba(91,159,232,0.14); padding: 12px 8px; text-align: center; &.available { border-color: #5B9FE8; } &.locked { opacity: 0.5; } }
+.milestone-card { background: #fff; border-radius: 16px; border: 1px solid rgba(91,159,232,0.14); padding: 12px 8px; text-align: center; }
+.milestone-card.available { border-color: #5B9FE8; border-width: 1.5px; }
+.milestone-card.locked { opacity: 0.5; }
 .ms-days { font-size: 11px; color: #8497B5; display: block; }
 .ms-reward { font-size: 16px; font-weight: 700; display: block; }
-.ms-status { font-size: 9px; padding: 1px 6px; border-radius: 999px; display: inline-block; margin-top: 4px; .claimed & { background: rgba(111,212,176,0.16); color: #6FD4B0; } .available & { background: rgba(91,159,232,0.12); color: #5B9FE8; } .locked & { background: rgba(184,165,227,0.2); color: #B8A5E3; } }
+.ms-status { font-size: 9px; padding: 1px 6px; border-radius: 999px; display: inline-block; margin-top: 4px; background: rgba(184,165,227,0.2); color: #B8A5E3; }
+.ms-status.claimed { background: rgba(111,212,176,0.16); color: #6FD4B0; }
+.ms-status.available { background: rgba(91,159,232,0.12); color: #5B9FE8; }
+.ms-status.locked { background: rgba(184,165,227,0.2); color: #B8A5E3; }
 
 .calendar-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); padding: 16px; margin-bottom: 20px; }
 .cal-month { font-size: 12px; color: #8497B5; display: block; margin-bottom: 10px; }
 .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; margin-bottom: 6px; }
 .cal-weekday { font-size: 11px; color: #8497B5; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; justify-items: center; }
-.cal-day { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 13px; border-radius: 50%; color: #445876; &.signed { background: #5B9FE8; color: #fff; font-weight: 600; } &.today { border: 2px solid #5B9FE8; color: #5B9FE8; font-weight: 700; background: rgba(91,159,232,0.12); } &.empty { visibility: hidden; } }
+.cal-day { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 13px; border-radius: 50%; color: #445876; }
+.cal-day.signed { background: #5B9FE8; color: #fff; font-weight: 600; }
+.cal-day.today { border: 2px solid #5B9FE8; color: #5B9FE8; font-weight: 700; background: rgba(91,159,232,0.12); }
+.cal-day.empty { visibility: hidden; }
 </style>

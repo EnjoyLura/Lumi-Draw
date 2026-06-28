@@ -88,7 +88,8 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 
 .section-label { font-size: 16px; font-weight: 700; color: #0E1F3A; margin-bottom: 10px; display: block; }
 .plans-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-.plan-card { background: #fff; border-radius: 20px; border: 2px solid rgba(91,159,232,0.14); padding: 16px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; &.selected { border-color: #5B9FE8; background: linear-gradient(180deg, rgba(91,159,232,0.06) 0%, transparent 100%); } }
+.plan-card { background: #fff; border-radius: 20px; border: 2px solid rgba(91,159,232,0.14); padding: 16px; display: flex; align-items: center; justify-content: space-between; position: relative; overflow: hidden; }
+.plan-card.selected { border-color: #5B9FE8; background: linear-gradient(180deg, rgba(91,159,232,0.06) 0%, transparent 100%); }
 .plan-badge { position: absolute; top: 0; right: 0; background: #5B9FE8; color: #fff; font-size: 9px; font-weight: 700; padding: 3px 10px; border-radius: 0 0 0 10px; }
 .plan-left { display: flex; align-items: center; gap: 12px; }
 .plan-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
