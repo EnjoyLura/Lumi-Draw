@@ -11,7 +11,14 @@
     { "path": "pages/edit-profile/index", "style": { "navigationBarTitleText": "编辑资料", "navigationStyle": "custom" } },
     { "path": "pages/settings/index", "style": { "navigationBarTitleText": "设置", "navigationStyle": "custom" } },
     { "path": "pages/recharge/index", "style": { "navigationBarTitleText": "积分充值", "navigationStyle": "custom" } },
-    { "path": "pages/all-gameplays/index", "style": { "navigationBarTitleText": "全部玩法", "navigationStyle": "custom" } }
+    { "path": "pages/all-gameplays/index", "style": { "navigationBarTitleText": "全部玩法", "navigationStyle": "custom" } },
+    { "path": "pages/checkin/index", "style": { "navigationBarTitleText": "每日签到", "navigationStyle": "custom" } },
+    { "path": "pages/invite/index", "style": { "navigationBarTitleText": "邀请好友", "navigationStyle": "custom" } },
+    { "path": "pages/membership/index", "style": { "navigationBarTitleText": "会员中心", "navigationStyle": "custom" } },
+    { "path": "pages/messages/index", "style": { "navigationBarTitleText": "消息", "navigationStyle": "custom" } },
+    { "path": "pages/msg-detail/index", "style": { "navigationBarTitleText": "消息详情", "navigationStyle": "custom" } },
+    { "path": "pages/publish/index", "style": { "navigationBarTitleText": "发布作品", "navigationStyle": "custom" } },
+    { "path": "pages/edit-work/index", "style": { "navigationBarTitleText": "编辑作品", "navigationStyle": "custom" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",

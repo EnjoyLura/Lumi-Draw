@@ -102,6 +102,11 @@ const pageRoutes: Record<string, string> = {
   recharge: '/pages/recharge/index',
   settings: '/pages/settings/index',
   editProfile: '/pages/edit-profile/index',
+  checkin: '/pages/checkin/index',
+  invite: '/pages/invite/index',
+  membership: '/pages/membership/index',
+  messages: '/pages/messages/index',
+  publish: '/pages/publish/index',
 };
 const goPage = (name: string) => {
   if (pageRoutes[name]) {
