@@ -1,5 +1,7 @@
 <template>
   <view class="page-home">
+    <!-- 毛玻璃刘海层 -->
+    <view class="glass-header" />
     <!-- 状态栏 + 导航刘海 -->
     <view class="status-bar">
       <text class="sb-time">9:41</text>
@@ -82,11 +84,15 @@
       </view>
 
       <!-- 瀑布流 (带动画) -->
-      <view class="waterfall-wrap" :class="{ 'wf-anim-left': animDir === 'left', 'wf-anim-right': animDir === 'right' }" :key="animKey">
+      <!-- Tab切换loading -->
+      <view v-if="tabLoading" class="tab-loading">
+        <view class="tab-spinner" />
+      </view>
+      <view v-else class="waterfall-wrap" :class="{ 'wf-anim-left': animDir === 'left', 'wf-anim-right': animDir === 'right' }" :key="animKey">
         <view class="waterfall">
-          <view v-for="w in leftColumn" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
+          <view v-for="w in leftColumn" :key="w.id" class="wf-item">
             <view class="wf-card">
-              <view class="wf-img-wrap">
+              <view class="wf-img-wrap" @click="goWorkDetail(w)">
                 <image :src="w.img" mode="widthFix" class="wf-img" />
               </view>
               <view class="wf-info">
@@ -108,9 +114,9 @@
           </view>
         </view>
         <view class="waterfall">
-          <view v-for="w in rightColumn" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
+          <view v-for="w in rightColumn" :key="w.id" class="wf-item">
             <view class="wf-card">
-              <view class="wf-img-wrap">
+              <view class="wf-img-wrap" @click="goWorkDetail(w)">
                 <image :src="w.img" mode="widthFix" class="wf-img" />
               </view>
               <view class="wf-info">
@@ -234,22 +240,27 @@ const nextBanner = () => {
 const onBannerTouchStart = () => clearInterval(bannerTimer);
 const onBannerTouchEnd = () => startBannerTimer();
 
-// Tab 切换 (带动画)
+const tabLoading = ref(false);
+
+// Tab 切换 (带loading动画)
 const switchTab = (tab: string) => {
   if (homeTab.value === tab) return;
   const oldTab = homeTab.value;
   homeTab.value = tab;
   // 判断滑动方向
   animDir.value = (tab === 'new' && oldTab === 'recommend') ? 'left' : 'right';
-  animKey.value++;
-  // 切换数据
-  if (tab === 'new') {
-    works.value = [...newWorks];
-  } else {
-    works.value = [...recommendWorks];
-  }
-  // 动画结束后清除
-  setTimeout(() => { animDir.value = ''; }, 400);
+  // 显示loading
+  tabLoading.value = true;
+  setTimeout(() => {
+    tabLoading.value = false;
+    animKey.value++;
+    if (tab === 'new') {
+      works.value = [...newWorks];
+    } else {
+      works.value = [...recommendWorks];
+    }
+    setTimeout(() => { animDir.value = ''; }, 400);
+  }, 300);
 };
 
 // 点赞 (带弹跳动效)
@@ -319,6 +330,18 @@ onUnmounted(() => clearInterval(bannerTimer));
   min-height: 100vh;
   background: #EEF4FC;
   position: relative;
+}
+
+// 毛玻璃刘海
+.glass-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 74px;
+  background: rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  z-index: 98;
+  border-bottom: 0.5px solid rgba(91, 159, 232, 0.14);
 }
 
 // 状态栏
@@ -556,10 +579,16 @@ onUnmounted(() => clearInterval(bannerTimer));
   border: 1px solid rgba(91, 159, 232, 0.14);
   border-radius: 16px;
   overflow: hidden;
-  transition: transform 0.2s;
-  &:active { transform: scale(0.98); }
 }
-.wf-img-wrap { width: 100%; overflow: hidden; }
+.wf-img-wrap {
+  width: 100%;
+  overflow: hidden;
+  cursor: pointer;
+  &:active {
+    transform: scale(0.97);
+    transition: transform 0.15s ease;
+  }
+}
 .wf-img { width: 100%; display: block; }
 .wf-info { padding: 8px 10px 8px; }
 .wf-title {
@@ -571,7 +600,6 @@ onUnmounted(() => clearInterval(bannerTimer));
 .wf-author {
   display: flex; align-items: center; gap: 5px;
   flex: 1; overflow: hidden;
-  &:active { opacity: 0.7; }
 }
 .wf-avatar {
   width: 22px; height: 22px;
@@ -622,4 +650,18 @@ onUnmounted(() => clearInterval(bannerTimer));
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .load-text { font-size: 12px; color: #8497B5; }
+
+// Tab切换loading
+.tab-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px 0;
+}
+.tab-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(91, 159, 232, 0.15);
+  border-top-color: #5B9FE8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
 </style>
