@@ -340,7 +340,7 @@ onUnmounted(() => clearInterval(bannerTimer));
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-  z-index: 98;
+  z-index: 90;
   border-bottom: 0.5px solid rgba(91, 159, 232, 0.14);
 }
 
@@ -357,10 +357,10 @@ onUnmounted(() => clearInterval(bannerTimer));
   right: 0;
   z-index: 120;
 }
-.sb-time { font-size: 13px; font-weight: 600; color: #fff; }
+.sb-time { font-size: 13px; font-weight: 600; color: #0E1F3A; }
 .sb-right { display: flex; align-items: center; gap: 5px; }
-.sb-icon { font-size: 10px; color: #fff; }
-.sb-battery { font-size: 12px; color: #fff; }
+.sb-icon { font-size: 10px; color: #0E1F3A; }
+.sb-battery { font-size: 12px; color: #0E1F3A; }
 
 // 导航
 .nav-header {
@@ -377,7 +377,7 @@ onUnmounted(() => clearInterval(bannerTimer));
 .nav-title {
   font-size: 17px;
   font-weight: 600;
-  color: #fff;
+  color: #0E1F3A;
 }
 
 // 胶囊
@@ -401,7 +401,7 @@ onUnmounted(() => clearInterval(bannerTimer));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: #0E1F3A;
   font-size: 14px;
 }
 .cap-divider {

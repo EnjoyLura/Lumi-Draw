@@ -37,14 +37,15 @@
         <view class="top-menu" @click="openDrawer">
           <text class="top-menu-icon">☰</text>
         </view>
-        <view class="top-tabs">
+        <view class="top-tabs" id="topTabs">
           <text
             v-for="(t, i) in plazaTabs"
             :key="i"
             :class="['plaza-tab', { active: curTab === i }]"
+            :ref="(el: any) => tabRefs[i] = el"
             @click="switchTab(i)"
           >{{ t }}</text>
-          <view class="tab-indicator" :style="{ left: indicatorLeft + 'px' }" />
+          <view class="tab-indicator" :style="indicatorStyle" />
         </view>
         <view class="top-search" @click="goSearch">
           <text class="top-search-icon">🔍</text>
@@ -255,7 +256,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick, watch } from 'vue';
 
 // 状态
 const plazaTabs = ['推荐', '热门', '最新'];
@@ -275,7 +276,20 @@ const isRefreshing = ref(false);
 const animDir = ref('');
 const animKey = ref(0);
 const indicatorLeft = ref(0);
+const indicatorWidth = ref(24);
+const tabRefs = ref<any[]>([]);
 const scrollH = ref(700);
+
+const indicatorStyle = computed(() => {
+  const el = tabRefs.value[curTab.value];
+  if (!el) return { left: '0px', width: '24px' };
+  const parent = el.$el?.parentElement || el.parentElement;
+  if (!parent) return { left: '0px', width: '24px' };
+  const pRect = parent.getBoundingClientRect();
+  const elRect = (el.$el || el).getBoundingClientRect();
+  const left = elRect.left - pRect.left + elRect.width / 2 - 12;
+  return { left: left + 'px', width: '24px' };
+});
 
 // 筛选条件
 const filterCats = ref<number[]>([0]);
@@ -324,6 +338,7 @@ const switchTab = (idx: number) => {
   curTab.value = idx;
   animDir.value = idx > oldIdx ? 'left' : 'right';
   tabLoading.value = true;
+  nextTick(() => {});
   setTimeout(() => {
     tabLoading.value = false;
     animKey.value++;
@@ -434,6 +449,10 @@ const goPage = (name: string) => {
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
   scrollH.value = sys.windowHeight - 80;
+  nextTick(() => {
+    // force indicator recalc
+    curTab.value = 0;
+  });
 });
 </script>
 
@@ -452,7 +471,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
-  z-index: 98;
+  z-index: 90;
   border-bottom: 0.5px solid rgba(91, 159, 232, 0.14);
 }
 
@@ -467,10 +486,10 @@ onMounted(() => {
   top: 0; left: 0; right: 0;
   z-index: 120;
 }
-.sb-time { font-size: 13px; font-weight: 600; color: #fff; }
+.sb-time { font-size: 13px; font-weight: 600; color: #0E1F3A; }
 .sb-right { display: flex; align-items: center; gap: 5px; }
-.sb-icon { font-size: 10px; color: #fff; }
-.sb-battery { font-size: 12px; color: #fff; }
+.sb-icon { font-size: 10px; color: #0E1F3A; }
+.sb-battery { font-size: 12px; color: #0E1F3A; }
 
 .nav-header {
   height: 50px;
@@ -481,7 +500,7 @@ onMounted(() => {
   top: 24px; left: 0; right: 0;
   z-index: 120;
 }
-.nav-title { font-size: 17px; font-weight: 600; color: #fff; }
+.nav-title { font-size: 17px; font-weight: 600; color: #0E1F3A; }
 
 .capsule {
   position: fixed;
@@ -498,7 +517,7 @@ onMounted(() => {
 .cap-btn {
   width: 43.5px; height: 32px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 14px;
+  color: #0E1F3A; font-size: 14px;
 }
 .cap-divider {
   width: 0.5px; height: 16px;
@@ -512,7 +531,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 4px 16px;
+  padding-right: 100px; // 给胶囊留空间
   gap: 10px;
+  position: relative;
+  z-index: 95;
 }
 .top-menu { padding: 4px; }
 .top-menu-icon { font-size: 22px; color: #0E1F3A; }
@@ -550,6 +572,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   margin-bottom: 6px;
+  position: relative;
+  z-index: 95;
 }
 .cat-scroll {
   flex: 1;
@@ -816,7 +840,7 @@ onMounted(() => {
   margin: 10px auto 4px;
 }
 .sheet-body {
-  padding: 8px 20px 20px;
+  padding: 8px 20px 100px; // 底部留出tabbar空间
 }
 .filter-section-title {
   font-size: 15px;
@@ -870,7 +894,8 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #B8A5E3 0%, #5B9FE8 50%, #6FD4B0 100%);
+  background: linear-gradient(135deg, #5B9FE8 0%, #7BC4F0 45%, #6FD4B0 100%);
+  box-shadow: 0 4px 14px rgba(91, 159, 232, 0.35);
 }
 </style>
 
