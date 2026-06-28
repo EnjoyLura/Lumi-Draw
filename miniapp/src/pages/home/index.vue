@@ -302,18 +302,17 @@ const onLoadMore = () => {
 // 导航跳转
 const goCreate = () => uni.switchTab({ url: '/pages/create/index' });
 const goAllGameplays = () => {
-  uni.showToast({ title: '全部玩法页开发中', icon: 'none' });
+  uni.navigateTo({ url: '/pages/all-gameplays/index' });
 };
 const selectGameplay = (g: any) => {
   uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: `已套用「${g.name}」模板`, icon: 'none' });
 };
 const goWorkDetail = (w: Work) => {
-  uni.showToast({ title: `作品「${w.title || '未命名'}」详情页开发中`, icon: 'none' });
+  uni.navigateTo({ url: '/pages/work-detail/index' });
 };
 const goUserProfile = (userId: number) => {
-  const u = users.find(x => x.id === userId);
-  uni.showToast({ title: `${u?.name || ''}主页开发中`, icon: 'none' });
+  uni.navigateTo({ url: '/pages/user-profile/index' });
 };
 
 // 计算滚动区高度

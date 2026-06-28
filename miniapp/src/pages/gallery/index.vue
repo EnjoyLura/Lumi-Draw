@@ -242,13 +242,13 @@ const deleteSelected = () => {
 
 const openDrawer = () => { drawerOpen.value = true; };
 const openBgPicker = () => uni.showToast({ title: '背景选择开发中', icon: 'none' });
-const goSearch = () => uni.showToast({ title: '搜索页开发中', icon: 'none' });
+const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const changeAvatar = () => uni.showToast({ title: '更换头像', icon: 'none' });
-const goEditProfile = () => uni.showToast({ title: '编辑资料页开发中', icon: 'none' });
+const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
 const goFollowList = (type: string) => uni.showToast({ title: `${type}列表开发中`, icon: 'none' });
 const goWorkDetail = (w: Work) => {
   if (isManage.value) return;
-  uni.showToast({ title: `作品「${w.title || '未命名'}」详情开发中`, icon: 'none' });
+  uni.navigateTo({ url: '/pages/work-detail/index' });
 };
 const goPublish = () => uni.showToast({ title: '发布作品页开发中', icon: 'none' });
 

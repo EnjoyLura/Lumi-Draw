@@ -98,8 +98,17 @@ import { ref, onMounted } from 'vue';
 
 const scrollH = ref(700);
 
+const pageRoutes: Record<string, string> = {
+  recharge: '/pages/recharge/index',
+  settings: '/pages/settings/index',
+  editProfile: '/pages/edit-profile/index',
+};
 const goPage = (name: string) => {
-  uni.showToast({ title: `${name}页开发中`, icon: 'none' });
+  if (pageRoutes[name]) {
+    uni.navigateTo({ url: pageRoutes[name] });
+  } else {
+    uni.showToast({ title: `${name}页开发中`, icon: 'none' });
+  }
 };
 const contactService = () => {
   uni.showToast({ title: '打开微信客服', icon: 'none' });

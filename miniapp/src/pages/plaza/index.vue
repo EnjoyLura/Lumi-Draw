@@ -424,12 +424,21 @@ const onLoadMore = () => {
 };
 
 // 导航
-const goSearch = () => uni.showToast({ title: '搜索页开发中', icon: 'none' });
-const goWorkDetail = (w: Work) => uni.showToast({ title: `作品「${w.title || '未命名'}」详情开发中`, icon: 'none' });
-const goUserProfile = (userId: number) => uni.showToast({ title: `${getUser(userId).name}主页开发中`, icon: 'none' });
+const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
+const goWorkDetail = (w: Work) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goUserProfile = (userId: number) => uni.navigateTo({ url: '/pages/user-profile/index' });
+const pageRoutes: Record<string, string> = {
+  recharge: '/pages/recharge/index',
+  settings: '/pages/settings/index',
+  editProfile: '/pages/edit-profile/index',
+};
 const goPage = (name: string) => {
   closeDrawer();
-  uni.showToast({ title: `${name}页开发中`, icon: 'none' });
+  if (pageRoutes[name]) {
+    uni.navigateTo({ url: pageRoutes[name] });
+  } else {
+    uni.showToast({ title: `${name}页开发中`, icon: 'none' });
+  }
 };
 
 onMounted(() => {
