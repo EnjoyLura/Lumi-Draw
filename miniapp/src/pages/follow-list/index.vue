@@ -1,7 +1,7 @@
 <template>
   <view class="sub-page">
     <view class="glass-header" />
-    <view class="sub-nav"><view class="nav-back" @click="goBack"><text class="back-arrow">‹</text></view><text class="nav-title">关注列表</text><view style="width:40px;" /></view>
+    <view class="sub-nav"><view class="nav-back" @click="goBack"><text class="back-arrow">‹</text></view><text class="nav-title">{{ pageTitle }}</text><view style="width:40px;" /></view>
     <scroll-view scroll-y class="page-scroll" :style="{ height: scrollH + 'px' }">
       <view v-for="u in users" :key="u.id" class="user-item">
         <view class="user-avatar" :style="{ background: u.color }"><text class="user-avatar-text">{{ u.avatar }}</text></view>
@@ -16,8 +16,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 const scrollH = ref(700);
+const listType = ref('following');
+const pageTitle = computed(() => listType.value === 'following' ? '我的关注' : '我的粉丝');
 const users = ref([
   { id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0', bio: '探索AI的无限可能', followed: true },
   { id: 3, name: '月光如水', avatar: '月', color: '#FFB59A', bio: '月光下的AI画家', followed: true },
@@ -25,7 +27,14 @@ const users = ref([
   { id: 5, name: '光影魔术', avatar: '光', color: '#FFE08A', bio: '玩转光与影的魔法', followed: false },
 ]);
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+onMounted(() => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  // 读取页面参数
+  const pages = getCurrentPages();
+  const curPage = pages[pages.length - 1] as any;
+  const options = curPage?.$page?.options || curPage?.options || {};
+  if (options.type) listType.value = options.type;
+});
 </script>
 
 <style lang="scss" scoped>
@@ -38,8 +47,8 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .page-scroll { padding-top: 90px; }
 .user-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .user-item:active { background: rgba(91,159,232,0.05); }
-.user-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.user-avatar-text { font-size: 18px; color: #fff; font-weight: 700; }
+.user-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.user-avatar-text { font-size: 16px; color: #fff; font-weight: 700; }
 .user-info { flex: 1; min-width: 0; }
 .user-name { font-size: 15px; font-weight: 600; color: #0E1F3A; display: block; }
 .user-bio { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

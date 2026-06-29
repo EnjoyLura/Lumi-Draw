@@ -75,20 +75,18 @@
 
     <!-- 子标签页 + 管理按钮 -->
     <view class="gallery-tabs-row">
-      <view class="gallery-tabs">
-        <view
+      <view class="gallery-tabs" id="galleryTabs">
+        <text
           v-for="(t, i) in galleryTabs"
           :key="i"
-          class="tab-wrap"
+          :class="['gallery-tab', { active: curTab === i }]"
           @click="switchTab(i)"
-        >
-          <text :class="['gallery-tab', { active: curTab === i }]">{{ t }}</text>
-          <view v-if="curTab === i" class="tab-indicator" />
-        </view>
+        >{{ t }}</text>
+        <view class="tab-indicator" :style="{ left: indicatorLeft + 'px' }" />
       </view>
       <view class="manage-btn" @click="toggleManage">
         <text class="manage-icon">☰</text>
-        <text class="manage-text">管理</text>
+        <text class="manage-text">{{ isManage ? '完成' : '管理' }}</text>
       </view>
     </view>
 
@@ -106,16 +104,33 @@
       :style="{ height: scrollH + 'px' }"
       @scrolltolower="onLoadMore"
     >
-      <view class="waterfall-wrap">
+      <!-- Tab切换loading -->
+      <view v-if="tabLoading" class="tab-loading">
+        <view class="tab-spinner" />
+      </view>
+      <view v-else :class="['waterfall-wrap', { 'wf-anim-left': animDir === 'left', 'wf-anim-right': animDir === 'right' }]">
         <view class="waterfall">
           <view v-for="w in leftCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
             <view :class="['wf-card', { selected: isManage && w.managed }]" @click="isManage && toggleManageItem(w)">
               <view v-if="isManage && w.managed" class="wf-check">✓</view>
+              <view v-if="w.published && curTab === 0" class="wf-pub-badge">
+                <text class="wf-pub-badge-text">✓ 已发布</text>
+              </view>
               <view class="wf-img-wrap">
                 <image :src="w.img" mode="widthFix" class="wf-img" />
               </view>
-              <view v-if="w.title" class="wf-info">
-                <text class="wf-title">{{ w.title }}</text>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title || '未命名作品' }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
+                    <text class="wf-author-name">云端造梦师</text>
+                  </view>
+                  <view v-if="curTab !== 2" class="wf-like" @click.stop="toggleLike(w)">
+                    <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
               </view>
               <view v-if="curTab === 2" class="wf-draft-badge">草稿</view>
             </view>
@@ -125,11 +140,24 @@
           <view v-for="w in rightCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
             <view :class="['wf-card', { selected: isManage && w.managed }]" @click="isManage && toggleManageItem(w)">
               <view v-if="isManage && w.managed" class="wf-check">✓</view>
+              <view v-if="w.published && curTab === 0" class="wf-pub-badge">
+                <text class="wf-pub-badge-text">✓ 已发布</text>
+              </view>
               <view class="wf-img-wrap">
                 <image :src="w.img" mode="widthFix" class="wf-img" />
               </view>
-              <view v-if="w.title" class="wf-info">
-                <text class="wf-title">{{ w.title }}</text>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title || '未命名作品' }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
+                    <text class="wf-author-name">云端造梦师</text>
+                  </view>
+                  <view v-if="curTab !== 2" class="wf-like" @click.stop="toggleLike(w)">
+                    <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
               </view>
               <view v-if="curTab === 2" class="wf-draft-badge">草稿</view>
             </view>
@@ -181,6 +209,7 @@ import { ref, computed, onMounted } from 'vue';
 
 interface Work {
   id: number; img: string; title: string; managed: boolean; published: boolean;
+  likes: number; liked: boolean;
 }
 
 const galleryTabs = ['全部', '已发布', '草稿箱', '收藏'];
@@ -190,20 +219,23 @@ const drawerOpen = ref(false);
 const loading = ref(false);
 const noMore = ref(false);
 const scrollH = ref(500);
+const indicatorLeft = ref(0);
+const tabLoading = ref(false);
+const animDir = ref('');
 
 const allWorks: Work[] = [
-  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true },
-  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true },
-  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', title: '油画风景', managed: false, published: true },
-  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '', managed: false, published: false },
-  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '', managed: false, published: false },
-  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '', managed: false, published: false },
-  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '', managed: false, published: false },
-  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '', managed: false, published: false },
-  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '', managed: false, published: false },
-  { id: 19, img: 'https://picsum.photos/seed/w19/300/400', title: '', managed: false, published: false },
-  { id: 20, img: 'https://picsum.photos/seed/w20/300/530', title: '', managed: false, published: false },
-  { id: 21, img: 'https://picsum.photos/seed/w21/300/225', title: '', managed: false, published: false },
+  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true, likes: 680, liked: false },
+  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true, likes: 892, liked: false },
+  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', title: '油画风景', managed: false, published: true, likes: 489, liked: false },
+  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '赛博精灵', managed: false, published: false, likes: 0, liked: false },
+  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '极简几何', managed: false, published: false, likes: 0, liked: false },
+  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '暗黑天使', managed: false, published: false, likes: 0, liked: false },
+  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '蒸汽城市', managed: false, published: false, likes: 0, liked: false },
+  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '水彩猫咪', managed: false, published: false, likes: 0, liked: false },
+  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '像素冒险', managed: false, published: false, likes: 0, liked: false },
+  { id: 19, img: 'https://picsum.photos/seed/w19/300/400', title: '霓虹都市', managed: false, published: false, likes: 0, liked: false },
+  { id: 20, img: 'https://picsum.photos/seed/w20/300/530', title: '山水之间', managed: false, published: false, likes: 0, liked: false },
+  { id: 21, img: 'https://picsum.photos/seed/w21/300/225', title: '抽象梦境', managed: false, published: false, likes: 0, liked: false },
 ];
 
 const filteredWorks = computed(() => {
@@ -218,9 +250,35 @@ const rightCol = computed(() => filteredWorks.value.filter((_, i) => i % 2 === 1
 const selectedCount = computed(() => allWorks.filter(w => w.managed).length);
 
 const switchTab = (idx: number) => {
+  if (curTab.value === idx) return;
+  const oldIdx = curTab.value;
+  animDir.value = idx > oldIdx ? 'left' : 'right';
   curTab.value = idx;
   isManage.value = false;
   allWorks.forEach(w => w.managed = false);
+  // 更新指示器位置
+  updateIndicator(idx);
+  // 切换loading动画
+  tabLoading.value = true;
+  setTimeout(() => {
+    tabLoading.value = false;
+    setTimeout(() => { animDir.value = ''; }, 400);
+  }, 300);
+};
+
+const updateIndicator = (idx: number) => {
+  // 每个 tab 宽度约40px，gap 20px
+  const tabWidths = [28, 42, 42, 28]; // 估计文字宽度
+  let left = 0;
+  for (let i = 0; i < idx; i++) {
+    left += tabWidths[i] + 20; // gap:20px
+  }
+  indicatorLeft.value = left + tabWidths[idx] / 2 - 10;
+};
+
+const toggleLike = (w: Work) => {
+  w.liked = !w.liked;
+  w.likes += w.liked ? 1 : -1;
 };
 
 const toggleManage = () => {
@@ -245,12 +303,12 @@ const openBgPicker = () => uni.showToast({ title: '背景选择开发中', icon:
 const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const changeAvatar = () => uni.showToast({ title: '更换头像', icon: 'none' });
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
-const goFollowList = (type: string) => uni.showToast({ title: `${type}列表开发中`, icon: 'none' });
+const goFollowList = (type: string) => uni.navigateTo({ url: `/pages/follow-list/index?type=${type}` });
 const goWorkDetail = (w: Work) => {
   if (isManage.value) return;
   uni.navigateTo({ url: '/pages/work-detail/index' });
 };
-const goPublish = () => uni.showToast({ title: '发布作品页开发中', icon: 'none' });
+const goPublish = () => uni.navigateTo({ url: '/pages/publish/index' });
 
 const onLoadMore = () => {
   if (loading.value || noMore.value) return;
@@ -260,7 +318,9 @@ const onLoadMore = () => {
 
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 360; // 减去头部+tabs+tabbar
+  scrollH.value = sys.windowHeight - 360;
+  // 初始化指示器位置
+  updateIndicator(0);
 });
 </script>
 
@@ -316,8 +376,8 @@ onMounted(() => {
 .header-menu-icon { font-size: 22px; color: #0E1F3A; }
 .bg-btn {
   display: flex; align-items: center; gap: 4px;
-  background: rgba(91, 159, 232, 0.12); color: #3B7PC8;
-  padding: 5px 12px; border-radius: 8px;
+  background: rgba(91, 159, 232, 0.12); color: #3B7FC8;
+  padding: 6px 14px; border-radius: 10px;
 }
 .bg-btn-icon { font-size: 14px; }
 .bg-btn-text { font-size: 12px; font-weight: 600; }
@@ -383,19 +443,18 @@ onMounted(() => {
 }
 .gallery-tabs {
   flex: 1; display: flex; align-items: center; gap: 20px;
-}
-.tab-wrap {
-  display: flex; flex-direction: column; align-items: center;
-  padding-bottom: 6px;
+  position: relative; padding-bottom: 6px;
 }
 .gallery-tab {
   font-size: 13px; font-weight: 500; color: #8497B5;
-  transition: color 0.3s;
+  transition: color 0.3s; cursor: pointer;
   &.active { font-weight: 700; color: #5B9FE8; }
 }
 .tab-indicator {
+  position: absolute; bottom: 0;
   width: 20px; height: 3px; border-radius: 999px;
-  background: #5B9FE8; margin-top: 4px;
+  background: #5B9FE8;
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .manage-btn {
   display: flex; align-items: center; gap: 4px; flex-shrink: 0;
@@ -417,7 +476,7 @@ onMounted(() => {
 .manage-count { font-size: 13px; color: #445876; flex: 1; }
 .manage-select-all {
   padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
-  background: rgba(91, 159, 232, 0.12); color: #3B7PC8;
+  background: rgba(91, 159, 232, 0.12); color: #3B7FC8;
 }
 .manage-delete {
   padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -433,7 +492,8 @@ onMounted(() => {
 .waterfall { flex: 1; display: flex; flex-direction: column; gap: 8px; }
 .wf-card {
   background: #fff; border: 1px solid rgba(91, 159, 232, 0.14);
-  border-radius: 16px; overflow: hidden; position: relative;
+  border-radius: 20px; overflow: hidden; position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   &.selected { border-color: #5B9FE8; box-shadow: 0 0 0 2px rgba(91, 159, 232, 0.3); }
 }
 .wf-check {
@@ -444,15 +504,65 @@ onMounted(() => {
 }
 .wf-img-wrap { width: 100%; overflow: hidden; }
 .wf-img { width: 100%; display: block; }
-.wf-info { padding: 6px 8px; }
+.wf-info { padding: 8px 10px 6px; }
 .wf-title {
-  font-size: 12px; font-weight: 600; color: #0E1F3A;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
+  font-size: 13px; font-weight: 600; color: #0E1F3A;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block; margin-bottom: 2px;
+}
+.wf-meta { display: flex; align-items: center; justify-content: space-between; }
+.wf-author { display: flex; align-items: center; gap: 5px; flex: 1; overflow: hidden; }
+.wf-avatar {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: #5B9FE8; display: flex; align-items: center; justify-content: center;
+}
+.wf-avatar-text { font-size: 10px; color: #fff; font-weight: 700; }
+.wf-author-name {
+  font-size: 11px; color: #445876;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-like { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 2px 4px; border-radius: 8px; }
+.wf-like-icon { font-size: 16px; transition: all 0.3s; }
+.wf-like-num { font-size: 13px; font-weight: 600; }
+.wf-pub-badge {
+  position: absolute; top: 8px; right: 8px; z-index: 5;
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding: 3px 8px; border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.wf-pub-badge-text {
+  font-size: 10px; font-weight: 600; color: #5B9FE8;
+  display: flex; align-items: center; gap: 3px;
 }
 .wf-draft-badge {
   position: absolute; top: 8px; right: 8px;
   background: rgba(255, 255, 255, 0.85); color: #5B9FE8;
   font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px;
+}
+
+// Tab切换loading
+.tab-loading {
+  display: flex; justify-content: center; padding: 40px 0;
+}
+.tab-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(91, 159, 232, 0.15);
+  border-top-color: #5B9FE8; border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+// 切换滑动动画
+.wf-anim-left { animation: wfSlideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+.wf-anim-right { animation: wfSlideRight 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes wfSlideLeft {
+  from { opacity: 0.3; transform: translateX(-36px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes wfSlideRight {
+  from { opacity: 0.3; transform: translateX(36px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 // 加载更多

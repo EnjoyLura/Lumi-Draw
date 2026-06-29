@@ -871,7 +871,7 @@ onMounted(() => {
   &.active {
     background: rgba(91, 159, 232, 0.12);
     border-color: #5B9FE8;
-    color: #3B7PC8;
+    color: #3B7FC8;
   }
 }
 .filter-actions {

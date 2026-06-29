@@ -55,7 +55,7 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .page-scroll { padding-top: 74px; }
 .waterfall-wrap { padding: 0 12px; display: flex; gap: 8px; }
 .waterfall { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.wf-card { background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 16px; overflow: hidden; position: relative; }
+.wf-card { background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 20px; overflow: hidden; position: relative; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); &:active { transform: scale(0.97); } }
 .wf-img { width: 100%; display: block; }
 .wf-info { padding: 6px 8px; }
 .wf-title { font-size: 12px; font-weight: 600; color: #0E1F3A; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -77,6 +77,6 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .invite-reward { font-size: 11px; font-weight: 600; padding: 2px 8px; background: rgba(111,212,176,0.16); color: #6FD4B0; border-radius: 999px; }
 
 .rules-box { padding: 14px; background: rgba(91,159,232,0.12); border-radius: 12px; margin-bottom: 20px; }
-.rules-title { font-size: 13px; font-weight: 600; color: #3B7PC8; display: block; margin-bottom: 6px; }
+.rules-title { font-size: 13px; font-weight: 600; color: #3B7FC8; display: block; margin-bottom: 6px; }
 .rules-text { font-size: 12px; color: #445876; line-height: 1.8; }
 </style>

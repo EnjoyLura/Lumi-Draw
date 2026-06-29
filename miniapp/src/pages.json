@@ -31,7 +31,7 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "Lumi-Draw",
     "navigationBarBackgroundColor": "#EEF4FC",
-    "backgroundColor": "#EEF4FC"
+    "backgroundColor": "#EEF4FC",
   },
   "tabBar": {
     "color": "#8497B5",

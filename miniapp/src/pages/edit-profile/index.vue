@@ -75,7 +75,7 @@ const goBack = () => uni.navigateBack();
 .form-count { text-align: right; font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
 .form-hint { font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
 .gender-row { display: flex; gap: 10px; }
-.gender-btn { flex: 1; padding: 8px 0; text-align: center; border-radius: 10px; font-size: 13px; font-weight: 600; border: 2px solid rgba(91,159,232,0.2); background: #FBFDFF; color: #445876; &.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7PC8; } }
+.gender-btn { flex: 1; padding: 8px 0; text-align: center; border-radius: 10px; font-size: 13px; font-weight: 600; border: 2px solid rgba(91,159,232,0.2); background: #FBFDFF; color: #445876; &.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7FC8; } }
 .id-row { display: flex; align-items: center; gap: 6px; }
 .lock-icon { font-size: 16px; color: #8497B5; flex-shrink: 0; }
 .save-btn { width: 100%; padding: 14px 0; text-align: center; background: #5B9FE8; color: #fff; font-size: 15px; font-weight: 600; border-radius: 14px; margin-top: 8px; box-shadow: 0 4px 14px rgba(91,159,232,0.35); &:active { transform: scale(0.97); } }

@@ -68,6 +68,6 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .tags-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .tags-hint { font-size: 12px; color: #8497B5; }
 .tags-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag-chip { padding: 6px 14px; font-size: 13px; font-weight: 500; border-radius: 999px; background: #fff; border: 1px solid rgba(91,159,232,0.2); color: #445876; &.active { background: rgba(91,159,232,0.12); border-color: #5B9FE8; color: #3B7PC8; } }
+.tag-chip { padding: 6px 14px; font-size: 13px; font-weight: 500; border-radius: 999px; background: #fff; border: 1px solid rgba(91,159,232,0.2); color: #445876; &.active { background: rgba(91,159,232,0.12); border-color: #5B9FE8; color: #3B7FC8; } }
 .save-btn { width: 100%; padding: 14px 0; text-align: center; background: linear-gradient(135deg, #5B9FE8 0%, #7BC4F0 45%, #6FD4B0 100%); color: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; margin-top: 8px; margin-bottom: 20px; box-shadow: 0 4px 14px rgba(91,159,232,0.35); &:active { transform: scale(0.97); } }
 </style>

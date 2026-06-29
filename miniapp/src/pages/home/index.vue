@@ -25,7 +25,6 @@
     <scroll-view
       scroll-y
       class="content-scroll"
-      :style="{ height: scrollHeight + 'px' }"
       :refresher-enabled="true"
       :refresher-triggered="isRefreshing"
       @refresherrefresh="onRefresh"
@@ -93,7 +92,7 @@
           <view v-for="w in leftColumn" :key="w.id" class="wf-item">
             <view class="wf-card">
               <view class="wf-img-wrap" @click="goWorkDetail(w)">
-                <image :src="w.img" mode="widthFix" class="wf-img" />
+                <image :src="w.img" mode="widthFix" class="wf-img" :class="{ loaded: w.imgLoaded }" @load="w.imgLoaded = true" />
               </view>
               <view class="wf-info">
                 <text class="wf-title">{{ w.title || w.prompt?.substring(0, 20) || '未命名' }}</text>
@@ -117,7 +116,7 @@
           <view v-for="w in rightColumn" :key="w.id" class="wf-item">
             <view class="wf-card">
               <view class="wf-img-wrap" @click="goWorkDetail(w)">
-                <image :src="w.img" mode="widthFix" class="wf-img" />
+                <image :src="w.img" mode="widthFix" class="wf-img" :class="{ loaded: w.imgLoaded }" @load="w.imgLoaded = true" />
               </view>
               <view class="wf-info">
                 <text class="wf-title">{{ w.title || w.prompt?.substring(0, 20) || '未命名' }}</text>
@@ -179,6 +178,7 @@ interface Work {
   likes: number;
   liked: boolean;
   bouncing: boolean;
+  imgLoaded?: boolean;
 }
 
 const users = [
@@ -215,7 +215,6 @@ const loading = ref(false);
 const noMore = ref(false);
 const animDir = ref('');
 const animKey = ref(0);
-const scrollHeight = ref(700);
 let bannerTimer: any = null;
 
 // 瀑布流分左右列
@@ -315,10 +314,7 @@ const goUserProfile = (userId: number) => {
   uni.navigateTo({ url: '/pages/user-profile/index' });
 };
 
-// 计算滚动区高度
 onMounted(() => {
-  const sysInfo = uni.getSystemInfoSync();
-  scrollHeight.value = sysInfo.windowHeight - 80; // 减去tabbar高度
   startBannerTimer();
 });
 onUnmounted(() => clearInterval(bannerTimer));
@@ -326,9 +322,12 @@ onUnmounted(() => clearInterval(bannerTimer));
 
 <style lang="scss" scoped>
 .page-home {
-  min-height: 100vh;
+  height: 100vh;
   background: #EEF4FC;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 // 毛玻璃刘海
@@ -412,6 +411,8 @@ onUnmounted(() => clearInterval(bannerTimer));
 // 滚动内容区
 .content-scroll {
   padding-top: 74px;
+  flex: 1;
+  height: 0;
 }
 
 // Banner
@@ -452,12 +453,16 @@ onUnmounted(() => clearInterval(bannerTimer));
   right: 20px; top: 50%;
   transform: translateY(-50%);
   background: rgba(255, 255, 255, 0.18);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.35);
   color: #fff;
   border-radius: 999px;
   padding: 7px 20px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 .banner-dots {
   position: absolute;
@@ -503,7 +508,11 @@ onUnmounted(() => clearInterval(bannerTimer));
   flex-shrink: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
-.gp-img { width: 90px; height: 120px; }
+.gp-img {
+  width: 90px; height: 120px;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.gp-card:active .gp-img { transform: scale(1.05); }
 .gp-overlay {
   position: absolute; inset: 0;
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.1) 50%, transparent 100%);
@@ -576,8 +585,9 @@ onUnmounted(() => clearInterval(bannerTimer));
 .wf-card {
   background: #fff;
   border: 1px solid rgba(91, 159, 232, 0.14);
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .wf-img-wrap {
   width: 100%;
@@ -588,17 +598,23 @@ onUnmounted(() => clearInterval(bannerTimer));
     transition: transform 0.15s ease;
   }
 }
-.wf-img { width: 100%; display: block; }
-.wf-info { padding: 8px 10px 8px; }
+.wf-img {
+  width: 100%; display: block;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  &.loaded { opacity: 1; }
+}
+.wf-info { padding: 8px 10px 6px; }
 .wf-title {
   font-size: 13px; font-weight: 600; color: #0E1F3A;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  display: block; margin-bottom: 4px;
+  display: block; margin-bottom: 2px;
 }
 .wf-meta { display: flex; align-items: center; justify-content: space-between; }
 .wf-author {
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; gap: 6px;
   flex: 1; overflow: hidden;
+  cursor: pointer;
 }
 .wf-avatar {
   width: 22px; height: 22px;
@@ -616,22 +632,23 @@ onUnmounted(() => clearInterval(bannerTimer));
   flex-shrink: 0;
   padding: 2px 4px;
   border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
   &:active { background: rgba(91, 159, 232, 0.08); }
 }
 .wf-like-icon {
-  font-size: 20px;
-  transition: transform 0.15s ease;
+  font-size: 16px;
+  transition: all 0.3s;
   &.like-bounce {
     animation: likeBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 }
 @keyframes likeBounce {
   0% { transform: scale(1); }
-  40% { transform: scale(1.45); }
-  70% { transform: scale(0.9); }
+  50% { transform: scale(1.4); }
   100% { transform: scale(1); }
 }
-.wf-like-num { font-size: 14px; font-weight: 600; }
+.wf-like-num { font-size: 13px; font-weight: 600; }
 
 // 加载更多
 .load-more {

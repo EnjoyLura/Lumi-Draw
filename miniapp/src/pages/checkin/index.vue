@@ -92,7 +92,7 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .section-title { font-size: 16px; font-weight: 700; color: #0E1F3A; }
 
 .milestone-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-.milestone-card { background: #fff; border-radius: 16px; border: 1px solid rgba(91,159,232,0.14); padding: 12px 8px; text-align: center; }
+.milestone-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); padding: 12px 8px; text-align: center; }
 .milestone-card.available { border-color: #5B9FE8; border-width: 1.5px; }
 .milestone-card.locked { opacity: 0.5; }
 .ms-days { font-size: 11px; color: #8497B5; display: block; }

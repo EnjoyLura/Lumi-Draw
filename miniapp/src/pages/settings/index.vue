@@ -68,7 +68,7 @@ const logout = () => uni.showToast({ title: '已退出登录', icon: 'none' });
 .back-arrow { font-size: 28px; color: #0E1F3A; font-weight: 300; }
 .nav-title { font-size: 17px; font-weight: 600; color: #0E1F3A; }
 .settings-body { padding: 90px 16px 16px; }
-.group-title { font-size: 16px; font-weight: 700; color: #0E1F3A; margin-bottom: 10px; display: block; }
+.group-title { font-size: 18px; font-weight: 700; color: #0E1F3A; margin-bottom: 10px; display: block; }
 .menu-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; margin-bottom: 16px; }
 .menu-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; position: relative; &:active { background: rgba(91,159,232,0.08); } & + .menu-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px; height: 0.5px; background: rgba(91,159,232,0.14); } }
 .menu-icon { font-size: 22px; width: 22px; text-align: center; flex-shrink: 0; }

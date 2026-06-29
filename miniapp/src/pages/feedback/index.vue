@@ -14,7 +14,9 @@
       </view>
       <view class="form-section">
         <text class="form-label">反馈描述 <text class="form-hint">（选填）</text></text>
-        <textarea class="form-textarea" v-model="desc" maxlength="500" placeholder="请详细描述您遇到的问题或建议…" />
+        <view class="textarea-card">
+          <textarea class="form-textarea" v-model="desc" maxlength="500" placeholder="请详细描述您遇到的问题或建议…" />
+        </view>
         <text class="form-count">{{ desc.length }}/500</text>
       </view>
       <view class="form-section">
@@ -26,7 +28,9 @@
       </view>
       <view class="form-section">
         <text class="form-label">微信号 <text class="form-hint">（选填）</text></text>
-        <input class="form-input" v-model="wechat" maxlength="30" placeholder="方便我们联系您" />
+        <view class="input-card">
+          <input class="form-input" v-model="wechat" maxlength="30" placeholder="方便我们联系您" />
+        </view>
       </view>
       <view class="submit-btn" @click="submit">✈ 提交反馈</view>
     </scroll-view>
@@ -61,12 +65,14 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .form-section { margin-bottom: 18px; }
 .form-label { font-size: 14px; font-weight: 700; color: #0E1F3A; margin-bottom: 8px; display: block; }
 .form-hint { font-size: 12px; color: #8497B5; font-weight: 400; }
-.form-input { width: 100%; padding: 12px 14px; border-radius: 12px; background: #fff; font-size: 14px; color: #0E1F3A; box-sizing: border-box; border: 1px solid rgba(91,159,232,0.14); }
-.form-textarea { width: 100%; min-height: 100px; padding: 12px 14px; border-radius: 12px; background: #fff; font-size: 14px; color: #0E1F3A; resize: none; line-height: 1.6; box-sizing: border-box; border: 1px solid rgba(91,159,232,0.14); }
+.input-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; }
+.form-input { width: 100%; height: 44px; padding: 0 14px; background: none; font-size: 14px; color: #0E1F3A; box-sizing: border-box; border: none; outline: none; }
+.textarea-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; }
+.form-textarea { width: 100%; min-height: 100px; padding: 12px 14px; background: none; font-size: 14px; color: #0E1F3A; resize: none; line-height: 1.6; box-sizing: border-box; border: none; outline: none; }
 .form-count { text-align: right; font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
 .type-grid { display: flex; gap: 10px; }
 .type-card { flex: 1; text-align: center; padding: 10px 0; border-radius: 12px; border: 2px solid rgba(91,159,232,0.2); background: #FBFDFF; color: #445876; }
-.type-card.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7PC8; }
+.type-card.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7FC8; }
 .type-icon { font-size: 20px; display: block; margin-bottom: 4px; }
 .type-name { font-size: 13px; font-weight: 600; }
 .img-upload-area { width: 80px; height: 80px; border-radius: 12px; border: 2px dashed rgba(91,159,232,0.32); display: flex; flex-direction: column; align-items: center; justify-content: center; background: #FBFDFF; }

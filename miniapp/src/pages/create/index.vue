@@ -27,7 +27,10 @@
             <image :src="gameplays[selectedGameplay].img" mode="aspectFill" class="gp-selected-img" />
             <view class="gp-selected-info">
               <text class="gp-selected-name">{{ gameplays[selectedGameplay].name }}</text>
-              <text class="gp-selected-uses">🔥 {{ gameplays[selectedGameplay].uses }}人用过</text>
+              <view class="gp-selected-uses">
+                <text>🔥</text>
+                <text>{{ gameplays[selectedGameplay].uses }}人用过</text>
+              </view>
             </view>
             <view class="gp-close" @click.stop="clearGameplay">✕</view>
             <text class="gp-arrow">›</text>
@@ -188,6 +191,102 @@
         <text class="create-btn-text">开始创作</text>
       </view>
     </view>
+
+    <!-- ===== 玩法选择抽屉 ===== -->
+    <view v-if="showGameplaySheet" class="sheet-overlay" @click="showGameplaySheet = false" />
+    <view :class="['bottom-sheet', { show: showGameplaySheet }]">
+      <view class="sheet-handle" />
+      <view class="sheet-title">选择玩法模板</view>
+      <view class="sheet-grid">
+        <view class="sheet-grid-item sheet-grid-clear" @click="clearGameplay; showGameplaySheet = false">
+          <text class="sheet-clear-icon">✕</text>
+          <text class="sheet-clear-text">不使用</text>
+        </view>
+        <view
+          v-for="(g, i) in gameplays" :key="i"
+          :class="['sheet-grid-item', { active: selectedGameplay === i }]"
+          @click="selectGameplayItem(i)"
+        >
+          <image :src="g.img" mode="aspectFill" class="sheet-gp-img" />
+          <view class="sheet-gp-overlay" />
+          <view class="sheet-gp-info">
+            <text class="sheet-gp-name">{{ g.name }}</text>
+            <text class="sheet-gp-uses">🔥 {{ g.uses }}</text>
+          </view>
+          <view v-if="selectedGameplay === i" class="sheet-gp-check">✓</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ===== 模型选择抽屉 ===== -->
+    <view v-if="showModelSheet" class="sheet-overlay" @click="showModelSheet = false" />
+    <view :class="['bottom-sheet', { show: showModelSheet }]">
+      <view class="sheet-handle" />
+      <view class="sheet-title">
+        <text>选择模型</text>
+        <text class="sheet-subtitle">共 {{ models.length }} 款模型可选</text>
+      </view>
+      <scroll-view scroll-y class="sheet-scroll">
+        <view
+          v-for="(m, i) in models" :key="m.id"
+          :class="['model-sheet-card', { active: selectedModel === i }]"
+          @click="selectModelItem(i)"
+        >
+          <image :src="m.img" mode="aspectFill" class="model-sheet-img" />
+          <view class="model-sheet-info">
+            <view class="model-sheet-name-row">
+              <text class="model-sheet-name">{{ m.name }}</text>
+              <text v-if="m.badge" class="model-badge" :style="{ color: m.badgeColor, background: m.badgeColor + '1F' }">{{ m.badge }}</text>
+            </view>
+            <text class="model-sheet-desc">{{ m.desc }}</text>
+            <view class="model-sheet-tags">
+              <text v-for="t in m.tags" :key="t" class="model-tag">{{ t }}</text>
+            </view>
+          </view>
+          <view class="model-sheet-cost">
+            <text class="model-sheet-cost-num">{{ m.cost }}</text>
+            <text class="model-sheet-cost-label">积分起</text>
+          </view>
+          <text v-if="selectedModel === i" class="model-sheet-check">✓</text>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- ===== 全部风格抽屉 ===== -->
+    <view v-if="showStyleSheet" class="sheet-overlay" @click="showStyleSheet = false" />
+    <view :class="['bottom-sheet', { show: showStyleSheet }]">
+      <view class="sheet-handle" />
+      <view class="sheet-title">全部风格</view>
+      <view class="style-sheet-grid">
+        <view
+          v-for="s in styles" :key="s"
+          :class="['style-card', { selected: selectedStyle === s }]"
+          @click="selectStyleItem(s)"
+        >
+          <image :src="getStyleImg(s)" mode="aspectFill" class="style-img" />
+          <view class="style-overlay" />
+          <text class="style-label">{{ s }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ===== 全部尺寸抽屉 ===== -->
+    <view v-if="showRatioSheet" class="sheet-overlay" @click="showRatioSheet = false" />
+    <view :class="['bottom-sheet', { show: showRatioSheet }]">
+      <view class="sheet-handle" />
+      <view class="sheet-title">全部尺寸</view>
+      <view class="ratio-sheet-grid">
+        <view
+          v-for="(r, i) in allRatios" :key="r.label"
+          :class="['ratio-card', { active: selectedRatio === i }]"
+          @click="selectRatioItem(i)"
+        >
+          <view class="ratio-shape" :style="{ width: ratioShape(r.label).w + 'px', height: ratioShape(r.label).h + 'px', background: selectedRatio === i ? '#5B9FE8' : '#8497B5' }" />
+          <text :class="['ratio-name', { selected: selectedRatio === i }]">{{ r.label }}</text>
+          <text class="ratio-size-text">{{ r.size }}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -227,6 +326,13 @@ const qualities = [
 const ratios = [
   { label: '1:1' }, { label: '3:4' }, { label: '4:3' }, { label: '16:9' }, { label: '9:16' },
 ];
+const allRatios = [
+  { label: '1:1', size: '1024×1024' },
+  { label: '3:4', size: '768×1024' },
+  { label: '4:3', size: '1024×768' },
+  { label: '16:9', size: '1024×576' },
+  { label: '9:16', size: '576×1024' },
+];
 const counts = [1, 2, 3, 4];
 
 // 状态
@@ -239,6 +345,10 @@ const selectedCount = ref(0);
 const prompt = ref('');
 const promptImg = ref('');
 const scrollH = ref(600);
+const showGameplaySheet = ref(false);
+const showModelSheet = ref(false);
+const showStyleSheet = ref(false);
+const showRatioSheet = ref(false);
 
 const currentModel = computed(() => models[selectedModel.value]);
 const isMoreStyleSelected = computed(() => selectedStyle.value ? styles.indexOf(selectedStyle.value) > 6 : false);
@@ -270,10 +380,29 @@ const uploadImg = () => {
   uni.showToast({ title: '图片已上传', icon: 'none' });
 };
 const goReversePrompt = () => uni.navigateTo({ url: '/pages/reverse-prompt/index' });
-const openModelDrawer = () => uni.showToast({ title: '模型选择抽屉开发中', icon: 'none' });
-const openGameplayDrawer = () => uni.showToast({ title: '玩法选择抽屉开发中', icon: 'none' });
-const openAllStyles = () => uni.showToast({ title: '全部风格弹窗开发中', icon: 'none' });
-const openRatioSheet = () => uni.showToast({ title: '全部尺寸弹窗开发中', icon: 'none' });
+const openModelDrawer = () => { showModelSheet.value = true; };
+const openGameplayDrawer = () => { showGameplaySheet.value = true; };
+const openAllStyles = () => { showStyleSheet.value = true; };
+const openRatioSheet = () => { showRatioSheet.value = true; };
+const selectGameplayItem = (i: number) => {
+  selectedGameplay.value = i;
+  showGameplaySheet.value = false;
+  uni.showToast({ title: `已套用「${gameplays[i].name}」模板`, icon: 'none' });
+};
+const selectModelItem = (i: number) => {
+  selectedModel.value = i;
+  showModelSheet.value = false;
+  updateCost();
+  uni.showToast({ title: `已选择${models[i].name}`, icon: 'none' });
+};
+const selectStyleItem = (s: string) => {
+  selectedStyle.value = s;
+  showStyleSheet.value = false;
+};
+const selectRatioItem = (i: number) => {
+  selectedRatio.value = i;
+  showRatioSheet.value = false;
+};
 const startCreate = () => uni.showToast({ title: '开始创作！消耗' + totalCost.value + '积分', icon: 'none' });
 
 onMounted(() => {
@@ -290,6 +419,9 @@ onMounted(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 // 毛玻璃
@@ -348,6 +480,7 @@ onMounted(() => {
 }
 .gp-placeholder {
   display: flex; align-items: center; gap: 10px;
+  width: 100%;
 }
 .gp-placeholder-icon {
   width: 44px; height: 44px; border-radius: 10px;
@@ -355,13 +488,15 @@ onMounted(() => {
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; color: #5B9FE8; flex-shrink: 0;
 }
+.gp-placeholder-info { flex: 1; }
 .gp-placeholder-title { font-size: 14px; font-weight: 600; color: #445876; display: block; }
 .gp-placeholder-desc { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; }
 .gp-arrow { font-size: 20px; color: #8497B5; flex-shrink: 0; }
 .gp-selected-row { display: flex; align-items: center; gap: 10px; }
 .gp-selected-img { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
+.gp-selected-info { flex: 1; min-width: 0; }
 .gp-selected-name { font-size: 14px; font-weight: 700; color: #0E1F3A; display: block; }
-.gp-selected-uses { font-size: 11px; color: #8497B5; margin-top: 2px; display: block; }
+.gp-selected-uses { font-size: 11px; color: #8497B5; margin-top: 2px; display: block; display: flex; align-items: center; gap: 3px; }
 .gp-close {
   width: 28px; height: 28px; border-radius: 50%; background: #E1EBF8;
   display: flex; align-items: center; justify-content: center;
@@ -386,7 +521,7 @@ onMounted(() => {
 .model-tags { display: flex; gap: 4px; margin-top: 4px; }
 .model-tag {
   font-size: 10px; padding: 2px 6px; border-radius: 999px;
-  background: rgba(91, 159, 232, 0.12); color: #3B7PC8;
+  background: rgba(91, 159, 232, 0.12); color: #3B7FC8;
 }
 .model-cost { text-align: right; flex-shrink: 0; }
 .model-cost-num { font-size: 18px; font-weight: 700; color: #5B9FE8; display: block; }
@@ -401,7 +536,13 @@ onMounted(() => {
   border-radius: 12px; padding: 12px; padding-bottom: 28px;
   border: 1.5px solid rgba(91, 159, 232, 0.14);
   background: #FBFDFF; color: #0E1F3A; resize: none;
-  box-sizing: border-box;
+  box-sizing: border-box; outline: none;
+  transition: all 0.3s;
+  &:focus {
+    border-color: #5B9FE8;
+    box-shadow: 0 0 0 3px rgba(91, 159, 232, 0.12);
+    background: #fff;
+  }
 }
 .prompt-count {
   position: absolute; right: 12px; bottom: 10px;
@@ -477,7 +618,7 @@ onMounted(() => {
   .selected &, .active & { opacity: 1; }
 }
 .ratio-name { font-size: 11px; color: #8497B5; font-weight: 500; }
-.ratio-name.selected { color: #3B7PC8; font-weight: 600; }
+.ratio-name.selected { color: #3B7FC8; font-weight: 600; }
 
 // 生成结果
 .result-placeholder {
@@ -512,4 +653,106 @@ onMounted(() => {
 }
 .create-btn-icon { font-size: 20px; color: #fff; }
 .create-btn-text { font-size: 15px; font-weight: 600; color: #fff; }
+
+// ===== 底部抽屉通用 =====
+.sheet-overlay {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(0, 0, 0, 0.4);
+  animation: sheetFadeIn 0.3s;
+}
+@keyframes sheetFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.bottom-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: #fff; border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 30px rgba(60, 120, 200, 0.12);
+  transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 75vh; overflow-y: auto; overflow-x: hidden;
+  padding-bottom: 30px; box-sizing: border-box;
+  &.show { transform: translateY(0); }
+}
+.sheet-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(91, 159, 232, 0.32); margin: 10px auto 4px;
+}
+.sheet-title {
+  font-size: 16px; font-weight: 700; color: #0E1F3A;
+  padding: 10px 16px 12px; display: flex; align-items: baseline; gap: 8px;
+}
+.sheet-subtitle { font-size: 12px; font-weight: 400; color: #8497B5; }
+.sheet-scroll { max-height: 50vh; padding: 0 16px; box-sizing: border-box; width: 100%; }
+
+// ===== 玩法抽屉 =====
+.sheet-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding: 0 16px;
+}
+.sheet-grid-item {
+  position: relative; border-radius: 12px; overflow: hidden;
+  aspect-ratio: 1; border: 2px solid transparent;
+  &.active { border-color: #5B9FE8; }
+}
+.sheet-grid-clear {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1.5px dashed rgba(91, 159, 232, 0.32); background: #E1EBF8;
+}
+.sheet-clear-icon { font-size: 22px; color: #8497B5; }
+.sheet-clear-text { font-size: 11px; color: #8497B5; margin-top: 2px; }
+.sheet-gp-img { width: 100%; height: 100%; position: absolute; inset: 0; }
+.sheet-gp-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.55) 0%, transparent 60%); pointer-events: none;
+}
+.sheet-gp-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 8px; }
+.sheet-gp-name { font-size: 12px; font-weight: 600; color: #fff; display: block; }
+.sheet-gp-uses { font-size: 10px; color: rgba(255,255,255,0.7); }
+.sheet-gp-check {
+  position: absolute; top: 6px; right: 6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #5B9FE8; color: #fff; font-size: 12px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+
+// ===== 模型抽屉 =====
+.model-sheet-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; margin-bottom: 10px;
+  background: #fff; border-radius: 16px;
+  border: 2px solid rgba(91, 159, 232, 0.14);
+  transition: all 0.2s;
+  box-sizing: border-box;
+  overflow: hidden;
+  &.active {
+    border-color: #5B9FE8;
+    background: linear-gradient(180deg, rgba(91,159,232,0.06) 0%, transparent 100%);
+  }
+}
+.model-sheet-img { width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0; }
+.model-sheet-info { flex: 1; min-width: 0; }
+.model-sheet-name-row { display: flex; align-items: baseline; gap: 4px; }
+.model-sheet-name { font-size: 15px; font-weight: 700; color: #0E1F3A; }
+.model-sheet-desc { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; }
+.model-sheet-tags { display: flex; gap: 4px; margin-top: 4px; }
+.model-sheet-cost { text-align: right; flex-shrink: 0; display: flex; align-items: center; gap: 2px; }
+.model-sheet-cost-num { font-size: 16px; font-weight: 700; color: #5B9FE8; }
+.model-sheet-cost-label { font-size: 10px; color: #8497B5; }
+.model-sheet-check {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #5B9FE8; color: #fff; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+// ===== 风格抽屉 =====
+.style-sheet-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  padding: 0 16px;
+}
+
+// ===== 尺寸抽屉 =====
+.ratio-sheet-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  padding: 0 16px;
+}
+.ratio-size-text { font-size: 10px; color: #8497B5; margin-top: 2px; }
 </style>

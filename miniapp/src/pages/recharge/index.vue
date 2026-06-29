@@ -116,7 +116,7 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .tier-credits { font-size: 12px; color: #8497B5; display: block; margin-top: 4px; }
 .tier-bonus { font-size: 11px; font-weight: 600; color: #6FD4B0; display: block; margin-top: 2px; }
 
-.custom-btn { text-align: center; padding: 10px; background: rgba(91,159,232,0.12); color: #3B7PC8; font-size: 13px; font-weight: 600; border-radius: 12px; margin-bottom: 16px; }
+.custom-btn { text-align: center; padding: 10px; background: rgba(91,159,232,0.12); color: #3B7FC8; font-size: 13px; font-weight: 600; border-radius: 12px; margin-bottom: 16px; }
 
 .sub-tabs { display: flex; gap: 4px; padding: 4px; background: #E1EBF8; border-radius: 12px; margin-bottom: 12px; }
 .sub-tab { flex: 1; padding: 7px 0; font-size: 13px; font-weight: 600; color: #445876; text-align: center; border-radius: 9px; &.active { background: #fff; color: #5B9FE8; box-shadow: 0 2px 8px rgba(60,120,200,0.06); } }

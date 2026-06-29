@@ -93,6 +93,7 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .plan-badge { position: absolute; top: 0; right: 0; background: #5B9FE8; color: #fff; font-size: 9px; font-weight: 700; padding: 3px 10px; border-radius: 0 0 0 10px; }
 .plan-left { display: flex; align-items: center; gap: 12px; }
 .plan-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.plan-name-row { display: flex; align-items: center; gap: 6px; }
 .plan-name { font-size: 15px; font-weight: 700; color: #0E1F3A; }
 .plan-save { font-size: 9px; padding: 1px 6px; background: rgba(111,212,176,0.16); color: #6FD4B0; border-radius: 999px; margin-left: 6px; }
 .plan-desc { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; }
