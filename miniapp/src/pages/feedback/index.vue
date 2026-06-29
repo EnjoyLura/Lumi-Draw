@@ -14,8 +14,8 @@
       </view>
       <view class="form-section">
         <text class="form-label">反馈描述 <text class="form-hint">（选填）</text></text>
-        <view class="textarea-card">
-          <textarea class="form-textarea" v-model="desc" maxlength="500" placeholder="请详细描述您遇到的问题或建议…" />
+        <view :class="['textarea-card', { focused: descFocused }]">
+          <textarea class="form-textarea" v-model="desc" maxlength="500" placeholder="请详细描述您遇到的问题或建议…" @focus="descFocused = true" @blur="descFocused = false" />
         </view>
         <text class="form-count">{{ desc.length }}/500</text>
       </view>
@@ -28,8 +28,8 @@
       </view>
       <view class="form-section">
         <text class="form-label">微信号 <text class="form-hint">（选填）</text></text>
-        <view class="input-card">
-          <input class="form-input" v-model="wechat" maxlength="30" placeholder="方便我们联系您" />
+        <view :class="['input-card', { focused: wechatFocused }]">
+          <input class="form-input" v-model="wechat" maxlength="30" placeholder="方便我们联系您" @focus="wechatFocused = true" @blur="wechatFocused = false" />
         </view>
       </view>
       <view class="submit-btn" @click="submit">✈ 提交反馈</view>
@@ -43,6 +43,8 @@ const scrollH = ref(700);
 const selectedType = ref('bug');
 const desc = ref('');
 const wechat = ref('');
+const descFocused = ref(false);
+const wechatFocused = ref(false);
 const types = [
   { key: 'bug', name: 'Bug反馈', icon: '🐛' },
   { key: 'experience', name: '体验反馈', icon: '😊' },
@@ -65,9 +67,9 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .form-section { margin-bottom: 18px; }
 .form-label { font-size: 14px; font-weight: 700; color: #0E1F3A; margin-bottom: 8px; display: block; }
 .form-hint { font-size: 12px; color: #8497B5; font-weight: 400; }
-.input-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; }
+.input-card { background: #fff; border-radius: 20px; border: 1.5px solid rgba(91,159,232,0.14); overflow: hidden; transition: all 0.3s; &.focused { border-color: #5B9FE8; box-shadow: 0 0 0 3px rgba(91,159,232,0.12); } }
 .form-input { width: 100%; height: 44px; padding: 0 14px; background: none; font-size: 14px; color: #0E1F3A; box-sizing: border-box; border: none; outline: none; }
-.textarea-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; }
+.textarea-card { background: #fff; border-radius: 20px; border: 1.5px solid rgba(91,159,232,0.14); overflow: hidden; transition: all 0.3s; &.focused { border-color: #5B9FE8; box-shadow: 0 0 0 3px rgba(91,159,232,0.12); } }
 .form-textarea { width: 100%; min-height: 100px; padding: 12px 14px; background: none; font-size: 14px; color: #0E1F3A; resize: none; line-height: 1.6; box-sizing: border-box; border: none; outline: none; }
 .form-count { text-align: right; font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
 .type-grid { display: flex; gap: 10px; }

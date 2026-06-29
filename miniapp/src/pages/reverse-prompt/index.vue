@@ -50,8 +50,9 @@ const startAnalyze = () => {
 };
 const copyResult = () => uni.showToast({ title: '已复制到剪贴板', icon: 'none' });
 const useInCreate = () => {
+  uni.$emit('applyPrompt', resultText.value);
+  uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: '已带入创作页', icon: 'none' });
-  setTimeout(() => uni.switchTab({ url: '/pages/create/index' }), 800);
 };
 const goBack = () => uni.navigateBack();
 onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });

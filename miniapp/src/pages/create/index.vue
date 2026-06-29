@@ -67,10 +67,12 @@
         <view style="padding:0 16px;">
           <view class="prompt-box">
             <textarea
-              class="prompt-input"
+              :class="['prompt-input', { focused: promptFocused }]"
               v-model="prompt"
               placeholder="描述你想要生成图片，越详细效果越好..."
               :maxlength="500"
+              @focus="promptFocused = true"
+              @blur="promptFocused = false"
             />
             <text class="prompt-count">{{ prompt.length }}/500</text>
           </view>
@@ -81,7 +83,7 @@
             <view v-if="prompt.length > 0" class="prompt-action-btn clear" @click="clearPrompt">✕ 清除</view>
           </view>
           <view v-if="promptImg" class="prompt-img-preview">
-            <image :src="promptImg" mode="aspectFill" class="prompt-img-thumb" />
+            <image :src="promptImg" mode="aspectFill" class="prompt-img-thumb" @click="previewPromptImg" />
             <view class="prompt-img-close" @click="promptImg = ''">✕</view>
           </view>
         </view>
@@ -170,7 +172,20 @@
       <!-- 生成结果 -->
       <view class="section" style="padding:0 16px; margin-bottom:14px;">
         <text class="section-label">生成结果</text>
-        <view class="result-placeholder">
+        <!-- 生成中 -->
+        <view v-if="generating" class="gen-loading">
+          <view class="gen-spinner" />
+          <text class="gen-text">AI 正在生成中...</text>
+          <view class="gen-progress"><view class="gen-progress-bar" :style="{ width: genProgress + '%' }" /></view>
+        </view>
+        <!-- 生成完成 -->
+        <view v-else-if="genResults.length > 0" class="gen-results">
+          <view v-for="(r, i) in genResults" :key="i" class="gen-result-img" @click="previewGenImg(r)">
+            <image :src="r" mode="aspectFill" class="gen-img" />
+          </view>
+        </view>
+        <!-- 占位 -->
+        <view v-else class="result-placeholder">
           <text class="result-placeholder-icon">🖼</text>
           <text class="result-placeholder-text">点击「开始创作」生成作品</text>
         </view>
@@ -291,7 +306,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 // 模型数据
 const models = [
@@ -344,11 +359,15 @@ const selectedRatio = ref(0);
 const selectedCount = ref(0);
 const prompt = ref('');
 const promptImg = ref('');
+const promptFocused = ref(false);
 const scrollH = ref(600);
 const showGameplaySheet = ref(false);
 const showModelSheet = ref(false);
 const showStyleSheet = ref(false);
 const showRatioSheet = ref(false);
+const generating = ref(false);
+const genProgress = ref(0);
+const genResults = ref<string[]>([]);
 
 const currentModel = computed(() => models[selectedModel.value]);
 const isMoreStyleSelected = computed(() => selectedStyle.value ? styles.indexOf(selectedStyle.value) > 6 : false);
@@ -379,6 +398,9 @@ const uploadImg = () => {
   promptImg.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
   uni.showToast({ title: '图片已上传', icon: 'none' });
 };
+const previewPromptImg = () => {
+  if (promptImg.value) uni.previewImage({ urls: [promptImg.value], current: promptImg.value });
+};
 const goReversePrompt = () => uni.navigateTo({ url: '/pages/reverse-prompt/index' });
 const openModelDrawer = () => { showModelSheet.value = true; };
 const openGameplayDrawer = () => { showGameplaySheet.value = true; };
@@ -403,12 +425,57 @@ const selectRatioItem = (i: number) => {
   selectedRatio.value = i;
   showRatioSheet.value = false;
 };
-const startCreate = () => uni.showToast({ title: '开始创作！消耗' + totalCost.value + '积分', icon: 'none' });
+const previewGenImg = (url: string) => {
+  uni.previewImage({ urls: genResults.value, current: url });
+};
+const startCreate = () => {
+  if (!prompt.value.trim()) {
+    uni.showToast({ title: '请先输入提示词', icon: 'none' });
+    return;
+  }
+  generating.value = true;
+  genProgress.value = 0;
+  genResults.value = [];
+  const count = counts[selectedCount.value];
+  // 模拟进度
+  const timer = setInterval(() => {
+    genProgress.value += Math.random() * 15 + 5;
+    if (genProgress.value >= 100) {
+      genProgress.value = 100;
+      clearInterval(timer);
+      setTimeout(() => {
+        generating.value = false;
+        // 生成 mock 结果图
+        const results: string[] = [];
+        for (let i = 0; i < count; i++) {
+          results.push(`https://picsum.photos/seed/gen${Date.now()}${i}/400/560`);
+        }
+        genResults.value = results;
+        uni.showToast({ title: `生成完成！消耗${totalCost.value}积分`, icon: 'none' });
+      }, 300);
+    }
+  }, 200);
+};
+
+const onApplyGameplay = (idx: number) => {
+  if (idx >= 0 && idx < gameplays.length) {
+    selectedGameplay.value = idx;
+  }
+};
+const onApplyPrompt = (text: string) => {
+  if (text) prompt.value = text;
+};
 
 onMounted(() => {
   const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 80; // 减去tabbar
+  scrollH.value = sys.windowHeight - 80;
   updateCost();
+  uni.$on('applyGameplay', onApplyGameplay);
+  uni.$on('applyPrompt', onApplyPrompt);
+});
+onUnmounted(() => {
+  uni.$off('applyGameplay', onApplyGameplay);
+  uni.$off('applyPrompt', onApplyPrompt);
 });
 </script>
 
@@ -516,6 +583,7 @@ onMounted(() => {
 .model-badge {
   font-size: 8px; font-weight: 600; padding: 1px 4px;
   border-radius: 3px; white-space: nowrap; line-height: 1;
+  position: relative; top: -6px; margin-left: 2px;
 }
 .model-desc { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; }
 .model-tags { display: flex; gap: 4px; margin-top: 4px; }
@@ -523,8 +591,8 @@ onMounted(() => {
   font-size: 10px; padding: 2px 6px; border-radius: 999px;
   background: rgba(91, 159, 232, 0.12); color: #3B7FC8;
 }
-.model-cost { text-align: right; flex-shrink: 0; }
-.model-cost-num { font-size: 18px; font-weight: 700; color: #5B9FE8; display: block; }
+.model-cost { display: flex; align-items: baseline; gap: 2px; flex-shrink: 0; }
+.model-cost-num { font-size: 18px; font-weight: 700; color: #5B9FE8; }
 .model-cost-label { font-size: 10px; color: #8497B5; }
 
 // 提示词
@@ -538,7 +606,7 @@ onMounted(() => {
   background: #FBFDFF; color: #0E1F3A; resize: none;
   box-sizing: border-box; outline: none;
   transition: all 0.3s;
-  &:focus {
+  &.focused, &:focus {
     border-color: #5B9FE8;
     box-shadow: 0 0 0 3px rgba(91, 159, 232, 0.12);
     background: #fff;
@@ -627,6 +695,24 @@ onMounted(() => {
 .result-placeholder-icon { font-size: 32px; display: block; margin-bottom: 8px; color: rgba(91, 159, 232, 0.3); }
 .result-placeholder-text { font-size: 13px; color: #8497B5; }
 
+// 生成中动画
+.gen-loading { display: flex; flex-direction: column; align-items: center; padding: 30px 0; gap: 12px; }
+.gen-spinner {
+  width: 28px; height: 28px;
+  border: 2.5px solid rgba(91, 159, 232, 0.15);
+  border-top-color: #5B9FE8; border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.gen-text { font-size: 13px; color: #8497B5; }
+.gen-progress { width: 60%; height: 6px; background: #E1EBF8; border-radius: 999px; overflow: hidden; }
+.gen-progress-bar { height: 100%; background: linear-gradient(135deg, #5B9FE8 0%, #7BC4F0 45%, #6FD4B0 100%); border-radius: 999px; transition: width 0.3s; }
+
+// 生成结果图
+.gen-results { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.gen-result-img { border-radius: 14px; overflow: hidden; cursor: pointer; &:active { transform: scale(0.97); } }
+.gen-img { width: 100%; aspect-ratio: 3/4; display: block; }
+
 // 底部创作栏
 .create-bottom {
   padding: 12px 16px 10px;
@@ -666,8 +752,8 @@ onMounted(() => {
   background: #fff; border-radius: 24px 24px 0 0;
   box-shadow: 0 -8px 30px rgba(60, 120, 200, 0.12);
   transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  max-height: 75vh; overflow-y: auto; overflow-x: hidden;
-  padding-bottom: 30px; box-sizing: border-box;
+  max-height: 80vh; overflow-y: auto; overflow-x: hidden;
+  padding-bottom: 80px; box-sizing: border-box;
   &.show { transform: translateY(0); }
 }
 .sheet-handle {

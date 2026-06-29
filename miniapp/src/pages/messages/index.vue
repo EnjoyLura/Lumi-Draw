@@ -3,15 +3,19 @@
     <view class="glass-header" />
     <view class="sub-nav"><view class="nav-back" @click="goBack"><text class="back-arrow">‹</text></view><text class="nav-title">消息</text><view style="width:40px;" /></view>
     <scroll-view scroll-y class="page-scroll" :style="{ height: scrollH + 'px' }">
-      <view v-for="cat in categories" :key="cat.key" class="msg-category" @click="goDetail(cat.key)">
-        <view class="msg-cat-icon" :style="{ background: cat.bgColor }"><text style="font-size:20px;">{{ cat.icon }}</text></view>
-        <view class="msg-cat-info">
-          <text class="msg-cat-name">{{ cat.name }}</text>
-          <text class="msg-cat-preview">{{ cat.preview }}</text>
+      <view v-for="cat in categories" :key="cat.key" class="msg-card" @click="goDetail(cat.key)">
+        <view class="msg-icon" :style="{ background: cat.gradient }">
+          <text class="msg-icon-text">{{ cat.icon }}</text>
         </view>
-        <view class="msg-cat-right">
-          <text class="msg-cat-time">{{ cat.time }}</text>
-          <view v-if="cat.unread > 0" class="msg-cat-badge">{{ cat.unread }}</view>
+        <view class="msg-content">
+          <view class="msg-top-row">
+            <text class="msg-title">{{ cat.title }}</text>
+            <text class="msg-time">{{ cat.time }}</text>
+          </view>
+          <view class="msg-bottom-row">
+            <text class="msg-preview">{{ cat.preview }}</text>
+            <view v-if="cat.unread > 0" class="msg-badge">{{ cat.unread }}</view>
+          </view>
         </view>
       </view>
     </scroll-view>
@@ -22,12 +26,12 @@
 import { ref, onMounted } from 'vue';
 const scrollH = ref(700);
 const categories = [
-  { key: 'like', name: '点赞通知', icon: '❤', bgColor: 'rgba(255,168,184,0.2)', preview: '月光如水 赞了你的作品「霓虹都市」', time: '2分钟前', unread: 3 },
-  { key: 'favorite', name: '收藏通知', icon: '⭐', bgColor: 'rgba(255,224,138,0.24)', preview: '风之绘师 收藏了你的作品「古风少女」', time: '30分钟前', unread: 2 },
-  { key: 'follow', name: '新增关注', icon: '👤', bgColor: 'rgba(255,181,154,0.2)', preview: '星辰大海 关注了你', time: '5小时前', unread: 1 },
-  { key: 'remake', name: '同款创作', icon: '↻', bgColor: 'rgba(111,212,176,0.16)', preview: '月光如水 使用了你的提示词', time: '3小时前', unread: 1 },
-  { key: 'system', name: '系统通知', icon: '🔔', bgColor: 'rgba(91,159,232,0.12)', preview: '每日签到 +10 积分已到账', time: '昨天', unread: 0 },
-  { key: 'service', name: '客服消息', icon: '💬', bgColor: 'rgba(184,165,227,0.2)', preview: '感谢使用Lumi-Draw', time: '3天前', unread: 0 },
+  { key: 'like', title: '点赞', icon: '❤', gradient: 'linear-gradient(135deg,#FFB3C1,#FF8FA3)', preview: '月光如水 赞了你的作品「霓虹都市」', time: '2分钟前', unread: 3 },
+  { key: 'favorite', title: '收藏', icon: '⭐', gradient: 'linear-gradient(135deg,#A8D8F0,#7CC4E8)', preview: '风之绘师 收藏了你的作品「古风少女」', time: '30分钟前', unread: 2 },
+  { key: 'remake', title: '同款生成', icon: '✦', gradient: 'linear-gradient(135deg,#A3E4CC,#7DD4B0)', preview: '月光如水 使用了你的提示词', time: '3小时前', unread: 1 },
+  { key: 'follow', title: '新粉丝', icon: '👤', gradient: 'linear-gradient(135deg,#FFD4A8,#FFC088)', preview: '星辰大海 关注了你', time: '5小时前', unread: 1 },
+  { key: 'system', title: '系统通知', icon: '🔔', gradient: 'linear-gradient(135deg,#B4C8F5,#96B0E8)', preview: '每日签到 +10 积分已到账', time: '昨天', unread: 0 },
+  { key: 'service', title: '官方客服', icon: '💬', gradient: 'linear-gradient(135deg,#C8B5E8,#B09DD8)', preview: '感谢使用Lumi-Draw', time: '3天前', unread: 0 },
 ];
 const goDetail = (key: string) => uni.navigateTo({ url: `/pages/msg-detail/index?type=${key}` });
 const goBack = () => uni.navigateBack();
@@ -41,13 +45,31 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .nav-back { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
 .back-arrow { font-size: 28px; color: #0E1F3A; font-weight: 300; }
 .nav-title { font-size: 17px; font-weight: 600; color: #0E1F3A; }
-.page-scroll { padding-top: 90px; }
-.msg-category { display: flex; align-items: center; gap: 12px; padding: 14px 16px; position: relative; &:active { background: rgba(91,159,232,0.05); } & + .msg-category::before { content: ''; position: absolute; top: 0; left: 60px; right: 16px; height: 0.5px; background: rgba(91,159,232,0.08); } }
-.msg-cat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.msg-cat-info { flex: 1; min-width: 0; }
-.msg-cat-name { font-size: 15px; font-weight: 600; color: #0E1F3A; display: block; }
-.msg-cat-preview { font-size: 12px; color: #8497B5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; margin-top: 2px; }
-.msg-cat-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-.msg-cat-time { font-size: 11px; color: #8497B5; }
-.msg-cat-badge { min-width: 18px; height: 18px; padding: 0 5px; background: #FFA8B8; color: #fff; font-size: 10px; font-weight: 700; border-radius: 999px; display: flex; align-items: center; justify-content: center; }
+.page-scroll { padding-top: 90px; padding-left: 16px; padding-right: 16px; }
+
+.msg-card {
+  background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14);
+  padding: 14px 16px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 14px;
+  transition: transform 0.2s;
+  &:active { transform: scale(0.98); }
+}
+.msg-icon {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.msg-icon-text { font-size: 22px; }
+.msg-content { flex: 1; min-width: 0; }
+.msg-top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.msg-title { font-size: 15px; font-weight: 700; color: #0E1F3A; }
+.msg-time { font-size: 12px; color: #8497B5; flex-shrink: 0; }
+.msg-bottom-row { display: flex; align-items: center; gap: 8px; }
+.msg-preview { flex: 1; font-size: 13px; color: #445876; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-badge {
+  min-width: 18px; height: 18px; border-radius: 9px;
+  background: #FF4D6D; color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 5px; flex-shrink: 0;
+}
 </style>

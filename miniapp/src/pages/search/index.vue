@@ -25,7 +25,7 @@
           <text class="section-more" @click="clearHistory">清空</text>
         </view>
         <view class="history-tags">
-          <view v-for="h in history" :key="h" class="history-tag" @click="keyword = h; doSearch()">{{ h }}</view>
+          <view v-for="h in history" :key="h" class="history-tag" @click="keyword = h">{{ h }}</view>
         </view>
       </view>
       <view class="section">
@@ -33,8 +33,8 @@
           <text class="section-title">🔥 热门搜索</text>
         </view>
         <view class="hot-list">
-          <view v-for="(h, i) in hotSearches" :key="h" class="hot-item" @click="keyword = h; doSearch()">
-            <text class="hot-rank" :style="{ color: i < 3 ? '#FFB59A' : '#8497B5' }">{{ i + 1 }}</text>
+          <view v-for="(h, i) in hotSearches" :key="h" class="hot-item" @click="keyword = h">
+            <text class="hot-rank" :style="{ color: hotColors[i] || '#8497B5' }">{{ i + 1 }}</text>
             <text class="hot-keyword">{{ h }}</text>
           </view>
         </view>
@@ -45,18 +45,42 @@
     <view v-else class="result-area">
       <view class="waterfall-wrap">
         <view class="waterfall">
-          <view v-for="w in leftCol" :key="w.id" class="wf-item">
+          <view v-for="w in leftCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
             <view class="wf-card">
-              <image :src="w.img" mode="widthFix" class="wf-img" />
-              <view class="wf-info"><text class="wf-title">{{ w.title }}</text></view>
+              <view class="wf-img-wrap"><image :src="w.img" mode="widthFix" class="wf-img" /></view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar" :style="{ background: w.color }"><text class="wf-avatar-text">{{ w.avatar }}</text></view>
+                    <text class="wf-author-name">{{ w.author }}</text>
+                  </view>
+                  <view class="wf-like" @click.stop="w.liked = !w.liked; w.likes += w.liked ? 1 : -1">
+                    <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
         <view class="waterfall">
-          <view v-for="w in rightCol" :key="w.id" class="wf-item">
+          <view v-for="w in rightCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
             <view class="wf-card">
-              <image :src="w.img" mode="widthFix" class="wf-img" />
-              <view class="wf-info"><text class="wf-title">{{ w.title }}</text></view>
+              <view class="wf-img-wrap"><image :src="w.img" mode="widthFix" class="wf-img" /></view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar" :style="{ background: w.color }"><text class="wf-avatar-text">{{ w.avatar }}</text></view>
+                    <text class="wf-author-name">{{ w.author }}</text>
+                  </view>
+                  <view class="wf-like" @click.stop="w.liked = !w.liked; w.likes += w.liked ? 1 : -1">
+                    <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
+                    <text class="wf-like-num" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.likes }}</text>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -66,19 +90,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, reactive, computed } from 'vue';
 
 const keyword = ref('');
 const hasSearched = ref(false);
 const history = ref(['梦幻城堡', '猫咪水彩', '日落风景']);
 const hotSearches = ['赛博朋克', '古风少女', '证件照', '宠物头像', '二次元', '国风山水', 'Logo设计', '表情包'];
+const hotColors: Record<number, string> = { 0: '#E03050', 1: '#E87040', 2: '#F0A060' };
 
-const mockResults = [
-  { id: 1, img: 'https://picsum.photos/seed/s1/300/420', title: '霓虹都市' },
-  { id: 2, img: 'https://picsum.photos/seed/s2/300/225', title: '山水之间' },
-  { id: 3, img: 'https://picsum.photos/seed/s3/300/450', title: '少女与猫' },
-  { id: 4, img: 'https://picsum.photos/seed/s4/300/300', title: '抽象梦境' },
-];
+const mockResults = reactive([
+  { id: 1, img: 'https://picsum.photos/seed/s1/300/420', title: '霓虹都市', author: '星辰大海', avatar: '星', color: '#6FD4B0', likes: 328, liked: false },
+  { id: 2, img: 'https://picsum.photos/seed/s2/300/225', title: '山水之间', author: '月光如水', avatar: '月', color: '#FFB59A', likes: 512, liked: false },
+  { id: 3, img: 'https://picsum.photos/seed/s3/300/450', title: '少女与猫', author: '云端造梦师', avatar: '梦', color: '#5B9FE8', likes: 680, liked: false },
+  { id: 4, img: 'https://picsum.photos/seed/s4/300/300', title: '抽象梦境', author: '光影魔术', avatar: '光', color: '#FFE08A', likes: 234, liked: false },
+]);
 
 const leftCol = computed(() => mockResults.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => mockResults.filter((_, i) => i % 2 === 1));
@@ -92,6 +117,7 @@ const doSearch = () => {
   hasSearched.value = true;
 };
 const clearHistory = () => { history.value = []; };
+const goWorkDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
 const goBack = () => uni.navigateBack();
 </script>
 
@@ -106,7 +132,7 @@ const goBack = () => uni.navigateBack();
 .search-bar { display: flex; gap: 10px; padding: 12px 16px; padding-top: 86px; }
 .search-input-wrap { flex: 1; position: relative; display: flex; align-items: center; }
 .search-icon { position: absolute; left: 12px; font-size: 16px; color: #8497B5; z-index: 1; }
-.search-input { width: 100%; padding: 10px 14px; padding-left: 38px; border-radius: 12px; border: 1.5px solid rgba(91,159,232,0.14); background: #FBFDFF; font-size: 14px; color: #0E1F3A; }
+.search-input { width: 100%; height: 40px; padding: 0 14px; padding-left: 38px; border-radius: 12px; border: 1.5px solid rgba(91,159,232,0.14); background: #FBFDFF; font-size: 14px; color: #0E1F3A; }
 .search-btn { padding: 10px 16px; color: #5B9FE8; font-weight: 600; font-size: 14px; display: flex; align-items: center; }
 
 .section { padding: 0 16px; margin-bottom: 18px; }
@@ -115,7 +141,7 @@ const goBack = () => uni.navigateBack();
 .section-more { font-size: 13px; color: #8497B5; }
 
 .history-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.history-tag { padding: 6px 14px; font-size: 13px; background: #E1EBF8; color: #445876; border-radius: 999px; }
+.history-tag { padding: 6px 14px; font-size: 13px; background: transparent; color: #445876; border-radius: 999px; border: 1px solid rgba(91,159,232,0.32); }
 
 .hot-list { display: flex; flex-direction: column; }
 .hot-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 0.5px solid rgba(91,159,232,0.08); &:active { background: rgba(91,159,232,0.05); } }
@@ -125,8 +151,20 @@ const goBack = () => uni.navigateBack();
 .result-area { padding: 0 0 20px; }
 .waterfall-wrap { padding: 0 12px; display: flex; gap: 8px; }
 .waterfall { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.wf-card { background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 16px; overflow: hidden; }
+.wf-card {
+  background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 20px; overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+.wf-img-wrap { width: 100%; overflow: hidden; cursor: pointer; &:active { transform: scale(0.97); } }
 .wf-img { width: 100%; display: block; }
-.wf-info { padding: 6px 8px; }
-.wf-title { font-size: 12px; font-weight: 600; color: #0E1F3A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.wf-info { padding: 8px 10px 6px; }
+.wf-title { font-size: 13px; font-weight: 600; color: #0E1F3A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; margin-bottom: 2px; }
+.wf-meta { display: flex; align-items: center; justify-content: space-between; }
+.wf-author { display: flex; align-items: center; gap: 5px; flex: 1; overflow: hidden; }
+.wf-avatar { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wf-avatar-text { font-size: 10px; color: #fff; font-weight: 700; }
+.wf-author-name { font-size: 11px; color: #445876; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-like { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 2px 4px; border-radius: 8px; }
+.wf-like-icon { font-size: 16px; transition: all 0.3s; }
+.wf-like-num { font-size: 13px; font-weight: 600; }
 </style>

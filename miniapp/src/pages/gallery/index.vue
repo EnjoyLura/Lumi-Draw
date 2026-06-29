@@ -110,9 +110,9 @@
       </view>
       <view v-else :class="['waterfall-wrap', { 'wf-anim-left': animDir === 'left', 'wf-anim-right': animDir === 'right' }]">
         <view class="waterfall">
-          <view v-for="w in leftCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
-            <view :class="['wf-card', { selected: isManage && w.managed }]" @click="isManage && toggleManageItem(w)">
-              <view v-if="isManage && w.managed" class="wf-check">✓</view>
+          <view v-for="w in leftCol" :key="w.id" class="wf-item">
+            <view :class="['wf-card', { selected: isManage && w.managed }]" @click.stop="onCardClick(w)">
+              <view v-if="isManage" :class="['wf-check', { active: w.managed }]">{{ w.managed ? '✓' : '' }}</view>
               <view v-if="w.published && curTab === 0" class="wf-pub-badge">
                 <text class="wf-pub-badge-text">✓ 已发布</text>
               </view>
@@ -137,9 +137,9 @@
           </view>
         </view>
         <view class="waterfall">
-          <view v-for="w in rightCol" :key="w.id" class="wf-item" @click="goWorkDetail(w)">
-            <view :class="['wf-card', { selected: isManage && w.managed }]" @click="isManage && toggleManageItem(w)">
-              <view v-if="isManage && w.managed" class="wf-check">✓</view>
+          <view v-for="w in rightCol" :key="w.id" class="wf-item">
+            <view :class="['wf-card', { selected: isManage && w.managed }]" @click.stop="onCardClick(w)">
+              <view v-if="isManage" :class="['wf-check', { active: w.managed }]">{{ w.managed ? '✓' : '' }}</view>
               <view v-if="w.published && curTab === 0" class="wf-pub-badge">
                 <text class="wf-pub-badge-text">✓ 已发布</text>
               </view>
@@ -175,6 +175,20 @@
       <text class="publish-fab-icon">+</text>
     </view>
 
+    <!-- 设置背景抽屉 -->
+    <view v-if="showBgPicker" class="sheet-overlay" @click="showBgPicker = false" />
+    <view :class="['bg-sheet', { show: showBgPicker }]">
+      <view class="bg-sheet-handle" />
+      <text class="bg-sheet-title">选择背景</text>
+      <view class="bg-grid">
+        <view v-for="(c, i) in bgColors" :key="i" class="bg-option" :style="{ background: c }" @click="selectBg(c)" />
+      </view>
+      <text class="bg-sheet-title" style="margin-top:16px;">渐变背景</text>
+      <view class="bg-grid">
+        <view v-for="(g, i) in bgGradients" :key="i" class="bg-option" :style="{ background: g }" @click="selectBg(g)" />
+      </view>
+    </view>
+
     <!-- 左侧抽屉 (复用) -->
     <view v-if="drawerOpen" class="drawer-overlay" @click="drawerOpen = false" />
     <view :class="['left-drawer', { show: drawerOpen }]">
@@ -205,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 
 interface Work {
   id: number; img: string; title: string; managed: boolean; published: boolean;
@@ -222,8 +236,16 @@ const scrollH = ref(500);
 const indicatorLeft = ref(0);
 const tabLoading = ref(false);
 const animDir = ref('');
+const showBgPicker = ref(false);
+const bgColors = ['#EEF4FC', '#FFF5F5', '#F5FFF5', '#FFF8E1', '#F3E5F5', '#E8EAF6'];
+const bgGradients = [
+  'linear-gradient(135deg,#E1EBF8,#F5F9FE)',
+  'linear-gradient(135deg,#FFE0EC,#FFF5F5)',
+  'linear-gradient(135deg,#E0F7FA,#E8F5E9)',
+  'linear-gradient(135deg,#EDE7F6,#E8EAF6)',
+];
 
-const allWorks: Work[] = [
+const allWorks = reactive<Work[]>([
   { id: 3, img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true, likes: 680, liked: false },
   { id: 5, img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true, likes: 892, liked: false },
   { id: 11, img: 'https://picsum.photos/seed/w11/300/400', title: '油画风景', managed: false, published: true, likes: 489, liked: false },
@@ -236,7 +258,7 @@ const allWorks: Work[] = [
   { id: 19, img: 'https://picsum.photos/seed/w19/300/400', title: '霓虹都市', managed: false, published: false, likes: 0, liked: false },
   { id: 20, img: 'https://picsum.photos/seed/w20/300/530', title: '山水之间', managed: false, published: false, likes: 0, liked: false },
   { id: 21, img: 'https://picsum.photos/seed/w21/300/225', title: '抽象梦境', managed: false, published: false, likes: 0, liked: false },
-];
+]);
 
 const filteredWorks = computed(() => {
   if (curTab.value === 0) return allWorks;
@@ -267,13 +289,22 @@ const switchTab = (idx: number) => {
 };
 
 const updateIndicator = (idx: number) => {
-  // 每个 tab 宽度约40px，gap 20px
-  const tabWidths = [28, 42, 42, 28]; // 估计文字宽度
-  let left = 0;
-  for (let i = 0; i < idx; i++) {
-    left += tabWidths[i] + 20; // gap:20px
-  }
-  indicatorLeft.value = left + tabWidths[idx] / 2 - 10;
+  // 使用 DOM 查询获取真实位置
+  nextTick(() => {
+    const query = uni.createSelectorQuery();
+    query.selectAll('.gallery-tab').boundingClientRect((rects: any) => {
+      if (rects && rects[idx]) {
+        // 获取父容器的 left 作为基准
+        const parentQuery = uni.createSelectorQuery();
+        parentQuery.select('.gallery-tabs').boundingClientRect((parentRect: any) => {
+          if (parentRect) {
+            const tabRect = rects[idx];
+            indicatorLeft.value = tabRect.left - parentRect.left + tabRect.width / 2 - 10;
+          }
+        }).exec();
+      }
+    }).exec();
+  });
 };
 
 const toggleLike = (w: Work) => {
@@ -287,6 +318,13 @@ const toggleManage = () => {
 };
 
 const toggleManageItem = (w: Work) => { w.managed = !w.managed; };
+const onCardClick = (w: Work) => {
+  if (isManage.value) {
+    toggleManageItem(w);
+  } else {
+    goWorkDetail(w);
+  }
+};
 const selectAll = () => {
   const allSelected = filteredWorks.value.every(w => w.managed);
   filteredWorks.value.forEach(w => w.managed = !allSelected);
@@ -299,7 +337,11 @@ const deleteSelected = () => {
 };
 
 const openDrawer = () => { drawerOpen.value = true; };
-const openBgPicker = () => uni.showToast({ title: '背景选择开发中', icon: 'none' });
+const openBgPicker = () => { showBgPicker.value = true; };
+const selectBg = (bg: string) => {
+  showBgPicker.value = false;
+  uni.showToast({ title: '背景已更换', icon: 'none' });
+};
 const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const changeAvatar = () => uni.showToast({ title: '更换头像', icon: 'none' });
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
@@ -498,9 +540,12 @@ onMounted(() => {
 }
 .wf-check {
   position: absolute; top: 8px; left: 8px; z-index: 5;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: #5B9FE8; color: #fff; font-size: 14px; font-weight: 700;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(255,255,255,0.9); border: 2px solid rgba(91,159,232,0.32);
+  color: #8497B5; font-size: 14px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+  &.active { background: #5B9FE8; border-color: #5B9FE8; color: #fff; }
 }
 .wf-img-wrap { width: 100%; overflow: hidden; }
 .wf-img { width: 100%; display: block; }
@@ -638,6 +683,23 @@ onMounted(() => {
   min-width: 18px; height: 18px; padding: 0 5px;
   background: #FFA8B8; color: #fff; font-size: 10px; font-weight: 700;
   border-radius: 999px; display: flex; align-items: center; justify-content: center;
+}
+
+// 设置背景抽屉
+.sheet-overlay { position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.4); }
+.bg-sheet {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  background: #fff; border-radius: 24px 24px 0 0; padding: 8px 20px 80px;
+  transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  &.show { transform: translateY(0); }
+}
+.bg-sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: rgba(91,159,232,0.3); margin: 10px auto 4px; }
+.bg-sheet-title { font-size: 16px; font-weight: 600; color: #0E1F3A; display: block; margin-bottom: 12px; }
+.bg-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.bg-option {
+  aspect-ratio: 1; border-radius: 12px; border: 2px solid rgba(91,159,232,0.14);
+  cursor: pointer; transition: all 0.2s;
+  &:active { transform: scale(0.92); border-color: #5B9FE8; }
 }
 </style>
 

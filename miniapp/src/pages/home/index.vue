@@ -79,6 +79,7 @@
         <view class="home-tabs">
           <text :class="['home-tab', { active: homeTab === 'recommend' }]" @click="switchTab('recommend')">推荐</text>
           <text :class="['home-tab', { active: homeTab === 'new' }]" @click="switchTab('new')">最新</text>
+          <view class="home-tab-indicator" :style="{ left: homeTab === 'recommend' ? '0px' : '46px' }" />
         </view>
       </view>
 
@@ -304,6 +305,8 @@ const goAllGameplays = () => {
   uni.navigateTo({ url: '/pages/all-gameplays/index' });
 };
 const selectGameplay = (g: any) => {
+  const idx = gameplays.value.findIndex(gp => gp.name === g.name);
+  uni.$emit('applyGameplay', idx);
   uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: `已套用「${g.name}」模板`, icon: 'none' });
 };
@@ -509,7 +512,8 @@ onUnmounted(() => clearInterval(bannerTimer));
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 .gp-img {
-  width: 90px; height: 120px;
+  width: 100%; height: 100%;
+  position: absolute; top: 0; left: 0;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .gp-card:active .gp-img { transform: scale(1.05); }
@@ -534,26 +538,17 @@ onUnmounted(() => clearInterval(bannerTimer));
 .gp-uses-text { font-size: 10px; color: rgba(255, 255, 255, 0.75); }
 
 // Tabs
-.home-tabs { display: flex; gap: 16px; position: relative; }
+.home-tabs { display: flex; gap: 16px; position: relative; padding-bottom: 6px; }
 .home-tab {
   font-size: 14px; font-weight: 500; color: #8497B5;
-  padding-bottom: 4px;
-  position: relative;
   transition: color 0.3s;
-  &.active {
-    font-weight: 700;
-    color: #5B9FE8;
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 50%;
-      transform: translateX(-50%);
-      width: 20px; height: 3px;
-      border-radius: 999px;
-      background: #5B9FE8;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-  }
+  &.active { font-weight: 700; color: #5B9FE8; }
+}
+.home-tab-indicator {
+  position: absolute; bottom: 0;
+  width: 20px; height: 3px; border-radius: 999px;
+  background: #5B9FE8;
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // 瀑布流

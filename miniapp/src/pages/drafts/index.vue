@@ -5,20 +5,40 @@
     <scroll-view scroll-y class="page-scroll" :style="{ height: scrollH + 'px' }">
       <view class="waterfall-wrap">
         <view class="waterfall">
-          <view v-for="w in drafts.filter((_,i)=>i%2===0)" :key="w.id" class="wf-item" @click="goEdit(w)">
+          <view v-for="w in leftCol" :key="w.id" class="wf-item" @click="goEdit(w)">
             <view class="wf-card">
-              <image :src="w.img" mode="widthFix" class="wf-img" />
-              <view class="wf-info"><text class="wf-title">{{ w.prompt }}</text></view>
               <view class="wf-draft-badge">草稿</view>
+              <view class="wf-img-wrap">
+                <image :src="w.img" mode="widthFix" class="wf-img" />
+              </view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
+                    <text class="wf-author-name">云端造梦师</text>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
         <view class="waterfall">
-          <view v-for="w in drafts.filter((_,i)=>i%2===1)" :key="w.id" class="wf-item" @click="goEdit(w)">
+          <view v-for="w in rightCol" :key="w.id" class="wf-item" @click="goEdit(w)">
             <view class="wf-card">
-              <image :src="w.img" mode="widthFix" class="wf-img" />
-              <view class="wf-info"><text class="wf-title">{{ w.prompt }}</text></view>
               <view class="wf-draft-badge">草稿</view>
+              <view class="wf-img-wrap">
+                <image :src="w.img" mode="widthFix" class="wf-img" />
+              </view>
+              <view class="wf-info">
+                <text class="wf-title">{{ w.title }}</text>
+                <view class="wf-meta">
+                  <view class="wf-author">
+                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
+                    <text class="wf-author-name">云端造梦师</text>
+                  </view>
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -28,19 +48,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 const scrollH = ref(700);
-const drafts = [
-  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', prompt: '花园里的可爱机器人' },
-  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', prompt: '发光蘑菇的魔法森林' },
-  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', prompt: '星空下的灯塔' },
-  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', prompt: '竹林深处的古寺' },
-  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', prompt: '赛博朋克风格的猫咪' },
-  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', prompt: '水墨风格的鲤鱼跃龙门' },
-  { id: 19, img: 'https://picsum.photos/seed/w19/300/400', prompt: '午后阳光下的咖啡馆' },
-  { id: 20, img: 'https://picsum.photos/seed/w20/300/530', prompt: '二次元少女骑在巨龙上' },
-];
-const goEdit = (w: any) => uni.navigateTo({ url: '/pages/publish/index' });
+const drafts = ref([
+  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '花园里的可爱机器人' },
+  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '发光蘑菇的魔法森林' },
+  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '星空下的灯塔' },
+  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '竹林深处的古寺' },
+  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '赛博朋克风格的猫咪' },
+  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '水墨风格的鲤鱼跃龙门' },
+  { id: 19, img: 'https://picsum.photos/seed/w19/300/400', title: '午后阳光下的咖啡馆' },
+  { id: 20, img: 'https://picsum.photos/seed/w20/300/530', title: '二次元少女骑在巨龙上' },
+]);
+const leftCol = computed(() => drafts.value.filter((_, i) => i % 2 === 0));
+const rightCol = computed(() => drafts.value.filter((_, i) => i % 2 === 1));
+const goEdit = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
 const goBack = () => uni.navigateBack();
 onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 </script>
@@ -55,9 +77,37 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .page-scroll { padding-top: 74px; }
 .waterfall-wrap { padding: 0 12px; display: flex; gap: 8px; }
 .waterfall { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.wf-card { background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 20px; overflow: hidden; position: relative; transition: transform 0.2s cubic-bezier(0.16,1,0.3,1); &:active { transform: scale(0.97); } }
+.wf-card {
+  background: #fff; border: 1px solid rgba(91,159,232,0.14); border-radius: 20px;
+  overflow: hidden; position: relative;
+  transition: transform 0.2s cubic-bezier(0.16,1,0.3,1);
+  &:active { transform: scale(0.97); }
+}
+.wf-img-wrap { width: 100%; overflow: hidden; }
 .wf-img { width: 100%; display: block; }
-.wf-info { padding: 6px 8px; }
-.wf-title { font-size: 12px; font-weight: 600; color: #0E1F3A; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wf-draft-badge { position: absolute; top: 8px; right: 8px; background: rgba(255,255,255,0.85); color: #5B9FE8; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; }
+.wf-info { padding: 8px 10px 6px; }
+.wf-title {
+  font-size: 13px; font-weight: 600; color: #0E1F3A; display: block;
+  margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-meta { display: flex; align-items: center; justify-content: space-between; }
+.wf-author { display: flex; align-items: center; gap: 5px; flex: 1; overflow: hidden; }
+.wf-avatar {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: #5B9FE8; display: flex; align-items: center; justify-content: center;
+}
+.wf-avatar-text { font-size: 10px; color: #fff; font-weight: 700; }
+.wf-author-name {
+  font-size: 11px; color: #445876;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.wf-draft-badge {
+  position: absolute; top: 8px; right: 8px; z-index: 5;
+  background: rgba(255,255,255,0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #5B9FE8; font-size: 10px; font-weight: 600;
+  padding: 3px 8px; border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
 </style>

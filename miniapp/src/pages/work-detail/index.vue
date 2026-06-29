@@ -10,7 +10,7 @@
     <!-- 可滚动内容 -->
     <scroll-view scroll-y class="detail-scroll">
       <!-- 作品图片 -->
-      <image :src="work.img" mode="aspectFill" class="detail-img" :class="{ loaded: imgLoaded }" @load="imgLoaded = true" />
+      <image :src="work.img" mode="aspectFill" class="detail-img" :class="{ loaded: imgLoaded }" @load="imgLoaded = true" @click="previewImg" />
 
       <view class="detail-body">
         <!-- 作者行 -->
@@ -44,7 +44,7 @@
           <view class="prompt-header">
             <text class="prompt-label">提示词</text>
             <view class="prompt-copy" @click="copyPrompt">
-              <text class="prompt-copy-text">复制</text>
+              <text class="prompt-copy-text">📋 复制</text>
             </view>
           </view>
           <text class="prompt-text">{{ work.prompt }}</text>
@@ -74,11 +74,11 @@
     <!-- 底部操作栏 -->
     <view class="bottom-bar">
       <view class="bar-action" @click="toggleLike">
-        <text class="bar-icon" :style="{ color: liked ? '#FFA8B8' : '#8497B5' }">{{ liked ? '♥' : '♡' }}</text>
+        <text class="bar-icon" :class="{ 'icon-bounce': likeBounce }" :style="{ color: liked ? '#FFA8B8' : '#8497B5' }">{{ liked ? '♥' : '♡' }}</text>
         <text class="bar-num" :style="{ color: liked ? '#FFA8B8' : '#8497B5' }">{{ work.likes }}</text>
       </view>
       <view class="bar-action" @click="toggleFav">
-        <text class="bar-icon" :style="{ color: faved ? '#FFE08A' : '#8497B5' }">{{ faved ? '★' : '☆' }}</text>
+        <text class="bar-icon" :class="{ 'icon-bounce': favBounce }" :style="{ color: faved ? '#FFE08A' : '#8497B5' }">{{ faved ? '★' : '☆' }}</text>
         <text class="bar-num" :style="{ color: faved ? '#FFE08A' : '#8497B5' }">{{ work.favorites }}</text>
       </view>
       <view class="bar-btn-main" @click="remake">
@@ -111,6 +111,8 @@ const liked = ref(false);
 const faved = ref(false);
 const followed = ref(false);
 const showUnfollowDialog = ref(false);
+const likeBounce = ref(false);
+const favBounce = ref(false);
 
 const author = ref({
   name: '星辰大海',
@@ -138,10 +140,12 @@ const work = ref({
 const toggleLike = () => {
   liked.value = !liked.value;
   work.value.likes += liked.value ? 1 : -1;
+  if (liked.value) { likeBounce.value = true; setTimeout(() => likeBounce.value = false, 400); }
 };
 const toggleFav = () => {
   faved.value = !faved.value;
   work.value.favorites += faved.value ? 1 : -1;
+  if (faved.value) { favBounce.value = true; setTimeout(() => favBounce.value = false, 400); }
 };
 const toggleFollow = () => {
   if (followed.value) {
@@ -156,6 +160,9 @@ const confirmUnfollow = () => {
   followed.value = false;
   showUnfollowDialog.value = false;
   uni.showToast({ title: '已取消关注', icon: 'none' });
+};
+const previewImg = () => {
+  uni.previewImage({ urls: [work.value.img], current: work.value.img });
 };
 const copyPrompt = () => {
   uni.setClipboardData({ data: work.value.prompt });
@@ -305,6 +312,12 @@ const goUserProfile = () => uni.navigateTo({ url: '/pages/user-profile/index' })
 }
 .bar-icon {
   font-size: 28px; transition: all 0.3s;
+  &.icon-bounce { animation: iconBounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+}
+@keyframes iconBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.4); }
+  100% { transform: scale(1); }
 }
 .bar-num { font-size: 14px; font-weight: 600; }
 .bar-btn-main {
