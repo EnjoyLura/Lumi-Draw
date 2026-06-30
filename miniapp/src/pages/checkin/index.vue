@@ -44,32 +44,67 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { checkinApi } from '@/utils/api';
 const scrollH = ref(700);
-const streak = ref(7);
+const streak = ref(0);
 const checkedToday = ref(false);
+const milestones = ref<any[]>([]);
+const signedDays = ref<number[]>([]);
+const calendarDays = ref<any[]>([]);
 
-const milestones = [
-  { days: 3, reward: 20, color: '#6FD4B0', status: 'claimed', label: '已领' },
-  { days: 7, reward: 50, color: '#5B9FE8', status: 'available', label: '可领' },
-  { days: 14, reward: 100, color: '#B8A5E3', status: 'locked', label: '未达' },
-  { days: 30, reward: 300, color: '#FFB59A', status: 'locked', label: '未达' },
-];
+const buildCalendar = (days: number[]) => {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = now.getDate();
+  return Array.from({ length: 42 }, (_, i) => {
+    const dayNum = i - firstDay + 1;
+    if (dayNum < 1 || dayNum > daysInMonth) return { day: '', empty: true, signed: false, today: false };
+    return { day: dayNum, empty: false, signed: days.includes(dayNum), today: dayNum === today };
+  });
+};
 
-const signedDays = [1, 2, 3, 4, 5, 6, 7];
-// June 2026 starts on Monday (index 1 in the grid)
-const calendarDays = Array.from({ length: 35 }, (_, i) => {
-  const dayNum = i; // 0=empty(Sun), 1-30=days, 31-34=empty
-  if (dayNum < 1 || dayNum > 30) return { day: '', empty: true, signed: false, today: false };
-  return { day: dayNum, empty: false, signed: signedDays.includes(dayNum), today: dayNum === 28 };
-});
-
-const doCheckin = () => {
-  checkedToday.value = true;
-  streak.value++;
-  uni.showToast({ title: '签到成功 +10积分', icon: 'none' });
+const doCheckin = async () => {
+  try {
+    const res = await checkinApi.doCheckin();
+    const data = (res as any).data || res;
+    checkedToday.value = true;
+    streak.value = data.streak || streak.value + 1;
+    uni.showToast({ title: `签到成功 +${data.credits_earned || 10}积分`, icon: 'none' });
+  } catch {}
 };
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const [statusRes, msRes] = await Promise.all([checkinApi.getStatus(), checkinApi.getMilestones()]);
+    const status = (statusRes as any).data || statusRes;
+    checkedToday.value = status.checked_today;
+    streak.value = status.streak || 0;
+    const msList = (msRes as any).data || msRes || [];
+    milestones.value = msList.map((m: any) => ({
+      days: m.consecutive_days, reward: m.reward_credits,
+      color: streak.value >= m.consecutive_days ? '#6FD4B0' : streak.value >= m.consecutive_days - 1 ? '#5B9FE8' : '#B8A5E3',
+      status: streak.value >= m.consecutive_days ? 'claimed' : streak.value >= m.consecutive_days - 1 ? 'available' : 'locked',
+      label: streak.value >= m.consecutive_days ? '已领' : streak.value >= m.consecutive_days - 1 ? '可领' : '未达',
+    }));
+    // Build signed days (mock: 1 to streak)
+    const sd = Array.from({ length: streak.value }, (_, i) => i + 1);
+    signedDays.value = sd;
+    calendarDays.value = buildCalendar(sd);
+  } catch {
+    milestones.value = [
+      { days: 3, reward: 20, color: '#6FD4B0', status: 'claimed', label: '已领' },
+      { days: 7, reward: 50, color: '#5B9FE8', status: 'available', label: '可领' },
+      { days: 14, reward: 100, color: '#B8A5E3', status: 'locked', label: '未达' },
+      { days: 30, reward: 300, color: '#FFB59A', status: 'locked', label: '未达' },
+    ];
+    signedDays.value = [1,2,3,4,5,6,7];
+    calendarDays.value = buildCalendar([1,2,3,4,5,6,7]);
+  }
+});
 </script>
 
 <style lang="scss" scoped>

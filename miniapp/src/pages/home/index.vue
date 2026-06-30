@@ -154,31 +154,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, reactive } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { configApi, workApi, getUserDisplay } from '@/utils/api';
 
-// Mock 数据
-const banners = ref([
-  { img: 'https://picsum.photos/seed/b1/700/300', title: '夏日创作季' },
-  { img: 'https://picsum.photos/seed/b2/700/300', title: '新模型上线' },
-  { img: 'https://picsum.photos/seed/b3/700/300', title: '会员特惠' },
-  { img: 'https://picsum.photos/seed/b4/700/300', title: '社区精选' },
-]);
-
-const gameplays = ref([
-  { name: '人物美颜', img: 'https://picsum.photos/seed/gp1/180/240', uses: '12.6w', hot: true },
-  { name: '证件照', img: 'https://picsum.photos/seed/gp2/180/240', uses: '8.3w', hot: true },
-  { name: '宠物头像', img: 'https://picsum.photos/seed/gp3/180/240', uses: '5.1w', hot: false },
-  { name: '古风国潮', img: 'https://picsum.photos/seed/gp4/180/240', uses: '4.8w', hot: false },
-  { name: 'Q版头像', img: 'https://picsum.photos/seed/gp5/180/240', uses: '6.2w', hot: true },
-  { name: 'Logo设计', img: 'https://picsum.photos/seed/gp6/180/240', uses: '3.9w', hot: false },
-  { name: '壁纸', img: 'https://picsum.photos/seed/gp7/180/240', uses: '7.5w', hot: false },
-  { name: '表情包', img: 'https://picsum.photos/seed/gp8/180/240', uses: '9.0w', hot: true },
-]);
+const banners = ref<any[]>([]);
+const gameplays = ref<any[]>([]);
 
 interface Work {
-  id: number;
+  id: string;
   img: string;
-  userId: number;
+  userId: string;
   title: string;
   prompt: string;
   likes: number;
@@ -187,32 +172,8 @@ interface Work {
   imgLoaded?: boolean;
 }
 
-const users = [
-  { id: 1, name: '云端造梦师', avatar: '梦', color: '#5B9FE8' },
-  { id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0' },
-  { id: 3, name: '月光如水', avatar: '月', color: '#FFB59A' },
-  { id: 4, name: '风之绘师', avatar: '风', color: '#B8A5E3' },
-  { id: 5, name: '光影魔术', avatar: '光', color: '#FFE08A' },
-];
-
-const allWorks: Work[] = [
-  { id: 1, img: 'https://picsum.photos/seed/w1/300/420', userId: 2, title: '霓虹都市', prompt: '', likes: 328, liked: false, bouncing: false },
-  { id: 2, img: 'https://picsum.photos/seed/w2/300/225', userId: 3, title: '山水之间', prompt: '', likes: 512, liked: false, bouncing: false },
-  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', userId: 1, title: '少女与猫', prompt: '', likes: 680, liked: false, bouncing: false },
-  { id: 4, img: 'https://picsum.photos/seed/w4/300/300', userId: 5, title: '抽象梦境', prompt: '', likes: 234, liked: false, bouncing: false },
-  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', userId: 1, title: '古风少女', prompt: '', likes: 892, liked: false, bouncing: false },
-  { id: 6, img: 'https://picsum.photos/seed/w6/300/225', userId: 3, title: '赛博精灵', prompt: '', likes: 445, liked: false, bouncing: false },
-  { id: 7, img: 'https://picsum.photos/seed/w7/300/400', userId: 4, title: '水彩猫咪', prompt: '', likes: 567, liked: false, bouncing: false },
-  { id: 8, img: 'https://picsum.photos/seed/w8/300/300', userId: 5, title: '极简几何', prompt: '', likes: 189, liked: false, bouncing: false },
-  { id: 9, img: 'https://picsum.photos/seed/w9/300/530', userId: 2, title: '暗黑天使', prompt: '', likes: 723, liked: false, bouncing: false },
-  { id: 10, img: 'https://picsum.photos/seed/w10/300/225', userId: 3, title: '蒸汽城市', prompt: '', likes: 356, liked: false, bouncing: false },
-  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', userId: 1, title: '油画风景', prompt: '', likes: 489, liked: false, bouncing: false },
-  { id: 12, img: 'https://picsum.photos/seed/w12/300/300', userId: 5, title: '像素冒险', prompt: '', likes: 278, liked: false, bouncing: false },
-];
-
-const works = ref<Work[]>([...allWorks.slice(0, 8)]);
-const recommendWorks = [...allWorks.slice(0, 8)];
-const newWorks = [...allWorks.slice(0, 8)].reverse();
+const allWorks = ref<Work[]>([]);
+const works = ref<Work[]>([]);
 
 const homeTab = ref('recommend');
 const bannerIdx = ref(0);
@@ -223,23 +184,22 @@ const animDir = ref('');
 const animKey = ref(0);
 let bannerTimer: any = null;
 
-// 瀑布流分左右列
 const leftColumn = computed(() => works.value.filter((_, i) => i % 2 === 0));
 const rightColumn = computed(() => works.value.filter((_, i) => i % 2 === 1));
 
-const getUserName = (id: number) => users.find(u => u.id === id)?.name || '';
-const getUserAvatar = (id: number) => users.find(u => u.id === id)?.avatar || '';
-const getUserColor = (id: number) => users.find(u => u.id === id)?.color || '#5B9FE8';
+const getUserName = (id: string) => getUserDisplay(id).avatar ? id.substring(0, 1) : '';
+const getUserAvatar = (id: string) => getUserDisplay(id).avatar;
+const getUserColor = (id: string) => getUserDisplay(id).color;
 
 // Banner 轮播
 const startBannerTimer = () => {
   bannerTimer = setInterval(() => {
-    bannerIdx.value = (bannerIdx.value + 1) % banners.value.length;
+    if (banners.value.length > 0) bannerIdx.value = (bannerIdx.value + 1) % banners.value.length;
   }, 4000);
 };
 const nextBanner = () => {
   clearInterval(bannerTimer);
-  bannerIdx.value = (bannerIdx.value + 1) % banners.value.length;
+  if (banners.value.length > 0) bannerIdx.value = (bannerIdx.value + 1) % banners.value.length;
   startBannerTimer();
 };
 const onBannerTouchStart = () => clearInterval(bannerTimer);
@@ -247,82 +207,99 @@ const onBannerTouchEnd = () => startBannerTimer();
 
 const tabLoading = ref(false);
 
-// Tab 切换 (带loading动画)
-const switchTab = (tab: string) => {
+const mapWork = (w: any): Work => ({
+  id: w.id,
+  img: w.image_urls?.[0] || '',
+  userId: w.user_id,
+  title: w.title || '',
+  prompt: w.prompt || '',
+  likes: w.likes_count || 0,
+  liked: false,
+  bouncing: false,
+});
+
+const loadWorks = async (tab: string) => {
+  try {
+    const res = await workApi.getHomeWorks(tab);
+    return (res.data?.list || res.data || []).map(mapWork);
+  } catch { return []; }
+};
+
+const switchTab = async (tab: string) => {
   if (homeTab.value === tab) return;
   const oldTab = homeTab.value;
   homeTab.value = tab;
-  // 判断滑动方向
   animDir.value = (tab === 'new' && oldTab === 'recommend') ? 'left' : 'right';
-  // 显示loading
   tabLoading.value = true;
+  const list = await loadWorks(tab);
   setTimeout(() => {
     tabLoading.value = false;
     animKey.value++;
-    if (tab === 'new') {
-      works.value = [...newWorks];
-    } else {
-      works.value = [...recommendWorks];
-    }
+    allWorks.value = list;
+    works.value = list.slice(0, 8);
+    noMore.value = list.length <= 8;
     setTimeout(() => { animDir.value = ''; }, 400);
   }, 300);
 };
 
-// 点赞 (带弹跳动效)
-const toggleLike = (w: Work) => {
+const toggleLike = async (w: Work) => {
   w.liked = !w.liked;
   w.likes += w.liked ? 1 : -1;
   if (w.liked) {
     w.bouncing = true;
     setTimeout(() => { w.bouncing = false; }, 400);
+    try { await workApi.likeWork(w.id); } catch {}
+  } else {
+    try { await workApi.likeWork(w.id); } catch {}
   }
 };
 
-// 下拉刷新
-const onRefresh = () => {
+const onRefresh = async () => {
   isRefreshing.value = true;
-  setTimeout(() => {
-    works.value = homeTab.value === 'new' ? [...newWorks] : [...recommendWorks];
-    noMore.value = false;
-    isRefreshing.value = false;
-    uni.showToast({ title: '已刷新', icon: 'none' });
-  }, 800);
+  const list = await loadWorks(homeTab.value);
+  allWorks.value = list;
+  works.value = list.slice(0, 8);
+  noMore.value = list.length <= 8;
+  isRefreshing.value = false;
 };
 
-// 上拉加载更多
 const onLoadMore = () => {
   if (loading.value || noMore.value) return;
   loading.value = true;
   setTimeout(() => {
-    const moreWorks = allWorks.slice(works.value.length, works.value.length + 4);
-    if (moreWorks.length === 0) {
-      noMore.value = true;
-    } else {
-      works.value = [...works.value, ...moreWorks];
-    }
+    const more = allWorks.value.slice(works.value.length, works.value.length + 4);
+    if (more.length === 0) { noMore.value = true; }
+    else { works.value = [...works.value, ...more]; }
     loading.value = false;
   }, 600);
 };
 
-// 导航跳转
 const goCreate = () => uni.switchTab({ url: '/pages/create/index' });
-const goAllGameplays = () => {
-  uni.navigateTo({ url: '/pages/all-gameplays/index' });
-};
+const goAllGameplays = () => uni.navigateTo({ url: '/pages/all-gameplays/index' });
 const selectGameplay = (g: any) => {
-  const idx = gameplays.value.findIndex(gp => gp.name === g.name);
-  uni.$emit('applyGameplay', idx);
+  uni.$emit('applyGameplay', g);
   uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: `已套用「${g.name}」模板`, icon: 'none' });
 };
-const goWorkDetail = (w: Work) => {
-  uni.navigateTo({ url: '/pages/work-detail/index' });
-};
-const goUserProfile = (userId: number) => {
-  uni.navigateTo({ url: '/pages/user-profile/index' });
-};
+const goWorkDetail = (w: Work) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goUserProfile = (userId: string) => uni.navigateTo({ url: '/pages/user-profile/index' });
 
-onMounted(() => {
+onMounted(async () => {
+  // 并行加载配置数据
+  const [bannerRes, gpRes] = await Promise.all([
+    configApi.getBanners().catch(() => ({ data: [] })),
+    configApi.getGameplays().catch(() => ({ data: [] })),
+  ]);
+  const bList = (bannerRes as any).data || bannerRes || [];
+  banners.value = bList.map((b: any) => ({ img: b.image_url, title: b.title }));
+  const gList = (gpRes as any).data || gpRes || [];
+  gameplays.value = gList.map((g: any) => ({ name: g.name, img: g.cover_url, uses: g.uses_count, hot: g.is_hot }));
+
+  // 加载作品
+  const list = await loadWorks('recommend');
+  allWorks.value = list;
+  works.value = list.slice(0, 8);
+  noMore.value = list.length <= 8;
   startBannerTimer();
 });
 onUnmounted(() => clearInterval(bannerTimer));

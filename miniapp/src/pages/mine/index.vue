@@ -95,8 +95,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { userApi } from '@/utils/api';
 
 const scrollH = ref(700);
+const userInfo = ref<any>({ nickname: '', credits: 0 });
 
 const pageRoutes: Record<string, string> = {
   recharge: '/pages/recharge/index',
@@ -113,19 +115,17 @@ const pageRoutes: Record<string, string> = {
   feedback: '/pages/feedback/index',
 };
 const goPage = (name: string) => {
-  if (pageRoutes[name]) {
-    uni.navigateTo({ url: pageRoutes[name] });
-  } else {
-    uni.showToast({ title: `${name}页开发中`, icon: 'none' });
-  }
+  if (pageRoutes[name]) uni.navigateTo({ url: pageRoutes[name] });
+  else uni.showToast({ title: `${name}页开发中`, icon: 'none' });
 };
-const contactService = () => {
-  uni.showToast({ title: '打开微信客服', icon: 'none' });
-};
+const contactService = () => uni.showToast({ title: '打开微信客服', icon: 'none' });
 
-onMounted(() => {
-  const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 80;
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const res = await userApi.getProfile();
+    userInfo.value = (res as any).data || res;
+  } catch {}
 });
 </script>
 

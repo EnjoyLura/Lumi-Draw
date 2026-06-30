@@ -65,33 +65,42 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { paymentApi } from '@/utils/api';
 const scrollH = ref(700);
-const selectedTier = ref(68);
+const selectedTier = ref('');
 const recordTab = ref('earn');
 const showCustom = ref(false);
 const customAmount = ref('');
-
-const tiers = [
-  { price: 6, credits: 60, bonus: 0, popular: false },
-  { price: 18, credits: 180, bonus: 10, popular: false },
-  { price: 30, credits: 300, bonus: 30, popular: false },
-  { price: 68, credits: 680, bonus: 100, popular: true },
-  { price: 128, credits: 1280, bonus: 280, popular: false },
-];
-
-const records = [
-  { id: 1, title: '充值 ¥68', time: '06-18 14:30', amount: 780 },
-  { id: 2, title: '创作消耗 (GPT Image 2 × 4张)', time: '06-18 16:20', amount: -60 },
-  { id: 3, title: '每日签到', time: '06-18 09:12', amount: 10 },
-  { id: 4, title: '邀请好友奖励', time: '06-15 10:00', amount: 50 },
-  { id: 5, title: '创作消耗 (Nano Banana 2 × 2张)', time: '06-14 15:30', amount: -16 },
-];
+const tiers = ref<any[]>([]);
+const records = ref<any[]>([]);
 
 const customCredits = computed(() => { const v = parseFloat(customAmount.value) || 0; return Math.floor(v * 10); });
 const customBonus = computed(() => { const c = customCredits.value; return c >= 500 ? Math.floor(c * 0.15) : 0; });
 const confirmCustom = () => { showCustom.value = false; uni.showToast({ title: `充值 ¥${customAmount.value}`, icon: 'none' }); };
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const [tierRes, txRes] = await Promise.all([paymentApi.getRechargeTiers(), paymentApi.getTransactions('all')]);
+    const tList = (tierRes as any).data || tierRes || [];
+    tiers.value = tList.map((t: any) => ({ price: t.price, credits: t.credits, bonus: t.bonus, popular: t.is_popular }));
+    const popular = tiers.value.find((t: any) => t.popular);
+    if (popular) selectedTier.value = popular.price;
+    else if (tiers.value.length) selectedTier.value = tiers.value[0].price;
+    const txList = (txRes as any).data || txRes || [];
+    records.value = txList.map((t: any) => ({ id: t.id, title: t.remark, time: t.created_at?.substring(0, 16).replace('T', ' '), amount: t.credits_change }));
+  } catch {
+    tiers.value = [
+      { price: 6, credits: 60, bonus: 0, popular: false },
+      { price: 18, credits: 180, bonus: 10, popular: false },
+      { price: 30, credits: 300, bonus: 30, popular: false },
+      { price: 68, credits: 680, bonus: 100, popular: true },
+      { price: 128, credits: 1280, bonus: 280, popular: false },
+    ];
+    selectedTier.value = 68;
+  }
+});
 </script>
 
 <style lang="scss" scoped>

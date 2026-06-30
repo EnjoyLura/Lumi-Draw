@@ -47,22 +47,41 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { paymentApi } from '@/utils/api';
 const scrollH = ref(700);
-const selectedPlan = ref(1);
-const plans = [
-  { name: '月卡', price: 18, daily: '¥0.6/天', desc: '每日领取50积分 · 共1500积分', icon: '📅', iconBg: 'linear-gradient(135deg,rgba(91,159,232,0.12),rgba(91,159,232,0.04))', recommended: false, save: '' },
-  { name: '季卡', price: 48, daily: '¥0.53/天', desc: '每日领取50积分 · 共4500积分', icon: '📅', iconBg: 'linear-gradient(135deg,rgba(184,165,227,0.15),rgba(184,165,227,0.05))', recommended: true, save: '省¥6' },
-  { name: '年卡', price: 168, daily: '¥0.46/天', desc: '每日领取50积分 · 共18000积分', icon: '👑', iconBg: 'linear-gradient(135deg,rgba(255,210,76,0.15),rgba(255,210,76,0.05))', recommended: false, save: '省¥48' },
-];
+const selectedPlan = ref(0);
+const plans = ref<any[]>([]);
 const benefits = [
   { name: '每日积分', desc: '每天领取50积分', icon: '🪙', iconBg: 'rgba(111,212,176,0.15)' },
   { name: '签到加成', desc: '签到积分翻倍', icon: '⭐', iconBg: 'rgba(91,159,232,0.15)' },
   { name: '专属徽章', desc: 'VIP身份标识', icon: '👑', iconBg: 'rgba(184,165,227,0.15)' },
   { name: '优先生成', desc: '高峰期免排队', icon: '⚡', iconBg: 'rgba(255,181,154,0.15)' },
 ];
-const openMember = () => uni.showToast({ title: `开通${plans[selectedPlan.value].name}成功！`, icon: 'none' });
+const openMember = () => { const p = plans.value[selectedPlan.value]; uni.showToast({ title: `开通${p?.name || '会员'}成功！`, icon: 'none' }); };
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const res = await paymentApi.getMemberPlans();
+    const list = (res as any).data || res || [];
+    plans.value = list.map((p: any, i: number) => ({
+      name: p.display_name, price: p.price,
+      daily: `¥${(p.price / (p.name === 'monthly' ? 30 : p.name === 'quarterly' ? 90 : 365)).toFixed(2)}/天`,
+      desc: p.benefits, icon: p.name === 'yearly' ? '👑' : '📅',
+      iconBg: i === 2 ? 'linear-gradient(135deg,rgba(255,210,76,0.15),rgba(255,210,76,0.05))' : i === 1 ? 'linear-gradient(135deg,rgba(184,165,227,0.15),rgba(184,165,227,0.05))' : 'linear-gradient(135deg,rgba(91,159,232,0.12),rgba(91,159,232,0.04))',
+      recommended: i === 1,
+      save: p.name === 'quarterly' ? '省¥6' : p.name === 'yearly' ? '省¥48' : '',
+    }));
+    selectedPlan.value = 1; // 默认季卡
+  } catch {
+    plans.value = [
+      { name: '月卡', price: 18, daily: '¥0.6/天', desc: '每日领取50积分 · 共1500积分', icon: '📅', iconBg: 'linear-gradient(135deg,rgba(91,159,232,0.12),rgba(91,159,232,0.04))', recommended: false, save: '' },
+      { name: '季卡', price: 48, daily: '¥0.53/天', desc: '每日领取50积分 · 共4500积分', icon: '📅', iconBg: 'linear-gradient(135deg,rgba(184,165,227,0.15),rgba(184,165,227,0.05))', recommended: true, save: '省¥6' },
+      { name: '年卡', price: 168, daily: '¥0.46/天', desc: '每日领取50积分 · 共18000积分', icon: '👑', iconBg: 'linear-gradient(135deg,rgba(255,210,76,0.15),rgba(255,210,76,0.05))', recommended: false, save: '省¥48' },
+    ];
+  }
+});
 </script>
 
 <style lang="scss" scoped>
