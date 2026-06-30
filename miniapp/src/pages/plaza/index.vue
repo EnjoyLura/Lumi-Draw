@@ -256,9 +256,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { workApi, getUserDisplay } from '@/utils/api';
 
-// 状态
 const plazaTabs = ['推荐', '热门', '最新'];
 const curTab = ref(0);
 const curCat = ref(0);
@@ -277,181 +277,114 @@ const animDir = ref('');
 const animKey = ref(0);
 const scrollH = ref(700);
 
-// 筛选条件
 const filterCats = ref<number[]>([0]);
 const filterModels = ref<string[]>([]);
 const filterRatios = ref<string[]>([]);
 const filterQualities = ref<string[]>([]);
 
 interface Work {
-  id: number; img: string; userId: number; title: string;
+  id: string; img: string; userId: string; title: string;
   prompt: string; likes: number; liked: boolean; bouncing: boolean;
 }
 
-const users = [
-  { id: 1, name: '云端造梦师', avatar: '梦', color: '#5B9FE8' },
-  { id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0' },
-  { id: 3, name: '月光如水', avatar: '月', color: '#FFB59A' },
-  { id: 4, name: '风之绘师', avatar: '风', color: '#B8A5E3' },
-  { id: 5, name: '光影魔术', avatar: '光', color: '#FFE08A' },
-];
-
-const allWorks: Work[] = [
-  { id: 1, img: 'https://picsum.photos/seed/w1/300/420', userId: 2, title: '霓虹都市', prompt: '', likes: 328, liked: false, bouncing: false },
-  { id: 2, img: 'https://picsum.photos/seed/w2/300/225', userId: 3, title: '山水之间', prompt: '', likes: 512, liked: false, bouncing: false },
-  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', userId: 1, title: '少女与猫', prompt: '', likes: 680, liked: false, bouncing: false },
-  { id: 4, img: 'https://picsum.photos/seed/w4/300/300', userId: 5, title: '抽象梦境', prompt: '', likes: 234, liked: false, bouncing: false },
-  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', userId: 1, title: '古风少女', prompt: '', likes: 892, liked: false, bouncing: false },
-  { id: 6, img: 'https://picsum.photos/seed/w6/300/225', userId: 3, title: '赛博精灵', prompt: '', likes: 445, liked: false, bouncing: false },
-  { id: 7, img: 'https://picsum.photos/seed/w7/300/400', userId: 4, title: '水彩猫咪', prompt: '', likes: 567, liked: false, bouncing: false },
-  { id: 8, img: 'https://picsum.photos/seed/w8/300/300', userId: 5, title: '极简几何', prompt: '', likes: 189, liked: false, bouncing: false },
-  { id: 9, img: 'https://picsum.photos/seed/w9/300/530', userId: 2, title: '暗黑天使', prompt: '', likes: 723, liked: false, bouncing: false },
-  { id: 10, img: 'https://picsum.photos/seed/w10/300/225', userId: 3, title: '蒸汽城市', prompt: '', likes: 356, liked: false, bouncing: false },
-  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', userId: 1, title: '油画风景', prompt: '', likes: 489, liked: false, bouncing: false },
-  { id: 12, img: 'https://picsum.photos/seed/w12/300/300', userId: 5, title: '像素冒险', prompt: '', likes: 278, liked: false, bouncing: false },
-];
-
-const works = ref<Work[]>([...allWorks]);
+const allWorks = ref<Work[]>([]);
+const works = ref<Work[]>([]);
 const leftCol = computed(() => works.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => works.value.filter((_, i) => i % 2 === 1));
+const getUser = (id: string) => { const d = getUserDisplay(id); return { avatar: d.avatar, color: d.color }; };
 
-const getUser = (id: number) => users.find(u => u.id === id) || users[0];
+const mapWork = (w: any): Work => ({
+  id: w.id, img: w.image_urls?.[0] || '', userId: w.user_id,
+  title: w.title || '', prompt: w.prompt || '',
+  likes: w.likes_count || 0, liked: false, bouncing: false,
+});
 
-// Tab 切换 (带loading)
-const switchTab = (idx: number) => {
+const fetchWorks = async () => {
+  const tab = plazaTabs[curTab.value].toLowerCase();
+  const cat = categories[curCat.value];
+  try {
+    const res = await workApi.getPlazaWorks({ tab, category: cat });
+    return ((res as any).data?.list || (res as any).data || []).map(mapWork);
+  } catch { return []; }
+};
+
+const switchTab = async (idx: number) => {
   if (curTab.value === idx) return;
-  const oldIdx = curTab.value;
   curTab.value = idx;
-  animDir.value = idx > oldIdx ? 'left' : 'right';
   tabLoading.value = true;
+  const list = await fetchWorks();
   setTimeout(() => {
     tabLoading.value = false;
     animKey.value++;
-    if (idx === 1) {
-      works.value = [...allWorks].sort((a, b) => b.likes - a.likes);
-    } else if (idx === 2) {
-      works.value = [...allWorks].reverse();
-    } else {
-      works.value = [...allWorks];
-    }
-    setTimeout(() => { animDir.value = ''; }, 400);
+    allWorks.value = list;
+    works.value = list;
+    noMore.value = list.length <= 10;
   }, 300);
 };
 
-// 分类选择 (带loading)
-const selectCat = (idx: number) => {
+const selectCat = async (idx: number) => {
   if (curCat.value === idx) return;
-  const oldIdx = curCat.value;
   curCat.value = idx;
-  animDir.value = idx > oldIdx ? 'left' : 'right';
   tabLoading.value = true;
+  const list = await fetchWorks();
   setTimeout(() => {
     tabLoading.value = false;
     animKey.value++;
-    works.value = [...allWorks];
-    setTimeout(() => { animDir.value = ''; }, 400);
+    allWorks.value = list;
+    works.value = list;
   }, 300);
 };
 
-// 点赞
-const toggleLike = (w: Work) => {
+const toggleLike = async (w: Work) => {
   w.liked = !w.liked;
   w.likes += w.liked ? 1 : -1;
-  if (w.liked) {
-    w.bouncing = true;
-    setTimeout(() => { w.bouncing = false; }, 400);
-  }
+  if (w.liked) { w.bouncing = true; setTimeout(() => { w.bouncing = false; }, 400); }
+  try { await workApi.likeWork(w.id); } catch {}
 };
 
-// 抽屉
 const openDrawer = () => { drawerOpen.value = true; };
 const closeDrawer = () => { drawerOpen.value = false; };
-
-// 筛选
 const openFilter = () => { filterOpen.value = true; };
 const closeFilter = () => { filterOpen.value = false; };
-const toggleFilterCat = (i: number) => {
-  const idx = filterCats.value.indexOf(i);
-  if (idx >= 0) filterCats.value.splice(idx, 1);
-  else filterCats.value = [i];
-};
-const toggleFilterModel = (m: string) => {
-  const idx = filterModels.value.indexOf(m);
-  if (idx >= 0) filterModels.value.splice(idx, 1);
-  else filterModels.value.push(m);
-};
-const toggleFilterRatio = (r: string) => {
-  const idx = filterRatios.value.indexOf(r);
-  if (idx >= 0) filterRatios.value.splice(idx, 1);
-  else filterRatios.value.push(r);
-};
-const toggleFilterQuality = (q: string) => {
-  const idx = filterQualities.value.indexOf(q);
-  if (idx >= 0) filterQualities.value.splice(idx, 1);
-  else filterQualities.value.push(q);
-};
-const resetFilter = () => {
-  filterCats.value = [];
-  filterModels.value = [];
-  filterRatios.value = [];
-  filterQualities.value = [];
-  uni.showToast({ title: '已重置筛选', icon: 'none' });
-};
-const applyFilter = () => {
-  filterOpen.value = false;
-  uni.showToast({ title: '筛选已应用', icon: 'none' });
-};
+const toggleFilterCat = (i: number) => { const idx = filterCats.value.indexOf(i); if (idx >= 0) filterCats.value.splice(idx, 1); else filterCats.value = [i]; };
+const toggleFilterModel = (m: string) => { const idx = filterModels.value.indexOf(m); if (idx >= 0) filterModels.value.splice(idx, 1); else filterModels.value.push(m); };
+const toggleFilterRatio = (r: string) => { const idx = filterRatios.value.indexOf(r); if (idx >= 0) filterRatios.value.splice(idx, 1); else filterRatios.value.push(r); };
+const toggleFilterQuality = (q: string) => { const idx = filterQualities.value.indexOf(q); if (idx >= 0) filterQualities.value.splice(idx, 1); else filterQualities.value.push(q); };
+const resetFilter = () => { filterCats.value = []; filterModels.value = []; filterRatios.value = []; filterQualities.value = []; uni.showToast({ title: '已重置筛选', icon: 'none' }); };
+const applyFilter = () => { filterOpen.value = false; fetchWorks().then(l => { works.value = l; allWorks.value = l; }); };
 
-// 下拉刷新
-const onRefresh = () => {
+const onRefresh = async () => {
   isRefreshing.value = true;
-  setTimeout(() => {
-    works.value = [...allWorks];
-    noMore.value = false;
-    isRefreshing.value = false;
-  }, 800);
+  const list = await fetchWorks();
+  allWorks.value = list; works.value = list; noMore.value = false;
+  isRefreshing.value = false;
 };
 
-// 上拉加载更多
 const onLoadMore = () => {
   if (loading.value || noMore.value) return;
   loading.value = true;
-  setTimeout(() => {
-    noMore.value = true;
-    loading.value = false;
-  }, 600);
+  setTimeout(() => { noMore.value = true; loading.value = false; }, 600);
 };
 
-// 导航
 const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const goWorkDetail = (w: Work) => uni.navigateTo({ url: '/pages/work-detail/index' });
-const goUserProfile = (userId: number) => uni.navigateTo({ url: '/pages/user-profile/index' });
+const goUserProfile = (userId: string) => uni.navigateTo({ url: '/pages/user-profile/index' });
 const pageRoutes: Record<string, string> = {
-  recharge: '/pages/recharge/index',
-  settings: '/pages/settings/index',
-  editProfile: '/pages/edit-profile/index',
-  checkin: '/pages/checkin/index',
-  invite: '/pages/invite/index',
-  membership: '/pages/membership/index',
-  messages: '/pages/messages/index',
-  publish: '/pages/publish/index',
-  history: '/pages/history/index',
-  drafts: '/pages/drafts/index',
-  following: '/pages/follow-list/index',
-  feedback: '/pages/feedback/index',
+  recharge: '/pages/recharge/index', settings: '/pages/settings/index', editProfile: '/pages/edit-profile/index',
+  checkin: '/pages/checkin/index', invite: '/pages/invite/index', membership: '/pages/membership/index',
+  messages: '/pages/messages/index', publish: '/pages/publish/index',
 };
 const goPage = (name: string) => {
   closeDrawer();
-  if (pageRoutes[name]) {
-    uni.navigateTo({ url: pageRoutes[name] });
-  } else {
-    uni.showToast({ title: `${name}页开发中`, icon: 'none' });
-  }
+  if (pageRoutes[name]) uni.navigateTo({ url: pageRoutes[name] });
+  else uni.showToast({ title: `${name}页开发中`, icon: 'none' });
 };
 
-onMounted(() => {
-  const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 80;
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  const list = await fetchWorks();
+  allWorks.value = list; works.value = list;
+  noMore.value = list.length <= 10;
 });
 </script>
 

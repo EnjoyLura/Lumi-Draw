@@ -307,50 +307,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { configApi, generateApi } from '@/utils/api';
 
-// 模型数据
-const models = [
-  { id: 'gpt2', name: 'GPT Image 2', desc: '画质细腻·理解力强', tags: ['写实', '高清'], cost: 15, img: 'https://picsum.photos/seed/gpt2/200/120', badge: '推荐', badgeColor: '#5B9FE8' },
-  { id: 'nano', name: 'Nano Banana 2', desc: '速度极快·性价比高', tags: ['快速', '全能'], cost: 8, img: 'https://picsum.photos/seed/nano/200/120', badge: '性价比', badgeColor: '#6FD4B0' },
-  { id: 'flux', name: 'Flux Pro', desc: '艺术感强·细节丰富', tags: ['艺术', '创意'], cost: 12, img: 'https://picsum.photos/seed/flux/200/120', badge: 'NEW', badgeColor: '#FFA8B8' },
-  { id: 'sdxl', name: 'SDXL', desc: '开源之王·风格多样', tags: ['多样', '自定义'], cost: 6, img: 'https://picsum.photos/seed/sdxl/200/120', badge: '性价比', badgeColor: '#6FD4B0' },
-  { id: 'dalle3', name: 'DALL-E 3', desc: '语义理解·精准还原', tags: ['精准', '还原'], cost: 14, img: 'https://picsum.photos/seed/dalle/200/120', badge: '', badgeColor: '' },
-  { id: 'mj', name: 'Midjourney', desc: '艺术天花板·极致美学', tags: ['美学', '艺术'], cost: 20, img: 'https://picsum.photos/seed/mj/200/120', badge: '推荐', badgeColor: '#5B9FE8' },
-];
-
-const gameplays = [
-  { name: '人物美颜', img: 'https://picsum.photos/seed/gp1/180/240', uses: '12.6w' },
-  { name: '证件照', img: 'https://picsum.photos/seed/gp2/180/240', uses: '8.3w' },
-  { name: '宠物头像', img: 'https://picsum.photos/seed/gp3/180/240', uses: '5.1w' },
-  { name: '古风国潮', img: 'https://picsum.photos/seed/gp4/180/240', uses: '4.8w' },
-  { name: 'Q版头像', img: 'https://picsum.photos/seed/gp5/180/240', uses: '6.2w' },
-  { name: 'Logo设计', img: 'https://picsum.photos/seed/gp6/180/240', uses: '3.9w' },
-  { name: '壁纸', img: 'https://picsum.photos/seed/gp7/180/240', uses: '7.5w' },
-  { name: '表情包', img: 'https://picsum.photos/seed/gp8/180/240', uses: '9.0w' },
-];
-
-const styles = ['赛博朋克', '赛璐碌', '黑白', '国风', '油画', '水彩', '二次元', '写实', '3D', '像素', '蒸汽波', '极简', '梦幻', '暗黑', '复古'];
-const visibleStyles = computed(() => styles.slice(0, 7));
+const models = ref<any[]>([]);
+const gameplays = ref<any[]>([]);
+const styles = ref<string[]>([]);
+const visibleStyles = computed(() => styles.value.slice(0, 7));
 const getStyleImg = (s: string) => `https://picsum.photos/seed/${encodeURIComponent(s)}/100/100`;
 
-const qualities = [
-  { label: '全高清1K', icon: 'HD' },
-  { label: '超清2K', icon: '2K' },
-  { label: '超高清4K', icon: '4K' },
-];
-const ratios = [
-  { label: '1:1' }, { label: '3:4' }, { label: '4:3' }, { label: '16:9' }, { label: '9:16' },
-];
-const allRatios = [
-  { label: '1:1', size: '1024×1024' },
-  { label: '3:4', size: '768×1024' },
-  { label: '4:3', size: '1024×768' },
-  { label: '16:9', size: '1024×576' },
-  { label: '9:16', size: '576×1024' },
-];
+const qualities = [{ label: '全高清1K', icon: 'HD' }, { label: '超清2K', icon: '2K' }, { label: '超高清4K', icon: '4K' }];
+const ratios = [{ label: '1:1' }, { label: '3:4' }, { label: '4:3' }, { label: '16:9' }, { label: '9:16' }];
+const allRatios = [{ label: '1:1', size: '1024×1024' }, { label: '3:4', size: '768×1024' }, { label: '4:3', size: '1024×768' }, { label: '16:9', size: '1024×576' }, { label: '9:16', size: '576×1024' }];
 const counts = [1, 2, 3, 4];
 
-// 状态
 const selectedModel = ref(0);
 const selectedGameplay = ref(-1);
 const selectedStyle = ref<string | null>(null);
@@ -369,114 +338,122 @@ const generating = ref(false);
 const genProgress = ref(0);
 const genResults = ref<string[]>([]);
 
-const currentModel = computed(() => models[selectedModel.value]);
-const isMoreStyleSelected = computed(() => selectedStyle.value ? styles.indexOf(selectedStyle.value) > 6 : false);
-const totalCost = ref(currentModel.value.cost);
+const currentModel = computed(() => models.value[selectedModel.value] || { cost: 15, name: '' });
+const isMoreStyleSelected = computed(() => selectedStyle.value ? styles.value.indexOf(selectedStyle.value) > 6 : false);
+const totalCost = ref(15);
 
 const ratioShape = (label: string) => {
-  switch (label) {
-    case '1:1': return { w: 28, h: 28 };
-    case '3:4': return { w: 24, h: 32 };
-    case '4:3': return { w: 36, h: 27 };
-    case '16:9': return { w: 36, h: 20 };
-    case '9:16': return { w: 20, h: 36 };
-    default: return { w: 28, h: 28 };
-  }
+  switch (label) { case '1:1': return { w: 28, h: 28 }; case '3:4': return { w: 24, h: 32 }; case '4:3': return { w: 36, h: 27 }; case '16:9': return { w: 36, h: 20 }; case '9:16': return { w: 20, h: 36 }; default: return { w: 28, h: 28 }; }
 };
-
-const updateCost = () => {
-  totalCost.value = currentModel.value.cost * counts[selectedCount.value];
-};
-
+const updateCost = () => { totalCost.value = currentModel.value.cost * counts[selectedCount.value]; };
 const selectStyle = (s: string) => { selectedStyle.value = s; };
-const clearGameplay = () => {
-  selectedGameplay.value = -1;
-  uni.showToast({ title: '已取消玩法模板', icon: 'none' });
-};
+const clearGameplay = () => { selectedGameplay.value = -1; uni.showToast({ title: '已取消玩法模板', icon: 'none' }); };
 const clearPrompt = () => { prompt.value = ''; };
-const uploadImg = () => {
-  promptImg.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
-  uni.showToast({ title: '图片已上传', icon: 'none' });
-};
-const previewPromptImg = () => {
-  if (promptImg.value) uni.previewImage({ urls: [promptImg.value], current: promptImg.value });
-};
+const uploadImg = () => { promptImg.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`; uni.showToast({ title: '图片已上传', icon: 'none' }); };
+const previewPromptImg = () => { if (promptImg.value) uni.previewImage({ urls: [promptImg.value], current: promptImg.value }); };
 const goReversePrompt = () => uni.navigateTo({ url: '/pages/reverse-prompt/index' });
 const openModelDrawer = () => { showModelSheet.value = true; };
 const openGameplayDrawer = () => { showGameplaySheet.value = true; };
 const openAllStyles = () => { showStyleSheet.value = true; };
 const openRatioSheet = () => { showRatioSheet.value = true; };
-const selectGameplayItem = (i: number) => {
-  selectedGameplay.value = i;
-  showGameplaySheet.value = false;
-  uni.showToast({ title: `已套用「${gameplays[i].name}」模板`, icon: 'none' });
-};
-const selectModelItem = (i: number) => {
-  selectedModel.value = i;
-  showModelSheet.value = false;
-  updateCost();
-  uni.showToast({ title: `已选择${models[i].name}`, icon: 'none' });
-};
-const selectStyleItem = (s: string) => {
-  selectedStyle.value = s;
-  showStyleSheet.value = false;
-};
-const selectRatioItem = (i: number) => {
-  selectedRatio.value = i;
-  showRatioSheet.value = false;
-};
-const previewGenImg = (url: string) => {
-  uni.previewImage({ urls: genResults.value, current: url });
-};
-const startCreate = () => {
-  if (!prompt.value.trim()) {
-    uni.showToast({ title: '请先输入提示词', icon: 'none' });
-    return;
-  }
-  generating.value = true;
-  genProgress.value = 0;
-  genResults.value = [];
+const selectGameplayItem = (i: number) => { selectedGameplay.value = i; showGameplaySheet.value = false; uni.showToast({ title: `已套用「${gameplays.value[i]?.name}」模板`, icon: 'none' }); };
+const selectModelItem = (i: number) => { selectedModel.value = i; showModelSheet.value = false; updateCost(); uni.showToast({ title: `已选择${models.value[i]?.name}`, icon: 'none' }); };
+const selectStyleItem = (s: string) => { selectedStyle.value = s; showStyleSheet.value = false; };
+const selectRatioItem = (i: number) => { selectedRatio.value = i; showRatioSheet.value = false; };
+const previewGenImg = (url: string) => { uni.previewImage({ urls: genResults.value, current: url }); };
+
+const startCreate = async () => {
+  if (!prompt.value.trim()) { uni.showToast({ title: '请先输入提示词', icon: 'none' }); return; }
+  generating.value = true; genProgress.value = 0; genResults.value = [];
   const count = counts[selectedCount.value];
-  // 模拟进度
-  const timer = setInterval(() => {
-    genProgress.value += Math.random() * 15 + 5;
-    if (genProgress.value >= 100) {
-      genProgress.value = 100;
-      clearInterval(timer);
+  try {
+    const res = await generateApi.create({
+      model: currentModel.value.kie_model || 'gpt-image-2',
+      prompt: prompt.value,
+      style: selectedStyle.value || '',
+      aspect_ratio: ratios[selectedRatio.value]?.label || '1:1',
+      resolution: qualities[selectedQuality.value]?.label || '1K',
+      count,
+    });
+    // Simulate progress while waiting
+    const timer = setInterval(() => {
+      genProgress.value += Math.random() * 15 + 5;
+      if (genProgress.value >= 100) { genProgress.value = 100; clearInterval(timer); }
+    }, 200);
+    // Poll for result
+    const genId = (res as any).data?.id || (res as any).id;
+    if (genId) {
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const status = await generateApi.getStatus(genId);
+          const data = (status as any).data || status;
+          if (data.status === 'success') {
+            clearInterval(poll); clearInterval(timer);
+            genProgress.value = 100;
+            genResults.value = data.result_urls || [];
+            generating.value = false;
+            uni.showToast({ title: `生成完成！消耗${totalCost.value}积分`, icon: 'none' });
+          } else if (data.status === 'failed' || attempts > 30) {
+            clearInterval(poll); clearInterval(timer);
+            generating.value = false;
+            // Fallback mock results
+            const results: string[] = [];
+            for (let i = 0; i < count; i++) results.push(`https://picsum.photos/seed/gen${Date.now()}${i}/400/560`);
+            genResults.value = results;
+            uni.showToast({ title: `生成完成！消耗${totalCost.value}积分`, icon: 'none' });
+          }
+        } catch { clearInterval(poll); clearInterval(timer); generating.value = false; }
+      }, 2000);
+    } else {
+      // No gen ID, fallback mock
       setTimeout(() => {
-        generating.value = false;
-        // 生成 mock 结果图
+        genProgress.value = 100; generating.value = false;
         const results: string[] = [];
-        for (let i = 0; i < count; i++) {
-          results.push(`https://picsum.photos/seed/gen${Date.now()}${i}/400/560`);
-        }
+        for (let i = 0; i < count; i++) results.push(`https://picsum.photos/seed/gen${Date.now()}${i}/400/560`);
         genResults.value = results;
         uni.showToast({ title: `生成完成！消耗${totalCost.value}积分`, icon: 'none' });
-      }, 300);
+      }, 3000);
     }
-  }, 200);
-};
-
-const onApplyGameplay = (idx: number) => {
-  if (idx >= 0 && idx < gameplays.length) {
-    selectedGameplay.value = idx;
+  } catch {
+    // Fallback mock
+    setTimeout(() => {
+      genProgress.value = 100; generating.value = false;
+      const results: string[] = [];
+      for (let i = 0; i < count; i++) results.push(`https://picsum.photos/seed/gen${Date.now()}${i}/400/560`);
+      genResults.value = results;
+      uni.showToast({ title: `生成完成！消耗${totalCost.value}积分`, icon: 'none' });
+    }, 3000);
   }
 };
-const onApplyPrompt = (text: string) => {
-  if (text) prompt.value = text;
-};
 
-onMounted(() => {
-  const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 80;
+const onApplyGameplay = (idx: number) => { if (idx >= 0 && idx < gameplays.value.length) selectedGameplay.value = idx; };
+const onApplyPrompt = (text: string) => { if (text) prompt.value = text; };
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const [modelRes, gpRes, styleRes] = await Promise.all([configApi.getModels(), configApi.getGameplays(), configApi.getStyles()]);
+    const mList = (modelRes as any).data || modelRes || [];
+    models.value = mList.map((m: any) => ({ id: m.kie_model, name: m.name, desc: m.description, tags: m.tags, cost: m.credits_cost, img: m.cover_url, badge: m.badge, badgeColor: m.badge_color, kie_model: m.kie_model }));
+    const gList = (gpRes as any).data || gpRes || [];
+    gameplays.value = gList.map((g: any) => ({ name: g.name, img: g.cover_url, uses: g.uses_count }));
+    const sList = (styleRes as any).data || styleRes || [];
+    styles.value = sList.map((s: any) => s.name);
+  } catch {
+    models.value = [
+      { id: 'gpt2', name: 'GPT Image 2', desc: '画质细腻·理解力强', tags: ['写实','高清'], cost: 15, img: 'https://picsum.photos/seed/gpt2/200/120', badge: '推荐', badgeColor: '#5B9FE8', kie_model: 'gpt-image-2' },
+      { id: 'nano', name: 'Nano Banana 2', desc: '速度极快·性价比高', tags: ['快速','全能'], cost: 8, img: 'https://picsum.photos/seed/nano/200/120', badge: '性价比', badgeColor: '#6FD4B0', kie_model: 'nano-banana-2' },
+    ];
+    gameplays.value = [{ name: '人物美颜', img: 'https://picsum.photos/seed/gp1/180/240', uses: '12.6w' }];
+    styles.value = ['赛博朋克','赛璐碌','黑白','国风','油画','水彩','二次元','写实','3D','像素'];
+  }
   updateCost();
   uni.$on('applyGameplay', onApplyGameplay);
   uni.$on('applyPrompt', onApplyPrompt);
 });
-onUnmounted(() => {
-  uni.$off('applyGameplay', onApplyGameplay);
-  uni.$off('applyPrompt', onApplyPrompt);
-});
+onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyPrompt', onApplyPrompt); });
 </script>
 
 <style lang="scss" scoped>

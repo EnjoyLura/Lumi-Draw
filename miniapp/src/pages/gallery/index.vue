@@ -187,9 +187,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
+import { workApi, userApi } from '@/utils/api';
 
 interface Work {
-  id: number; img: string; title: string; managed: boolean; published: boolean;
+  id: string; img: string; title: string; managed: boolean; published: boolean;
   likes: number; liked: boolean;
   author?: string; avatar?: string; color?: string;
 }
@@ -206,141 +207,87 @@ const tabLoading = ref(false);
 const animDir = ref('');
 const showBgPicker = ref(false);
 const bgColors = ['#EEF4FC', '#FFF5F5', '#F5FFF5', '#FFF8E1', '#F3E5F5', '#E8EAF6'];
-const bgGradients = [
-  'linear-gradient(135deg,#E1EBF8,#F5F9FE)',
-  'linear-gradient(135deg,#FFE0EC,#FFF5F5)',
-  'linear-gradient(135deg,#E0F7FA,#E8F5E9)',
-  'linear-gradient(135deg,#EDE7F6,#E8EAF6)',
-];
+const bgGradients = ['linear-gradient(135deg,#E1EBF8,#F5F9FE)', 'linear-gradient(135deg,#FFE0EC,#FFF5F5)', 'linear-gradient(135deg,#E0F7FA,#E8F5E9)', 'linear-gradient(135deg,#EDE7F6,#E8EAF6)'];
 
-// 自己的作品（已发布 + 草稿）
-const allWorks = reactive<Work[]>([
-  // 已发布
-  { id: 3, img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true, likes: 680, liked: false },
-  { id: 5, img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true, likes: 892, liked: false },
-  { id: 11, img: 'https://picsum.photos/seed/w11/300/400', title: '油画风景', managed: false, published: true, likes: 489, liked: false },
-  { id: 22, img: 'https://picsum.photos/seed/w22/300/300', title: '梦幻城堡', managed: false, published: true, likes: 356, liked: false },
-  { id: 23, img: 'https://picsum.photos/seed/w23/300/420', title: '星空倒影', managed: false, published: true, likes: 234, liked: false },
-  // 草稿
-  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '赛博精灵', managed: false, published: false, likes: 0, liked: false },
-  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '极简几何', managed: false, published: false, likes: 0, liked: false },
-  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '暗黑天使', managed: false, published: false, likes: 0, liked: false },
-  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '蒸汽城市', managed: false, published: false, likes: 0, liked: false },
-  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '水彩猫咪', managed: false, published: false, likes: 0, liked: false },
-  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '像素冒险', managed: false, published: false, likes: 0, liked: false },
-]);
-
-// 收藏的别人的作品
-const favWorks = reactive<Work[]>([
-  { id: 101, img: 'https://picsum.photos/seed/fav1/300/420', title: '霓虹都市', managed: false, published: true, likes: 328, liked: true, author: '星辰大海', avatar: '星', color: '#6FD4B0' },
-  { id: 102, img: 'https://picsum.photos/seed/fav2/300/300', title: '水墨山河', managed: false, published: true, likes: 512, liked: true, author: '月光如水', avatar: '月', color: '#FFB59A' },
-  { id: 103, img: 'https://picsum.photos/seed/fav3/300/530', title: '赛博猫咪', managed: false, published: true, likes: 445, liked: true, author: '风之绘师', avatar: '风', color: '#B8A5E3' },
-  { id: 104, img: 'https://picsum.photos/seed/fav4/300/225', title: '日落海滩', managed: false, published: true, likes: 278, liked: true, author: '光影魔术', avatar: '光', color: '#FFE08A' },
-]);
+const allWorks = ref<Work[]>([]);
+const favWorks = ref<Work[]>([]);
+const userInfo = ref<any>({ nickname: '', signature: '', works_count: 0, followers_count: 0, likes_count: 0 });
 
 const filteredWorks = computed(() => {
-  if (curTab.value === 0) return allWorks;
-  if (curTab.value === 1) return allWorks.filter(w => w.published);
-  if (curTab.value === 2) return allWorks.filter(w => !w.published);
-  return favWorks; // 收藏
+  if (curTab.value === 0) return allWorks.value;
+  if (curTab.value === 1) return allWorks.value.filter(w => w.published);
+  if (curTab.value === 2) return allWorks.value.filter(w => !w.published);
+  return favWorks.value;
 });
 
 const leftCol = computed(() => filteredWorks.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => filteredWorks.value.filter((_, i) => i % 2 === 1));
-const selectedCount = computed(() => allWorks.filter(w => w.managed).length);
+const selectedCount = computed(() => allWorks.value.filter(w => w.managed).length);
 
 const switchTab = (idx: number) => {
   if (curTab.value === idx) return;
-  const oldIdx = curTab.value;
-  animDir.value = idx > oldIdx ? 'left' : 'right';
+  animDir.value = idx > curTab.value ? 'left' : 'right';
   curTab.value = idx;
   isManage.value = false;
-  allWorks.forEach(w => w.managed = false);
-  // 更新指示器位置
+  allWorks.value.forEach(w => w.managed = false);
   updateIndicator(idx);
-  // 切换loading动画
   tabLoading.value = true;
-  setTimeout(() => {
-    tabLoading.value = false;
-    setTimeout(() => { animDir.value = ''; }, 400);
-  }, 300);
+  setTimeout(() => { tabLoading.value = false; setTimeout(() => { animDir.value = ''; }, 400); }, 300);
 };
 
 const updateIndicator = (idx: number) => {
-  // 使用 DOM 查询获取真实位置
   nextTick(() => {
     const query = uni.createSelectorQuery();
     query.selectAll('.gallery-tab').boundingClientRect((rects: any) => {
       if (rects && rects[idx]) {
-        // 获取父容器的 left 作为基准
         const parentQuery = uni.createSelectorQuery();
         parentQuery.select('.gallery-tabs').boundingClientRect((parentRect: any) => {
-          if (parentRect) {
-            const tabRect = rects[idx];
-            indicatorLeft.value = tabRect.left - parentRect.left + tabRect.width / 2 - 10;
-          }
+          if (parentRect) indicatorLeft.value = rects[idx].left - parentRect.left + rects[idx].width / 2 - 10;
         }).exec();
       }
     }).exec();
   });
 };
 
-const toggleLike = (w: Work) => {
-  w.liked = !w.liked;
-  w.likes += w.liked ? 1 : -1;
-};
-
-const toggleManage = () => {
-  isManage.value = !isManage.value;
-  if (!isManage.value) allWorks.forEach(w => w.managed = false);
-};
-
+const toggleLike = (w: Work) => { w.liked = !w.liked; w.likes += w.liked ? 1 : -1; };
+const toggleManage = () => { isManage.value = !isManage.value; if (!isManage.value) allWorks.value.forEach(w => w.managed = false); };
 const toggleManageItem = (w: Work) => { w.managed = !w.managed; };
-const onCardClick = (w: Work) => {
-  if (isManage.value) {
-    toggleManageItem(w);
-  } else {
-    goWorkDetail(w);
-  }
-};
-const selectAll = () => {
-  const allSelected = filteredWorks.value.every(w => w.managed);
-  filteredWorks.value.forEach(w => w.managed = !allSelected);
-};
-const deleteSelected = () => {
-  if (selectedCount.value === 0) return;
-  uni.showToast({ title: `已删除 ${selectedCount.value} 项`, icon: 'none' });
-  allWorks.forEach(w => w.managed = false);
-  isManage.value = false;
-};
+const onCardClick = (w: Work) => { if (isManage.value) toggleManageItem(w); else goWorkDetail(w); };
+const selectAll = () => { const allSelected = filteredWorks.value.every(w => w.managed); filteredWorks.value.forEach(w => w.managed = !allSelected); };
+const deleteSelected = () => { if (selectedCount.value === 0) return; uni.showToast({ title: `已删除 ${selectedCount.value} 项`, icon: 'none' }); allWorks.value.forEach(w => w.managed = false); isManage.value = false; };
 
 const openDrawer = () => { drawerOpen.value = true; };
 const openBgPicker = () => { showBgPicker.value = true; };
-const selectBg = (bg: string) => {
-  showBgPicker.value = false;
-  uni.showToast({ title: '背景已更换', icon: 'none' });
-};
+const selectBg = (bg: string) => { showBgPicker.value = false; uni.showToast({ title: '背景已更换', icon: 'none' }); };
 const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const changeAvatar = () => uni.showToast({ title: '更换头像', icon: 'none' });
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
 const goFollowList = (type: string) => uni.navigateTo({ url: `/pages/follow-list/index?type=${type}` });
-const goWorkDetail = (w: Work) => {
-  if (isManage.value) return;
-  uni.navigateTo({ url: '/pages/work-detail/index' });
-};
+const goWorkDetail = (w: Work) => { if (isManage.value) return; uni.navigateTo({ url: '/pages/work-detail/index' }); };
 const goPublish = () => uni.navigateTo({ url: '/pages/publish/index' });
+const onLoadMore = () => { if (loading.value || noMore.value) return; loading.value = true; setTimeout(() => { noMore.value = true; loading.value = false; }, 600); };
 
-const onLoadMore = () => {
-  if (loading.value || noMore.value) return;
-  loading.value = true;
-  setTimeout(() => { noMore.value = true; loading.value = false; }, 600);
-};
-
-onMounted(() => {
-  const sys = uni.getSystemInfoSync();
-  scrollH.value = sys.windowHeight - 360;
-  // 初始化指示器位置
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 360;
   updateIndicator(0);
+  try {
+    const [profileRes, worksRes] = await Promise.all([userApi.getProfile(), workApi.getMyWorks()]);
+    const profile = (profileRes as any).data || profileRes;
+    userInfo.value = profile;
+    const data = (worksRes as any).data || worksRes;
+    const published = (data.published || []).map((w: any) => ({
+      id: w.id, img: w.image_urls?.[0] || '', title: w.title || '', managed: false, published: true, likes: w.likes_count || 0, liked: false,
+    }));
+    const drafts = (data.drafts || []).map((w: any) => ({
+      id: w.id, img: w.image_urls?.[0] || '', title: w.title || '', managed: false, published: false, likes: 0, liked: false,
+    }));
+    allWorks.value = [...published, ...drafts];
+  } catch {
+    allWorks.value = [
+      { id: 'w3', img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true, likes: 680, liked: false },
+      { id: 'w5', img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true, likes: 892, liked: false },
+    ];
+  }
 });
 </script>
 
