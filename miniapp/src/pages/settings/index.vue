@@ -30,6 +30,19 @@
         </view>
       </view>
 
+      <text class="group-title">开发</text>
+      <view class="menu-card">
+        <view class="menu-row">
+          <text class="menu-icon" style="color:#6FD4B0">🔧</text>
+          <text class="menu-text">静态数据模式</text>
+          <view :class="['toggle-switch', { on: useMock }]" @click="toggleMock" />
+        </view>
+        <view class="menu-row">
+          <text class="menu-icon" style="color:#B8A5E3">💡</text>
+          <text class="menu-text" style="font-size:12px;color:#8497B5;">{{ useMock ? '当前使用静态Mock数据调试' : '当前使用真实后端数据' }}</text>
+        </view>
+      </view>
+
       <text class="group-title">关于</text>
       <view class="menu-card">
         <view class="menu-row"><text class="menu-icon">📄</text><text class="menu-text">用户协议</text><text class="menu-arrow">›</text></view>
@@ -51,8 +64,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { getUseMock, setUseMock } from '@/utils/api';
 const darkMode = ref(false);
+const useMock = ref(true);
+
+onMounted(() => {
+  useMock.value = getUseMock();
+});
+
+const toggleMock = () => {
+  useMock.value = !useMock.value;
+  setUseMock(useMock.value);
+  uni.showToast({ title: useMock.value ? '已切换为静态数据' : '已切换为真实后端', icon: 'none' });
+};
 const goBack = () => uni.navigateBack();
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
 const goChangelog = () => uni.navigateTo({ url: '/pages/changelog/index' });

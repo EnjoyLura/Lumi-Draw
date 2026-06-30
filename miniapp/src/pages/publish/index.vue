@@ -5,14 +5,17 @@
     <scroll-view scroll-y class="page-scroll" :style="{ height: scrollH + 'px' }">
       <view class="form-section">
         <text class="form-label">选择作品</text>
-        <view class="draft-card" @click="openDraftPicker">
+        <view :class="['draft-card', { selected: !!selectedDraft }]" @click="openDraftPicker">
           <view v-if="!selectedDraft" class="draft-placeholder">
             <view class="draft-icon">🖼</view>
             <view class="draft-info"><text class="draft-title">从草稿箱选择</text><text class="draft-desc">点击浏览全部草稿作品</text></view>
           </view>
           <view v-else class="draft-selected">
             <image :src="selectedDraft.img" mode="aspectFill" class="draft-img" />
-            <view class="draft-selected-info"><text class="draft-selected-title">{{ selectedDraft.title }}</text><text class="draft-selected-meta">{{ selectedDraft.meta }}</text></view>
+            <view class="draft-selected-info">
+              <text class="draft-selected-title">{{ selectedDraft.title }}</text>
+              <text class="draft-selected-meta">{{ selectedDraft.meta }} · {{ selectedDraft.size }}</text>
+            </view>
           </view>
           <text class="draft-arrow">›</text>
         </view>
@@ -50,11 +53,15 @@
       <view class="sheet-handle" />
       <text class="sheet-title">选择草稿作品</text>
       <view class="draft-grid">
-        <view v-for="d in drafts" :key="d.id" class="draft-grid-item" @click="pickDraft(d)">
+        <view v-for="d in drafts" :key="d.id" :class="['draft-grid-item', { selected: selectedDraft && selectedDraft.id === d.id }]" @click="pickDraft(d)">
+          <view v-if="selectedDraft && selectedDraft.id === d.id" class="draft-grid-check">✓</view>
           <view class="draft-grid-img-wrap">
             <image :src="d.img" mode="aspectFill" class="draft-grid-img" />
           </view>
-          <text class="draft-grid-name">{{ d.title }}</text>
+          <view class="draft-grid-info">
+            <text class="draft-grid-name">{{ d.title }}</text>
+            <text class="draft-grid-size">{{ d.size }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -81,12 +88,12 @@ const tagColors: Record<string, string> = {
 };
 
 const drafts = [
-  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '花园机器人', meta: 'GPT Image 2 · 3:4' },
-  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '魔法森林', meta: 'Flux Pro · 1:1' },
-  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '星空灯塔', meta: 'SDXL · 9:16' },
-  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '竹林古寺', meta: 'Nano Banana 2 · 4:3' },
-  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '赛博猫咪', meta: 'GPT Image 2 · 3:4' },
-  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '水墨鲤鱼', meta: 'SDXL · 1:1' },
+  { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '花园机器人', meta: 'GPT Image 2 · 3:4', size: '768×1024' },
+  { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '魔法森林', meta: 'Flux Pro · 1:1', size: '1024×1024' },
+  { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '星空灯塔', meta: 'SDXL · 9:16', size: '576×1024' },
+  { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '竹林古寺', meta: 'Nano Banana 2 · 4:3', size: '1024×768' },
+  { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '赛博猫咪', meta: 'GPT Image 2 · 3:4', size: '768×1024' },
+  { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '水墨鲤鱼', meta: 'SDXL · 1:1', size: '1024×1024' },
 ];
 
 const tagColorClass = (t: string) => {
@@ -139,8 +146,13 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 
 // 选择作品卡片
 .draft-card {
-  background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14);
+  background: #fff; border-radius: 20px; border: 1.5px solid rgba(91,159,232,0.14);
   padding: 14px; display: flex; align-items: center; cursor: pointer;
+  transition: all 0.3s;
+  &.selected {
+    border-color: #5B9FE8;
+    background: linear-gradient(180deg, rgba(91,159,232,0.06) 0%, transparent 100%);
+  }
 }
 .draft-placeholder { display: flex; align-items: center; gap: 12px; flex: 1; }
 .draft-icon { width: 72px; height: 72px; border-radius: 12px; background: rgba(91,159,232,0.12); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
@@ -186,8 +198,21 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: rgba(91,159,232,0.3); margin: 10px auto 4px; }
 .sheet-title { font-size: 16px; font-weight: 600; color: #0E1F3A; display: block; padding: 10px 20px 16px; }
 .draft-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 20px; }
-.draft-grid-item { cursor: pointer; &:active { transform: scale(0.95); } }
-.draft-grid-img-wrap { width: 100%; padding-bottom: 100%; position: relative; border-radius: 12px; overflow: hidden; }
+.draft-grid-item {
+  cursor: pointer; border-radius: 10px; overflow: hidden; position: relative;
+  border: 2px solid transparent; transition: all 0.2s;
+  &.selected { border-color: #5B9FE8; }
+  &:active { transform: scale(0.95); }
+}
+.draft-grid-check {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #5B9FE8; color: #fff; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.draft-grid-img-wrap { width: 100%; padding-bottom: 100%; position: relative; overflow: hidden; }
 .draft-grid-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-.draft-grid-name { font-size: 11px; color: #445876; margin-top: 4px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+.draft-grid-info { padding: 6px 8px; background: #FBFDFF; }
+.draft-grid-name { font-size: 11px; color: #445876; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-grid-size { font-size: 10px; color: #8497B5; margin-top: 2px; display: block; }
 </style>

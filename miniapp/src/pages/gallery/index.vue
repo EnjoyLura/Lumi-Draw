@@ -9,87 +9,6 @@
     </view>
     <view class="nav-header"><text class="nav-title">画廊</text></view>
     <view class="capsule"><view class="cap-btn">⋯</view><view class="cap-divider" /><view class="cap-btn">✕</view></view>
-    <!-- 头部背景区域 -->
-    <view class="gallery-header">
-      <!-- 顶部操作栏 -->
-      <view class="header-top">
-        <view class="header-menu" @click="openDrawer">
-          <text class="header-menu-icon">☰</text>
-        </view>
-        <view style="flex:1;" />
-        <view class="bg-btn" @click="openBgPicker">
-          <text class="bg-btn-icon">📷</text>
-          <text class="bg-btn-text">设置背景</text>
-        </view>
-        <view class="header-search" @click="goSearch">
-          <text class="header-search-icon">🔍</text>
-        </view>
-      </view>
-
-      <!-- 头像 + 信息 -->
-      <view class="user-row">
-        <view class="avatar-wrap">
-          <view class="user-avatar">
-            <text class="user-avatar-text">梦</text>
-          </view>
-          <view class="avatar-add" @click="changeAvatar">
-            <text class="avatar-add-icon">+</text>
-          </view>
-        </view>
-        <view class="user-info">
-          <text class="user-name">云端造梦师</text>
-          <text class="user-id">ID: LUMI8829</text>
-          <view class="user-gender">
-            <text class="gender-tag">♀</text>
-          </view>
-        </view>
-      </view>
-
-      <!-- 签名 -->
-      <text class="user-signature">用AI描绘心中的梦境，每一笔都是想象力的延伸</text>
-
-      <!-- 标签 -->
-      <view class="user-tags">
-        <text class="user-tag">✦ AI创作者</text>
-      </view>
-
-      <!-- 数据统计 + 编辑按钮 -->
-      <view class="stats-row">
-        <view class="stats-list">
-          <view class="stat-item">
-            <text class="stat-num" style="color:#FFA8B8;">48</text>
-            <text class="stat-label">作品</text>
-          </view>
-          <view class="stat-item" @click="goFollowList('followers')">
-            <text class="stat-num" style="color:#5B9FE8;">326</text>
-            <text class="stat-label">粉丝</text>
-          </view>
-          <view class="stat-item">
-            <text class="stat-num" style="color:#B8A5E3;">1.2k</text>
-            <text class="stat-label">获赞</text>
-          </view>
-        </view>
-        <view class="edit-btn" @click="goEditProfile">编辑资料</view>
-      </view>
-    </view>
-
-    <!-- 子标签页 + 管理按钮 -->
-    <view class="gallery-tabs-row">
-      <view class="gallery-tabs" id="galleryTabs">
-        <text
-          v-for="(t, i) in galleryTabs"
-          :key="i"
-          :class="['gallery-tab', { active: curTab === i }]"
-          @click="switchTab(i)"
-        >{{ t }}</text>
-        <view class="tab-indicator" :style="{ left: indicatorLeft + 'px' }" />
-      </view>
-      <view class="manage-btn" @click="toggleManage">
-        <text class="manage-icon">☰</text>
-        <text class="manage-text">{{ isManage ? '完成' : '管理' }}</text>
-      </view>
-    </view>
-
     <!-- 管理模式底部栏 -->
     <view :class="['manage-bar', { show: isManage }]">
       <text class="manage-count">已选择 {{ selectedCount }} 项</text>
@@ -97,13 +16,61 @@
       <view :class="['manage-delete', { active: selectedCount > 0 }]" @click="deleteSelected">删除</view>
     </view>
 
-    <!-- 瀑布流 -->
+    <!-- 整体可滚动区域 -->
     <scroll-view
       scroll-y
       class="gallery-scroll"
-      :style="{ height: scrollH + 'px' }"
       @scrolltolower="onLoadMore"
     >
+      <!-- 头部背景区域 -->
+      <view class="gallery-header">
+        <view class="header-top">
+          <view class="header-menu" @click="openDrawer">
+            <text class="header-menu-icon">☰</text>
+          </view>
+          <view style="flex:1;" />
+          <view class="bg-btn" @click="openBgPicker">
+            <text class="bg-btn-icon">📷</text>
+            <text class="bg-btn-text">设置背景</text>
+          </view>
+          <view class="header-search" @click="goSearch">
+            <text class="header-search-icon">🔍</text>
+          </view>
+        </view>
+        <view class="user-row">
+          <view class="avatar-wrap">
+            <view class="user-avatar"><text class="user-avatar-text">梦</text></view>
+            <view class="avatar-add" @click="changeAvatar"><text class="avatar-add-icon">+</text></view>
+          </view>
+          <view class="user-info">
+            <text class="user-name">云端造梦师</text>
+            <text class="user-id">ID: LUMI8829</text>
+            <view class="user-gender"><text class="gender-tag">♀</text></view>
+          </view>
+        </view>
+        <text class="user-signature">用AI描绘心中的梦境，每一笔都是想象力的延伸</text>
+        <view class="user-tags"><text class="user-tag">✦ AI创作者</text></view>
+        <view class="stats-row">
+          <view class="stats-list">
+            <view class="stat-item"><text class="stat-num" style="color:#FFA8B8;">48</text><text class="stat-label">作品</text></view>
+            <view class="stat-item" @click="goFollowList('followers')"><text class="stat-num" style="color:#5B9FE8;">326</text><text class="stat-label">粉丝</text></view>
+            <view class="stat-item"><text class="stat-num" style="color:#B8A5E3;">1.2k</text><text class="stat-label">获赞</text></view>
+          </view>
+          <view class="edit-btn" @click="goEditProfile">编辑资料</view>
+        </view>
+      </view>
+
+      <!-- 子标签页 + 管理按钮 -->
+      <view class="gallery-tabs-row">
+        <view class="gallery-tabs" id="galleryTabs">
+          <text v-for="(t, i) in galleryTabs" :key="i" :class="['gallery-tab', { active: curTab === i }]" @click="switchTab(i)">{{ t }}</text>
+          <view class="tab-indicator" :style="{ left: indicatorLeft + 'px' }" />
+        </view>
+        <view class="manage-btn" @click="toggleManage">
+          <text class="manage-icon">☰</text>
+          <text class="manage-text">{{ isManage ? '完成' : '管理' }}</text>
+        </view>
+      </view>
       <!-- Tab切换loading -->
       <view v-if="tabLoading" class="tab-loading">
         <view class="tab-spinner" />
@@ -123,8 +90,8 @@
                 <text class="wf-title">{{ w.title || '未命名作品' }}</text>
                 <view class="wf-meta">
                   <view class="wf-author">
-                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
-                    <text class="wf-author-name">云端造梦师</text>
+                    <view class="wf-avatar" :style="{ background: w.color || '#5B9FE8' }"><text class="wf-avatar-text">{{ w.avatar || '梦' }}</text></view>
+                    <text class="wf-author-name">{{ w.author || '云端造梦师' }}</text>
                   </view>
                   <view v-if="curTab !== 2" class="wf-like" @click.stop="toggleLike(w)">
                     <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
@@ -150,8 +117,8 @@
                 <text class="wf-title">{{ w.title || '未命名作品' }}</text>
                 <view class="wf-meta">
                   <view class="wf-author">
-                    <view class="wf-avatar"><text class="wf-avatar-text">梦</text></view>
-                    <text class="wf-author-name">云端造梦师</text>
+                    <view class="wf-avatar" :style="{ background: w.color || '#5B9FE8' }"><text class="wf-avatar-text">{{ w.avatar || '梦' }}</text></view>
+                    <text class="wf-author-name">{{ w.author || '云端造梦师' }}</text>
                   </view>
                   <view v-if="curTab !== 2" class="wf-like" @click.stop="toggleLike(w)">
                     <text class="wf-like-icon" :style="{ color: w.liked ? '#FFA8B8' : '#8497B5' }">{{ w.liked ? '♥' : '♡' }}</text>
@@ -224,6 +191,7 @@ import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 interface Work {
   id: number; img: string; title: string; managed: boolean; published: boolean;
   likes: number; liked: boolean;
+  author?: string; avatar?: string; color?: string;
 }
 
 const galleryTabs = ['全部', '已发布', '草稿箱', '收藏'];
@@ -245,26 +213,36 @@ const bgGradients = [
   'linear-gradient(135deg,#EDE7F6,#E8EAF6)',
 ];
 
+// 自己的作品（已发布 + 草稿）
 const allWorks = reactive<Work[]>([
+  // 已发布
   { id: 3, img: 'https://picsum.photos/seed/w3/300/450', title: '少女与猫', managed: false, published: true, likes: 680, liked: false },
   { id: 5, img: 'https://picsum.photos/seed/w5/300/530', title: '古风少女', managed: false, published: true, likes: 892, liked: false },
   { id: 11, img: 'https://picsum.photos/seed/w11/300/400', title: '油画风景', managed: false, published: true, likes: 489, liked: false },
+  { id: 22, img: 'https://picsum.photos/seed/w22/300/300', title: '梦幻城堡', managed: false, published: true, likes: 356, liked: false },
+  { id: 23, img: 'https://picsum.photos/seed/w23/300/420', title: '星空倒影', managed: false, published: true, likes: 234, liked: false },
+  // 草稿
   { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '赛博精灵', managed: false, published: false, likes: 0, liked: false },
   { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '极简几何', managed: false, published: false, likes: 0, liked: false },
   { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '暗黑天使', managed: false, published: false, likes: 0, liked: false },
   { id: 16, img: 'https://picsum.photos/seed/w16/300/225', title: '蒸汽城市', managed: false, published: false, likes: 0, liked: false },
   { id: 17, img: 'https://picsum.photos/seed/w17/300/400', title: '水彩猫咪', managed: false, published: false, likes: 0, liked: false },
   { id: 18, img: 'https://picsum.photos/seed/w18/300/300', title: '像素冒险', managed: false, published: false, likes: 0, liked: false },
-  { id: 19, img: 'https://picsum.photos/seed/w19/300/400', title: '霓虹都市', managed: false, published: false, likes: 0, liked: false },
-  { id: 20, img: 'https://picsum.photos/seed/w20/300/530', title: '山水之间', managed: false, published: false, likes: 0, liked: false },
-  { id: 21, img: 'https://picsum.photos/seed/w21/300/225', title: '抽象梦境', managed: false, published: false, likes: 0, liked: false },
+]);
+
+// 收藏的别人的作品
+const favWorks = reactive<Work[]>([
+  { id: 101, img: 'https://picsum.photos/seed/fav1/300/420', title: '霓虹都市', managed: false, published: true, likes: 328, liked: true, author: '星辰大海', avatar: '星', color: '#6FD4B0' },
+  { id: 102, img: 'https://picsum.photos/seed/fav2/300/300', title: '水墨山河', managed: false, published: true, likes: 512, liked: true, author: '月光如水', avatar: '月', color: '#FFB59A' },
+  { id: 103, img: 'https://picsum.photos/seed/fav3/300/530', title: '赛博猫咪', managed: false, published: true, likes: 445, liked: true, author: '风之绘师', avatar: '风', color: '#B8A5E3' },
+  { id: 104, img: 'https://picsum.photos/seed/fav4/300/225', title: '日落海滩', managed: false, published: true, likes: 278, liked: true, author: '光影魔术', avatar: '光', color: '#FFE08A' },
 ]);
 
 const filteredWorks = computed(() => {
   if (curTab.value === 0) return allWorks;
   if (curTab.value === 1) return allWorks.filter(w => w.published);
   if (curTab.value === 2) return allWorks.filter(w => !w.published);
-  return []; // 收藏 tab - mock empty
+  return favWorks; // 收藏
 });
 
 const leftCol = computed(() => filteredWorks.value.filter((_, i) => i % 2 === 0));
@@ -368,9 +346,12 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .page-gallery {
-  min-height: 100vh;
+  height: 100vh;
   background: #EEF4FC;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 // 毛玻璃
@@ -412,7 +393,7 @@ onMounted(() => {
 }
 .header-top {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 16px; padding-top: 78px;
+  padding: 4px 16px;
 }
 .header-menu { padding: 4px; }
 .header-menu-icon { font-size: 22px; color: #0E1F3A; }
@@ -527,7 +508,7 @@ onMounted(() => {
 }
 
 // 瀑布流
-.gallery-scroll { padding: 0; }
+.gallery-scroll { padding-top: 74px; flex: 1; height: 0; }
 .waterfall-wrap {
   padding: 0 12px; display: flex; gap: 8px;
 }

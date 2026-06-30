@@ -98,6 +98,19 @@
         </view>
       </view>
     </scroll-view>
+
+    <!-- 取消关注确认弹窗 -->
+    <view v-if="showUnfollowDialog" class="dialog-overlay" @click="showUnfollowDialog = false">
+      <view class="dialog-box" @click.stop>
+        <view class="dialog-icon-wrap"><text class="dialog-icon">♡</text></view>
+        <text class="dialog-title">取消关注</text>
+        <text class="dialog-msg">确定要取消关注该用户吗？</text>
+        <view class="dialog-actions">
+          <view class="dialog-btn dialog-cancel" @click="showUnfollowDialog = false">再想想</view>
+          <view class="dialog-btn dialog-confirm" @click="confirmUnfollow">取消关注</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -105,6 +118,7 @@
 import { ref, computed, onMounted } from 'vue';
 const scrollH = ref(700);
 const following = ref(false);
+const showUnfollowDialog = ref(false);
 
 const user = {
   id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0',
@@ -123,8 +137,17 @@ const leftCol = computed(() => works.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => works.value.filter((_, i) => i % 2 === 1));
 
 const toggleFollow = () => {
-  following.value = !following.value;
-  uni.showToast({ title: following.value ? '已关注' : '已取消关注', icon: 'none' });
+  if (following.value) {
+    showUnfollowDialog.value = true;
+  } else {
+    following.value = true;
+    uni.showToast({ title: '关注成功', icon: 'none' });
+  }
+};
+const confirmUnfollow = () => {
+  following.value = false;
+  showUnfollowDialog.value = false;
+  uni.showToast({ title: '已取消关注', icon: 'none' });
 };
 const toggleLike = (w: any) => {
   w.liked = !w.liked;
@@ -195,4 +218,31 @@ onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
 .wf-like { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 2px 4px; border-radius: 8px; }
 .wf-like-icon { font-size: 16px; transition: all 0.3s; }
 .wf-like-num { font-size: 13px; font-weight: 600; }
+
+// 确认弹窗
+.dialog-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.dialog-box {
+  width: 280px; background: #fff; border-radius: 20px;
+  padding: 24px 20px 16px; text-align: center;
+  box-shadow: 0 24px 56px rgba(60,120,200,0.16);
+  animation: dialogIn 0.25s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes dialogIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.dialog-icon-wrap {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(255,181,154,0.2);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+.dialog-icon { font-size: 24px; color: #FFB59A; }
+.dialog-title { font-size: 17px; font-weight: 700; color: #0E1F3A; display: block; margin-bottom: 8px; }
+.dialog-msg { font-size: 14px; color: #445876; display: block; margin-bottom: 20px; }
+.dialog-actions { display: flex; gap: 10px; }
+.dialog-btn { flex: 1; padding: 10px 0; border-radius: 12px; font-size: 14px; font-weight: 600; text-align: center; }
+.dialog-cancel { background: #E1EBF8; color: #445876; }
+.dialog-confirm { background: #FFA8B8; color: #fff; }
 </style>

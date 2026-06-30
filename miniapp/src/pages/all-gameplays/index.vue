@@ -38,8 +38,10 @@ const gameplays = reactive([
   { name: '表情包', img: 'https://picsum.photos/seed/gp8/300/300', uses: '9.0w', hot: true, imgLoaded: false },
 ]);
 const selectGameplay = (g: any) => {
+  const idx = gameplays.findIndex(gp => gp.name === g.name);
+  uni.$emit('applyGameplay', idx);
+  uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: `已套用「${g.name}」模板`, icon: 'none' });
-  setTimeout(() => { uni.switchTab({ url: '/pages/create/index' }); }, 800);
 };
 const goBack = () => uni.navigateBack();
 </script>

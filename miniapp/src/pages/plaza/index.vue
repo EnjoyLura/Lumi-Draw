@@ -26,7 +26,6 @@
     <scroll-view
       scroll-y
       class="content-scroll"
-      :style="{ height: scrollH + 'px' }"
       :refresher-enabled="true"
       :refresher-triggered="isRefreshing"
       @refresherrefresh="onRefresh"
@@ -458,9 +457,12 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .page-plaza {
-  min-height: 100vh;
+  height: 100vh;
   background: #EEF4FC;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 // 毛玻璃
@@ -524,7 +526,7 @@ onMounted(() => {
   background: rgba(0, 0, 0, 0.15);
 }
 
-.content-scroll { padding-top: 74px; }
+.content-scroll { padding-top: 74px; flex: 1; height: 0; }
 
 // 顶部操作栏
 .plaza-top {

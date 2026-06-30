@@ -16,7 +16,9 @@
       </view>
       <view class="form-group">
         <text class="form-label">昵称</text>
-        <input class="form-input" v-model="nickname" maxlength="20" placeholder="请输入昵称" />
+        <view :class="['input-card', { focused: nickFocused }]">
+          <input class="form-input" v-model="nickname" maxlength="20" placeholder="请输入昵称" @focus="nickFocused = true" @blur="nickFocused = false" />
+        </view>
         <text class="form-count">{{ nickname.length }}/20</text>
       </view>
       <view class="form-group">
@@ -28,13 +30,15 @@
       </view>
       <view class="form-group">
         <text class="form-label">个性签名</text>
-        <textarea class="form-textarea" v-model="signature" maxlength="100" placeholder="写一句个性签名吧" />
+        <view :class="['input-card', { focused: sigFocused }]">
+          <textarea class="form-textarea" v-model="signature" maxlength="100" placeholder="写一句个性签名吧" @focus="sigFocused = true" @blur="sigFocused = false" />
+        </view>
         <text class="form-count">{{ signature.length }}/100</text>
       </view>
       <view class="form-group">
         <text class="form-label">账号ID</text>
-        <view class="id-row">
-          <input class="form-input" value="LUMI8829" disabled style="opacity:0.6;" />
+        <view class="input-card disabled">
+          <input class="form-input" value="LUMI8829" disabled />
           <text class="lock-icon">🔒</text>
         </view>
         <text class="form-hint">账号ID不可修改</text>
@@ -49,6 +53,8 @@ import { ref } from 'vue';
 const nickname = ref('云端造梦师');
 const gender = ref('male');
 const signature = ref('用AI描绘心中的梦境，每一笔都是想象力的延伸');
+const nickFocused = ref(false);
+const sigFocused = ref(false);
 const changeAvatar = () => uni.showToast({ title: '选择头像图片', icon: 'none' });
 const save = () => { uni.showToast({ title: '资料已保存', icon: 'success' }); setTimeout(() => uni.navigateBack(), 1000); };
 const goBack = () => uni.navigateBack();
@@ -62,21 +68,56 @@ const goBack = () => uni.navigateBack();
 .back-arrow { font-size: 28px; color: #0E1F3A; font-weight: 300; }
 .nav-title { font-size: 17px; font-weight: 600; color: #0E1F3A; }
 .form-body { padding: 98px 16px 16px; }
+
+// 头像
 .avatar-section { text-align: center; margin-bottom: 24px; }
-.avatar-wrap { position: relative; display: inline-block; }
+.avatar-wrap { position: relative; display: inline-block; cursor: pointer; }
 .avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg,#B8A5E3,#5B9FE8,#6FD4B0); display: flex; align-items: center; justify-content: center; }
 .avatar-text { font-size: 32px; color: #fff; font-weight: 700; }
 .avatar-camera { position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; border-radius: 50%; background: #5B9FE8; border: 2px solid #EEF4FC; display: flex; align-items: center; justify-content: center; font-size: 14px; }
 .avatar-hint { font-size: 12px; color: #8497B5; margin-top: 6px; display: block; }
+
+// 表单
 .form-group { margin-bottom: 20px; }
 .form-label { font-size: 13px; font-weight: 600; color: #445876; margin-bottom: 6px; display: block; }
-.form-input { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1.5px solid rgba(91,159,232,0.14); background: #FBFDFF; font-size: 14px; color: #0E1F3A; box-sizing: border-box; }
-.form-textarea { width: 100%; min-height: 80px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid rgba(91,159,232,0.14); background: #FBFDFF; font-size: 14px; color: #0E1F3A; resize: none; line-height: 1.6; box-sizing: border-box; }
+
+// 输入框卡片包裹
+.input-card {
+  background: #fff; border-radius: 12px; border: 1.5px solid rgba(91,159,232,0.14);
+  display: flex; align-items: center; overflow: hidden;
+  transition: all 0.3s;
+  &.focused { border-color: #5B9FE8; box-shadow: 0 0 0 3px rgba(91,159,232,0.12); background: #fff; }
+  &.disabled { opacity: 0.6; cursor: not-allowed; }
+}
+.form-input {
+  flex: 1; height: 44px; padding: 0 14px;
+  background: none; font-size: 14px; color: #0E1F3A;
+  border: none; outline: none;
+}
+.form-textarea {
+  flex: 1; min-height: 80px; padding: 12px 14px;
+  background: none; font-size: 14px; color: #0E1F3A;
+  resize: none; line-height: 1.6; border: none; outline: none;
+}
 .form-count { text-align: right; font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
 .form-hint { font-size: 11px; color: #8497B5; margin-top: 4px; display: block; }
+.lock-icon { font-size: 16px; color: #8497B5; flex-shrink: 0; padding-right: 14px; }
+
+// 性别
 .gender-row { display: flex; gap: 10px; }
-.gender-btn { flex: 1; padding: 8px 0; text-align: center; border-radius: 10px; font-size: 13px; font-weight: 600; border: 2px solid rgba(91,159,232,0.2); background: #FBFDFF; color: #445876; &.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7FC8; } }
-.id-row { display: flex; align-items: center; gap: 6px; }
-.lock-icon { font-size: 16px; color: #8497B5; flex-shrink: 0; }
-.save-btn { width: 100%; padding: 14px 0; text-align: center; background: #5B9FE8; color: #fff; font-size: 15px; font-weight: 600; border-radius: 14px; margin-top: 8px; box-shadow: 0 4px 14px rgba(91,159,232,0.35); &:active { transform: scale(0.97); } }
+.gender-btn {
+  flex: 1; padding: 8px 0; text-align: center; border-radius: 10px;
+  font-size: 13px; font-weight: 600; border: 2px solid rgba(91,159,232,0.2);
+  background: #FBFDFF; color: #445876; transition: all 0.3s;
+  &.active { border-color: #5B9FE8; background: rgba(91,159,232,0.12); color: #3B7FC8; }
+}
+
+// 保存
+.save-btn {
+  width: 100%; padding: 14px 0; text-align: center;
+  background: #5B9FE8; color: #fff; font-size: 15px; font-weight: 600;
+  border-radius: 14px; margin-top: 8px;
+  box-shadow: 0 4px 14px rgba(91,159,232,0.35);
+  &:active { transform: scale(0.97); }
+}
 </style>

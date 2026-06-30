@@ -558,7 +558,7 @@ onUnmounted(() => {
 .gp-placeholder-info { flex: 1; }
 .gp-placeholder-title { font-size: 14px; font-weight: 600; color: #445876; display: block; }
 .gp-placeholder-desc { font-size: 12px; color: #8497B5; margin-top: 2px; display: block; }
-.gp-arrow { font-size: 20px; color: #8497B5; flex-shrink: 0; }
+.gp-arrow { font-size: 24px; color: #8497B5; flex-shrink: 0; line-height: 1; }
 .gp-selected-row { display: flex; align-items: center; gap: 10px; }
 .gp-selected-img { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
 .gp-selected-info { flex: 1; min-width: 0; }

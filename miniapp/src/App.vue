@@ -67,4 +67,11 @@ scroll-view,
 }
 
 /* 页面转场动画 — 暂时禁用，后续再实现 */
+
+/* 统一二级页面导航栏位置，与一级页面标题对齐 */
+.sub-nav {
+  height: 50px !important;
+  padding-top: 0 !important;
+  top: 24px !important;
+}
 </style>
