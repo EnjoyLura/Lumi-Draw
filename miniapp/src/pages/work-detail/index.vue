@@ -116,13 +116,61 @@
       </view>
     </view>
 
-    <!-- 长按图片抽屉（别人的作品） -->
+    <!-- 长按图片抽屉（别人的作品）— 4宫格 -->
     <view v-if="showLongPressSheet" class="sheet-overlay" @click="showLongPressSheet = false" />
     <view :class="['long-press-sheet', { show: showLongPressSheet }]">
       <view class="sheet-handle" />
-      <view class="lp-row" @click="saveToAlbum">💾 保存到相册</view>
-      <view class="lp-row" @click="reportWork">⚠ 举报该作品</view>
-      <view class="lp-row cancel" @click="showLongPressSheet = false">取消</view>
+      <view class="lp-grid">
+        <view class="lp-grid-item" @click="toggleLike(); showLongPressSheet = false">
+          <view class="lp-icon-circle" style="background:rgba(255,168,184,0.2);"><text style="font-size:24px;color:#FFA8B8;">♥</text></view>
+          <text class="lp-grid-label">点赞</text>
+        </view>
+        <view class="lp-grid-item" @click="toggleFav(); showLongPressSheet = false">
+          <view class="lp-icon-circle" style="background:rgba(255,224,138,0.24);"><text style="font-size:24px;color:#FFE08A;">★</text></view>
+          <text class="lp-grid-label">收藏</text>
+        </view>
+        <view class="lp-grid-item" @click="showLongPressSheet = false; uni.showToast({ title: '已分享', icon: 'none' })">
+          <view class="lp-icon-circle" style="background:rgba(91,159,232,0.12);"><text style="font-size:24px;color:#5B9FE8;">↗</text></view>
+          <text class="lp-grid-label">分享</text>
+        </view>
+        <view class="lp-grid-item" @click="reportWork">
+          <view class="lp-icon-circle" style="background:rgba(255,181,154,0.2);"><text style="font-size:24px;color:#FFB59A;">⚑</text></view>
+          <text class="lp-grid-label">举报</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 管理抽屉（自己的作品） -->
+    <view v-if="showManageSheet" class="sheet-overlay" @click="showManageSheet = false" />
+    <view :class="['long-press-sheet', { show: showManageSheet }]">
+      <view class="sheet-handle" />
+      <view class="manage-sheet-body">
+        <text class="manage-sheet-title">管理作品</text>
+        <view class="manage-card">
+          <view class="manage-row" @click="showManageSheet = false; uni.navigateTo({ url: '/pages/edit-work/index' })">
+            <text class="manage-row-icon" style="color:#B8A5E3;">✎</text>
+            <text class="manage-row-text">编辑信息</text>
+            <text class="manage-row-arrow">›</text>
+          </view>
+          <view class="manage-row" @click="showManageSheet = false; downloadWork()">
+            <text class="manage-row-icon" style="color:#5B9FE8;">💾</text>
+            <text class="manage-row-text">保存到相册</text>
+            <text class="manage-row-arrow">›</text>
+          </view>
+          <view class="manage-row" @click="showManageSheet = false; uni.showToast({ title: '已分享', icon: 'none' })">
+            <text class="manage-row-icon" style="color:#6FD4B0;">↗</text>
+            <text class="manage-row-text">分享给好友</text>
+            <text class="manage-row-arrow">›</text>
+          </view>
+        </view>
+        <view class="manage-card">
+          <view class="manage-row" @click="showManageSheet = false; deleteWork()">
+            <text class="manage-row-icon" style="color:#FFA8B8;">🗑</text>
+            <text class="manage-row-text" style="color:#FFA8B8;">删除作品</text>
+            <text class="manage-row-arrow">›</text>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 </template>
@@ -140,6 +188,7 @@ const likeBounce = ref(false);
 const favBounce = ref(false);
 const isOwn = ref(false);
 const showLongPressSheet = ref(false);
+const showManageSheet = ref(false);
 
 const author = ref({ name: '', avatar: '', color: '#6FD4B0', works: 0, likes: '0' });
 const work = ref({
@@ -213,7 +262,7 @@ const remake = () => {
 // 自己作品的操作
 const deleteWork = () => { uni.showModal({ title: '确认删除', content: '删除后不可恢复', success: (res) => { if (res.confirm) { uni.showToast({ title: '已删除', icon: 'none' }); setTimeout(() => uni.navigateBack(), 500); } } }); };
 const downloadWork = () => { uni.showToast({ title: '已保存到相册', icon: 'none' }); };
-const openManageSheet = () => { uni.showToast({ title: '管理功能开发中', icon: 'none' }); };
+const openManageSheet = () => { showManageSheet.value = true; };
 
 // 长按操作
 const saveToAlbum = () => { showLongPressSheet.value = false; uni.showToast({ title: '已保存到相册', icon: 'none' }); };
@@ -312,7 +361,7 @@ const goUserProfile = () => uni.navigateTo({ url: `/pages/user-profile/index?id=
 .dialog-cancel { background: #E1EBF8; color: #445876; }
 .dialog-confirm { background: #FFA8B8; color: #fff; }
 
-// 长按抽屉
+// 抽屉通用
 .sheet-overlay { position: fixed; inset: 0; z-index: 150; background: rgba(0,0,0,0.4); }
 .long-press-sheet {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
@@ -321,5 +370,23 @@ const goUserProfile = () => uni.navigateTo({ url: `/pages/user-profile/index?id=
   &.show { transform: translateY(0); }
 }
 .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: rgba(91,159,232,0.3); margin: 10px auto 8px; }
-.lp-row { padding: 14px 20px; font-size: 15px; color: #0E1F3A; text-align: center; &:active { background: rgba(91,159,232,0.05); } &.cancel { color: #8497B5; border-top: 0.5px solid rgba(91,159,232,0.14); margin-top: 4px; } }
+
+// 长按4宫格
+.lp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 8px 20px 24px; text-align: center; }
+.lp-grid-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; padding: 12px 0; }
+.lp-icon-circle { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.lp-grid-label { font-size: 12px; color: #445876; }
+
+// 管理抽屉
+.manage-sheet-body { padding: 8px 20px 20px; }
+.manage-sheet-title { font-size: 16px; font-weight: 700; color: #0E1F3A; display: block; margin-bottom: 14px; }
+.manage-card { background: #fff; border-radius: 20px; border: 1px solid rgba(91,159,232,0.14); overflow: hidden; margin-bottom: 12px; }
+.manage-row {
+  display: flex; align-items: center; gap: 12px; padding: 13px 16px; position: relative;
+  &:active { background: rgba(91,159,232,0.05); }
+  & + .manage-row::before { content: ''; position: absolute; top: 0; left: 16px; right: 16px; height: 0.5px; background: rgba(91,159,232,0.14); }
+}
+.manage-row-icon { font-size: 20px; width: 22px; text-align: center; flex-shrink: 0; }
+.manage-row-text { flex: 1; font-size: 15px; color: #0E1F3A; }
+.manage-row-arrow { font-size: 18px; color: #8497B5; }
 </style>

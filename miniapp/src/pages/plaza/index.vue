@@ -261,10 +261,21 @@ const plazaTabs = ['推荐', '热门', '最新'];
 const curTab = ref(0);
 const plazaIndicatorLeft = ref(0);
 
-// 每个tab文字约32px宽，gap 28px，居中对齐，指示器24px宽
 const updatePlazaIndicator = (idx: number) => {
-  // tab宽约32px, gap 28px => 每个tab占60px, 指示器居中
-  plazaIndicatorLeft.value = idx * 60 + 16 - 12; // 居中在每个tab下
+  setTimeout(() => {
+    const query = uni.createSelectorQuery();
+    query.selectAll('.plaza-tab').boundingClientRect((rects: any) => {
+      if (rects && rects[idx]) {
+        const parentQuery = uni.createSelectorQuery();
+        parentQuery.select('.top-tabs').boundingClientRect((parentRect: any) => {
+          if (parentRect) {
+            const tabRect = rects[idx];
+            plazaIndicatorLeft.value = tabRect.left - parentRect.left + (tabRect.width - 24) / 2;
+          }
+        }).exec();
+      }
+    }).exec();
+  }, 50);
 };
 const curCat = ref(0);
 const categories = ['全部', '二次元', '风景', '建筑', '表情包', '写实', '国风', '人像', '动物', '抽象'];
