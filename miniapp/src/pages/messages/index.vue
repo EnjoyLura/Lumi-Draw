@@ -24,18 +24,53 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { messageApi, getUserInfo, getUserDisplay } from '@/utils/api';
+
 const scrollH = ref(700);
-const categories = [
-  { key: 'like', title: '点赞', icon: '❤', gradient: 'linear-gradient(135deg,#FFB3C1,#FF8FA3)', preview: '月光如水 赞了你的作品「霓虹都市」', time: '2分钟前', unread: 3 },
-  { key: 'favorite', title: '收藏', icon: '⭐', gradient: 'linear-gradient(135deg,#A8D8F0,#7CC4E8)', preview: '风之绘师 收藏了你的作品「古风少女」', time: '30分钟前', unread: 2 },
-  { key: 'remake', title: '同款生成', icon: '✦', gradient: 'linear-gradient(135deg,#A3E4CC,#7DD4B0)', preview: '月光如水 使用了你的提示词', time: '3小时前', unread: 1 },
-  { key: 'follow', title: '新粉丝', icon: '👤', gradient: 'linear-gradient(135deg,#FFD4A8,#FFC088)', preview: '星辰大海 关注了你', time: '5小时前', unread: 1 },
-  { key: 'system', title: '系统通知', icon: '🔔', gradient: 'linear-gradient(135deg,#B4C8F5,#96B0E8)', preview: '每日签到 +10 积分已到账', time: '昨天', unread: 0 },
-  { key: 'service', title: '官方客服', icon: '💬', gradient: 'linear-gradient(135deg,#C8B5E8,#B09DD8)', preview: '感谢使用Lumi-Draw', time: '3天前', unread: 0 },
-];
+const MSG_CONFIG: Record<string, { title: string; icon: string; gradient: string }> = {
+  like: { title: '点赞', icon: '❤', gradient: 'linear-gradient(135deg,#FFB3C1,#FF8FA3)' },
+  favorite: { title: '收藏', icon: '⭐', gradient: 'linear-gradient(135deg,#A8D8F0,#7CC4E8)' },
+  remake: { title: '同款生成', icon: '✦', gradient: 'linear-gradient(135deg,#A3E4CC,#7DD4B0)' },
+  follow: { title: '新粉丝', icon: '👤', gradient: 'linear-gradient(135deg,#FFD4A8,#FFC088)' },
+  system: { title: '系统通知', icon: '🔔', gradient: 'linear-gradient(135deg,#B4C8F5,#96B0E8)' },
+  service: { title: '官方客服', icon: '💬', gradient: 'linear-gradient(135deg,#C8B5E8,#B09DD8)' },
+};
+
+const categories = ref<any[]>([]);
+
 const goDetail = (key: string) => uni.navigateTo({ url: `/pages/msg-detail/index?type=${key}` });
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const res = await messageApi.getCategories();
+    const list = (res.data || res || []) as any[];
+    categories.value = list.map((cat: any) => {
+      const cfg = MSG_CONFIG[cat.key] || { title: cat.key, icon: '📩', gradient: 'linear-gradient(135deg,#B4C8F5,#96B0E8)' };
+      const latest = cat.latest;
+      let preview = '暂无消息';
+      let time = '';
+      if (latest) {
+        const fromUser = latest.from_user ? getUserInfo(latest.from_user) : null;
+        preview = fromUser ? `${fromUser.nickname} ${latest.content}` : latest.content;
+        time = latest.created_at ? formatTime(latest.created_at) : '';
+      }
+      return { key: cat.key, title: cfg.title, icon: cfg.icon, gradient: cfg.gradient, preview, time, unread: cat.unread || 0 };
+    });
+  } catch {}
+});
+
+function formatTime(t: string) {
+  const d = new Date(t);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 60000) return '刚刚';
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前';
+  if (diff < 172800000) return '昨天';
+  return `${d.getMonth() + 1}-${d.getDate()}`;
+}
 </script>
 
 <style lang="scss" scoped>

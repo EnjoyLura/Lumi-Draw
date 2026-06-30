@@ -90,35 +90,66 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { configApi, workApi, getUserDisplay, getUserInfo } from '@/utils/api';
 
 const keyword = ref('');
 const hasSearched = ref(false);
-const history = ref(['梦幻城堡', '猫咪水彩', '日落风景']);
-const hotSearches = ['赛博朋克', '古风少女', '证件照', '宠物头像', '二次元', '国风山水', 'Logo设计', '表情包'];
+const history = ref<string[]>([]);
+const hotSearches = ref<string[]>([]);
 const hotColors: Record<number, string> = { 0: '#E03050', 1: '#E87040', 2: '#F0A060' };
+const searchResults = reactive<any[]>([]);
 
-const mockResults = reactive([
-  { id: 1, img: 'https://picsum.photos/seed/s1/300/420', title: '霓虹都市', author: '星辰大海', avatar: '星', color: '#6FD4B0', likes: 328, liked: false },
-  { id: 2, img: 'https://picsum.photos/seed/s2/300/225', title: '山水之间', author: '月光如水', avatar: '月', color: '#FFB59A', likes: 512, liked: false },
-  { id: 3, img: 'https://picsum.photos/seed/s3/300/450', title: '少女与猫', author: '云端造梦师', avatar: '梦', color: '#5B9FE8', likes: 680, liked: false },
-  { id: 4, img: 'https://picsum.photos/seed/s4/300/300', title: '抽象梦境', author: '光影魔术', avatar: '光', color: '#FFE08A', likes: 234, liked: false },
-]);
+const leftCol = computed(() => searchResults.filter((_, i) => i % 2 === 0));
+const rightCol = computed(() => searchResults.filter((_, i) => i % 2 === 1));
 
-const leftCol = computed(() => mockResults.filter((_, i) => i % 2 === 0));
-const rightCol = computed(() => mockResults.filter((_, i) => i % 2 === 1));
+const mapWork = (w: any) => {
+  const display = getUserDisplay(w.user_id);
+  const user = getUserInfo(w.user_id);
+  return {
+    id: w.id,
+    img: w.image_urls?.[0] || '',
+    title: w.title || '',
+    author: user?.nickname || '',
+    avatar: display.avatar,
+    color: display.color,
+    likes: w.likes_count || 0,
+    liked: false,
+  };
+};
 
-const doSearch = () => {
+const doSearch = async () => {
   if (!keyword.value.trim()) return;
   if (!history.value.includes(keyword.value)) {
     history.value.unshift(keyword.value);
     if (history.value.length > 10) history.value.pop();
+  }
+  try {
+    const res = await workApi.searchWorks(keyword.value);
+    const list = (res.data?.list || res.data || []).map(mapWork);
+    searchResults.splice(0, searchResults.length, ...list);
+  } catch {
+    searchResults.splice(0, searchResults.length);
   }
   hasSearched.value = true;
 };
 const clearHistory = () => { history.value = []; };
 const goWorkDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
 const goBack = () => uni.navigateBack();
+
+onMounted(async () => {
+  // 加载热搜词
+  try {
+    const res = await configApi.getHotSearches();
+    const list = (res.data || res || []) as any[];
+    hotSearches.value = list.map((h: any) => h.keyword);
+  } catch {}
+  // 加载历史（从本地缓存）
+  try {
+    const cached = uni.getStorageSync('search_history');
+    if (cached) history.value = JSON.parse(cached);
+  } catch {}
+});
 </script>
 
 <style lang="scss" scoped>

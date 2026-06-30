@@ -49,8 +49,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { workApi } from '@/utils/api';
+
 const scrollH = ref(700);
-const drafts = ref([
+const drafts = ref<any[]>([
   { id: 13, img: 'https://picsum.photos/seed/w13/300/400', title: '花园里的可爱机器人' },
   { id: 14, img: 'https://picsum.photos/seed/w14/300/300', title: '发光蘑菇的魔法森林' },
   { id: 15, img: 'https://picsum.photos/seed/w15/300/530', title: '星空下的灯塔' },
@@ -64,7 +66,21 @@ const leftCol = computed(() => drafts.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => drafts.value.filter((_, i) => i % 2 === 1));
 const goEdit = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const res = await workApi.getMyWorks();
+    const data = res.data || res;
+    const draftList = (data.drafts || []) as any[];
+    if (draftList.length > 0) {
+      drafts.value = draftList.map((w: any) => ({
+        id: w.id,
+        img: w.image_urls?.[0] || '',
+        title: w.title || '未命名作品',
+      }));
+    }
+  } catch {}
+});
 </script>
 
 <style lang="scss" scoped>

@@ -104,7 +104,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+import { workApi, getUserDisplay, getUserInfo } from '@/utils/api';
 
 const imgLoaded = ref(false);
 const liked = ref(false);
@@ -115,37 +116,79 @@ const likeBounce = ref(false);
 const favBounce = ref(false);
 
 const author = ref({
-  name: '星辰大海',
-  avatar: '星',
+  name: '',
+  avatar: '',
   color: '#6FD4B0',
-  works: 36,
-  likes: '890',
+  works: 0,
+  likes: '0',
 });
 
 const work = ref({
-  img: 'https://picsum.photos/seed/w1/600/840',
-  title: '霓虹都市',
-  desc: '赛博朋克风格的夜晚城市，霓虹灯光映照在雨后的街道上，充满未来感的建筑与飞行汽车穿梭其中。',
-  model: 'GPT Image 2',
-  ratio: '3:4',
-  style: '赛博朋克',
-  tags: ['夜景', '城市'],
-  prompt: 'cyberpunk city at night, neon lights, rain, reflective streets, flying cars, ultra detailed, cinematic lighting',
-  time: '2025-06-28 14:30',
-  likes: 328,
-  favorites: 92,
-  remakes: 45,
+  id: '',
+  img: '',
+  title: '',
+  desc: '',
+  model: '',
+  ratio: '',
+  style: '',
+  tags: [] as string[],
+  prompt: '',
+  time: '',
+  likes: 0,
+  favorites: 0,
+  remakes: 0,
 });
 
-const toggleLike = () => {
+onMounted(async () => {
+  // 尝试从页面参数获取作品ID，或使用默认
+  const pages = getCurrentPages();
+  const curPage = pages[pages.length - 1] as any;
+  const options = curPage?.$page?.options || curPage?.options || {};
+  const workId = options.id || 'w001';
+
+  try {
+    const res = await workApi.getWorkDetail(workId);
+    const w = res.data || res;
+    if (w) {
+      work.value = {
+        id: w.id,
+        img: w.image_urls?.[0] || '',
+        title: w.title || '',
+        desc: w.description || '',
+        model: w.model || '',
+        ratio: w.aspect_ratio || '',
+        style: w.style || '',
+        tags: w.tags || [],
+        prompt: w.prompt || '',
+        time: w.published_at || w.created_at || '',
+        likes: w.likes_count || 0,
+        favorites: w.favorites_count || 0,
+        remakes: w.remakes_count || 0,
+      };
+      const display = getUserDisplay(w.user_id);
+      const user = getUserInfo(w.user_id);
+      author.value = {
+        name: user?.nickname || '',
+        avatar: display.avatar,
+        color: display.color,
+        works: user?.works_count || 0,
+        likes: String(user?.likes_count || 0),
+      };
+    }
+  } catch {}
+});
+
+const toggleLike = async () => {
   liked.value = !liked.value;
   work.value.likes += liked.value ? 1 : -1;
   if (liked.value) { likeBounce.value = true; setTimeout(() => likeBounce.value = false, 400); }
+  try { await workApi.likeWork(work.value.id); } catch {}
 };
-const toggleFav = () => {
+const toggleFav = async () => {
   faved.value = !faved.value;
   work.value.favorites += faved.value ? 1 : -1;
   if (faved.value) { favBounce.value = true; setTimeout(() => favBounce.value = false, 400); }
+  try { await workApi.favoriteWork(work.value.id); } catch {}
 };
 const toggleFollow = () => {
   if (followed.value) {

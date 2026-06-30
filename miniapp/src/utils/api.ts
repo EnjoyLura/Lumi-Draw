@@ -62,7 +62,7 @@ export const workApi = {
     : get('/works/home', { tab, page }),
 
   getPlazaWorks: (params: any = {}) => isMock()
-    ? mockDelay({ list: MOCK_WORKS, total: MOCK_WORKS.length })
+    ? mockDelay({ list: params.user_id ? MOCK_WORKS.filter(w => w.user_id === params.user_id) : MOCK_WORKS, total: MOCK_WORKS.length })
     : get('/works', params),
 
   getMyWorks: () => isMock()

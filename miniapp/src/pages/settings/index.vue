@@ -76,7 +76,12 @@ onMounted(() => {
 const toggleMock = () => {
   useMock.value = !useMock.value;
   setUseMock(useMock.value);
-  uni.showToast({ title: useMock.value ? '已切换为静态数据' : '已切换为真实后端', icon: 'none' });
+  uni.showModal({
+    title: useMock.value ? '已切换为静态数据' : '已切换为真实后端',
+    content: '切换后需要重新进入页面才能生效',
+    showCancel: false,
+    confirmText: '知道了',
+  });
 };
 const goBack = () => uni.navigateBack();
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });

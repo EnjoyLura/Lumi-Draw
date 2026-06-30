@@ -10,7 +10,7 @@
       </view>
       <view class="code-card">
         <text class="code-label">我的邀请码</text>
-        <text class="code-value">LUMI8829</text>
+        <text class="code-value">{{ inviteCode }}</text>
         <view class="code-actions">
           <view class="code-btn secondary" @click="copyCode">复制邀请码</view>
           <view class="code-btn gradient" @click="shareInvite">分享邀请</view>
@@ -34,16 +34,36 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { inviteApi, getUserDisplay } from '@/utils/api';
+
 const scrollH = ref(700);
-const invited = [
-  { name: '星辰大海', avatar: '星', color: '#6FD4B0', time: '06-15' },
-  { name: '月光如水', avatar: '月', color: '#FFB59A', time: '06-12' },
-  { name: '风之绘师', avatar: '风', color: '#B8A5E3', time: '06-08' },
-];
-const copyCode = () => uni.showToast({ title: '已复制到剪贴板', icon: 'none' });
+const inviteCode = ref('');
+const invited = ref<any[]>([]);
+
+const copyCode = () => {
+  uni.setClipboardData({ data: inviteCode.value });
+  uni.showToast({ title: '已复制到剪贴板', icon: 'none' });
+};
 const shareInvite = () => uni.showToast({ title: '分享给微信好友', icon: 'none' });
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  try {
+    const res = await inviteApi.getInfo();
+    const info = res.data || res;
+    inviteCode.value = info.invite_code || '';
+    invited.value = (info.records || []).map((r: any) => {
+      const display = getUserDisplay(r.user_id);
+      return {
+        name: r.nickname || '',
+        avatar: display.avatar,
+        color: display.color,
+        time: r.created_at ? r.created_at.substring(5, 10) : '',
+      };
+    });
+  } catch {}
+});
 </script>
 
 <style lang="scss" scoped>

@@ -17,23 +17,36 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { socialApi, getUserDisplay } from '@/utils/api';
+
 const scrollH = ref(700);
 const listType = ref('following');
 const pageTitle = computed(() => listType.value === 'following' ? '我的关注' : '我的粉丝');
-const users = ref([
-  { id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0', bio: '探索AI的无限可能', followed: true },
-  { id: 3, name: '月光如水', avatar: '月', color: '#FFB59A', bio: '月光下的AI画家', followed: true },
-  { id: 4, name: '风之绘师', avatar: '风', color: '#B8A5E3', bio: '风中捕捉灵感', followed: false },
-  { id: 5, name: '光影魔术', avatar: '光', color: '#FFE08A', bio: '玩转光与影的魔法', followed: false },
-]);
+const users = ref<any[]>([]);
 const goBack = () => uni.navigateBack();
-onMounted(() => {
+
+onMounted(async () => {
   scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
-  // 读取页面参数
   const pages = getCurrentPages();
   const curPage = pages[pages.length - 1] as any;
   const options = curPage?.$page?.options || curPage?.options || {};
   if (options.type) listType.value = options.type;
+
+  try {
+    const res = await socialApi.getFollowList(listType.value);
+    const list = (res.data || res || []) as any[];
+    users.value = list.map((u: any) => {
+      const display = getUserDisplay(u.id);
+      return {
+        id: u.id,
+        name: u.nickname,
+        avatar: display.avatar,
+        color: display.color,
+        bio: u.signature || '',
+        followed: listType.value === 'following',
+      };
+    });
+  } catch {}
 });
 </script>
 

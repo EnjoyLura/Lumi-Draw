@@ -116,23 +116,19 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { userApi, workApi, getUserDisplay } from '@/utils/api';
+
 const scrollH = ref(700);
 const following = ref(false);
 const showUnfollowDialog = ref(false);
 
-const user = {
-  id: 2, name: '星辰大海', avatar: '星', color: '#6FD4B0',
-  bio: '探索AI的无限可能', gender: 'male',
-  works: 36, followers: 215, likes: 890,
-};
+const user = ref<any>({
+  id: '', name: '', avatar: '', color: '#6FD4B0',
+  bio: '', gender: 'male',
+  works: 0, followers: 0, likes: 0,
+});
 
-const works = ref([
-  { id: 1, img: 'https://picsum.photos/seed/w1/300/420', title: '霓虹都市', likes: 328, liked: false },
-  { id: 6, img: 'https://picsum.photos/seed/w6/300/225', title: '赛博精灵', likes: 445, liked: false },
-  { id: 9, img: 'https://picsum.photos/seed/w9/300/530', title: '暗黑天使', likes: 723, liked: false },
-  { id: 10, img: 'https://picsum.photos/seed/w10/300/225', title: '蒸汽城市', likes: 356, liked: false },
-]);
-
+const works = ref<any[]>([]);
 const leftCol = computed(() => works.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => works.value.filter((_, i) => i % 2 === 1));
 
@@ -155,7 +151,45 @@ const toggleLike = (w: any) => {
 };
 const goWorkDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
 const goBack = () => uni.navigateBack();
-onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });
+onMounted(async () => {
+  scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
+  const pages = getCurrentPages();
+  const curPage = pages[pages.length - 1] as any;
+  const options = curPage?.$page?.options || curPage?.options || {};
+  const userId = options.id || 'u002';
+
+  try {
+    const res = await userApi.getUserById(userId);
+    const u = res.data || res;
+    if (u) {
+      const display = getUserDisplay(u.id);
+      user.value = {
+        id: u.id,
+        name: u.nickname,
+        avatar: display.avatar,
+        color: display.color,
+        bio: u.signature || '',
+        gender: u.gender === 2 ? 'female' : 'male',
+        works: u.works_count || 0,
+        followers: u.followers_count || 0,
+        likes: u.likes_count || 0,
+      };
+    }
+  } catch {}
+
+  // 加载该用户的作品
+  try {
+    const res = await workApi.getPlazaWorks({ user_id: userId });
+    const list = (res.data?.list || res.data || []) as any[];
+    works.value = list.map((w: any) => ({
+      id: w.id,
+      img: w.image_urls?.[0] || '',
+      title: w.title || '',
+      likes: w.likes_count || 0,
+      liked: false,
+    }));
+  } catch {}
+});
 </script>
 
 <style lang="scss" scoped>
