@@ -1,9 +1,8 @@
-import { Module } from '@nestjs/common';
-import { OssController } from './oss.controller';
+import { Module, Global } from '@nestjs/common';
 import { OssService } from './oss.service';
 
+@Global()
 @Module({
-  controllers: [OssController],
   providers: [OssService],
   exports: [OssService],
 })

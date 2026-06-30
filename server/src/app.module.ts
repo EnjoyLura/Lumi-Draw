@@ -11,23 +11,22 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { OssModule } from './modules/oss/oss.module';
 import { NotificationModule } from './modules/notification/notification.module';
+import { ConfigModule as AppConfigModule } from './modules/config/config.module';
+import { CheckinModule } from './modules/checkin/checkin.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: (cs: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_DATABASE'),
+        host: cs.get('DB_HOST'),
+        port: cs.get<number>('DB_PORT'),
+        username: cs.get('DB_USERNAME'),
+        password: cs.get('DB_PASSWORD'),
+        database: cs.get('DB_DATABASE'),
         autoLoadEntities: true,
         synchronize: true,
       }),
@@ -35,21 +34,20 @@ import { NotificationModule } from './modules/notification/notification.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        redis: {
-          host: configService.get('REDIS_HOST'),
-          port: configService.get<number>('REDIS_PORT'),
-        },
+      useFactory: (cs: ConfigService) => ({
+        redis: { host: cs.get('REDIS_HOST'), port: cs.get<number>('REDIS_PORT') },
       }),
     }),
     AuthModule,
     UserModule,
     WorkModule,
+    AppConfigModule,
+    CheckinModule,
     GenerateModule,
     PaymentModule,
+    NotificationModule,
     AdminModule,
     OssModule,
-    NotificationModule,
   ],
   controllers: [HealthController],
 })
