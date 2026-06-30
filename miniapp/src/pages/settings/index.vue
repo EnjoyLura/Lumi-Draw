@@ -26,7 +26,7 @@
         <view class="menu-row">
           <text class="menu-icon" style="color:#5B9FE8">☀</text>
           <text class="menu-text">深色模式</text>
-          <view :class="['toggle-switch', { on: darkMode }]" @click="darkMode = !darkMode" />
+          <view :class="['toggle-switch', { on: darkMode }]" @click="toggleDarkMode" />
         </view>
       </view>
 
@@ -58,7 +58,7 @@
         </view>
       </view>
 
-      <view class="logout-btn" @click="logout">🚪 退出登录</view>
+      <view class="logout-btn" @click="doLogout">🚪 退出登录</view>
     </view>
   </view>
 </template>
@@ -69,8 +69,22 @@ import { getUseMock, setUseMock } from '@/utils/api';
 const darkMode = ref(false);
 const useMock = ref(true);
 
+const toggleDarkMode = () => {
+  darkMode.value = !darkMode.value;
+  uni.setStorageSync('dark_mode', darkMode.value);
+  // 在 H5 中切换 html 的 data-theme
+  // #ifdef H5
+  document.documentElement.setAttribute('data-theme', darkMode.value ? 'dark' : 'light');
+  // #endif
+  uni.showToast({ title: darkMode.value ? '已开启深色模式' : '已关闭深色模式', icon: 'none' });
+};
+
 onMounted(() => {
   useMock.value = getUseMock();
+  darkMode.value = !!uni.getStorageSync('dark_mode');
+  // #ifdef H5
+  if (darkMode.value) document.documentElement.setAttribute('data-theme', 'dark');
+  // #endif
 });
 
 const toggleMock = () => {
@@ -87,7 +101,11 @@ const goBack = () => uni.navigateBack();
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
 const goChangelog = () => uni.navigateTo({ url: '/pages/changelog/index' });
 const clearCache = () => uni.showToast({ title: '缓存已清除', icon: 'none' });
-const logout = () => uni.showToast({ title: '已退出登录', icon: 'none' });
+const doLogout = () => {
+  uni.removeStorageSync('token');
+  uni.showToast({ title: '已退出登录', icon: 'none' });
+  setTimeout(() => uni.switchTab({ url: '/pages/home/index' }), 500);
+};
 </script>
 
 <style lang="scss" scoped>

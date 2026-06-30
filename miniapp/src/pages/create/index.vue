@@ -302,12 +302,30 @@
         </view>
       </view>
     </view>
+
+    <LoginPopup />
+
+    <!-- ===== 图片预览抽屉 ===== -->
+    <view v-if="showPreviewSheet" class="sheet-overlay" @click="showPreviewSheet = false" />
+    <view :class="['bottom-sheet preview-sheet', { show: showPreviewSheet }]">
+      <view class="sheet-handle" />
+      <view class="preview-img-box">
+        <image :src="previewingImg" mode="widthFix" class="preview-full-img" @click="uni.previewImage({ urls: genResults, current: previewingImg })" />
+      </view>
+      <view class="preview-actions">
+        <view class="preview-action-btn" @click="uni.showToast({ title: '已保存到相册', icon: 'none' }); showPreviewSheet = false">💾 保存</view>
+        <view class="preview-action-btn" @click="uni.showToast({ title: '已分享', icon: 'none' }); showPreviewSheet = false">↗ 分享</view>
+        <view class="preview-action-btn primary" @click="uni.navigateTo({ url: '/pages/publish/index' }); showPreviewSheet = false">✈ 发布</view>
+      </view>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { configApi, generateApi } from '@/utils/api';
+import { requireLogin } from '@/utils/auth';
+import LoginPopup from '@/components/LoginPopup.vue';
 
 const models = ref<any[]>([]);
 const gameplays = ref<any[]>([]);
@@ -360,9 +378,15 @@ const selectGameplayItem = (i: number) => { selectedGameplay.value = i; showGame
 const selectModelItem = (i: number) => { selectedModel.value = i; showModelSheet.value = false; updateCost(); uni.showToast({ title: `已选择${models.value[i]?.name}`, icon: 'none' }); };
 const selectStyleItem = (s: string) => { selectedStyle.value = s; showStyleSheet.value = false; };
 const selectRatioItem = (i: number) => { selectedRatio.value = i; showRatioSheet.value = false; };
-const previewGenImg = (url: string) => { uni.previewImage({ urls: genResults.value, current: url }); };
+const previewingImg = ref('');
+const showPreviewSheet = ref(false);
+const previewGenImg = (url: string) => {
+  previewingImg.value = url;
+  showPreviewSheet.value = true;
+};
 
 const startCreate = async () => {
+  if (!requireLogin()) return;
   if (!prompt.value.trim()) { uni.showToast({ title: '请先输入提示词', icon: 'none' }); return; }
   generating.value = true; genProgress.value = 0; genResults.value = [];
   const count = counts[selectedCount.value];
@@ -502,7 +526,7 @@ onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyP
 .cap-divider { width: 0.5px; height: 16px; background: rgba(0, 0, 0, 0.15); }
 
 // 滚动区
-.create-scroll { padding-top: 74px; flex: 1; }
+.create-scroll { padding-top: 74px; padding-bottom: 70px; flex: 1; }
 
 .section-label {
   font-size: 16px; font-weight: 700; color: #0E1F3A;
@@ -616,7 +640,7 @@ onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyP
 
 // 风格网格
 .style-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
   padding: 0 16px;
 }
 .style-card {
@@ -690,15 +714,26 @@ onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyP
 .gen-result-img { border-radius: 14px; overflow: hidden; cursor: pointer; &:active { transform: scale(0.97); } }
 .gen-img { width: 100%; aspect-ratio: 3/4; display: block; }
 
+// 预览抽屉
+.preview-sheet { max-height: 85vh; }
+.preview-img-box { padding: 0 20px; margin-bottom: 16px; }
+.preview-full-img { width: 100%; border-radius: 16px; display: block; max-height: 50vh; }
+.preview-actions { display: flex; gap: 10px; padding: 0 20px; }
+.preview-action-btn {
+  flex: 1; padding: 10px 0; text-align: center; border-radius: 12px;
+  font-size: 13px; font-weight: 600; background: #E1EBF8; color: #445876;
+  &.primary { background: linear-gradient(135deg, #5B9FE8 0%, #7BC4F0 45%, #6FD4B0 100%); color: #fff; }
+}
+
 // 底部创作栏
 .create-bottom {
-  padding: 12px 16px 10px;
+  position: fixed; bottom: 50px; left: 0; right: 0; z-index: 80;
+  padding: 8px 16px;
   background: rgba(255, 255, 255, 0.72);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   backdrop-filter: blur(20px) saturate(180%);
   border-top: 0.5px solid rgba(91, 159, 232, 0.14);
   display: flex; align-items: center; gap: 12px;
-  flex-shrink: 0;
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
 }
 .cost-info { flex: 1; }
@@ -707,9 +742,9 @@ onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyP
 .cost-num { font-size: 18px; font-weight: 700; color: #5B9FE8; }
 .cost-unit { font-size: 12px; color: #8497B5; }
 .create-btn {
-  flex: 2; padding: 12px 0;
+  flex: 2; padding: 10px 0;
   background: linear-gradient(135deg, #5B9FE8 0%, #7BC4F0 45%, #6FD4B0 100%);
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex; align-items: center; justify-content: center; gap: 4px;
   box-shadow: 0 4px 14px rgba(91, 159, 232, 0.35);
   &:active { transform: scale(0.96); }

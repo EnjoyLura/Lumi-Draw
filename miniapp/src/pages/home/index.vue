@@ -150,12 +150,15 @@
         <text v-else class="load-text">{{ noMore ? '没有更多了' : '上拉加载更多' }}</text>
       </view>
     </scroll-view>
+    <LoginPopup />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { configApi, workApi, getUserDisplay } from '@/utils/api';
+import { requireLogin } from '@/utils/auth';
+import LoginPopup from '@/components/LoginPopup.vue';
 
 const banners = ref<any[]>([]);
 const gameplays = ref<any[]>([]);
@@ -243,6 +246,7 @@ const switchTab = async (tab: string) => {
 };
 
 const toggleLike = async (w: Work) => {
+  if (!requireLogin()) return;
   w.liked = !w.liked;
   w.likes += w.liked ? 1 : -1;
   if (w.liked) {
@@ -483,7 +487,7 @@ onUnmounted(() => clearInterval(bannerTimer));
 
 // 热门玩法
 .gameplay-scroll { white-space: nowrap; margin-bottom: 18px; }
-.gameplay-list { display: inline-flex; gap: 12px; padding: 0 16px; }
+.gameplay-list { display: inline-flex; gap: 8px; padding: 0 16px; }
 .gp-card {
   position: relative;
   width: 90px;

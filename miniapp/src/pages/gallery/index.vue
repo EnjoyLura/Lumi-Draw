@@ -188,6 +188,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { workApi, userApi } from '@/utils/api';
+import { isLoggedIn, requireLogin } from '@/utils/auth';
+import LoginPopup from '@/components/LoginPopup.vue';
 
 interface Work {
   id: string; img: string; title: string; managed: boolean; published: boolean;

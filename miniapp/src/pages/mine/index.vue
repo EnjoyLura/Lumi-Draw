@@ -9,7 +9,17 @@
     <view class="nav-header"><text class="nav-title">我的</text></view>
     <view class="capsule"><view class="cap-btn">⋯</view><view class="cap-divider" /><view class="cap-btn">✕</view></view>
 
-    <scroll-view scroll-y class="mine-scroll" :style="{ height: scrollH + 'px' }">
+    <!-- 未登录引导 -->
+    <view v-if="!isLoggedIn" class="login-guide">
+      <view class="login-guide-avatar">
+        <text class="login-guide-icon">👤</text>
+      </view>
+      <text class="login-guide-title">未登录</text>
+      <text class="login-guide-desc">登录后享受完整功能</text>
+      <view class="login-guide-btn" @click="requireLogin()">微信一键登录</view>
+    </view>
+
+    <scroll-view v-else scroll-y class="mine-scroll" :style="{ height: scrollH + 'px' }">
       <!-- 用户信息卡 -->
       <view class="user-card">
         <view class="user-row">
@@ -90,12 +100,15 @@
         </view>
       </view>
     </scroll-view>
+    <LoginPopup />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { userApi } from '@/utils/api';
+import { isLoggedIn, requireLogin } from '@/utils/auth';
+import LoginPopup from '@/components/LoginPopup.vue';
 
 const scrollH = ref(700);
 const userInfo = ref<any>({ nickname: '', credits: 0 });
@@ -130,6 +143,26 @@ onMounted(async () => {
 </script>
 
 <style lang="scss" scoped>
+// 未登录引导
+.login-guide {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding-top: 160px; gap: 8px;
+}
+.login-guide-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: #E1EBF8; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+}
+.login-guide-icon { font-size: 32px; }
+.login-guide-title { font-size: 18px; font-weight: 700; color: #0E1F3A; }
+.login-guide-desc { font-size: 14px; color: #8497B5; }
+.login-guide-btn {
+  margin-top: 16px; padding: 12px 40px;
+  background: #07C160; color: #fff; font-size: 15px; font-weight: 600;
+  border-radius: 14px; box-shadow: 0 4px 16px rgba(7,193,96,0.3);
+  &:active { transform: scale(0.97); }
+}
+
 .page-mine {
   min-height: 100vh;
   background: #EEF4FC;
