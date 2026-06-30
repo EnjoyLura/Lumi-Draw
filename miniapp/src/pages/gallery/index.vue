@@ -265,7 +265,7 @@ const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
 const changeAvatar = () => uni.showToast({ title: '更换头像', icon: 'none' });
 const goEditProfile = () => uni.navigateTo({ url: '/pages/edit-profile/index' });
 const goFollowList = (type: string) => uni.navigateTo({ url: `/pages/follow-list/index?type=${type}` });
-const goWorkDetail = (w: Work) => { if (isManage.value) return; uni.navigateTo({ url: '/pages/work-detail/index' }); };
+const goWorkDetail = (w: Work) => { if (isManage.value) return; uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` }); };
 const goPublish = () => uni.navigateTo({ url: '/pages/publish/index' });
 const onLoadMore = () => { if (loading.value || noMore.value) return; loading.value = true; setTimeout(() => { noMore.value = true; loading.value = false; }, 600); };
 
@@ -436,6 +436,7 @@ onMounted(async () => {
 
 // 管理模式栏
 .manage-bar {
+  position: fixed; bottom: 50px; left: 0; right: 0; z-index: 80;
   display: flex; align-items: center; gap: 8px;
   padding: 0 16px; max-height: 0; opacity: 0; overflow: hidden;
   background: rgba(255, 255, 255, 0.72);
@@ -443,7 +444,8 @@ onMounted(async () => {
   backdrop-filter: blur(16px);
   border-top: 0.5px solid rgba(91, 159, 232, 0.14);
   transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s, padding 0.35s;
-  &.show { max-height: 48px; opacity: 1; padding: 10px 16px; }
+  pointer-events: none;
+  &.show { max-height: 48px; opacity: 1; padding: 10px 16px; pointer-events: auto; }
 }
 .manage-count { font-size: 13px; color: #445876; flex: 1; }
 .manage-select-all {

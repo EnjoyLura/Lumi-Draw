@@ -65,7 +65,7 @@ const clearAll = () => {
   cleared.value = true;
   uni.showToast({ title: '已清空浏览记录', icon: 'none' });
 };
-const goDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goDetail = (w: any) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goPlaza = () => uni.switchTab({ url: '/pages/home/index' });
 const goBack = () => uni.navigateBack();
 onMounted(() => { scrollH.value = uni.getSystemInfoSync().windowHeight - 80; });

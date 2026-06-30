@@ -64,7 +64,7 @@ const drafts = ref<any[]>([
 ]);
 const leftCol = computed(() => drafts.value.filter((_, i) => i % 2 === 0));
 const rightCol = computed(() => drafts.value.filter((_, i) => i % 2 === 1));
-const goEdit = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goEdit = (w: any) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goBack = () => uni.navigateBack();
 onMounted(async () => {
   scrollH.value = uni.getSystemInfoSync().windowHeight - 80;

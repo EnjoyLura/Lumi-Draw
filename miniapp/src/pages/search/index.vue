@@ -134,7 +134,7 @@ const doSearch = async () => {
   hasSearched.value = true;
 };
 const clearHistory = () => { history.value = []; };
-const goWorkDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goWorkDetail = (w: any) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goBack = () => uni.navigateBack();
 
 onMounted(async () => {

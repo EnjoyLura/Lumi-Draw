@@ -70,7 +70,12 @@ export const workApi = {
     : get('/works/mine'),
 
   getWorkDetail: (id: string) => isMock()
-    ? mockDelay(MOCK_WORKS.find(w => w.id === id) || MOCK_DRAFTS.find(w => w.id === id) || null)
+    ? mockDelay((() => {
+        const w = MOCK_WORKS.find(x => x.id === id) || MOCK_DRAFTS.find(x => x.id === id);
+        if (!w) return null;
+        const u = MOCK_USERS.find(x => x.id === w.user_id);
+        return { ...w, user: u || null };
+      })())
     : get(`/works/${id}`),
 
   searchWorks: (keyword: string) => isMock()
@@ -204,6 +209,14 @@ export const generateApi = {
 };
 
 // ========== 辅助函数 ==========
+export const CURRENT_USER_ID = MOCK_CURRENT_USER.id;
+
+export function isMyWork(userId: string): boolean {
+  if (isMock()) return userId === MOCK_CURRENT_USER.id;
+  // 真实环境下从缓存读取当前用户ID
+  try { const u = JSON.parse(uni.getStorageSync('user_info') || '{}'); return u.id === userId; } catch { return false; }
+}
+
 export function getUserDisplay(userId: string) {
   return USER_DISPLAY[userId] || { avatar: '?', color: '#8497B5' };
 }

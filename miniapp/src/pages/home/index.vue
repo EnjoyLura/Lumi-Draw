@@ -77,14 +77,9 @@
       <view class="section-header">
         <text class="section-title">精选作品</text>
         <view class="home-tabs">
-          <view class="home-tab-wrap">
-            <text :class="['home-tab', { active: homeTab === 'recommend' }]" @click="switchTab('recommend')">推荐</text>
-            <view v-if="homeTab === 'recommend'" class="home-tab-indicator" />
-          </view>
-          <view class="home-tab-wrap">
-            <text :class="['home-tab', { active: homeTab === 'new' }]" @click="switchTab('new')">最新</text>
-            <view v-if="homeTab === 'new'" class="home-tab-indicator" />
-          </view>
+          <text :class="['home-tab', { active: homeTab === 'recommend' }]" @click="switchTab('recommend')">推荐</text>
+          <text :class="['home-tab', { active: homeTab === 'new' }]" @click="switchTab('new')">最新</text>
+          <view class="home-tab-indicator" :style="{ left: homeTab === 'recommend' ? '4px' : '50px' }" />
         </view>
       </view>
 
@@ -285,7 +280,7 @@ const selectGameplay = (g: any) => {
   uni.switchTab({ url: '/pages/create/index' });
   uni.showToast({ title: `已套用「${g.name}」模板`, icon: 'none' });
 };
-const goWorkDetail = (w: Work) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goWorkDetail = (w: Work) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goUserProfile = (userId: string) => uni.navigateTo({ url: '/pages/user-profile/index' });
 
 onMounted(async () => {
@@ -407,6 +402,7 @@ onUnmounted(() => clearInterval(bannerTimer));
 // Banner
 .banner-wrap {
   padding: 0 16px;
+  margin-top: 5px;
   margin-bottom: 16px;
 }
 .banner-box {
@@ -524,16 +520,17 @@ onUnmounted(() => clearInterval(bannerTimer));
 .gp-uses-text { font-size: 10px; color: rgba(255, 255, 255, 0.75); }
 
 // Tabs
-.home-tabs { display: flex; gap: 16px; }
-.home-tab-wrap { display: flex; flex-direction: column; align-items: center; padding-bottom: 6px; position: relative; }
+.home-tabs { display: flex; gap: 16px; position: relative; padding-bottom: 6px; }
 .home-tab {
   font-size: 14px; font-weight: 500; color: #8497B5;
-  transition: color 0.3s;
+  transition: color 0.3s; cursor: pointer;
   &.active { font-weight: 700; color: #5B9FE8; }
 }
 .home-tab-indicator {
+  position: absolute; bottom: 0;
   width: 20px; height: 3px; border-radius: 999px;
-  background: #5B9FE8; margin-top: 4px;
+  background: #5B9FE8;
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 // 瀑布流

@@ -14,7 +14,7 @@
     <scroll-view scroll-y class="create-scroll" :style="{ height: scrollH + 'px' }">
       <!-- 玩法模板 -->
       <view class="section" style="padding:10px 16px 6px;">
-        <view :class="['gp-card', { selected: selectedGameplay >= 0 }]" @click="openGameplayDrawer">
+        <view class="gp-card" @click="openGameplayDrawer">
           <view v-if="selectedGameplay < 0" class="gp-placeholder">
             <view class="gp-placeholder-icon">⊞</view>
             <view class="gp-placeholder-info">
@@ -213,7 +213,7 @@
       <view class="sheet-handle" />
       <view class="sheet-title">选择玩法模板</view>
       <view class="sheet-grid">
-        <view class="sheet-grid-item sheet-grid-clear" @click="clearGameplay; showGameplaySheet = false">
+        <view class="sheet-grid-item sheet-grid-clear" @click="clearAndCloseGameplay">
           <text class="sheet-clear-icon">✕</text>
           <text class="sheet-clear-text">不使用</text>
         </view>
@@ -366,6 +366,7 @@ const ratioShape = (label: string) => {
 const updateCost = () => { totalCost.value = currentModel.value.cost * counts[selectedCount.value]; };
 const selectStyle = (s: string) => { selectedStyle.value = s; };
 const clearGameplay = () => { selectedGameplay.value = -1; uni.showToast({ title: '已取消玩法模板', icon: 'none' }); };
+const clearAndCloseGameplay = () => { selectedGameplay.value = -1; showGameplaySheet.value = false; uni.showToast({ title: '已取消玩法模板', icon: 'none' }); };
 const clearPrompt = () => { prompt.value = ''; };
 const uploadImg = () => { promptImg.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`; uni.showToast({ title: '图片已上传', icon: 'none' }); };
 const previewPromptImg = () => { if (promptImg.value) uni.previewImage({ urls: [promptImg.value], current: promptImg.value }); };
@@ -543,8 +544,7 @@ onUnmounted(() => { uni.$off('applyGameplay', onApplyGameplay); uni.$off('applyP
 // 玩法模板
 .gp-card {
   background: #fff; border-radius: 16px; padding: 10px;
-  border: 1.5px dashed rgba(91, 159, 232, 0.32);
-  &.selected { border: 1.5px solid #5B9FE8; background: linear-gradient(180deg, rgba(91,159,232,0.06) 0%, transparent 100%); }
+  border: 1px solid rgba(91, 159, 232, 0.14);
 }
 .gp-placeholder {
   display: flex; align-items: center; gap: 10px;

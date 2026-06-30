@@ -149,7 +149,7 @@ const toggleLike = (w: any) => {
   w.liked = !w.liked;
   w.likes += w.liked ? 1 : -1;
 };
-const goWorkDetail = (w: any) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goWorkDetail = (w: any) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goBack = () => uni.navigateBack();
 onMounted(async () => {
   scrollH.value = uni.getSystemInfoSync().windowHeight - 80;

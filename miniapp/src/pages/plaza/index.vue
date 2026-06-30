@@ -37,15 +37,13 @@
           <text class="top-menu-icon">☰</text>
         </view>
         <view class="top-tabs">
-          <view
+          <text
             v-for="(t, i) in plazaTabs"
             :key="i"
-            class="tab-wrap"
+            :class="['plaza-tab', { active: curTab === i }]"
             @click="switchTab(i)"
-          >
-            <text :class="['plaza-tab', { active: curTab === i }]">{{ t }}</text>
-            <view v-if="curTab === i" class="tab-indicator" />
-          </view>
+          >{{ t }}</text>
+          <view class="tab-indicator" :style="{ left: plazaIndicatorLeft + 'px' }" />
         </view>
         <view class="top-search" @click="goSearch">
           <text class="top-search-icon">🔍</text>
@@ -261,6 +259,13 @@ import { workApi, getUserDisplay } from '@/utils/api';
 
 const plazaTabs = ['推荐', '热门', '最新'];
 const curTab = ref(0);
+const plazaIndicatorLeft = ref(0);
+
+// 每个tab文字约32px宽，gap 28px，居中对齐，指示器24px宽
+const updatePlazaIndicator = (idx: number) => {
+  // tab宽约32px, gap 28px => 每个tab占60px, 指示器居中
+  plazaIndicatorLeft.value = idx * 60 + 16 - 12; // 居中在每个tab下
+};
 const curCat = ref(0);
 const categories = ['全部', '二次元', '风景', '建筑', '表情包', '写实', '国风', '人像', '动物', '抽象'];
 const models = ['全部', 'GPT Image 2', 'Nano Banana 2', 'Flux Pro', 'SDXL', 'DALL-E 3', 'Midjourney'];
@@ -311,6 +316,7 @@ const fetchWorks = async () => {
 const switchTab = async (idx: number) => {
   if (curTab.value === idx) return;
   curTab.value = idx;
+  updatePlazaIndicator(idx);
   tabLoading.value = true;
   const list = await fetchWorks();
   setTimeout(() => {
@@ -367,7 +373,7 @@ const onLoadMore = () => {
 };
 
 const goSearch = () => uni.navigateTo({ url: '/pages/search/index' });
-const goWorkDetail = (w: Work) => uni.navigateTo({ url: '/pages/work-detail/index' });
+const goWorkDetail = (w: Work) => uni.navigateTo({ url: `/pages/work-detail/index?id=${w.id}` });
 const goUserProfile = (userId: string) => uni.navigateTo({ url: '/pages/user-profile/index' });
 const pageRoutes: Record<string, string> = {
   recharge: '/pages/recharge/index', settings: '/pages/settings/index', editProfile: '/pages/edit-profile/index',
@@ -381,6 +387,7 @@ const goPage = (name: string) => {
 };
 
 onMounted(async () => {
+  updatePlazaIndicator(0);
   scrollH.value = uni.getSystemInfoSync().windowHeight - 80;
   const list = await fetchWorks();
   allWorks.value = list; works.value = list;
@@ -478,29 +485,25 @@ onMounted(async () => {
   justify-content: center;
   gap: 28px;
   position: relative;
-}
-.tab-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
 }
 .plaza-tab {
   font-size: 16px;
   font-weight: 500;
   color: #8497B5;
   transition: color 0.3s;
+  cursor: pointer;
   &.active {
     font-weight: 700;
     color: #5B9FE8;
   }
 }
 .tab-indicator {
-  width: 24px;
-  height: 3px;
+  position: absolute; bottom: 0;
+  width: 24px; height: 3px;
   border-radius: 999px;
   background: #5B9FE8;
-  margin-top: 4px;
+  transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .top-search { padding: 4px; flex-shrink: 0; }
 .top-search-icon { font-size: 22px; color: #0E1F3A; }
