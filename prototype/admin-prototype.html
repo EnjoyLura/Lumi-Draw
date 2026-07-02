@@ -459,6 +459,7 @@ PAGES.dataDetail={title:function(k){return (DRILL[k]||DRILL.users).name},render:
 }};
 /* ========== 状态 & 刷新 ========== */
 var F={user:'全部',workStatus:'全部',txnType:'全部',txnStatus:'全部',fb:'全部',reviewTab:'work',udTab:'info',userQ:'',workQ:''};
+var MOCK_DATA=true;
 function refresh(){render('in');}
 function setFilter(k,v){F[k]=v;refresh();}
 function searchApply(k,v){F[k]=(v||'').trim();refresh();}
@@ -702,8 +703,8 @@ PAGES.opsStyle={title:'风格管理',render:function(){
     +'<div style="display:flex;align-items:center;margin-top:2px;">'+sortCtrl('STYLES',i,STYLES.length)+ctrlIcons('openStyleForm('+s.id+')','delItem(STYLES,'+s.id+',\'风格\')')+'</div></div>';});
   return h+'</div>';
 }};
-function openStyleForm(id){var s=id?STYLES.find(function(x){return x.id===id}):{n:'',prompt:''};openSheet(id?'编辑风格':'新增风格','<label class="field-label">风格名称</label><input class="input" id="sfName" value="'+(s.n||'')+'" placeholder="如：赛博朋克"><label class="field-label" style="margin-top:12px;">风格提示词</label><textarea class="input" id="sfPrompt" rows="3" placeholder="应用该风格时追加的提示词，如：cyberpunk style, neon lights">'+(s.prompt||'')+'</textarea><label class="field-label" style="margin-top:12px;">封面图</label><div class="card" style="height:80px;display:flex;align-items:center;justify-content:center;color:var(--fg-muted);border-style:dashed;"><i class="ri-upload-cloud-line" style="font-size:22px;"></i>&nbsp;点击上传</div>','<button class="btn btn-ghost btn-block" onclick="closeSheet()">取消</button><button class="btn btn-primary btn-block" onclick="saveStyle('+id+')">保存</button>');}
-function saveStyle(id){var n=gv('sfName');if(!n){toast('请输入名称');return;}var p=gv('sfPrompt');if(id){var s=STYLES.find(function(x){return x.id===id});s.n=n;s.prompt=p;}else{STYLES.push({id:nextId(STYLES),n:n,s:0,prompt:p});}closeSheet();refresh();toast(id?'已保存':'已新增');}
+function openStyleForm(id){var s=id?STYLES.find(function(x){return x.id===id}):{n:'',prompt:'',s:0};openSheet(id?'编辑风格':'新增风格','<label class="field-label">风格名称</label><input class="input" id="sfName" value="'+(s.n||'')+'" placeholder="如：赛博朋克"><label class="field-label" style="margin-top:12px;">风格提示词</label><textarea class="input" id="sfPrompt" rows="3" placeholder="应用该风格时追加的提示词，如：cyberpunk style, neon lights">'+(s.prompt||'')+'</textarea><label class="field-label" style="margin-top:12px;">使用次数</label><input class="input" id="sfUses" type="number" value="'+(s.s||0)+'"><label class="field-label" style="margin-top:12px;">封面图</label><div class="card" style="height:80px;display:flex;align-items:center;justify-content:center;color:var(--fg-muted);border-style:dashed;"><i class="ri-upload-cloud-line" style="font-size:22px;"></i>&nbsp;点击上传</div>','<button class="btn btn-ghost btn-block" onclick="closeSheet()">取消</button><button class="btn btn-primary btn-block" onclick="saveStyle('+id+')">保存</button>');}
+function saveStyle(id){var n=gv('sfName');if(!n){toast('请输入名称');return;}var p=gv('sfPrompt');var uses=parseInt(gv('sfUses'))||0;if(id){var s=STYLES.find(function(x){return x.id===id});s.n=n;s.prompt=p;s.s=uses;}else{STYLES.push({id:nextId(STYLES),n:n,s:uses,prompt:p});}closeSheet();refresh();toast(id?'已保存':'已新增');}
 
 PAGES.opsHotSearch={title:'热搜管理',render:function(){
   var h=addBtn('openHotForm(0)','新增热搜词');h+='<div class="card">';
@@ -877,9 +878,12 @@ function doReply(id){var f=FEEDBACKS.find(function(x){return x.id===id});var r=g
 PAGES.settings={title:'系统设置',render:function(){
   var groups=[['内容与安全',[['setAudit','审核设置','ri-shield-check-line'],['setSensitive','敏感词管理','ri-filter-line']]],['应用管理',[['setVersion','版本管理','ri-git-branch-line'],['setAgreement','协议管理','ri-file-text-line']]]];
   var h='';groups.forEach(function(g){h+=sec(g[0]);h+='<div class="card">';g[1].forEach(function(it){h+='<div class="lrow" onclick="go(\''+it[0]+'\')"><div class="lr-ico" style="background:var(--bg-soft);color:var(--fg-2);"><i class="'+it[2]+'"></i></div><div class="lr-main"><div class="lr-t">'+it[1]+'</div></div><i class="ri-arrow-right-s-line lr-arrow"></i></div>';});h+='</div>';});
+  h+=sec('开发调试');
+  h+='<div class="card"><div class="lrow" style="cursor:default;"><div class="lr-ico" style="background:var(--purple-soft);color:#8B7FD6;"><i class="ri-code-s-slash-line"></i></div><div class="lr-main"><div class="lr-t">模拟数据</div><div class="lr-s">开启后使用静态数据，关闭后请求后端接口</div></div><span class="switch'+(MOCK_DATA?' on':'')+'" onclick="toggleMock(this)"></span></div></div>';
   h+='<div style="text-align:center;font-size:12px;color:var(--fg-muted);margin-top:24px;">露米绘画管理后台 v1.0.0</div>';
   return h;
 }};
+function toggleMock(el){MOCK_DATA=!MOCK_DATA;el.classList.toggle('on');toast(MOCK_DATA?'已开启模拟数据':'已切换为后端接口');}
 PAGES.setAudit={title:'审核设置',render:function(){
   var h=sec('自动审核');
   h+='<div class="card" style="padding:2px 14px;"><div class="kv"><span class="k" style="font-weight:600;color:var(--fg-2);">开启AI自动审核</span><span class="switch on" onclick="this.classList.toggle(\'on\')"></span></div></div>';
