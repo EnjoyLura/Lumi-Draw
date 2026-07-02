@@ -461,6 +461,7 @@ textarea.input{resize:none;line-height:1.6;}
       <span class="plaza-tab active" data-idx="0" onclick="switchPlazaTab(this,'推荐')" style="font-size:16px;font-weight:700;color:var(--accent);cursor:pointer;transition:color 0.3s;">推荐</span>
       <span class="plaza-tab" data-idx="1" onclick="switchPlazaTab(this,'热门')" style="font-size:16px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">热门</span>
       <span class="plaza-tab" data-idx="2" onclick="switchPlazaTab(this,'最新')" style="font-size:16px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">最新</span>
+      <span class="plaza-tab" data-idx="3" onclick="switchPlazaTab(this,'收藏')" style="font-size:16px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">收藏</span>
       <div id="plazaTabIndicator" style="position:absolute;bottom:0;width:24px;height:3px;border-radius:999px;background:var(--accent);transition:none;opacity:0;"></div>
     </div>
     <div onclick="navigateTo('search')" style="cursor:pointer;padding:4px;">
@@ -538,7 +539,7 @@ textarea.input{resize:none;line-height:1.6;}
   <!-- 头部背景区域 -->
   <div id="galleryHeaderBg" style="padding-bottom:8px;transition:background 0.3s;">
   <!-- 顶部操作栏：菜单 | spacer | 设置背景 + 搜索(右) -->
-  <div style="display:flex;align-items:center;gap:8px;padding:4px 16px;">
+  <div id="galleryHeaderBar" style="display:flex;align-items:center;gap:8px;padding:4px 16px;">
     <div onclick="toggleLeftDrawer()" style="cursor:pointer;padding:4px;">
       <i class="ri-menu-line" style="font-size:22px;color:var(--fg-primary);"></i>
     </div>
@@ -585,12 +586,11 @@ textarea.input{resize:none;line-height:1.6;}
   </div>
   </div>
   <!-- 子标签页(下划线风格) + 管理按钮 -->
-  <div style="display:flex;align-items:center;padding:0 16px;margin-bottom:12px;gap:8px;">
+  <div style="display:flex;align-items:center;padding:0 16px;margin-bottom:12px;gap:8px;" id="galleryTabsRow">
     <div style="flex:1;display:flex;align-items:center;gap:20px;position:relative;padding-bottom:6px;" id="galleryTabs">
       <span class="gallery-tab active" data-idx="0" onclick="switchGalleryTab(this,'all')" style="font-size:13px;font-weight:700;color:var(--accent);cursor:pointer;transition:color 0.3s;">全部</span>
       <span class="gallery-tab" data-idx="1" onclick="switchGalleryTab(this,'published')" style="font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">已发布</span>
       <span class="gallery-tab" data-idx="2" onclick="switchGalleryTab(this,'draft')" style="font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">草稿箱</span>
-      <span class="gallery-tab" data-idx="3" onclick="switchGalleryTab(this,'favorite')" style="font-size:13px;font-weight:500;color:var(--fg-muted);cursor:pointer;transition:color 0.3s;">收藏</span>
       <div id="galleryTabIndicator" style="position:absolute;bottom:0;width:20px;height:3px;border-radius:999px;background:var(--accent);transition:none;opacity:0;"></div>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="toggleGalleryManage()" id="galleryManageBtn" style="flex-shrink:0;font-size:13px;display:flex;align-items:center;gap:4px;">
@@ -1774,7 +1774,7 @@ function switchTab(tabId){
   if(tabId==='plaza')setTimeout(initPlazaTabIndicator,350);
   if(tabId==='gallery')setTimeout(initGalleryTabIndicator,350);
   $('createBar').style.display=tabId==='create'?'flex':'none';
-  $('galleryPublishBtn').style.display=tabId==='gallery'?'flex':'none';
+  $('galleryPublishBtn').style.display=(tabId==='gallery'&&isLoggedIn)?'flex':'none';
   $('navNotify').style.display=tabId==='home'?'block':'none';
   $('contentArea').scrollTop=0;
 }
@@ -1874,7 +1874,7 @@ function navigateBack(){
         $('tabBar').style.display='flex';
         $('createBar').style.display='none';
       }
-      $('galleryPublishBtn').style.display=currentTab==='gallery'?'flex':'none';
+      $('galleryPublishBtn').style.display=(currentTab==='gallery'&&isLoggedIn)?'flex':'none';
       $('navNotify').style.display=currentTab==='home'?'block':'none';
       var tabSavedTop=savedScrollPositions[currentTab];
       if(tabSavedTop!==undefined)setTimeout(function(){$('contentArea').scrollTop=tabSavedTop},50);
@@ -1926,22 +1926,33 @@ function updateLoginUI(){
     else{logoutBtn.innerHTML='<i class="ri-login-box-line" style="margin-right:6px;font-size:18px;"></i>立即登录';logoutBtn.style.color='var(--accent)';logoutBtn.onclick=function(){showLoginSheet()}}
   }
   var galleryProfile=$('galleryProfileArea');
-  if(galleryProfile){
-    if(isLoggedIn){
-      galleryProfile.style.display='block';
-    }else{
-      galleryProfile.style.display='none';
-      galleryProfile.parentElement.insertAdjacentHTML('afterbegin','');
-    }
-  }
+  var galleryTabsRow=$('galleryTabsRow');
+  var galleryContent=$('galleryContent');
+  var galleryManageBar=$('galleryManageBar');
+  var galleryHeaderBar=$('galleryHeaderBar');
+  var galleryPublishBtn=$('galleryPublishBtn');
   var galleryLogin=$('galleryLoginPrompt');
   if(galleryLogin)galleryLogin.remove();
-  if(!isLoggedIn&&galleryProfile){
-    var prompt=document.createElement('div');
-    prompt.id='galleryLoginPrompt';
-    prompt.style.cssText='padding:40px 16px;text-align:center;';
-    prompt.innerHTML='<div class="avatar" style="width:72px;height:72px;font-size:28px;margin:0 auto 12px;background:var(--bg-soft);color:var(--fg-muted);">?</div><div style="font-size:17px;font-weight:700;color:var(--fg-primary);margin-bottom:6px;">未登录</div><div style="font-size:13px;color:var(--fg-muted);margin-bottom:16px;">登录后查看你的作品和创作记录</div><button class="btn btn-primary btn-sm" onclick="showLoginSheet()">立即登录</button>';
-    galleryProfile.parentElement.insertBefore(prompt,galleryProfile.nextSibling);
+  if(isLoggedIn){
+    if(galleryProfile)galleryProfile.style.display='block';
+    if(galleryTabsRow)galleryTabsRow.style.display='flex';
+    if(galleryContent)galleryContent.style.display='block';
+    if(galleryHeaderBar)galleryHeaderBar.style.display='flex';
+    if(galleryPublishBtn&&currentTab==='gallery')galleryPublishBtn.style.display='flex';
+  }else{
+    if(galleryProfile)galleryProfile.style.display='none';
+    if(galleryTabsRow)galleryTabsRow.style.display='none';
+    if(galleryContent)galleryContent.style.display='none';
+    if(galleryHeaderBar)galleryHeaderBar.style.display='none';
+    if(galleryPublishBtn)galleryPublishBtn.style.display='none';
+    if(galleryManageBar){galleryManageBar.style.maxHeight='0';galleryManageBar.style.opacity='0';galleryManageBar.style.pointerEvents='none';}
+    if(galleryProfile){
+      var prompt=document.createElement('div');
+      prompt.id='galleryLoginPrompt';
+      prompt.style.cssText='display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:70px 32px;';
+      prompt.innerHTML='<div style="width:80px;height:80px;border-radius:24px;background:var(--gradient-dream);display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:var(--shadow-glow);"><i class="ri-gallery-line" style="font-size:38px;color:white;"></i></div><div style="font-size:19px;font-weight:700;color:var(--fg-primary);margin-bottom:8px;">登录查看我的画廊</div><div style="font-size:13px;color:var(--fg-muted);line-height:1.6;margin-bottom:24px;">登录后即可管理你的AI作品、草稿<br/>与创作记录</div><button class="btn btn-gradient btn-lg" style="width:70%;" onclick="showLoginSheet()"><i class="ri-user-line" style="margin-right:4px;"></i>立即登录</button>';
+      galleryProfile.parentElement.appendChild(prompt);
+    }
   }
 }
 // ============ 胶囊菜单 ============
@@ -1953,7 +1964,8 @@ function toggleLeftDrawer(){$('leftDrawer').classList.toggle('show');$('leftDraw
 function toggleFilterPanel(){$('filterPanel').style.display=$('filterPanel').style.display==='none'?'block':'none'}
 function resetFilter(){document.querySelectorAll('#filterStyles .chip').forEach(c=>c.classList.remove('active'));showToast('已重置筛选')}
 function applyFilter(){$('filterPanel').style.display='none';showToast('筛选已应用')}
-function switchPlazaTab(el,name){el.parentElement.querySelectorAll('.plaza-tab').forEach(function(t){t.style.fontWeight='500';t.style.color='var(--fg-muted)'});el.style.fontWeight='700';el.style.color='var(--accent)';var idx=parseInt(el.dataset.idx);var indicator=$('plazaTabIndicator');if(indicator){indicator.style.left=el.offsetLeft+el.offsetWidth/2-12+'px'}var c=$('plazaWaterfall');c.innerHTML='<div style="display:flex;justify-content:center;padding:20px 0;column-span:all"><div style="width:28px;height:28px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite"></div></div>';setTimeout(function(){renderPlazaWaterfall();c.classList.remove('wf-slide-left','wf-slide-right');void c.offsetWidth;c.classList.add(idx>0?'wf-slide-left':'wf-slide-right');setTimeout(function(){c.classList.remove('wf-slide-left','wf-slide-right')},450)},300)}
+var currentPlazaTab='推荐';
+function switchPlazaTab(el,name){currentPlazaTab=name;el.parentElement.querySelectorAll('.plaza-tab').forEach(function(t){t.style.fontWeight='500';t.style.color='var(--fg-muted)'});el.style.fontWeight='700';el.style.color='var(--accent)';var idx=parseInt(el.dataset.idx);var indicator=$('plazaTabIndicator');if(indicator){indicator.style.left=el.offsetLeft+el.offsetWidth/2-12+'px'}var c=$('plazaWaterfall');c.innerHTML='<div style="display:flex;justify-content:center;padding:20px 0;column-span:all"><div style="width:28px;height:28px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite"></div></div>';setTimeout(function(){renderPlazaWaterfall();c.classList.remove('wf-slide-left','wf-slide-right');void c.offsetWidth;c.classList.add(idx>0?'wf-slide-left':'wf-slide-right');setTimeout(function(){c.classList.remove('wf-slide-left','wf-slide-right')},450)},300)}
 function initPlazaTabIndicator(){var active=document.querySelector('.plaza-tab.active');var ind=$('plazaTabIndicator');if(active&&ind){ind.style.transition='none';ind.style.left=active.offsetLeft+active.offsetWidth/2-12+'px';ind.style.opacity='1';ind.offsetHeight;ind.style.transition='all 0.3s cubic-bezier(0.16,1,0.3,1)'}}
 function renderPlazaFilterCategories(){var c=$('plazaFilterCategories');if(!c)return;c.innerHTML='';CATEGORIES.forEach(function(cat,i){var chip=createEl('div','chip chip-outline'+(i===0?' active':''));chip.textContent=cat;chip.onclick=function(){chip.classList.toggle('active')};c.appendChild(chip)})}
 function openPlazaFilter(){$('plazaFilterOverlay').classList.add('show');$('plazaFilterSheet').classList.add('show')}
@@ -2206,7 +2218,16 @@ carousel.addEventListener('mouseleave',function(){if(dragging){dragging=false;tr
 var lastPlazaCatIdx=0;
 function renderPlazaCategories(){const c=$('plazaCategories');CATEGORIES.forEach((cat,i)=>{const chip=createEl('div',null,'<span style="font-size:14px;font-weight:'+(i===0?'600':'400')+';color:'+(i===0?'var(--accent)':'var(--fg-secondary)')+'">'+cat+'</span>');chip.style.cssText='flex-shrink:0;cursor:pointer;padding:6px 12px;transition:all 0.3s;';chip.onclick=()=>{c.querySelectorAll('span').forEach(s=>{s.style.fontWeight='400';s.style.color='var(--fg-secondary)'});chip.querySelector('span').style.fontWeight='600';chip.querySelector('span').style.color='var(--accent)';var wf=$('plazaWaterfall');var slideDir=i>lastPlazaCatIdx?'wf-slide-left':'wf-slide-right';lastPlazaCatIdx=i;wf.innerHTML='<div style="display:flex;justify-content:center;padding:20px 0;column-span:all"><div style="width:28px;height:28px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite"></div></div>';setTimeout(function(){renderPlazaWaterfall();wf.classList.remove('wf-slide-left','wf-slide-right');void wf.offsetWidth;wf.classList.add(slideDir);setTimeout(function(){wf.classList.remove('wf-slide-left','wf-slide-right')},400)},300)};c.appendChild(chip)})}
 function renderFilterStyles(){const c=$('filterStyles');STYLES.forEach(s=>{const chip=createEl('div','chip chip-outline');chip.textContent=s;chip.onclick=()=>chip.classList.toggle('active');c.appendChild(chip)})}
-function renderPlazaWaterfall(){renderWaterfall('plazaWaterfall',WORKS)}
+function renderPlazaWaterfall(){
+  var c=$('plazaWaterfall');
+  if(currentPlazaTab==='收藏'){
+    if(!isLoggedIn){c.innerHTML='<div class="empty-state" style="column-span:all;padding:50px 20px;"><div class="empty-state-icon"><i class="ri-lock-line" style="font-size:30px;color:var(--accent);"></i></div><div class="empty-state-text">登录后查看收藏</div><div style="font-size:12px;color:var(--fg-muted);">登录即可收藏喜欢的作品</div><button class="btn btn-gradient btn-sm" style="margin-top:14px;" onclick="showLoginSheet()"><i class="ri-user-line" style="margin-right:4px;"></i>立即登录</button></div>';return;}
+    var favs=WORKS.filter(function(w){return favoritedWorks[w.id]});
+    if(favs.length===0){c.innerHTML='<div class="empty-state" style="column-span:all;padding:50px 20px;"><div class="empty-state-icon"><i class="ri-heart-line" style="font-size:30px;color:var(--accent);"></i></div><div class="empty-state-text">暂无收藏</div><div style="font-size:12px;color:var(--fg-muted);">点击作品上的收藏按钮，收藏喜欢的创作</div></div>';return;}
+    renderWaterfall('plazaWaterfall',favs);return;
+  }
+  renderWaterfall('plazaWaterfall',WORKS);
+}
 // ============ 画廊 ============
 function refreshGalleryGenCards(){
   var container=$('galleryGenCards');if(!container)return;
@@ -2248,7 +2269,22 @@ var _galleryEmptyMap={
   draft:{icon:'ri-draft-line',text:'暂无草稿',sub:'生成的作品会自动保存到草稿箱'},
   favorite:{icon:'ri-heart-line',text:'暂无收藏',sub:'浏览广场时收藏喜欢的作品吧',btn:'去广场',action:'navigateBack();switchTab(\'home\')'}
 };
-function switchGalleryTab(el,tab){var idx=parseInt(el.dataset.idx);el.parentElement.querySelectorAll('.gallery-tab').forEach(t=>{t.style.fontWeight='500';t.style.color='var(--fg-muted)'});el.style.fontWeight='700';el.style.color='var(--accent)';var indicator=$('galleryTabIndicator');if(indicator){indicator.style.left=el.offsetLeft+el.offsetWidth/2-10+'px'}var c=$('galleryContent');c.innerHTML='<div style="display:flex;justify-content:center;padding:20px 0"><div style="width:28px;height:28px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite"></div></div>';var slideDir=idx>lastGalleryTabIdx?'wf-slide-left':'wf-slide-right';lastGalleryTabIdx=idx;setTimeout(function(){c.innerHTML='<div id="galleryGenCards" style="display:none;margin-bottom:6px;"></div><div class="waterfall" id="galleryWaterfall"></div><div id="galleryLoadMore"></div>';refreshGalleryGenCards();var myWorks=WORKS.filter(function(w){return w.userId===CURRENT_USER_ID});var filtered;if(tab==='all'){filtered=myWorks}else if(tab==='published'){filtered=myWorks.filter(function(w){return w.published})}else if(tab==='draft'){filtered=myWorks.filter(function(w){return !w.published})}else{filtered=WORKS.filter(function(w){return favoritedWorks[w.id]})}if(filtered.length===0){var em=_galleryEmptyMap[tab]||_galleryEmptyMap.all;var btnHtml=em.btn?'<button class="btn btn-soft btn-sm" style="margin-top:8px;" onclick="'+em.action+'"><i class="ri-arrow-right-line" style="margin-right:4px;"></i>'+em.btn+'</button>':'';$('galleryWaterfall').innerHTML='<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon"><i class="'+em.icon+'" style="font-size:28px;color:var(--accent);"></i></div><div class="empty-state-text">'+em.text+'</div><div style="font-size:12px;color:var(--fg-muted);">'+em.sub+'</div>'+btnHtml+'</div>'}else{renderWaterfall('galleryWaterfall',filtered,tab==='published'||tab==='all',tab==='draft',tab==='draft'||tab==='all')}addLoadMoreBtn('galleryLoadMore');c.classList.remove('wf-slide-left','wf-slide-right');void c.offsetWidth;c.classList.add(slideDir);setTimeout(function(){c.classList.remove('wf-slide-left','wf-slide-right')},450)},300)}
+function renderGalleryContent(tab){
+  refreshGalleryGenCards();
+  var myWorks=WORKS.filter(function(w){return w.userId===CURRENT_USER_ID});
+  var filtered;
+  if(tab==='published'){filtered=myWorks.filter(function(w){return w.published})}
+  else if(tab==='draft'){filtered=myWorks.filter(function(w){return !w.published})}
+  else if(tab==='favorite'){filtered=WORKS.filter(function(w){return favoritedWorks[w.id]})}
+  else{filtered=myWorks}
+  if(filtered.length===0){
+    var em=_galleryEmptyMap[tab]||_galleryEmptyMap.all;
+    var btnHtml=em.btn?'<button class="btn btn-gradient btn-sm" style="margin-top:14px;" onclick="'+em.action+'"><i class="ri-magic-line" style="margin-right:4px;"></i>'+em.btn+'</button>':'';
+    $('galleryWaterfall').innerHTML='<div class="empty-state" style="grid-column:1/-1;padding:50px 20px;"><div class="empty-state-icon"><i class="'+em.icon+'" style="font-size:30px;color:var(--accent);"></i></div><div class="empty-state-text">'+em.text+'</div><div style="font-size:12px;color:var(--fg-muted);">'+em.sub+'</div>'+btnHtml+'</div>';
+  }else{renderWaterfall('galleryWaterfall',filtered,tab==='published'||tab==='all',tab==='draft',tab==='draft'||tab==='all')}
+  addLoadMoreBtn('galleryLoadMore');
+}
+function switchGalleryTab(el,tab){var idx=parseInt(el.dataset.idx);el.parentElement.querySelectorAll('.gallery-tab').forEach(t=>{t.style.fontWeight='500';t.style.color='var(--fg-muted)'});el.style.fontWeight='700';el.style.color='var(--accent)';var indicator=$('galleryTabIndicator');if(indicator){indicator.style.left=el.offsetLeft+el.offsetWidth/2-10+'px'}var c=$('galleryContent');c.innerHTML='<div style="display:flex;justify-content:center;padding:20px 0"><div style="width:28px;height:28px;border:2.5px solid var(--accent-soft);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite"></div></div>';var slideDir=idx>lastGalleryTabIdx?'wf-slide-left':'wf-slide-right';lastGalleryTabIdx=idx;setTimeout(function(){c.innerHTML='<div id="galleryGenCards" style="display:none;margin-bottom:6px;"></div><div class="waterfall" id="galleryWaterfall"></div><div id="galleryLoadMore"></div>';renderGalleryContent(tab);c.classList.remove('wf-slide-left','wf-slide-right');void c.offsetWidth;c.classList.add(slideDir);setTimeout(function(){c.classList.remove('wf-slide-left','wf-slide-right')},450)},300)}
 function initGalleryTabIndicator(){var active=document.querySelector('.gallery-tab.active');var ind=$('galleryTabIndicator');if(active&&ind){ind.style.transition='none';ind.style.left=active.offsetLeft+active.offsetWidth/2-10+'px';ind.style.opacity='1';ind.offsetHeight;ind.style.transition='all 0.3s cubic-bezier(0.16,1,0.3,1)'}}
 let galleryManageMode=false;let gallerySelectedItems={};
 function toggleGalleryManage(){galleryManageMode=!galleryManageMode;gallerySelectedItems={};const btn=$('galleryManageBtn');const bar=$('galleryManageBar');if(galleryManageMode){btn.innerHTML='<i class="ri-check-line" style="font-size:14px;"></i>完成';btn.classList.remove('btn-ghost');btn.classList.add('btn-soft');addManageOverlays();updateGallerySelectedCount();requestAnimationFrame(function(){bar.style.maxHeight='60px';bar.style.padding='8px 16px';bar.style.opacity='1';bar.style.pointerEvents='auto';})}else{btn.innerHTML='<i class="ri-list-unordered" style="font-size:16px;"></i>管理';btn.classList.remove('btn-soft');btn.classList.add('btn-ghost');bar.style.maxHeight='0';bar.style.padding='0';bar.style.opacity='0';bar.style.pointerEvents='none';removeManageOverlays()}}
@@ -2578,9 +2614,7 @@ function init(){
   renderCreatePage();
   updateCost();
   _generatingTasks.push({id:'demo_task',prompt:'夕阳下的海边城堡，梦幻光影',model:MODELS[0].name,modelImg:MODELS[0].img,count:4,ratio:'3:4',quality:'超清2K',resolution:'2048px',cost:MODELS[0].cost*4,progress:62,stage:'AI绘制中...',startTime:Date.now()-9000});
-  refreshGalleryGenCards();
-  renderWaterfall('galleryWaterfall',WORKS.filter(function(w){return w.userId===CURRENT_USER_ID}));
-  addLoadMoreBtn('galleryLoadMore');
+  renderGalleryContent('all');
   renderRechargeTiers();
   switchRechargeTab(document.querySelector('#page-recharge .sub-tab'),'earn');
   renderCalendar();
