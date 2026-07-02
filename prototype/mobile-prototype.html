@@ -1761,6 +1761,7 @@ function switchTab(tabId){
   var dir=TAB_ORDER[tabId]>TAB_ORDER[currentTab]?'right':'left';
   var same=tabId===currentTab;
   cleanupNavState();
+  $('contentArea').classList.remove('pushed-back');$('tabBar').classList.remove('pushed-back');$('createBar').classList.remove('pushed-back');
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.classList.remove('anim-in');p.classList.remove('tab-in-left');p.classList.remove('tab-in-right');p.style.cssText=''});
   var page=$('page-'+tabId);page.classList.add('active');
   if(!same)page.classList.add(dir==='right'?'tab-in-right':'tab-in-left');
