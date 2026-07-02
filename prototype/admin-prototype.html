@@ -232,12 +232,12 @@ textarea.input{resize:none;line-height:1.6;}
 /* ================= Mock 数据 ================= */
 var IMG=function(s){return 'https://picsum.photos/seed/'+encodeURIComponent(s)+'/300/300'};
 var MODELS=[
-  {id:'gpt2',name:'GPT Image 2',desc:'画质细腻·理解力强',cost:15,badge:'推荐',on:true},
-  {id:'nano',name:'Nano Banana 2',desc:'速度极快·性价比高',cost:8,badge:'性价比',on:true},
-  {id:'flux',name:'Flux Pro',desc:'艺术感强·细节丰富',cost:12,badge:'NEW',on:true},
-  {id:'sdxl',name:'SDXL',desc:'开源之王·风格多样',cost:6,badge:'',on:true},
-  {id:'dalle3',name:'DALL-E 3',desc:'语义理解·精准还原',cost:14,badge:'',on:false},
-  {id:'mj',name:'Midjourney',desc:'艺术天花板·极致美学',cost:20,badge:'推荐',on:true}
+  {id:'gpt2',name:'GPT Image 2',desc:'画质细腻·理解力强',tags:['写实','高清'],cost:15,badge:'推荐',on:true},
+  {id:'nano',name:'Nano Banana 2',desc:'速度极快·性价比高',tags:['快速','全能'],cost:8,badge:'性价比',on:true},
+  {id:'flux',name:'Flux Pro',desc:'艺术感强·细节丰富',tags:['艺术','创意'],cost:12,badge:'NEW',on:true},
+  {id:'sdxl',name:'SDXL',desc:'开源之王·风格多样',tags:['多样','自定义'],cost:6,badge:'',on:true},
+  {id:'dalle3',name:'DALL-E 3',desc:'语义理解·精准还原',tags:['精准','还原'],cost:14,badge:'',on:false},
+  {id:'mj',name:'Midjourney',desc:'艺术天花板·极致美学',tags:['美学','艺术'],cost:20,badge:'推荐',on:true}
 ];
 var MODEL_BADGES=['无','推荐','性价比','NEW','热门'];
 var QUALITIES=[{id:1,label:'全高清 1K',pixel:'1024px',mult:1,on:true},{id:2,label:'超清 2K',pixel:'2048px',mult:1.5,on:true},{id:3,label:'超高清 4K',pixel:'4096px',mult:2,on:true}];
@@ -718,14 +718,14 @@ function saveHot(id){var k=gv('hfK');if(!k){toast('请输入关键词');return;}
 
 PAGES.opsModel={title:'模型管理',render:function(){
   var h=addBtn('openModelForm(0)','新增模型');h+='<div class="card">';
-  MODELS.forEach(function(m){h+='<div class="lrow" style="cursor:default;"><img class="thumb" src="'+IMG('model'+m.id)+'" style="width:44px;height:44px;">'
-    +'<div class="lr-main"><div class="lr-t">'+m.name+(m.badge?' '+badge(m.badge,'info'):'')+'</div><div class="lr-s">'+(m.desc||'')+'</div><div class="lr-s" style="margin-top:1px;">消耗 '+m.cost+' 积分/次</div></div>'
-    +'<span class="switch'+(m.on?' on':'')+'" onclick="toggleModelOn(\''+m.id+'\',this)"></span>'+ctrlIcons('openModelForm(\''+m.id+'\')','delItem(MODELS,\''+m.id+'\',\'模型\')')+'</div>';});
+  MODELS.forEach(function(m){h+='<div class="lrow" style="cursor:default;align-items:flex-start;"><img class="thumb" src="'+IMG('model'+m.id)+'" style="width:44px;height:44px;margin-top:2px;">'
+    +'<div class="lr-main"><div class="lr-t">'+m.name+(m.badge?' '+badge(m.badge,'info'):'')+'</div><div class="lr-s">'+(m.desc||'')+'</div>'+((m.tags&&m.tags.length)?'<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">'+m.tags.map(function(t){return badge(t,'muted')}).join('')+'</div>':'')+'<div class="lr-s" style="margin-top:3px;">消耗 '+m.cost+' 积分/次</div></div>'
+    +'<div style="display:flex;align-items:center;margin-top:2px;"><span class="switch'+(m.on?' on':'')+'" onclick="toggleModelOn(\''+m.id+'\',this)"></span>'+ctrlIcons('openModelForm(\''+m.id+'\')','delItem(MODELS,\''+m.id+'\',\'模型\')')+'</div></div>';});
   return h+'</div>';
 }};
 function badgeOpts(sel){return MODEL_BADGES.map(function(o){var v=o==='无'?'':o;return '<option'+(v===sel?' selected':'')+'>'+o+'</option>'}).join('')}
-function openModelForm(id){var m=id?MODELS.find(function(x){return x.id===id}):{name:'',desc:'',cost:10,badge:''};openSheet(id?'编辑模型':'新增模型','<label class="field-label">模型图标</label><div class="card" style="height:88px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--fg-muted);border-style:dashed;">'+(id?'<img class="thumb" src="'+IMG('model'+m.id)+'" style="width:56px;height:56px;">':'')+'<div style="text-align:center;"><i class="ri-upload-cloud-line" style="font-size:22px;"></i><div style="font-size:12px;">点击上传</div></div></div><label class="field-label" style="margin-top:12px;">模型名称</label><input class="input" id="mfName" value="'+m.name+'" placeholder="如：GPT Image 2"><label class="field-label" style="margin-top:12px;">模型描述</label><input class="input" id="mfDesc" value="'+(m.desc||'')+'" placeholder="如：画质细腻·理解力强"><label class="field-label" style="margin-top:12px;">消耗积分</label><input class="input" id="mfCost" type="number" value="'+m.cost+'"><label class="field-label" style="margin-top:12px;">标签</label><select class="input" id="mfBadge">'+badgeOpts(m.badge)+'</select>','<button class="btn btn-ghost btn-block" onclick="closeSheet()">取消</button><button class="btn btn-primary btn-block" onclick="saveModel('+(id?'\''+id+'\'':'0')+')">保存</button>');}
-function saveModel(id){var n=gv('mfName');if(!n){toast('请输入名称');return;}var b=gv('mfBadge');var data={name:n,desc:gv('mfDesc'),cost:parseInt(gv('mfCost'))||0,badge:(b==='无'?'':b)};if(id){Object.assign(MODELS.find(function(x){return x.id===id}),data);}else{data.id='m'+(MODELS.length+1);data.on=true;MODELS.push(data);}closeSheet();refresh();toast(id?'已保存':'已新增');}
+function openModelForm(id){var m=id?MODELS.find(function(x){return x.id===id}):{name:'',desc:'',tags:[],cost:10,badge:''};openSheet(id?'编辑模型':'新增模型','<label class="field-label">模型图标</label><div class="card" style="height:88px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--fg-muted);border-style:dashed;">'+(id?'<img class="thumb" src="'+IMG('model'+m.id)+'" style="width:56px;height:56px;">':'')+'<div style="text-align:center;"><i class="ri-upload-cloud-line" style="font-size:22px;"></i><div style="font-size:12px;">点击上传</div></div></div><label class="field-label" style="margin-top:12px;">模型名称</label><input class="input" id="mfName" value="'+m.name+'" placeholder="如：GPT Image 2"><label class="field-label" style="margin-top:12px;">模型描述</label><input class="input" id="mfDesc" value="'+(m.desc||'')+'" placeholder="如：画质细腻·理解力强"><label class="field-label" style="margin-top:12px;">优势标签</label><input class="input" id="mfTags" value="'+((m.tags||[]).join('、'))+'" placeholder="多个用、分隔，如：写实、高清"><label class="field-label" style="margin-top:12px;">消耗积分</label><input class="input" id="mfCost" type="number" value="'+m.cost+'"><label class="field-label" style="margin-top:12px;">徽标</label><select class="input" id="mfBadge">'+badgeOpts(m.badge)+'</select>','<button class="btn btn-ghost btn-block" onclick="closeSheet()">取消</button><button class="btn btn-primary btn-block" onclick="saveModel('+(id?'\''+id+'\'':'0')+')">保存</button>');}
+function saveModel(id){var n=gv('mfName');if(!n){toast('请输入名称');return;}var b=gv('mfBadge');var data={name:n,desc:gv('mfDesc'),tags:gv('mfTags').split(/[、,，]/).map(function(s){return s.trim()}).filter(Boolean),cost:parseInt(gv('mfCost'))||0,badge:(b==='无'?'':b)};if(id){Object.assign(MODELS.find(function(x){return x.id===id}),data);}else{data.id='m'+(MODELS.length+1);data.on=true;MODELS.push(data);}closeSheet();refresh();toast(id?'已保存':'已新增');}
 function toggleModelOn(id,el){var m=MODELS.find(function(x){return x.id===id});m.on=!m.on;el.classList.toggle('on');toast(m.on?'模型已上线':'模型已下线');}
 
 PAGES.opsCategory={title:'分类管理',render:function(){
