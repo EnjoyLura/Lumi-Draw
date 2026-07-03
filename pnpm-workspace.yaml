@@ -1,0 +1,27 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: true
+  core-js-pure: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - '@dcloudio/uni-app@3.0.0-5010420260703001'
+  - '@dcloudio/uni-cli-shared@3.0.0-5010420260703001'
+  - '@dcloudio/uni-cloud@3.0.0-5010420260703001'
+  - '@dcloudio/uni-components@3.0.0-5010420260703001'
+  - '@dcloudio/uni-console@3.0.0-5010420260703001'
+  - '@dcloudio/uni-h5-vite@3.0.0-5010420260703001'
+  - '@dcloudio/uni-h5-vue@3.0.0-5010420260703001'
+  - '@dcloudio/uni-h5@3.0.0-5010420260703001'
+  - '@dcloudio/uni-i18n@3.0.0-5010420260703001'
+  - '@dcloudio/uni-mp-compiler@3.0.0-5010420260703001'
+  - '@dcloudio/uni-mp-vite@3.0.0-5010420260703001'
+  - '@dcloudio/uni-mp-vue@3.0.0-5010420260703001'
+  - '@dcloudio/uni-mp-weixin@3.0.0-5010420260703001'
+  - '@dcloudio/uni-nvue-styler@3.0.0-5010420260703001'
+  - '@dcloudio/uni-push@3.0.0-5010420260703001'
+  - '@dcloudio/uni-shared@3.0.0-5010420260703001'
+  - '@dcloudio/uni-stat@3.0.0-5010420260703001'
+  - '@dcloudio/vite-plugin-uni@3.0.0-5010420260703001'

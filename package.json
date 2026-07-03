@@ -1,0 +1,16 @@
+{
+  "name": "lumi-draw",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev:mobile": "pnpm --filter @lumi-draw/mobile dev:mp-weixin",
+    "build:mobile": "pnpm --filter @lumi-draw/mobile build:mp-weixin",
+    "dev:admin": "pnpm --filter @lumi-draw/admin dev",
+    "build:admin": "pnpm --filter @lumi-draw/admin build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5"
+  }
+}

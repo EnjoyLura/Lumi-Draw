@@ -1,0 +1,15 @@
+{
+  "name": "露米绘画AI",
+  "appid": "__UNI__LUMIDRAW",
+  "description": "露米绘画AI微信小程序",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "wxbb3da1bed70db50f",
+    "setting": {
+      "urlCheck": false
+    },
+    "usingComponents": true
+  }
+}
