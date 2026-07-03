@@ -28,7 +28,7 @@
   --gradient-aurora:linear-gradient(135deg,#B8A5E3 0%,#5B9FE8 50%,#6FD4B0 100%);
 }
 :root[data-theme="dark"]{
-  --bg-base:#101010;--bg-soft:#2C2C2E;--bg-card:#262628;--bg-elevated:#1C1C1E;
+  --bg-base:#141416;--bg-soft:#2C2C2E;--bg-card:#262628;--bg-elevated:#1C1C1E;
   --bg-glass:rgba(20,20,20,0.82);--fg-primary:#FFFFFF;--fg-secondary:#C7C7CC;--fg-muted:#8E8E93;
   --border:rgba(255,255,255,0.10);--border-strong:rgba(255,255,255,0.22);
   --accent:#5B9FE8;--accent-deep:#3B7FC8;--accent-soft:rgba(91,159,232,0.20);--accent-glow:transparent;
@@ -41,7 +41,7 @@
   --shadow-sm:0 2px 8px rgba(0,0,0,0.5);--shadow-md:0 8px 24px rgba(0,0,0,0.6);
   --shadow-lg:0 24px 56px rgba(0,0,0,0.7);--shadow-glow:0 0 40px rgba(91,159,232,0.28);
   --gradient-dream:linear-gradient(135deg,#5B9FE8 0%,#7BC4F0 45%,#6FD4B0 100%);
-  --gradient-sky:linear-gradient(180deg,#101010 0%,#181818 100%);
+  --gradient-sky:linear-gradient(180deg,#141416 0%,#141416 100%);
   --gradient-aurora:linear-gradient(135deg,#B8A5E3 0%,#5B9FE8 50%,#6FD4B0 100%);
 }
 /* ============ 基础 ============ */
@@ -63,13 +63,12 @@ body>*{position:relative;z-index:1;}
 [data-theme="dark"] .phone-frame{box-shadow:-8px -8px 24px rgba(255,255,255,0.05),8px 8px 30px rgba(0,0,0,0.5),0 20px 50px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.08);}
 .phone-screen{width:100%;height:100%;display:flex;flex-direction:column;position:relative;overflow:hidden;
   background:linear-gradient(175deg,var(--bg-base) 0%,var(--bg-soft) 100%);}
+[data-theme="dark"] .phone-screen{background:var(--bg-base);}
 .phone-screen::after{content:'';position:absolute;inset:0;
   background:radial-gradient(ellipse 120% 40% at 80% 0%,rgba(91,159,232,0.06),transparent 60%),
   radial-gradient(ellipse 100% 30% at 10% 100%,rgba(111,212,176,0.04),transparent 50%);
   pointer-events:none;z-index:0;}
-[data-theme="dark"] .phone-screen::after{
-  background:radial-gradient(ellipse 120% 40% at 80% 0%,rgba(123,184,240,0.05),transparent 60%),
-  radial-gradient(ellipse 100% 30% at 10% 100%,rgba(123,212,181,0.03),transparent 50%);}
+[data-theme="dark"] .phone-screen::after{background:none;}
 .phone-screen::before{content:'';position:absolute;top:0;left:0;right:0;height:74px;background-color:var(--bg-glass);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);z-index:98;border-bottom:0.5px solid var(--border);}
 /* ============ 微信状态栏 + 胶囊 ============ */
 .status-bar{height:24px;display:flex;align-items:center;justify-content:space-between;
@@ -143,6 +142,7 @@ i.tab-icon{font-size:24px;line-height:1;width:auto;height:auto;}
 /* ============ 通用组件 ============ */
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
   transition:transform 0.3s cubic-bezier(0.16,1,0.3,1),box-shadow 0.3s,border-color 0.3s;overflow:hidden;}
+[data-theme="dark"] .card{border-color:transparent;}
 /* 卡片按压效果仅用于图片点击 */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600;
   font-size:14px;border-radius:12px;padding:10px 18px;cursor:pointer;border:none;white-space:nowrap;
@@ -353,7 +353,7 @@ textarea.input{resize:none;line-height:1.6;}
 /* ============ 深色模式卡片阴影 ============ */
 [data-theme="dark"] .card{box-shadow:0 2px 8px rgba(0,0,0,0.25),0 1px 3px rgba(0,0,0,0.15);}
 [data-theme="dark"] .gp-card{box-shadow:0 4px 16px rgba(0,0,0,0.3);}
-[data-theme="dark"] .gp-grid-card{border-color:rgba(123,184,240,0.12);box-shadow:none;}
+[data-theme="dark"] .gp-grid-card{border-color:transparent;box-shadow:none;}
 [data-theme="dark"] .gp-hot{box-shadow:0 2px 8px rgba(238,90,36,0.5);}
 /* ============ 图片淡入加载 ============ */
 .wf-item img,.detail-carousel img{opacity:0;transition:opacity 0.35s ease;}
