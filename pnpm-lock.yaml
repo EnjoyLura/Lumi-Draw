@@ -60,6 +60,9 @@ importers:
       '@dcloudio/uni-components':
         specifier: 3.0.0-5010420260703001
         version: 3.0.0-5010420260703001(postcss@8.5.16)(rollup@4.62.2)(vite@5.2.8(sass@1.101.0)(terser@5.48.0))(vue@3.4.21(typescript@5.4.5))
+      '@dcloudio/uni-h5':
+        specifier: 3.0.0-5010420260703001
+        version: 3.0.0-5010420260703001(postcss@8.5.16)(rollup@4.62.2)(vite@5.2.8(sass@1.101.0)(terser@5.48.0))(vue@3.4.21(typescript@5.4.5))
       '@dcloudio/uni-mp-weixin':
         specifier: 3.0.0-5010420260703001
         version: 3.0.0-5010420260703001(postcss@8.5.16)(rollup@4.62.2)(vue@3.4.21(typescript@5.4.5))
@@ -3859,7 +3862,7 @@ snapshots:
       '@babel/traverse': 7.29.7
       '@babel/types': 7.29.7
       convert-source-map: 2.0.0
-      debug: 4.3.7
+      debug: 4.4.3
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
