@@ -11,6 +11,12 @@
       "style": {
         "navigationBarTitleText": "创作"
       }
+    },
+    {
+      "path": "pages/plaza/index",
+      "style": {
+        "navigationBarTitleText": "广场"
+      }
     }
   ],
   "globalStyle": {

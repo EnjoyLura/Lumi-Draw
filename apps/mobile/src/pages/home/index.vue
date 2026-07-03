@@ -51,6 +51,12 @@ function goCreate() {
   });
 }
 
+function goPlaza() {
+  uni.navigateTo({
+    url: "/pages/plaza/index"
+  });
+}
+
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
 
@@ -291,7 +297,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-icon">⌂</text>
         <text class="tab-label">首页</text>
       </view>
-      <view class="tab-item" @click="showTodo('广场')">
+      <view class="tab-item" @click="goPlaza">
         <text class="tab-icon">◇</text>
         <text class="tab-label">广场</text>
       </view>
