@@ -5,6 +5,12 @@
       "style": {
         "navigationBarTitleText": "露米绘画"
       }
+    },
+    {
+      "path": "pages/create/index",
+      "style": {
+        "navigationBarTitleText": "创作"
+      }
     }
   ],
   "globalStyle": {

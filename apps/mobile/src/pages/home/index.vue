@@ -40,9 +40,14 @@ function showTodo(label: string) {
 }
 
 function selectGameplay(name: string) {
-  uni.showToast({
-    title: `已套用「${name}」模板`,
-    icon: "none"
+  uni.navigateTo({
+    url: `/pages/create/index?gameplay=${encodeURIComponent(name)}`
+  });
+}
+
+function goCreate() {
+  uni.navigateTo({
+    url: "/pages/create/index"
   });
 }
 
@@ -290,7 +295,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-icon">◇</text>
         <text class="tab-label">广场</text>
       </view>
-      <view class="tab-item center" @click="showTodo('创作')">
+      <view class="tab-item center" @click="goCreate">
         <text class="tab-icon">✦</text>
         <text class="tab-label">创作</text>
       </view>
