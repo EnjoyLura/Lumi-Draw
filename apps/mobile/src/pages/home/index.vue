@@ -57,6 +57,12 @@ function goPlaza() {
   });
 }
 
+function goGallery() {
+  uni.navigateTo({
+    url: "/pages/gallery/index"
+  });
+}
+
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
 
@@ -305,7 +311,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-icon">✦</text>
         <text class="tab-label">创作</text>
       </view>
-      <view class="tab-item" @click="showTodo('画廊')">
+      <view class="tab-item" @click="goGallery">
         <text class="tab-icon">□</text>
         <text class="tab-label">画廊</text>
       </view>

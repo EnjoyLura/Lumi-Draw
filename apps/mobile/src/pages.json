@@ -17,6 +17,12 @@
       "style": {
         "navigationBarTitleText": "广场"
       }
+    },
+    {
+      "path": "pages/gallery/index",
+      "style": {
+        "navigationBarTitleText": "画廊"
+      }
     }
   ],
   "globalStyle": {
