@@ -3,7 +3,6 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationStyle": "custom",
         "navigationBarTitleText": "露米绘画"
       }
     }

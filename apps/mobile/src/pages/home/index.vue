@@ -1,19 +1,36 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { gameplays, homeBanners, homeUsers, homeWorks, type HomeWork } from "./homeData";
 
 type HomeTab = "recommend" | "new";
 
 const activeBanner = ref(0);
-const activeHomeTab = ref<HomeTab>("recommend");
+const selectedHomeTab = ref<HomeTab>("recommend");
+const renderedHomeTab = ref<HomeTab>("recommend");
 const likedWorkIds = ref<Set<number>>(new Set());
+const visibleWorkCount = ref(8);
+const isSwitchingWorks = ref(false);
+const isLoadingMore = ref(false);
+const worksRenderKey = ref(0);
+const tabSwitchEpoch = ref(0);
 
-const displayedWorks = computed(() => {
-  return activeHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks.slice(0, 8);
+let switchTimer: ReturnType<typeof setTimeout> | undefined;
+let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+
+const currentTabWorks = computed(() => {
+  return renderedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
 });
 
+const displayedWorks = computed(() => currentTabWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
+const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length);
+const showWorksLoading = computed(() => isSwitchingWorks.value || selectedHomeTab.value !== renderedHomeTab.value);
+
+onBeforeUnmount(() => {
+  if (switchTimer) clearTimeout(switchTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+});
 
 function showTodo(label: string) {
   uni.showToast({
@@ -27,6 +44,44 @@ function selectGameplay(name: string) {
     title: `已套用「${name}」模板`,
     icon: "none"
   });
+}
+
+function switchHomeTab(tab: HomeTab) {
+  if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
+
+  selectedHomeTab.value = tab;
+  isSwitchingWorks.value = true;
+  visibleWorkCount.value = 8;
+  tabSwitchEpoch.value += 1;
+
+  if (switchTimer) clearTimeout(switchTimer);
+  switchTimer = setTimeout(() => {
+    renderedHomeTab.value = tab;
+    worksRenderKey.value += 1;
+    isSwitchingWorks.value = false;
+  }, 850);
+}
+
+function handleReachBottom() {
+  if (isSwitchingWorks.value || isLoadingMore.value) return;
+
+  isLoadingMore.value = true;
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+
+  loadMoreTimer = setTimeout(() => {
+    if (hasMoreWorks.value) {
+      visibleWorkCount.value = Math.min(visibleWorkCount.value + 2, currentTabWorks.value.length);
+      worksRenderKey.value += 1;
+    } else {
+      worksRenderKey.value += 1;
+      uni.showToast({
+        title: "已刷新最新作品",
+        icon: "none"
+      });
+    }
+
+    isLoadingMore.value = false;
+  }, 650);
 }
 
 function toggleLike(work: HomeWork) {
@@ -57,117 +112,110 @@ function getRatioClass(ratio: string) {
 
 <template>
   <view class="home-page">
-    <view class="phone-screen">
-      <view class="status-bar">
-        <text>9:41</text>
-        <view class="status-icons">
-          <view class="signal-bars">
-            <text />
-            <text />
-            <text />
-            <text />
+    <scroll-view
+      class="content-area"
+      scroll-y
+      :lower-threshold="80"
+      @scrolltolower="handleReachBottom"
+    >
+      <view class="home-content">
+        <view class="banner-card">
+          <swiper
+            class="banner-swiper"
+            circular
+            autoplay
+            :interval="4000"
+            :current="activeBanner"
+            @change="activeBanner = $event.detail.current"
+          >
+            <swiper-item v-for="banner in homeBanners" :key="banner.title">
+              <view class="banner-slide" @click="showTodo(banner.title)">
+                <image class="banner-image" :src="banner.image" mode="aspectFill" />
+                <view class="banner-shade" />
+                <view class="banner-copy">
+                  <text class="banner-title">{{ banner.title }}</text>
+                  <text class="banner-desc">{{ banner.description }}</text>
+                </view>
+                <view class="banner-action">了解更多</view>
+              </view>
+            </swiper-item>
+          </swiper>
+          <view class="banner-dots">
+            <text
+              v-for="(_, index) in homeBanners"
+              :key="index"
+              class="banner-dot"
+              :class="{ active: index === activeBanner }"
+            />
           </view>
-          <text class="wifi-icon">⌁</text>
-          <view class="battery"><text /></view>
         </view>
-      </view>
 
-      <view class="nav-header">
-        <view class="notify-btn" @click="showTodo('消息')">
-          <text class="symbol">◌</text>
-          <text class="notify-dot" />
+        <view class="section-title">
+          <text>热门玩法</text>
+          <view class="more-link" @click="showTodo('全部玩法')">
+            <text>全部</text>
+            <text class="chevron">›</text>
+          </view>
         </view>
-        <text class="nav-title">露米绘画</text>
-      </view>
 
-      <view class="capsule">
-        <view class="cap-btn" @click="showTodo('胶囊菜单')">•••</view>
-        <view class="cap-divider" />
-        <view class="cap-btn" @click="showTodo('关闭')">×</view>
-      </view>
-
-      <scroll-view class="content-area" scroll-y>
-        <view class="home-content">
-          <view class="banner-card">
-            <swiper
-              class="banner-swiper"
-              circular
-              autoplay
-              :interval="4000"
-              :current="activeBanner"
-              @change="activeBanner = $event.detail.current"
+        <scroll-view class="gameplay-scroll" scroll-x>
+          <view class="gameplay-list">
+            <view
+              v-for="gameplay in gameplays"
+              :key="gameplay.name"
+              class="gameplay-card"
+              @click="selectGameplay(gameplay.name)"
             >
-              <swiper-item v-for="banner in homeBanners" :key="banner.title">
-                <view class="banner-slide" @click="showTodo(banner.title)">
-                  <image class="banner-image" :src="banner.image" mode="aspectFill" />
-                  <view class="banner-shade" />
-                  <view class="banner-copy">
-                    <text class="banner-title">{{ banner.title }}</text>
-                    <text class="banner-desc">{{ banner.description }}</text>
-                  </view>
-                  <view class="banner-action">了解更多</view>
-                </view>
-              </swiper-item>
-            </swiper>
-            <view class="banner-dots">
-              <text
-                v-for="(_, index) in homeBanners"
-                :key="index"
-                class="banner-dot"
-                :class="{ active: index === activeBanner }"
-              />
+              <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
+              <view class="gameplay-overlay" />
+              <view v-if="gameplay.hot" class="hot-badge">HOT</view>
+              <view class="gameplay-info">
+                <text class="gameplay-name">{{ gameplay.name }}</text>
+                <text class="gameplay-uses">♨ {{ gameplay.uses }}人用过</text>
+              </view>
+            </view>
+          </view>
+        </scroll-view>
+
+        <view class="section-title works-title">
+          <text>精选作品</text>
+          <view class="home-tabs">
+            <view
+              class="home-tab"
+              :class="{ active: selectedHomeTab === 'recommend' }"
+              @click="switchHomeTab('recommend')"
+            >
+              推荐
+            </view>
+            <view
+              class="home-tab"
+              :class="{ active: selectedHomeTab === 'new' }"
+              @click="switchHomeTab('new')"
+            >
+              最新
+            </view>
+            <view class="tab-indicator" :class="{ right: selectedHomeTab === 'new' }" />
+            <view v-if="tabSwitchEpoch > 0" :key="tabSwitchEpoch" class="tab-loading-line" />
+          </view>
+        </view>
+
+        <view class="works-stage">
+          <view v-if="showWorksLoading" class="works-loading">
+            <view class="loading-spinner" />
+            <text class="loading-text">正在加载作品</text>
+            <view class="skeleton-waterfall">
+              <view class="skeleton-col">
+                <view class="skeleton-card tall" />
+                <view class="skeleton-card short" />
+              </view>
+              <view class="skeleton-col">
+                <view class="skeleton-card short" />
+                <view class="skeleton-card tall" />
+              </view>
             </view>
           </view>
 
-          <view class="section-title">
-            <text>热门玩法</text>
-            <view class="more-link" @click="showTodo('全部玩法')">
-              <text>全部</text>
-              <text class="chevron">›</text>
-            </view>
-          </view>
-
-          <scroll-view class="gameplay-scroll" scroll-x>
-            <view class="gameplay-list">
-              <view
-                v-for="gameplay in gameplays"
-                :key="gameplay.name"
-                class="gameplay-card"
-                @click="selectGameplay(gameplay.name)"
-              >
-                <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
-                <view class="gameplay-overlay" />
-                <view v-if="gameplay.hot" class="hot-badge">HOT</view>
-                <view class="gameplay-info">
-                  <text class="gameplay-name">{{ gameplay.name }}</text>
-                  <text class="gameplay-uses">♨ {{ gameplay.uses }}人用过</text>
-                </view>
-              </view>
-            </view>
-          </scroll-view>
-
-          <view class="section-title works-title">
-            <text>精选作品</text>
-            <view class="home-tabs">
-              <view
-                class="home-tab"
-                :class="{ active: activeHomeTab === 'recommend' }"
-                @click="activeHomeTab = 'recommend'"
-              >
-                推荐
-              </view>
-              <view
-                class="home-tab"
-                :class="{ active: activeHomeTab === 'new' }"
-                @click="activeHomeTab = 'new'"
-              >
-                最新
-              </view>
-              <view class="tab-indicator" :class="{ right: activeHomeTab === 'new' }" />
-            </view>
-          </view>
-
-          <view class="waterfall">
+          <view v-else :key="worksRenderKey" class="waterfall works-motion">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="showTodo('作品详情')">
@@ -194,6 +242,7 @@ function getRatioClass(ratio: string) {
                 </view>
               </view>
             </view>
+
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="showTodo('作品详情')">
@@ -221,32 +270,37 @@ function getRatioClass(ratio: string) {
               </view>
             </view>
           </view>
+        </view>
 
-          <view class="load-more-hint">继续往下滑获取更多作品</view>
+        <view class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view v-if="isLoadingMore" class="mini-spinner" />
+          <text>
+            {{ isLoadingMore ? "正在刷新更多作品" : hasMoreWorks ? "继续上滑刷新更多作品" : "上滑刷新最新作品" }}
+          </text>
         </view>
-      </scroll-view>
+      </view>
+    </scroll-view>
 
-      <view class="tab-bar">
-        <view class="tab-item active" @click="showTodo('首页')">
-          <text class="tab-icon">⌂</text>
-          <text class="tab-label">首页</text>
-        </view>
-        <view class="tab-item" @click="showTodo('广场')">
-          <text class="tab-icon">◇</text>
-          <text class="tab-label">广场</text>
-        </view>
-        <view class="tab-item center" @click="showTodo('创作')">
-          <text class="tab-icon">✦</text>
-          <text class="tab-label">创作</text>
-        </view>
-        <view class="tab-item" @click="showTodo('画廊')">
-          <text class="tab-icon">□</text>
-          <text class="tab-label">画廊</text>
-        </view>
-        <view class="tab-item" @click="showTodo('我的')">
-          <text class="tab-icon">☺</text>
-          <text class="tab-label">我的</text>
-        </view>
+    <view class="tab-bar">
+      <view class="tab-item active" @click="showTodo('首页')">
+        <text class="tab-icon">⌂</text>
+        <text class="tab-label">首页</text>
+      </view>
+      <view class="tab-item" @click="showTodo('广场')">
+        <text class="tab-icon">◇</text>
+        <text class="tab-label">广场</text>
+      </view>
+      <view class="tab-item center" @click="showTodo('创作')">
+        <text class="tab-icon">✦</text>
+        <text class="tab-label">创作</text>
+      </view>
+      <view class="tab-item" @click="showTodo('画廊')">
+        <text class="tab-icon">□</text>
+        <text class="tab-label">画廊</text>
+      </view>
+      <view class="tab-item" @click="showTodo('我的')">
+        <text class="tab-icon">☺</text>
+        <text class="tab-label">我的</text>
       </view>
     </view>
   </view>
@@ -257,14 +311,11 @@ function getRatioClass(ratio: string) {
   --bg-base: #eef4fc;
   --bg-soft: #e1ebf8;
   --bg-card: #ffffff;
-  --bg-glass: rgba(255, 255, 255, 0.72);
   --fg-primary: #0e1f3a;
   --fg-secondary: #445876;
   --fg-muted: #8497b5;
   --border: rgba(91, 159, 232, 0.14);
-  --border-strong: rgba(91, 159, 232, 0.32);
   --accent: #5b9fe8;
-  --accent-deep: #3b7fc8;
   --accent-soft: rgba(91, 159, 232, 0.12);
   --tab-active: #5b9fe8;
   --mint: #6fd4b0;
@@ -272,25 +323,15 @@ function getRatioClass(ratio: string) {
   --lavender: #b8a5e3;
   --lemon: #ffe08a;
   --rose: #ffa8b8;
-  --shadow-lg: 0 24px 56px rgba(60, 120, 200, 0.16), 0 8px 16px rgba(60, 120, 200, 0.08);
-  min-height: 100vh;
-  background: #e2eaf4;
-  color: var(--fg-primary);
-}
-
-.phone-screen {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100vh;
-  min-height: 0;
-  max-height: 100vh;
+  height: calc(100vh - var(--window-top) - var(--window-bottom));
+  min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
+  color: var(--fg-primary);
   background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
 }
 
-.phone-screen::after {
+.home-page::after {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -301,169 +342,13 @@ function getRatioClass(ratio: string) {
     radial-gradient(ellipse 100% 30% at 10% 100%, rgba(111, 212, 176, 0.04), transparent 50%);
 }
 
-.status-bar {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 130;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 24px;
-  padding: 0 20px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.status-icons {
-  display: flex;
-  gap: 5px;
-  align-items: center;
-}
-
-.signal-bars {
-  display: flex;
-  gap: 2px;
-  align-items: flex-end;
-  height: 11px;
-}
-
-.signal-bars text {
-  display: block;
-  width: 2px;
-  background: var(--fg-primary);
-}
-
-.signal-bars text:nth-child(1) {
-  height: 4px;
-}
-
-.signal-bars text:nth-child(2) {
-  height: 6px;
-}
-
-.signal-bars text:nth-child(3) {
-  height: 8px;
-}
-
-.signal-bars text:nth-child(4) {
-  height: 10px;
-}
-
-.wifi-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.battery {
-  position: relative;
-  width: 24px;
-  height: 11px;
-  border: 1px solid rgba(14, 31, 58, 0.4);
-  border-radius: 3px;
-}
-
-.battery::after {
-  position: absolute;
-  top: 3px;
-  right: -3px;
-  width: 2px;
-  height: 3px;
-  content: "";
-  background: rgba(14, 31, 58, 0.4);
-  border-radius: 1px;
-}
-
-.battery text {
-  display: block;
-  width: 16px;
-  height: 5px;
-  margin: 2px;
-  background: var(--fg-primary);
-  border-radius: 1px;
-}
-
-.nav-header {
-  position: absolute;
-  top: 24px;
-  right: 0;
-  left: 0;
-  z-index: 120;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 50px;
-  background: var(--bg-base);
-}
-
-.nav-title {
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.notify-btn {
-  position: absolute;
-  left: 12px;
-  padding: 6px;
-}
-
-.symbol {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.notify-dot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 7px;
-  height: 7px;
-  background: var(--rose);
-  border: 1.5px solid var(--bg-base);
-  border-radius: 50%;
-}
-
-.capsule {
-  position: absolute;
-  top: 28px;
-  right: 7px;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  width: 87px;
-  height: 32px;
-  background: rgba(0, 0, 0, 0.06);
-  border: 0.5px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  backdrop-filter: blur(8px);
-}
-
-.cap-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 43.5px;
-  height: 32px;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.cap-divider {
-  width: 0.5px;
-  height: 16px;
-  background: rgba(0, 0, 0, 0.15);
-}
-
 .content-area {
   position: absolute;
-  top: 74px;
+  top: 0;
   right: 0;
   bottom: 80px;
   left: 0;
   z-index: 1;
-  height: auto;
   box-sizing: border-box;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -490,7 +375,7 @@ function getRatioClass(ratio: string) {
 }
 
 .home-content {
-  padding: 4px 0 20px;
+  padding: 12px 0 20px;
 }
 
 .banner-card {
@@ -698,11 +583,16 @@ function getRatioClass(ratio: string) {
   font-size: 14px;
   font-weight: 500;
   color: var(--fg-muted);
+  transition:
+    color 0.25s ease,
+    font-weight 0.25s ease,
+    transform 0.25s ease;
 }
 
 .home-tab.active {
   font-weight: 700;
   color: var(--tab-active);
+  transform: translateY(-1px);
 }
 
 .tab-indicator {
@@ -720,10 +610,41 @@ function getRatioClass(ratio: string) {
   transform: translateX(42px);
 }
 
+.tab-loading-line {
+  position: absolute;
+  right: 0;
+  bottom: -7px;
+  left: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  opacity: 0;
+  background: rgba(91, 159, 232, 0.12);
+  animation: tab-loading 0.85s ease forwards;
+}
+
+.tab-loading-line::after {
+  display: block;
+  width: 45%;
+  height: 100%;
+  content: "";
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: inherit;
+  animation: tab-loading-sweep 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.works-stage {
+  min-height: 420px;
+}
+
 .waterfall {
   display: flex;
   gap: 6px;
   padding: 0 8px;
+}
+
+.works-motion {
+  animation: works-in 0.36s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-col {
@@ -739,6 +660,7 @@ function getRatioClass(ratio: string) {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 10px;
+  animation: work-card-in 0.38s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .work-media {
@@ -836,11 +758,79 @@ function getRatioClass(ratio: string) {
   color: var(--rose);
 }
 
+.works-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 8px 0;
+  animation: works-out 0.22s ease;
+}
+
+.loading-spinner,
+.mini-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(91, 159, 232, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loading-text {
+  margin: 8px 0 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.skeleton-waterfall {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+}
+
+.skeleton-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-card {
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(91, 159, 232, 0.08), rgba(255, 255, 255, 0.55));
+  background-size: 220% 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  animation: skeleton 1.2s ease-in-out infinite;
+}
+
+.skeleton-card.tall {
+  height: 220px;
+}
+
+.skeleton-card.short {
+  height: 150px;
+}
+
 .load-more-hint {
-  padding: 18px 0 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0 12px;
   font-size: 12px;
   color: var(--fg-muted);
   text-align: center;
+}
+
+.load-more-hint.is-loading {
+  color: var(--accent);
+}
+
+.mini-spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 1.5px;
 }
 
 .tab-bar {
@@ -850,7 +840,6 @@ function getRatioClass(ratio: string) {
   left: 0;
   z-index: 80;
   display: flex;
-  flex-shrink: 0;
   align-items: center;
   justify-content: space-around;
   height: 80px;
@@ -913,31 +902,74 @@ function getRatioClass(ratio: string) {
   margin-top: 2px;
 }
 
-@media (min-width: 520px) {
-  .home-page {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 24px;
-    box-sizing: border-box;
+@keyframes works-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
 
-  .phone-screen {
-    width: 380px;
-    height: 815px;
-    min-height: 0;
-    max-height: 815px;
-    border-radius: 40px;
-    box-shadow:
-      -8px -8px 24px rgba(255, 255, 255, 0.6),
-      8px 8px 30px rgba(0, 0, 0, 0.15),
-      0 20px 50px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes works-out {
+  from {
+    opacity: 0;
   }
 
-  .content-area {
-    height: auto;
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes work-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tab-loading {
+  0%,
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tab-loading-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(230%);
+  }
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
   }
 }
 </style>
