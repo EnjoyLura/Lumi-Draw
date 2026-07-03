@@ -69,14 +69,14 @@ body>*{position:relative;z-index:1;}
   radial-gradient(ellipse 100% 30% at 10% 100%,rgba(111,212,176,0.04),transparent 50%);
   pointer-events:none;z-index:0;}
 [data-theme="dark"] .phone-screen::after{background:none;}
-.phone-screen::before{content:'';position:absolute;top:0;left:0;right:0;height:74px;background-color:var(--bg-glass);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);z-index:98;border-bottom:0.5px solid var(--border);}
+.phone-screen::before{content:'';position:absolute;top:0;left:0;right:0;height:28px;background:var(--bg-base);z-index:125;}
 /* ============ 微信状态栏 + 胶囊 ============ */
 .status-bar{height:24px;display:flex;align-items:center;justify-content:space-between;
-  padding:0 20px;font-size:13px;font-weight:600;color:var(--fg-primary);z-index:120;
+  padding:0 20px;font-size:13px;font-weight:600;color:var(--fg-primary);z-index:130;
   position:absolute;top:0;left:0;right:0;}
 .status-bar .sb-right{display:flex;align-items:center;gap:5px;}
 .nav-header{height:50px;display:flex;align-items:center;justify-content:center;position:absolute;
-  top:24px;left:0;right:0;z-index:120;}
+  top:24px;left:0;right:0;z-index:120;background:var(--bg-base);}
 .nav-header .nav-title{font-size:17px;font-weight:600;color:var(--fg-primary);}
 .nav-header .nav-back{position:absolute;left:12px;display:flex;align-items:center;gap:2px;
   color:var(--fg-primary);font-size:15px;cursor:pointer;padding:6px;}
@@ -97,7 +97,7 @@ body>*{position:relative;z-index:1;}
 .capsule-menu .menu-item:active{background:var(--accent-soft);}
 @keyframes menuIn{from{opacity:0;transform:translateY(-8px) scale(0.95);}to{opacity:1;transform:translateY(0) scale(1);}}
 /* ============ 内容区 ============ */
-.content-area{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;-webkit-overflow-scrolling:touch;padding-top:74px;transition:transform 0.38s cubic-bezier(0.16,1,0.3,1);}
+.content-area{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;-webkit-overflow-scrolling:touch;padding-top:74px;transition:transform 0.38s cubic-bezier(0.16,1,0.3,1),padding-top 0.35s cubic-bezier(0.16,1,0.3,1);}
 .content-area.pushed-back{transform:translateX(-15%) scale(0.96);}
 .page{display:none;}
 .page.active{display:block;}
@@ -787,35 +787,35 @@ textarea.input{resize:none;line-height:1.6;}
 <div class="overlay" id="leftDrawerOverlay" onclick="toggleLeftDrawer()"></div>
 <div class="left-drawer" id="leftDrawer">
   <div style="padding:90px 20px 24px;background:var(--gradient-sky);border-bottom:1px solid var(--border);">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+    <div id="drawerUserInfo" style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
       <div class="avatar" style="width:52px;height:52px;font-size:20px;">梦</div>
       <div><div style="font-size:17px;font-weight:700;color:var(--fg-primary);">云端造梦师</div><div style="font-size:16px;margin-top:3px;"><span style="color:var(--accent);font-weight:700;">2860</span> <span style="color:var(--fg-muted);">积分</span></div></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('recharge');toggleLeftDrawer();">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('recharge')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#a8d8f8,#b0e6d0);display:flex;align-items:center;justify-content:center;"><i class="ri-wallet-3-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">充值</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('checkin');toggleLeftDrawer();">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('checkin')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FFD4C8,#FFC8D6);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">签到</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('membership');toggleLeftDrawer();">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('membership')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D4C8F0,#B8A8E0);display:flex;align-items:center;justify-content:center;"><i class="ri-vip-crown-2-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">会员</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('invite');toggleLeftDrawer();">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('invite')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#A3E4CC,#8BD8B8);display:flex;align-items:center;justify-content:center;"><i class="ri-user-add-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">邀请</span>
       </div>
     </div>
   </div>
   <div style="flex:1;padding:12px 0;">
-    <div class="list-row" onclick="if(requireLogin()){navigateTo('publish');toggleLeftDrawer()}" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--accent);"><i class="ri-sparkling-line" style="font-size:22px;"></i></div><div class="lr-text">发布作品</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
-    <div class="list-row" onclick="navigateTo('history');toggleLeftDrawer();" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--mint);"><i class="ri-time-line" style="font-size:22px;"></i></div><div class="lr-text">浏览记录</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
-    <div class="list-row" onclick="navigateTo('messages');toggleLeftDrawer();" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--rose);"><i class="ri-chat-3-line" style="font-size:22px;"></i></div><div class="lr-text">消息中心</div><span class="badge" style="background:var(--rose);">5</span><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
-    <div class="list-row" onclick="navigateTo('followList','following');toggleLeftDrawer();" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--peach);"><i class="ri-user-heart-line" style="font-size:22px;"></i></div><div class="lr-text">我的关注</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
-    <div class="list-row" onclick="navigateTo('followList','followers');toggleLeftDrawer();" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--lemon);"><i class="ri-group-line" style="font-size:22px;"></i></div><div class="lr-text">我的粉丝</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
+    <div class="list-row" onclick="drawerGo('publish')" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--accent);"><i class="ri-sparkling-line" style="font-size:22px;"></i></div><div class="lr-text">发布作品</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
+    <div class="list-row" onclick="drawerGo('history')" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--mint);"><i class="ri-time-line" style="font-size:22px;"></i></div><div class="lr-text">浏览记录</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
+    <div class="list-row" onclick="drawerGo('messages')" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--rose);"><i class="ri-chat-3-line" style="font-size:22px;"></i></div><div class="lr-text">消息中心</div><span class="badge" style="background:var(--rose);">5</span><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
+    <div class="list-row" onclick="drawerGo('followList','following')" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--peach);"><i class="ri-user-heart-line" style="font-size:22px;"></i></div><div class="lr-text">我的关注</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
+    <div class="list-row" onclick="drawerGo('followList','followers')" style="transition:background 0.2s;"><div class="lr-icon" style="color:var(--lemon);"><i class="ri-group-line" style="font-size:22px;"></i></div><div class="lr-text">我的粉丝</div><i class="ri-arrow-right-s-line" style="font-size:18px;color:var(--fg-muted);"></i></div>
   </div>
 </div>
 
@@ -1755,6 +1755,7 @@ function switchTab(tabId){
   var dir=TAB_ORDER[tabId]>TAB_ORDER[currentTab]?'right':'left';
   var same=tabId===currentTab;
   cleanupNavState();
+  $('navHeader').style.transform='';
   $('contentArea').classList.remove('pushed-back');$('tabBar').classList.remove('pushed-back');$('createBar').classList.remove('pushed-back');
   document.querySelectorAll('.page').forEach(p=>{p.classList.remove('active');p.classList.remove('anim-in');p.classList.remove('tab-in-left');p.classList.remove('tab-in-right');p.style.cssText=''});
   var page=$('page-'+tabId);page.classList.add('active');
@@ -1774,8 +1775,10 @@ function switchTab(tabId){
   $('contentArea').scrollTop=0;
 }
 var _navVer=0;
+var LOGIN_REQUIRED_PAGES=['recharge','checkin','membership','invite','publish','messages','msgDetail','followList','drafts','editProfile','history','feedback'];
 function navigateTo(pageId,param){
   const page=$('page-'+pageId);if(!page)return;
+  if(LOGIN_REQUIRED_PAGES.indexOf(pageId)>-1&&!isLoggedIn){showLoginSheet();return;}
   _navVer++;
   // 保存当前活动页面的滚动位置，以便返回时恢复
   var currentPageId=pageStack.length>0?pageStack[pageStack.length-1].pageId:currentTab;
@@ -1920,6 +1923,16 @@ function updateLoginUI(){
     if(isLoggedIn){logoutBtn.innerHTML='<i class="ri-logout-box-r-line" style="margin-right:6px;font-size:18px;"></i>退出登录';logoutBtn.style.color='var(--rose)';logoutBtn.onclick=function(){doLogout()}}
     else{logoutBtn.innerHTML='<i class="ri-login-box-line" style="margin-right:6px;font-size:18px;"></i>立即登录';logoutBtn.style.color='var(--accent)';logoutBtn.onclick=function(){showLoginSheet()}}
   }
+  var drawerUser=$('drawerUserInfo');
+  if(drawerUser){
+    if(isLoggedIn){
+      drawerUser.innerHTML='<div class="avatar" style="width:52px;height:52px;font-size:20px;">梦</div><div><div style="font-size:17px;font-weight:700;color:var(--fg-primary);">云端造梦师</div><div style="font-size:16px;margin-top:3px;"><span style="color:var(--accent);font-weight:700;">2860</span> <span style="color:var(--fg-muted);">积分</span></div></div>';
+      drawerUser.style.cursor='default';drawerUser.onclick=null;
+    }else{
+      drawerUser.innerHTML='<div class="avatar" style="width:52px;height:52px;font-size:24px;background:var(--bg-soft);color:var(--fg-muted);"><i class="ri-user-line"></i></div><div><div style="font-size:17px;font-weight:700;color:var(--fg-primary);">点击登录</div><div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">登录解锁更多功能</div></div>';
+      drawerUser.style.cursor='pointer';drawerUser.onclick=function(){toggleLeftDrawer();showLoginSheet();};
+    }
+  }
   var galleryProfile=$('galleryProfileArea');
   var galleryTabsRow=$('galleryTabsRow');
   var galleryContent=$('galleryContent');
@@ -1955,6 +1968,8 @@ function toggleCapsuleMenu(){$('capsuleMenu').classList.toggle('show')}
 function closeCapsuleMenu(){$('capsuleMenu').classList.remove('show')}
 // ============ 左侧抽屉 ============
 function toggleLeftDrawer(){$('leftDrawer').classList.toggle('show');$('leftDrawerOverlay').classList.toggle('show')}
+function drawerGo(page,param){toggleLeftDrawer();if(!isLoggedIn){setTimeout(showLoginSheet,300);return;}navigateTo(page,param);}
+function initHeaderAutoHide(){var ca=$('contentArea');var nh=$('navHeader');if(!ca||!nh)return;ca.addEventListener('scroll',function(){var wf=pageStack.length===0&&['home','plaza','gallery'].indexOf(currentTab)>-1;if(!wf){nh.style.transform='';return;}var ty=Math.min(ca.scrollTop,54);nh.style.transform='translateY('+(-ty)+'px)';},{passive:true});}
 // ============ 筛选 ============
 function toggleFilterPanel(){$('filterPanel').style.display=$('filterPanel').style.display==='none'?'block':'none'}
 function resetFilter(){document.querySelectorAll('#filterStyles .chip').forEach(c=>c.classList.remove('active'));showToast('已重置筛选')}
@@ -2618,6 +2633,7 @@ function init(){
   renderHistory();
   renderAllGameplays();
   switchTab('home');
+  initHeaderAutoHide();
   setTimeout(observeImages,200);
 }
 init();
