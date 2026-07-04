@@ -75,6 +75,12 @@ function goAllGameplays() {
   });
 }
 
+function openWorkDetail(workId: number) {
+  uni.navigateTo({
+    url: `/pages/work-detail/index?id=${workId}`
+  });
+}
+
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
 
@@ -247,7 +253,7 @@ function getRatioClass(ratio: string) {
           <view v-else :key="worksRenderKey" class="waterfall works-motion">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
-                <view class="work-media" :class="getRatioClass(work.ratio)" @click="showTodo('作品详情')">
+                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
                   <image class="work-image" :src="work.image" mode="aspectFill" />
                 </view>
                 <view class="work-body">
@@ -274,7 +280,7 @@ function getRatioClass(ratio: string) {
 
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
-                <view class="work-media" :class="getRatioClass(work.ratio)" @click="showTodo('作品详情')">
+                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
                   <image class="work-image" :src="work.image" mode="aspectFill" />
                 </view>
                 <view class="work-body">

@@ -47,6 +47,18 @@
       "style": {
         "navigationBarTitleText": "反推提示词"
       }
+    },
+    {
+      "path": "pages/work-detail/index",
+      "style": {
+        "navigationBarTitleText": "作品详情"
+      }
+    },
+    {
+      "path": "pages/report/index",
+      "style": {
+        "navigationBarTitleText": "举报"
+      }
     }
   ],
   "globalStyle": {

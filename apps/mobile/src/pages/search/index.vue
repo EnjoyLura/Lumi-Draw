@@ -53,6 +53,10 @@ function clearSearchHistory() {
 function showTodo(label: string) {
   uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
 }
+
+function openWorkDetail(workId: number) {
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
+}
 </script>
 
 <template>
@@ -102,7 +106,7 @@ function showTodo(label: string) {
 
         <view v-else-if="results.length" class="waterfall">
           <view class="waterfall-column">
-            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="showTodo('作品详情')">
+            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
               <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
@@ -118,7 +122,7 @@ function showTodo(label: string) {
           </view>
 
           <view class="waterfall-column">
-            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="showTodo('作品详情')">
+            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
               <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>

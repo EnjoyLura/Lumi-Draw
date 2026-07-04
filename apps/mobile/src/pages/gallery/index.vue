@@ -122,7 +122,7 @@ function getAspectRatio(ratio: string) {
 
 function openWork(work: HomeWork) {
   if (manageMode.value) return;
-  showTodo(work.published ? "作品详情" : "编辑作品");
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 </script>
