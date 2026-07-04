@@ -621,7 +621,7 @@ function startGenerate() {
   line-height: 1.6;
   color: var(--fg-primary);
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -848,7 +848,7 @@ function startGenerate() {
   align-items: center;
   padding: 24px 16px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 14px;
 }
 

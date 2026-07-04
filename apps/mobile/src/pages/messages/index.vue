@@ -72,7 +72,7 @@ function openCategory(key: MessageCategoryKey) {
   margin-bottom: 10px;
   box-sizing: border-box;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
   transition: transform 0.2s ease;
 }

@@ -144,7 +144,7 @@ function confirmCustomRecharge() {
 .record-card,
 .preview-card {
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
 }
 
@@ -286,7 +286,7 @@ function confirmCustomRecharge() {
   padding: 4px;
   margin-bottom: 12px;
   background: rgba(255, 255, 255, 0.45);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -457,7 +457,7 @@ function confirmCustomRecharge() {
   font-weight: 600;
   color: var(--fg-primary);
   background: var(--bg-soft);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 

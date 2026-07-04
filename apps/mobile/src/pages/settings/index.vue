@@ -138,7 +138,7 @@ function toggleLogin() {
   overflow: hidden;
   margin-bottom: 16px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 
@@ -233,7 +233,7 @@ function toggleLogin() {
   width: 44px;
   height: 26px;
   background: var(--bg-soft);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 999px;
   transition: all 0.2s ease;
 }
@@ -267,7 +267,7 @@ function toggleLogin() {
   line-height: 44px;
   color: var(--rose);
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 

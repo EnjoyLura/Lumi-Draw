@@ -315,7 +315,7 @@ function login() {
   overflow: hidden;
   margin-bottom: 16px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
 }
 
@@ -457,7 +457,7 @@ function login() {
 .login-wechat {
   color: #07c160;
   background: var(--bg-soft);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
 }
 
 .login-agree {

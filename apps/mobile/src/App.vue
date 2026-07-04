@@ -24,6 +24,7 @@ onLaunch(() => {
   --fg-muted: #8497b5;
   --border: rgba(91, 159, 232, 0.14);
   --border-strong: rgba(91, 159, 232, 0.32);
+  --card-border: rgba(91, 159, 232, 0.14);
   --accent: #5b9fe8;
   --accent-deep: #3b7fc8;
   --accent-soft: rgba(91, 159, 232, 0.12);
@@ -55,6 +56,7 @@ onLaunch(() => {
   --fg-muted: #8e8e93;
   --border: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.22);
+  --card-border: transparent;
   --accent: #5b9fe8;
   --accent-deep: #3b7fc8;
   --accent-soft: rgba(91, 159, 232, 0.2);

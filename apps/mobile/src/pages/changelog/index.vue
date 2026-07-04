@@ -90,7 +90,7 @@ const kindClass: Record<ChangeKind, string> = {
   padding: 16px;
   margin-bottom: 12px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 12px;
 }
 

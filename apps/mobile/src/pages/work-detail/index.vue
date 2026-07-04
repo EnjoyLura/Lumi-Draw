@@ -475,7 +475,7 @@ function showToast(title: string) {
   padding: 12px;
   margin-bottom: 14px;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
 }
 
@@ -738,7 +738,7 @@ function showToast(title: string) {
   pointer-events: none;
   text-align: center;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 18px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.16);
   opacity: 0;
