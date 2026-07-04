@@ -217,13 +217,24 @@ function showTodo(label: string) {
 }
 
 .search-btn {
+  display: inline-flex;
   flex: 0 0 auto;
-  height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--accent);
   background: transparent;
+  border: none;
+  border-radius: 10px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.search-btn::after {
   border: none;
 }
 
@@ -278,39 +289,44 @@ function showTodo(label: string) {
 }
 
 .hot-list {
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
 }
 
 .hot-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border-bottom: 0.5px solid var(--border);
+  padding: 13px 16px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
 }
 
-.hot-row:last-child {
-  border-bottom: none;
+.hot-row:active {
+  background: var(--accent-soft);
+  transform: scale(0.99);
 }
 
 .hot-index {
+  display: inline-block;
   width: 24px;
   font-family: Georgia, serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--fg-muted);
-}
-
-.hot-index.top {
-  color: #e87040;
+  text-align: left;
 }
 
 .hot-row:first-child .hot-index {
   color: #e03050;
+}
+
+.hot-row:nth-child(2) .hot-index {
+  color: #e87040;
+}
+
+.hot-row:nth-child(3) .hot-index {
+  color: #f0a060;
 }
 
 .hot-text {

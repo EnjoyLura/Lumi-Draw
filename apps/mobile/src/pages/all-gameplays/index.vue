@@ -67,22 +67,26 @@ function applyGameplay(gameplay: Gameplay) {
 
 .gameplay-card {
   position: relative;
-  aspect-ratio: 1;
   overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(60, 120, 200, 0.08);
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid rgba(91, 159, 232, 0.14);
+  border-radius: 7px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gameplay-card:active {
+  transform: scale(0.97);
 }
 
 .gameplay-img {
+  display: block;
   width: 100%;
-  height: 100%;
+  aspect-ratio: 1;
 }
 
 .gameplay-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(0deg, rgba(0, 0, 0, 0.58) 0%, transparent 62%);
+  display: none;
 }
 
 .hot-badge {
@@ -93,23 +97,24 @@ function applyGameplay(gameplay: Gameplay) {
   font-size: 9px;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #ff7a59, var(--peach));
-  border-radius: 999px;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(238, 90, 36, 0.35);
+  z-index: 2;
 }
 
 .gameplay-info {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   padding: 10px;
 }
 
 .gameplay-name {
-  margin-bottom: 3px;
+  margin-bottom: 4px;
+  overflow: hidden;
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: var(--fg-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .gameplay-meta {
@@ -117,6 +122,6 @@ function applyGameplay(gameplay: Gameplay) {
   align-items: center;
   justify-content: space-between;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--fg-muted);
 }
 </style>
