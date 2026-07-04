@@ -124,22 +124,6 @@ function confirmCustomRecharge() {
 
 <style scoped>
 .recharge-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --border-strong: rgba(91, 159, 232, 0.28);
-  --accent: #5b9fe8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --accent-glow: rgba(91, 159, 232, 0.28);
-  --mint: #6fd4b0;
-  --mint-soft: rgba(111, 212, 176, 0.16);
-  --rose: #ffa8b8;
-  --rose-soft: rgba(255, 168, 184, 0.18);
-  --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;

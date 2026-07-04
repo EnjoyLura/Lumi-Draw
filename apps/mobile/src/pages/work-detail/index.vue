@@ -301,24 +301,6 @@ function showToast(title: string) {
 
 <style scoped>
 .detail-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --accent: #5b9fe8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --mint: #6fd4b0;
-  --mint-soft: rgba(111, 212, 176, 0.14);
-  --peach: #ffb59a;
-  --peach-soft: rgba(255, 181, 154, 0.16);
-  --lavender: #b8a5e3;
-  --lavender-soft: rgba(184, 165, 227, 0.16);
-  --rose: #ffa8b8;
-  --rose-soft: rgba(255, 168, 184, 0.16);
-  --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));

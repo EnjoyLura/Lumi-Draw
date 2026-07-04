@@ -362,21 +362,6 @@ function getRatioClass(ratio: string) {
 
 <style scoped>
 .home-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --accent: #5b9fe8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --tab-active: #5b9fe8;
-  --mint: #6fd4b0;
-  --peach: #ffb59a;
-  --lavender: #b8a5e3;
-  --lemon: #ffe08a;
-  --rose: #ffa8b8;
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));

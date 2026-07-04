@@ -31,12 +31,6 @@ function applyGameplay(gameplay: Gameplay) {
 
 <style scoped>
 .all-gameplays-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --fg-primary: #0e1f3a;
-  --fg-muted: #8497b5;
-  --accent: #5b9fe8;
-  --peach: #ffb59a;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;

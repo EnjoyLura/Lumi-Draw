@@ -40,20 +40,6 @@ const kindClass: Record<ChangeKind, string> = {
 
 <style scoped>
 .changelog-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --accent: #5b9fe8;
-  --accent-deep: #3b7fc8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --mint: #6fd4b0;
-  --mint-soft: rgba(111, 212, 176, 0.16);
-  --peach-soft: rgba(255, 181, 154, 0.2);
-  --peach-deep: #e07a5a;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;

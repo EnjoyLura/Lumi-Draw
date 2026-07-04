@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import { setUseMockData, useDataMode } from "../../services/dataMode";
+import { useTheme } from "../../services/theme";
 import { aboutItems, type SettingsLink } from "./settingsData";
 
 const { useMockData } = useDataMode();
-const darkMode = ref(false);
+const { theme, toggleTheme } = useTheme();
+const darkMode = computed(() => theme.value === "dark");
 const isLoggedIn = ref(true);
 
 onLoad(() => {
-  const theme = uni.getStorageSync("lumi-theme");
-  darkMode.value = theme === "dark";
   const login = uni.getStorageSync("lumi-logged-in");
   if (login === "0" || login === "1") {
     isLoggedIn.value = login === "1";
@@ -26,8 +26,7 @@ function tapPhone() {
 }
 
 function toggleDark() {
-  darkMode.value = !darkMode.value;
-  uni.setStorageSync("lumi-theme", darkMode.value ? "dark" : "light");
+  toggleTheme();
 }
 
 function toggleMock() {
@@ -113,19 +112,6 @@ function toggleLogin() {
 
 <style scoped>
 .settings-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --accent: #5b9fe8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --mint: #6fd4b0;
-  --mint-soft: rgba(111, 212, 176, 0.16);
-  --lavender: #b8a5e3;
-  --rose: #ffa8b8;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;

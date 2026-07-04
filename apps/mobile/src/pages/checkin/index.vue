@@ -132,20 +132,6 @@ function claimMilestone(item: Milestone) {
 
 <style scoped>
 .checkin-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --border-strong: rgba(91, 159, 232, 0.28);
-  --accent: #5b9fe8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
-  --mint: #6fd4b0;
-  --peach: #ffb59a;
-  --lavender: #b8a5e3;
-  --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;

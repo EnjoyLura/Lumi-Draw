@@ -98,17 +98,6 @@ function submit() {
 
 <style scoped>
 .feedback-page {
-  --bg-base: #eef4fc;
-  --bg-soft: #e1ebf8;
-  --bg-card: #ffffff;
-  --bg-elevated: #fbfdff;
-  --fg-primary: #0e1f3a;
-  --fg-secondary: #445876;
-  --fg-muted: #8497b5;
-  --border: rgba(91, 159, 232, 0.14);
-  --accent: #5b9fe8;
-  --accent-deep: #3b7fc8;
-  --accent-soft: rgba(91, 159, 232, 0.12);
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
