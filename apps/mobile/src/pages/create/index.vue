@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import {
   countOptions,
   createModels,
@@ -52,6 +52,26 @@ onLoad((query) => {
   if (gameplayTemplates.some((item) => item.name === gameplay)) {
     selectedGameplayName.value = gameplay;
   }
+
+  const model = typeof query?.model === "string" ? decodeURIComponent(query.model) : "";
+  applySelectedModel(model);
+
+  const prompt = typeof query?.prompt === "string" ? decodeURIComponent(query.prompt) : "";
+  if (prompt) promptText.value = prompt.slice(0, 500);
+});
+
+onShow(() => {
+  const promptDraft = uni.getStorageSync("lumiCreatePromptDraft");
+  if (typeof promptDraft === "string" && promptDraft.trim()) {
+    promptText.value = promptDraft.slice(0, 500);
+    uni.removeStorageSync("lumiCreatePromptDraft");
+  }
+
+  const modelId = uni.getStorageSync("lumiCreateModelId");
+  if (typeof modelId === "string" && modelId) {
+    applySelectedModel(modelId);
+    uni.removeStorageSync("lumiCreateModelId");
+  }
 });
 
 onBeforeUnmount(() => {
@@ -77,9 +97,21 @@ function clearGameplay(event?: Event) {
   showToast("已取消玩法模板");
 }
 
+function applySelectedModel(modelId: string) {
+  const index = createModels.findIndex((model) => model.id === modelId || model.name === modelId);
+  if (index >= 0) selectedModelIndex.value = index;
+}
+
 function selectModel() {
-  selectedModelIndex.value = (selectedModelIndex.value + 1) % createModels.length;
-  showToast(`已选择${selectedModel.value.name}`);
+  uni.navigateTo({
+    url: `/pages/model-switch/index?selected=${encodeURIComponent(selectedModel.value.id)}`
+  });
+}
+
+function goReversePrompt() {
+  uni.navigateTo({
+    url: "/pages/reverse-prompt/index"
+  });
 }
 
 function selectStyle(name: string) {
@@ -206,7 +238,7 @@ function startGenerate() {
             <text class="prompt-count">{{ promptText.length }}/500</text>
           </view>
           <view class="prompt-actions">
-            <view class="prompt-action lavender" @click="showToast('反推提示词将在后续二级界面迁移')">反推提示词</view>
+            <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
             <view class="prompt-action accent" @click="uploadPromptImage">上传图片</view>
             <view class="action-spacer" />
             <view v-if="promptText" class="prompt-action neutral" @click="clearPrompt">清除</view>

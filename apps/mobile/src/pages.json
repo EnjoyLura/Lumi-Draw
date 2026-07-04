@@ -41,6 +41,18 @@
       "style": {
         "navigationBarTitleText": "搜索"
       }
+    },
+    {
+      "path": "pages/reverse-prompt/index",
+      "style": {
+        "navigationBarTitleText": "反推提示词"
+      }
+    },
+    {
+      "path": "pages/model-switch/index",
+      "style": {
+        "navigationBarTitleText": "切换模型"
+      }
     }
   ],
   "globalStyle": {
