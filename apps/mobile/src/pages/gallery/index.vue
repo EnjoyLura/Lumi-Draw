@@ -60,6 +60,10 @@ function goSearch() {
   uni.navigateTo({ url: "/pages/search/index" });
 }
 
+function goPublish() {
+  uni.navigateTo({ url: "/pages/publish/index" });
+}
+
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -259,7 +263,7 @@ function openWork(work: HomeWork) {
       </view>
     </scroll-view>
 
-    <view class="publish-btn" @click="showTodo('发布作品')">+</view>
+    <view class="publish-btn" @click="goPublish">+</view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">

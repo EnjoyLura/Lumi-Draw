@@ -134,6 +134,15 @@ function remakeWork(current: DetailWork) {
   });
 }
 
+function manageWork() {
+  if (!work.value) return;
+  if (work.value.published) {
+    uni.navigateTo({ url: `/pages/edit-work/index?id=${workId.value}` });
+    return;
+  }
+  uni.navigateTo({ url: "/pages/publish/index" });
+}
+
 function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
 }
@@ -165,7 +174,7 @@ function showToast(title: string) {
                 <view class="author-sub">{{ isOwn ? "48作品 · 1.2k获赞" : "32作品 · 860获赞" }}</view>
               </view>
             </view>
-            <button v-if="isOwn" class="small-btn muted" @click="showToast('管理功能将在后续任务迁移')">
+            <button v-if="isOwn" class="small-btn muted" @click="manageWork">
               <text class="btn-icon">⚙</text>
               <text>管理</text>
             </button>

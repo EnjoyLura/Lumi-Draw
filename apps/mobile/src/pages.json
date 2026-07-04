@@ -125,6 +125,18 @@
       "style": {
         "navigationBarTitleText": "更新日志"
       }
+    },
+    {
+      "path": "pages/publish/index",
+      "style": {
+        "navigationBarTitleText": "发布作品"
+      }
+    },
+    {
+      "path": "pages/edit-work/index",
+      "style": {
+        "navigationBarTitleText": "编辑作品"
+      }
     }
   ],
   "globalStyle": {
