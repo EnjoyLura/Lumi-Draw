@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 
+type SideAction = {
+  icon: string;
+  label: string;
+  url: string;
+};
+
 const filterOpen = ref(false);
+const sideOpen = ref(false);
 const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
 const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
 const filterQualities = ["全部", "标清", "高清", "超清"];
@@ -58,6 +66,17 @@ const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
+const sideQuickActions: SideAction[] = [
+  { icon: "💎", label: "积分充值", url: "/pages/recharge/index" },
+  { icon: "✓", label: "每日签到", url: "/pages/checkin/index" },
+  { icon: "★", label: "会员中心", url: "/pages/membership/index" },
+  { icon: "↗", label: "邀请好友", url: "/pages/invite/index" }
+];
+const sideRows: SideAction[] = [
+  { icon: "✦", label: "发布作品", url: "/pages/publish/index" },
+  { icon: "◷", label: "浏览记录", url: "/pages/history/index" },
+  { icon: "✉", label: "消息中心", url: "/pages/messages/index" }
+];
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
@@ -113,6 +132,10 @@ function goMine() {
 
 function goSearch() {
   uni.navigateTo({ url: "/pages/search/index" });
+}
+
+function goUserProfile(userId: number) {
+  uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
 function openWorkDetail(workId: number) {
@@ -193,6 +216,19 @@ function closeFilter() {
   filterOpen.value = false;
 }
 
+function openSideMenu() {
+  sideOpen.value = true;
+}
+
+function closeSideMenu() {
+  sideOpen.value = false;
+}
+
+function navigateSide(url: string) {
+  closeSideMenu();
+  uni.navigateTo({ url });
+}
+
 function handleReachBottom() {
   if (isLoading.value || isLoadingMore.value || !hasMoreWorks.value) return;
   isLoadingMore.value = true;
@@ -216,7 +252,7 @@ function handleReachBottom() {
         </view>
 
         <view class="top-tabs">
-          <view class="menu-btn" @click="showTodo('侧边菜单')">☰</view>
+          <view class="menu-btn" @click="openSideMenu">☰</view>
           <view class="tab-group">
             <view
               v-for="(tab, index) in plazaTabs"
@@ -265,7 +301,7 @@ function handleReachBottom() {
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
-                  <view class="author">
+                  <view class="author" @click.stop="goUserProfile(work.userId)">
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
@@ -284,7 +320,7 @@ function handleReachBottom() {
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
-                  <view class="author">
+                  <view class="author" @click.stop="goUserProfile(work.userId)">
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
@@ -333,6 +369,17 @@ function handleReachBottom() {
         <text class="tab-label">我的</text>
       </view>
     </view>
+
+    <LumiSideDrawer
+      :open="sideOpen"
+      :user-name="homeUsers[0].name"
+      :user-avatar="homeUsers[0].avatar"
+      :user-color="homeUsers[0].color"
+      :quick-actions="sideQuickActions"
+      :rows="sideRows"
+      @close="closeSideMenu"
+      @navigate="navigateSide"
+    />
 
     <view class="sheet-overlay" :class="{ show: filterOpen }" @click="closeFilter" />
     <view class="filter-sheet" :class="{ show: filterOpen }">

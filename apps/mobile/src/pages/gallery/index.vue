@@ -1,9 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import type { HomeWork } from "../home/homeData";
 import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
 
 const PAGE_SIZE = 10;
+
+type SideAction = {
+  icon: string;
+  label: string;
+  url: string;
+};
+
+const statusBarHeight = ref(0);
+try {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
+} catch {
+  statusBarHeight.value = 0;
+}
 
 const activeTab = ref<GalleryTab>("all");
 const renderedTab = ref<GalleryTab>("all");
@@ -13,9 +27,21 @@ const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
+const sideOpen = ref(false);
 const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
+const sideQuickActions: SideAction[] = [
+  { icon: "💎", label: "积分充值", url: "/pages/recharge/index" },
+  { icon: "✓", label: "每日签到", url: "/pages/checkin/index" },
+  { icon: "★", label: "会员中心", url: "/pages/membership/index" },
+  { icon: "↗", label: "邀请好友", url: "/pages/invite/index" }
+];
+const sideRows: SideAction[] = [
+  { icon: "✦", label: "发布作品", url: "/pages/publish/index" },
+  { icon: "◷", label: "浏览记录", url: "/pages/history/index" },
+  { icon: "✉", label: "消息中心", url: "/pages/messages/index" }
+];
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
@@ -77,6 +103,19 @@ function goPublish() {
 
 function goFollowList() {
   uni.navigateTo({ url: "/pages/follow-list/index?type=followers" });
+}
+
+function openSideMenu() {
+  sideOpen.value = true;
+}
+
+function closeSideMenu() {
+  sideOpen.value = false;
+}
+
+function navigateSide(url: string) {
+  closeSideMenu();
+  uni.navigateTo({ url });
 }
 
 function switchGalleryTab(tab: GalleryTab, index: number) {
@@ -168,10 +207,13 @@ function openWork(work: HomeWork) {
   <view class="gallery-page">
     <scroll-view class="gallery-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="header-bg">
-        <view class="header-bar">
-          <view class="icon-btn" @click="showTodo('侧边菜单')">☰</view>
-          <view class="spacer" />
-          <view class="icon-btn search" @click="goSearch">⌕</view>
+        <view class="nav-header">
+          <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
+          <view class="nav-row">
+            <view class="icon-btn nav-menu" @click="openSideMenu">☰</view>
+            <text class="nav-title">画廊</text>
+            <view class="icon-btn search nav-search" @click="goSearch">⌕</view>
+          </view>
         </view>
 
         <view class="profile-area">
@@ -341,6 +383,17 @@ function openWork(work: HomeWork) {
         <text class="tab-label">我的</text>
       </view>
     </view>
+
+    <LumiSideDrawer
+      :open="sideOpen"
+      :user-name="galleryUser.name"
+      :user-avatar="galleryUser.avatar"
+      :user-color="galleryUser.color"
+      :quick-actions="sideQuickActions"
+      :rows="sideRows"
+      @close="closeSideMenu"
+      @navigate="navigateSide"
+    />
   </view>
 </template>
 
@@ -374,11 +427,24 @@ function openWork(work: HomeWork) {
   padding-bottom: 8px;
 }
 
-.header-bar {
+.nav-header {
+  position: relative;
+  z-index: 1;
+}
+
+.nav-row {
+  position: relative;
   display: flex;
-  gap: 8px;
   align-items: center;
-  padding: 4px 16px;
+  justify-content: center;
+  height: 50px;
+  padding: 0 16px;
+}
+
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--fg-primary);
 }
 
 .icon-btn {
@@ -395,8 +461,14 @@ function openWork(work: HomeWork) {
   font-size: 25px;
 }
 
-.spacer {
-  flex: 1;
+.nav-menu {
+  position: absolute;
+  left: 16px;
+}
+
+.nav-search {
+  position: absolute;
+  right: 16px;
 }
 
 .manage-btn,

@@ -53,6 +53,6 @@ export function playPageEnter(route: string) {
 
     const clear = () => el.classList.remove(cls);
     el.addEventListener("animationend", clear, { once: true });
-    setTimeout(clear, 600);
+    setTimeout(clear, 720);
   });
 }

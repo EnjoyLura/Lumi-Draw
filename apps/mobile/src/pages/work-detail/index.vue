@@ -492,14 +492,21 @@ function showToast(title: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 600;
   color: var(--fg-secondary);
 }
 
+.prompt-head > text:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .copy-btn {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 2px;

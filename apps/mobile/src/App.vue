@@ -54,66 +54,83 @@ uni-page-body {
 }
 
 .page-anim-sub-in {
-  animation: pageSubIn 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pageSubIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 }
 
 .page-anim-back {
-  animation: pageBack 0.28s ease;
+  animation: pageBack 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 }
 
 .page-anim-tab-right {
-  animation: tabInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tabInRight 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 }
 
 .page-anim-tab-left {
-  animation: tabInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tabInLeft 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.tab-item,
+.tab-icon,
+.tab-label {
+  transition:
+    color 0.26s ease,
+    background 0.26s ease,
+    transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tab-item:active {
+  transform: scale(0.96);
 }
 
 @keyframes pageSubIn {
   from {
-    opacity: 0.4;
-    transform: translateX(100%);
+    opacity: 0;
+    transform: translateX(42px) scale(0.985);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 @keyframes pageBack {
   from {
-    opacity: 0.6;
-    transform: translateX(-6%);
+    opacity: 0;
+    transform: translateX(-22px) scale(0.99);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 @keyframes tabInRight {
   from {
     opacity: 0;
-    transform: translateX(36px);
+    transform: translateX(26px) scale(0.992);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 @keyframes tabInLeft {
   from {
     opacity: 0;
-    transform: translateX(-36px);
+    transform: translateX(-26px) scale(0.992);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 

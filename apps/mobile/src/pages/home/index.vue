@@ -13,6 +13,7 @@ try {
 
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
+const renderedHomeTab = ref<HomeTab>("recommend");
 const likedWorkIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(8);
 const isLoadingMore = ref(false);
@@ -24,7 +25,7 @@ let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 
 const currentTabWorks = computed(() => {
-  return selectedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
+  return renderedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
 });
 
 const displayedWorks = computed(() => currentTabWorks.value.slice(0, visibleWorkCount.value));
@@ -128,10 +129,11 @@ function switchHomeTab(tab: HomeTab) {
 
   if (slideTimer) clearTimeout(slideTimer);
   slideTimer = setTimeout(() => {
+    renderedHomeTab.value = tab;
     worksRenderKey.value += 1;
     worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
     isSwitchingWorks.value = false;
-  }, 300);
+  }, 280);
 }
 
 function handleReachBottom() {
@@ -732,11 +734,11 @@ function getRatioClass(ratio: string) {
 }
 
 .wf-slide-left {
-  animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-in-left 0.44s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .wf-slide-right {
-  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slide-in-right 0.44s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-col {
@@ -989,24 +991,24 @@ function getRatioClass(ratio: string) {
 @keyframes slide-in-left {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translateX(22px) scale(0.992);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
 @keyframes slide-in-right {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translateX(-22px) scale(0.992);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateX(0) scale(1);
   }
 }
 
