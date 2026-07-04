@@ -59,6 +59,10 @@ function goGallery() {
   uni.redirectTo({ url: "/pages/gallery/index" });
 }
 
+function goMine() {
+  uni.redirectTo({ url: "/pages/mine/index" });
+}
+
 function switchPlazaTab(tab: PlazaTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -257,7 +261,7 @@ function handleReachBottom() {
         <text class="tab-icon">□</text>
         <text class="tab-label">画廊</text>
       </view>
-      <view class="tab-item" @click="showTodo('我的')">
+      <view class="tab-item" @click="goMine">
         <text class="tab-icon">☺</text>
         <text class="tab-label">我的</text>
       </view>

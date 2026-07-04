@@ -23,6 +23,12 @@
       "style": {
         "navigationBarTitleText": "画廊"
       }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
     }
   ],
   "globalStyle": {

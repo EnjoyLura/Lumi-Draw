@@ -52,6 +52,10 @@ function goCreate() {
   uni.navigateTo({ url: "/pages/create/index" });
 }
 
+function goMine() {
+  uni.redirectTo({ url: "/pages/mine/index" });
+}
+
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -270,7 +274,7 @@ function openWork(work: HomeWork) {
         <text class="tab-icon">□</text>
         <text class="tab-label">画廊</text>
       </view>
-      <view class="tab-item" @click="showTodo('我的')">
+      <view class="tab-item" @click="goMine">
         <text class="tab-icon">☺</text>
         <text class="tab-label">我的</text>
       </view>
