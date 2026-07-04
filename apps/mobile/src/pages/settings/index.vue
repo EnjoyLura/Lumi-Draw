@@ -37,7 +37,7 @@ function toggleMock() {
 
 function handleAbout(item: SettingsLink) {
   if (item.key === "version") {
-    uni.showToast({ title: "更新日志将在后续任务迁移", icon: "none" });
+    uni.navigateTo({ url: "/pages/changelog/index" });
     return;
   }
   if (item.key === "cache") {

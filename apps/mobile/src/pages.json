@@ -113,6 +113,18 @@
       "style": {
         "navigationBarTitleText": "编辑资料"
       }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": {
+        "navigationBarTitleText": "意见反馈"
+      }
+    },
+    {
+      "path": "pages/changelog/index",
+      "style": {
+        "navigationBarTitleText": "更新日志"
+      }
     }
   ],
   "globalStyle": {

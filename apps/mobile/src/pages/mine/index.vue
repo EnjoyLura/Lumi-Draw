@@ -77,6 +77,10 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/settings/index" });
     return;
   }
+  if (item.key === "feedback") {
+    uni.navigateTo({ url: "/pages/feedback/index" });
+    return;
+  }
   showTodo(item.label);
 }
 
