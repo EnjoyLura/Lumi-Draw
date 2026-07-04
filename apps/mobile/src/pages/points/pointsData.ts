@@ -19,7 +19,34 @@ export interface Milestone {
   state: "claimed" | "available" | "locked";
 }
 
+export interface InvitedUser {
+  name: string;
+  avatar: string;
+  color: string;
+  date: string;
+  reward: number;
+}
+
+export interface MemberPlan {
+  name: string;
+  price: number;
+  unitPrice: string;
+  totalCredits: number;
+  icon: string;
+  accent: "accent" | "lavender" | "gold";
+  badge?: string;
+  recommended?: boolean;
+}
+
+export interface MemberBenefit {
+  title: string;
+  desc: string;
+  icon: string;
+  tone: "mint" | "accent" | "lavender" | "peach";
+}
+
 export const currentCredits = 2860;
+export const inviteCode = "LUMI8829";
 
 export const rechargeTiers: RechargeTier[] = [
   { price: 6, credits: 60, bonus: 0 },
@@ -54,3 +81,22 @@ export const milestones: Milestone[] = [
 
 export const initialSignedDays = [1, 2, 3, 4, 5, 6, 7];
 export const today = 18;
+
+export const invitedUsers: InvitedUser[] = [
+  { name: "星辰大海", avatar: "星", color: "var(--mint)", date: "06-15", reward: 50 },
+  { name: "月光如水", avatar: "月", color: "var(--peach)", date: "06-12", reward: 50 },
+  { name: "风之绘师", avatar: "风", color: "var(--lavender)", date: "06-08", reward: 50 }
+];
+
+export const memberPlans: MemberPlan[] = [
+  { name: "月卡", price: 18, unitPrice: "¥0.6/天", totalCredits: 1500, icon: "□", accent: "accent" },
+  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, icon: "▣", accent: "lavender", badge: "省10%", recommended: true },
+  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, icon: "♛", accent: "gold", badge: "省28%" }
+];
+
+export const memberBenefits: MemberBenefit[] = [
+  { title: "每日积分", desc: "每天领取50积分", icon: "◇", tone: "mint" },
+  { title: "签到加成", desc: "签到积分翻倍", icon: "☆", tone: "accent" },
+  { title: "专属徽章", desc: "VIP身份标识", icon: "♛", tone: "lavender" },
+  { title: "优先生成", desc: "高峰期免排队", icon: "↗", tone: "peach" }
+];

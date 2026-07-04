@@ -53,6 +53,14 @@ function handleQuickAction(label: string) {
     uni.navigateTo({ url: "/pages/checkin/index" });
     return;
   }
+  if (item?.key === "membership") {
+    uni.navigateTo({ url: "/pages/membership/index" });
+    return;
+  }
+  if (item?.key === "invite") {
+    uni.navigateTo({ url: "/pages/invite/index" });
+    return;
+  }
   showTodo(label);
 }
 

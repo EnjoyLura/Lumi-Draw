@@ -86,6 +86,11 @@ function handleBannerTap(action: string, title: string) {
     return;
   }
 
+  if (action === "membership") {
+    uni.navigateTo({ url: "/pages/membership/index" });
+    return;
+  }
+
   showTodo(title);
 }
 
