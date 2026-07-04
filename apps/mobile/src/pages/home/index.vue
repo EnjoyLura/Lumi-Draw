@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import { gameplays, homeBanners, homeUsers, homeWorks, type HomeWork } from "./homeData";
+import { resolveTabEnterClass } from "../../services/pageTransition";
+
+const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
 type HomeTab = "recommend" | "new";
 
@@ -58,7 +61,7 @@ function goCreate() {
 }
 
 function goPlaza() {
-  uni.navigateTo({
+  uni.redirectTo({
     url: "/pages/plaza/index"
   });
 }
@@ -76,13 +79,13 @@ function goUserProfile(userId: number) {
 }
 
 function goGallery() {
-  uni.navigateTo({
+  uni.redirectTo({
     url: "/pages/gallery/index"
   });
 }
 
 function goMine() {
-  uni.navigateTo({
+  uni.redirectTo({
     url: "/pages/mine/index"
   });
 }
@@ -106,6 +109,11 @@ function handleBannerTap(action: string, title: string) {
 
   if (action === "membership") {
     uni.navigateTo({ url: "/pages/membership/index" });
+    return;
+  }
+
+  if (action === "publish") {
+    uni.navigateTo({ url: "/pages/publish/index" });
     return;
   }
 
@@ -185,7 +193,7 @@ function getRatioClass(ratio: string) {
 </script>
 
 <template>
-  <view class="home-page">
+  <view class="home-page" :class="tabEnterClass">
     <scroll-view
       class="content-area"
       scroll-y

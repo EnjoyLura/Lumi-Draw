@@ -114,6 +114,7 @@ function save() {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 28px;
   height: 28px;
   font-size: 14px;

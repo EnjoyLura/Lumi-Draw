@@ -76,6 +76,7 @@ function applyGameplay(gameplay: Gameplay) {
 .gameplay-img {
   display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 1;
 }
 

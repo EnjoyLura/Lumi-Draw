@@ -1,15 +1,27 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 
-type SideAction = {
+const tabEnterClass = resolveTabEnterClass("pages/plaza/index");
+
+type SideQuick = {
   icon: string;
   label: string;
   url: string;
+  gradient: string;
+};
+
+type SideRow = {
+  icon: string;
+  label: string;
+  url: string;
+  color: string;
+  badge?: string;
 };
 
 const filterOpen = ref(false);
@@ -70,16 +82,18 @@ const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
-const sideQuickActions: SideAction[] = [
-  { icon: "💎", label: "积分充值", url: "/pages/recharge/index" },
-  { icon: "✓", label: "每日签到", url: "/pages/checkin/index" },
-  { icon: "★", label: "会员中心", url: "/pages/membership/index" },
-  { icon: "↗", label: "邀请好友", url: "/pages/invite/index" }
+const sideQuickActions: SideQuick[] = [
+  { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
+  { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
+  { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
+  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
 ];
-const sideRows: SideAction[] = [
-  { icon: "✦", label: "发布作品", url: "/pages/publish/index" },
-  { icon: "◷", label: "浏览记录", url: "/pages/history/index" },
-  { icon: "✉", label: "消息中心", url: "/pages/messages/index" }
+const sideRows: SideRow[] = [
+  { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
+  { icon: "◷", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
+  { icon: "✉", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
+  { icon: "♥", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
+  { icon: "☺", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
 ];
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -260,7 +274,7 @@ function handleReachBottom() {
 </script>
 
 <template>
-  <view class="plaza-page">
+  <view class="plaza-page" :class="tabEnterClass">
     <scroll-view class="plaza-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="plaza-content">
         <view class="nav-header">
@@ -394,6 +408,7 @@ function handleReachBottom() {
       :user-name="isLoggedIn ? homeUsers[0].name : '点击登录'"
       :user-avatar="isLoggedIn ? homeUsers[0].avatar : '♙'"
       :user-color="isLoggedIn ? homeUsers[0].color : 'var(--bg-soft)'"
+      :user-points="isLoggedIn ? '2860' : '0'"
       :quick-actions="sideQuickActions"
       :rows="sideRows"
       @close="closeSideMenu"

@@ -75,13 +75,17 @@ function goHome() {
 }
 
 .clear-btn {
-  min-height: 30px;
-  padding: 0 14px;
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
   color: var(--fg-secondary);
-  background: var(--bg-card);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
 }
 
 .clear-btn::after {

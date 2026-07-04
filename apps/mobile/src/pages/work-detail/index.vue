@@ -235,7 +235,7 @@ function showToast(title: string) {
         </view>
       </scroll-view>
 
-      <view class="detail-bottom">
+      <view class="detail-bottom" :class="{ own: isOwn }">
         <template v-if="isOwn">
           <view class="bottom-icon danger" @click="showToast('删除作品将在后续任务迁移')">
             <text>⌫</text>
@@ -579,11 +579,15 @@ function showToast(title: string) {
   display: flex;
   gap: 16px;
   align-items: center;
-  padding: 14px 16px 20px;
+  padding: 14px 16px 30px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
   backdrop-filter: blur(20px) saturate(180%);
+}
+
+.detail-bottom.own {
+  gap: 10px;
 }
 
 .bottom-action,
@@ -639,6 +643,7 @@ function showToast(title: string) {
   padding: 12px 0;
   font-size: 15px;
   font-weight: 700;
+  line-height: 1;
   color: #fff;
   background: var(--gradient-dream);
   border: none;

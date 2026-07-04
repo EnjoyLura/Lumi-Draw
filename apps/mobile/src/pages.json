@@ -23,7 +23,8 @@
     {
       "path": "pages/gallery/index",
       "style": {
-        "navigationBarTitleText": "画廊"
+        "navigationBarTitleText": "画廊",
+        "navigationStyle": "custom"
       }
     },
     {

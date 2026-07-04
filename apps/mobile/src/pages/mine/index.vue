@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 
 const { isLoggedIn, login: commitLogin } = useAuth();
+const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const showLoginSheet = ref(false);
 
 function showTodo(label: string) {
@@ -106,7 +108,7 @@ function login() {
 </script>
 
 <template>
-  <view class="mine-page">
+  <view class="mine-page" :class="tabEnterClass">
     <scroll-view class="mine-scroll" scroll-y>
       <view class="mine-content">
         <view class="profile-card">

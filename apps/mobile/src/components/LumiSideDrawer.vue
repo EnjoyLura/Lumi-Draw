@@ -1,18 +1,33 @@
 <script setup lang="ts">
-interface DrawerAction {
+interface DrawerQuickAction {
   icon: string;
   label: string;
   url: string;
+  gradient: string;
 }
 
-defineProps<{
-  open: boolean;
-  userName: string;
-  userAvatar: string;
-  userColor: string;
-  quickActions: DrawerAction[];
-  rows: DrawerAction[];
-}>();
+interface DrawerRow {
+  icon: string;
+  label: string;
+  url: string;
+  color: string;
+  badge?: string;
+}
+
+withDefaults(
+  defineProps<{
+    open: boolean;
+    userName: string;
+    userAvatar: string;
+    userColor: string;
+    userPoints?: string;
+    quickActions: DrawerQuickAction[];
+    rows: DrawerRow[];
+  }>(),
+  {
+    userPoints: "0"
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -24,22 +39,39 @@ const emit = defineEmits<{
   <view class="side-overlay" :class="{ show: open }" @click="emit('close')" />
   <view class="side-drawer" :class="{ show: open }">
     <view class="side-head">
-      <view class="side-avatar" :style="{ background: userColor }">{{ userAvatar }}</view>
-      <view class="side-info">
-        <view class="side-name">{{ userName }}</view>
-        <view class="side-sub">露米绘画创作者</view>
+      <view class="side-user">
+        <view class="side-avatar" :style="{ background: userColor }">{{ userAvatar }}</view>
+        <view class="side-info">
+          <view class="side-name">{{ userName }}</view>
+          <view class="side-points">
+            <text class="side-points-num">{{ userPoints }}</text>
+            <text class="side-points-label"> 积分</text>
+          </view>
+        </view>
+      </view>
+      <view class="side-quick-grid">
+        <view
+          v-for="item in quickActions"
+          :key="item.label"
+          class="side-quick"
+          @click="emit('navigate', item.url)"
+        >
+          <view class="side-quick-icon" :style="{ background: item.gradient }">{{ item.icon }}</view>
+          <text class="side-quick-label">{{ item.label }}</text>
+        </view>
       </view>
     </view>
-    <view class="side-quick-grid">
-      <view v-for="item in quickActions" :key="item.label" class="side-quick" @click="emit('navigate', item.url)">
-        <view class="side-quick-icon">{{ item.icon }}</view>
-        <text>{{ item.label }}</text>
-      </view>
-    </view>
+
     <view class="side-list">
-      <view v-for="item in rows" :key="item.label" class="side-row" @click="emit('navigate', item.url)">
-        <view class="side-row-icon">{{ item.icon }}</view>
-        <text>{{ item.label }}</text>
+      <view
+        v-for="item in rows"
+        :key="item.label"
+        class="side-row"
+        @click="emit('navigate', item.url)"
+      >
+        <view class="side-row-icon" :style="{ color: item.color }">{{ item.icon }}</view>
+        <text class="side-row-text">{{ item.label }}</text>
+        <text v-if="item.badge" class="side-badge">{{ item.badge }}</text>
         <text class="side-arrow">›</text>
       </view>
     </view>
@@ -70,18 +102,17 @@ const emit = defineEmits<{
   bottom: 0;
   left: 0;
   z-index: 210;
-  width: 78%;
-  max-width: 310px;
-  padding: 34px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
   box-sizing: border-box;
   background: var(--bg-card);
-  border-radius: 0 24px 24px 0;
   box-shadow: 14px 0 40px rgba(14, 31, 58, 0.18);
-  transform: translateX(-105%);
+  transform: translateX(-100%);
   visibility: hidden;
   transition:
-    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0.42s;
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.4s;
 }
 
 .side-drawer.show {
@@ -90,11 +121,16 @@ const emit = defineEmits<{
 }
 
 .side-head {
+  padding: 90px 20px 24px;
+  background: var(--gradient-sky);
+  border-bottom: 1px solid var(--border);
+}
+
+.side-user {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
-  padding-bottom: 18px;
-  border-bottom: 0.5px solid var(--border);
+  margin-bottom: 20px;
 }
 
 .side-avatar {
@@ -102,9 +138,9 @@ const emit = defineEmits<{
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  font-size: 18px;
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
   border-radius: 50%;
@@ -116,23 +152,31 @@ const emit = defineEmits<{
 
 .side-name {
   overflow: hidden;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
+  color: var(--fg-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.side-sub {
+.side-points {
   margin-top: 3px;
-  font-size: 12px;
+  font-size: 16px;
+}
+
+.side-points-num {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.side-points-label {
   color: var(--fg-muted);
 }
 
 .side-quick-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-  padding: 18px 0;
 }
 
 .side-quick {
@@ -140,57 +184,73 @@ const emit = defineEmits<{
   flex-direction: column;
   gap: 6px;
   align-items: center;
-  justify-content: center;
-  min-height: 74px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fg-secondary);
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-}
-
-.side-quick-icon,
-.side-row-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-radius: 50%;
 }
 
 .side-quick-icon {
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  font-size: 20px;
+  color: #fff;
+  border-radius: 12px;
+}
+
+.side-quick-label {
+  font-size: 12px;
+  color: var(--fg-secondary);
 }
 
 .side-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex: 1;
+  padding: 12px 0;
 }
 
 .side-row {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
-  min-height: 46px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fg-primary);
+  padding: 13px 16px;
+  transition: background 0.2s;
+}
+
+.side-row:active {
+  background: var(--accent-soft);
 }
 
 .side-row-icon {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 20px;
+}
+
+.side-row-text {
+  flex: 1;
+  font-size: 15px;
+  color: var(--fg-primary);
+}
+
+.side-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--rose);
+  border-radius: 999px;
 }
 
 .side-arrow {
-  margin-left: auto;
-  font-size: 20px;
+  font-size: 18px;
   color: var(--fg-muted);
 }
 </style>

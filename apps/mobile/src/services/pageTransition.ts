@@ -1,58 +1,25 @@
+// 跨端 tabbar 切换动效：根据 tab 顺序方向给页面根节点返回进入动画类。
+// 无 DOM 操作，H5 与微信小程序通用。模块级变量在同一 JS 运行时内跨页面保留，
+// 用于记录上一个 tab，从而判断切换方向。
+
 const TAB_ORDER: Record<string, number> = {
   "pages/home/index": 0,
   "pages/plaza/index": 1,
-  "pages/create/index": 2,
-  "pages/gallery/index": 3,
-  "pages/mine/index": 4
+  "pages/gallery/index": 2,
+  "pages/mine/index": 3
 };
 
-const ANIM_CLASSES = ["page-anim-tab-right", "page-anim-tab-left", "page-anim-sub-in", "page-anim-back"];
+let lastTabIndex = -1;
 
-let prevRoute = "";
+// 在 tab 页面 setup 时调用，传入当前页面 route（不带前导斜杠）。
+// 首次进入或方向未知返回空串（不播放动画）。
+export function resolveTabEnterClass(route: string): string {
+  const index = TAB_ORDER[route];
+  if (index === undefined) return "";
 
-function normalize(route: string) {
-  return route.replace(/^\//, "");
-}
+  const prev = lastTabIndex;
+  lastTabIndex = index;
 
-function resolveClass(route: string): string {
-  const isTab = route in TAB_ORDER;
-  const prevIsTab = prevRoute in TAB_ORDER;
-
-  if (!prevRoute || prevRoute === route) return "";
-  if (isTab && prevIsTab) {
-    return TAB_ORDER[route] >= TAB_ORDER[prevRoute] ? "page-anim-tab-right" : "page-anim-tab-left";
-  }
-  if (!isTab) return "page-anim-sub-in";
-  return "page-anim-back";
-}
-
-function findActivePageRoot(): HTMLElement | null {
-  const bodies = Array.from(document.querySelectorAll("uni-page-body"));
-  for (let i = bodies.length - 1; i >= 0; i -= 1) {
-    const root = bodies[i].firstElementChild as HTMLElement | null;
-    if (root && root.offsetParent !== null) return root;
-  }
-  const last = bodies[bodies.length - 1];
-  return (last?.firstElementChild as HTMLElement | null) ?? null;
-}
-
-export function playPageEnter(route: string) {
-  const current = normalize(route);
-  const cls = resolveClass(current);
-  prevRoute = current;
-
-  if (!cls) return;
-
-  requestAnimationFrame(() => {
-    const el = findActivePageRoot();
-    if (!el || !el.classList) return;
-
-    ANIM_CLASSES.forEach((name) => el.classList.remove(name));
-    void el.offsetWidth;
-    el.classList.add(cls);
-
-    const clear = () => el.classList.remove(cls);
-    el.addEventListener("animationend", clear, { once: true });
-    setTimeout(clear, 720);
-  });
+  if (prev === -1 || prev === index) return "";
+  return index > prev ? "tab-in-right" : "tab-in-left";
 }

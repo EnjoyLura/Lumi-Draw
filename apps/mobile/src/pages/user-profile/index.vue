@@ -6,6 +6,8 @@ import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userP
 
 const userId = ref(1);
 const confirmOpen = ref(false);
+const likedWorkIds = ref<Set<number>>(new Set());
+const pulseId = ref<number | null>(null);
 
 const user = computed(() => getProfileUser(userId.value));
 const following = computed(() => isFollowing(userId.value));
@@ -31,6 +33,25 @@ function getAspectRatio(ratio: string) {
 
 function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+}
+
+function toggleLike(event: Event, workId: number) {
+  event.stopPropagation();
+  const next = new Set(likedWorkIds.value);
+  if (next.has(workId)) {
+    next.delete(workId);
+  } else {
+    next.add(workId);
+  }
+  likedWorkIds.value = next;
+
+  pulseId.value = null;
+  setTimeout(() => {
+    pulseId.value = workId;
+  }, 0);
+  setTimeout(() => {
+    if (pulseId.value === workId) pulseId.value = null;
+  }, 220);
 }
 
 function toggleFollow() {
@@ -97,7 +118,11 @@ function confirmUnfollow() {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
-                  <text class="likes">♡ {{ work.likes }}</text>
+                  <text class="work-author">{{ user.name }}</text>
+                  <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
+                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                  </view>
                 </view>
               </view>
             </view>
@@ -109,7 +134,11 @@ function confirmUnfollow() {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
-                  <text class="likes">♡ {{ work.likes }}</text>
+                  <text class="work-author">{{ user.name }}</text>
+                  <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
+                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                  </view>
                 </view>
               </view>
             </view>
@@ -414,11 +443,51 @@ function confirmUnfollow() {
   border-radius: 50%;
 }
 
-.likes {
+.work-author {
   flex: 1;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--fg-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.like {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  align-items: center;
+  padding: 2px 4px;
   font-size: 12px;
+  font-weight: 600;
   color: var(--fg-muted);
-  text-align: right;
+  border-radius: 8px;
+  transition:
+    color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.like.liked {
+  color: var(--rose);
+  transform: scale(1.04);
+}
+
+.like.pulse text:first-child {
+  animation: icon-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes icon-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.4);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 .works-empty {

@@ -12,6 +12,7 @@ export interface GalleryUser {
   name: string;
   avatar: string;
   color: string;
+  points: string;
   userNo: string;
   bio: string;
   role: string;
@@ -25,6 +26,7 @@ export const galleryUser: GalleryUser = {
   name: "云端造梦师",
   avatar: "梦",
   color: "var(--accent)",
+  points: "2860",
   userNo: "LUMI8829",
   bio: "用AI描绘心中的梦境，每一笔都是想象力的延伸",
   role: "AI创作者",

@@ -75,7 +75,7 @@ onLoad((query) => {
 }
 
 .detail-content {
-  padding: 0 16px 16px;
+  padding: 12px 16px 16px;
 }
 
 .message-card {

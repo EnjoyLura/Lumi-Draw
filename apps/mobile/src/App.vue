@@ -44,6 +44,7 @@ onLaunch(() => {
   --rose-soft: rgba(255, 168, 184, 0.22);
   --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
   --gradient-aurora: linear-gradient(135deg, #a3e4cc 0%, #5b9fe8 52%, #b8a5e3 100%);
+  --gradient-sky: linear-gradient(180deg, #e1ebf8 0%, #f5f9fe 100%);
   --page-bg: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
 }
 
@@ -53,85 +54,46 @@ uni-page-body {
   overflow-x: hidden;
 }
 
-.page-anim-sub-in {
-  animation: pageSubIn 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+.tab-in-right {
+  animation: tabInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
 }
 
-.page-anim-back {
-  animation: pageBack 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+.tab-in-left {
+  animation: tabInLeft 0.32s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
-}
-
-.page-anim-tab-right {
-  animation: tabInRight 0.38s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-}
-
-.page-anim-tab-left {
-  animation: tabInLeft 0.38s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-}
-
-.tab-item,
-.tab-icon,
-.tab-label {
-  transition:
-    color 0.26s ease,
-    background 0.26s ease,
-    transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.tab-item:active {
-  transform: scale(0.96);
-}
-
-@keyframes pageSubIn {
-  from {
-    opacity: 0;
-    transform: translateX(42px) scale(0.985);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
-
-@keyframes pageBack {
-  from {
-    opacity: 0;
-    transform: translateX(-22px) scale(0.99);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
 }
 
 @keyframes tabInRight {
   from {
     opacity: 0;
-    transform: translateX(26px) scale(0.992);
+    transform: translateX(36px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
 }
 
 @keyframes tabInLeft {
   from {
     opacity: 0;
-    transform: translateX(-26px) scale(0.992);
+    transform: translateX(-36px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
+}
+
+.tab-item {
+  transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tab-item:active {
+  transform: scale(0.96);
 }
 
 :root[data-theme="dark"] {
@@ -162,6 +124,7 @@ uni-page-body {
   --lemon-soft: rgba(255, 224, 138, 0.26);
   --rose: #ffa8b8;
   --rose-soft: rgba(255, 168, 184, 0.26);
+  --gradient-sky: linear-gradient(180deg, #1c1c1e 0%, #141416 100%);
   --page-bg: var(--bg-base);
 }
 </style>
