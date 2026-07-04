@@ -65,6 +65,18 @@
       "style": {
         "navigationBarTitleText": "用户主页"
       }
+    },
+    {
+      "path": "pages/recharge/index",
+      "style": {
+        "navigationBarTitleText": "积分充值"
+      }
+    },
+    {
+      "path": "pages/checkin/index",
+      "style": {
+        "navigationBarTitleText": "每日签到"
+      }
     }
   ],
   "globalStyle": {

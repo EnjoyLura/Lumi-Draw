@@ -75,6 +75,20 @@ function goAllGameplays() {
   });
 }
 
+function handleBannerTap(action: string, title: string) {
+  if (action === "checkin") {
+    uni.navigateTo({ url: "/pages/checkin/index" });
+    return;
+  }
+
+  if (action === "create") {
+    goCreate();
+    return;
+  }
+
+  showTodo(title);
+}
+
 function openWorkDetail(workId: number) {
   uni.navigateTo({
     url: `/pages/work-detail/index?id=${workId}`
@@ -164,7 +178,7 @@ function getRatioClass(ratio: string) {
             @change="activeBanner = $event.detail.current"
           >
             <swiper-item v-for="banner in homeBanners" :key="banner.title">
-              <view class="banner-slide" @click="showTodo(banner.title)">
+              <view class="banner-slide" @click="handleBannerTap(banner.action, banner.title)">
                 <image class="banner-image" :src="banner.image" mode="aspectFill" />
                 <view class="banner-shade" />
                 <view class="banner-copy">

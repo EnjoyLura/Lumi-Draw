@@ -33,7 +33,7 @@ function handleProfileTap() {
 
 function handleCreditsTap() {
   if (isLoggedIn.value) {
-    showTodo("积分充值");
+    uni.navigateTo({ url: "/pages/recharge/index" });
   } else {
     showLoginSheet.value = true;
   }
@@ -42,6 +42,15 @@ function handleCreditsTap() {
 function handleQuickAction(label: string) {
   if (!isLoggedIn.value) {
     showLoginSheet.value = true;
+    return;
+  }
+  const item = quickActions.find((action) => action.label === label);
+  if (item?.key === "recharge") {
+    uni.navigateTo({ url: "/pages/recharge/index" });
+    return;
+  }
+  if (item?.key === "checkin") {
+    uni.navigateTo({ url: "/pages/checkin/index" });
     return;
   }
   showTodo(label);
