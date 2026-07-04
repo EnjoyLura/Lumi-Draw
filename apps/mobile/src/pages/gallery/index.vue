@@ -64,6 +64,10 @@ function goPublish() {
   uni.navigateTo({ url: "/pages/publish/index" });
 }
 
+function goFollowList() {
+  uni.navigateTo({ url: "/pages/follow-list/index?type=followers" });
+}
+
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -167,7 +171,7 @@ function openWork(work: HomeWork) {
                 <text class="stat-num rose">{{ galleryUser.works }}</text>
                 <text class="stat-label">作品</text>
               </view>
-              <view class="stat" @click="showTodo('关注列表')">
+              <view class="stat" @click="goFollowList">
                 <text class="stat-num accent">{{ galleryUser.followers }}</text>
                 <text class="stat-label">粉丝</text>
               </view>

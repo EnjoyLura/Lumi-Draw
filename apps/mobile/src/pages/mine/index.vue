@@ -89,6 +89,10 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/history/index" });
     return;
   }
+  if (item.key === "following") {
+    uni.navigateTo({ url: "/pages/follow-list/index?type=following" });
+    return;
+  }
   showTodo(item.label);
 }
 

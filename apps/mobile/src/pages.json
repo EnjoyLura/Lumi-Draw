@@ -149,6 +149,12 @@
       "style": {
         "navigationBarTitleText": "浏览记录"
       }
+    },
+    {
+      "path": "pages/follow-list/index",
+      "style": {
+        "navigationBarTitleText": "关注列表"
+      }
     }
   ],
   "globalStyle": {
