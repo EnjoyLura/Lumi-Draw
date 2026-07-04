@@ -11,6 +11,14 @@ function applyTheme(mode: ThemeMode) {
   // #endif
 }
 
+export function applyNavigationBar() {
+  const dark = theme.value === "dark";
+  uni.setNavigationBarColor({
+    frontColor: dark ? "#ffffff" : "#000000",
+    backgroundColor: dark ? "#141416" : "#ffffff"
+  });
+}
+
 export function initTheme() {
   const stored = uni.getStorageSync(THEME_STORAGE_KEY);
   theme.value = stored === "dark" ? "dark" : "light";
@@ -21,6 +29,7 @@ export function setTheme(mode: ThemeMode) {
   theme.value = mode;
   uni.setStorageSync(THEME_STORAGE_KEY, mode);
   applyTheme(mode);
+  applyNavigationBar();
 }
 
 export function useTheme() {

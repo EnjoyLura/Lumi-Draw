@@ -564,7 +564,7 @@ function showToast(title: string) {
   gap: 16px;
   align-items: center;
   padding: 14px 16px 20px;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
   backdrop-filter: blur(20px) saturate(180%);

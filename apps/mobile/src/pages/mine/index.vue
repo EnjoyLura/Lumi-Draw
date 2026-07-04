@@ -482,8 +482,8 @@ function login() {
   height: 80px;
   padding-bottom: 16px;
   box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.6);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.3);
+  background: var(--bg-glass);
+  border-top: 0.5px solid var(--border);
   box-shadow: 0 -2px 20px rgba(60, 120, 200, 0.06);
   backdrop-filter: blur(24px) saturate(180%);
 }
