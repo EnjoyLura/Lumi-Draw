@@ -59,6 +59,12 @@
       "style": {
         "navigationBarTitleText": "举报"
       }
+    },
+    {
+      "path": "pages/user-profile/index",
+      "style": {
+        "navigationBarTitleText": "用户主页"
+      }
     }
   ],
   "globalStyle": {
