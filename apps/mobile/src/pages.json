@@ -3,7 +3,8 @@
     {
       "path": "pages/home/index",
       "style": {
-        "navigationBarTitleText": "露米绘画"
+        "navigationBarTitleText": "露米绘画",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -15,7 +16,8 @@
     {
       "path": "pages/plaza/index",
       "style": {
-        "navigationBarTitleText": "广场"
+        "navigationBarTitleText": "广场",
+        "navigationStyle": "custom"
       }
     },
     {

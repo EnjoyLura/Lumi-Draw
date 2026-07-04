@@ -61,7 +61,7 @@ function submitReport() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .page-scroll {
@@ -129,6 +129,12 @@ function submitReport() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.desc-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .submit-btn {

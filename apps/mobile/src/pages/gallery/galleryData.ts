@@ -33,6 +33,32 @@ export const galleryUser: GalleryUser = {
   likes: "1.2k"
 };
 
+export interface GalleryGenTask {
+  id: number;
+  prompt: string;
+  model: string;
+  count: number;
+  ratio: string;
+  quality: string;
+  percent: number;
+  elapsed: number;
+  stage: string;
+}
+
+export const galleryGenTasks: GalleryGenTask[] = [
+  {
+    id: 1,
+    prompt: "夕阳下的海边城堡，梦幻光影",
+    model: "露米·梦幻",
+    count: 4,
+    ratio: "3:4",
+    quality: "超清2K",
+    percent: 62,
+    elapsed: 18,
+    stage: "AI绘制中..."
+  }
+];
+
 export const galleryTabs: GalleryTabOption[] = [
   { key: "all", label: "全部" },
   { key: "published", label: "已发布" },

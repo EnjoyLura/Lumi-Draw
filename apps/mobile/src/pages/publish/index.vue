@@ -42,6 +42,14 @@ function toggleTag(name: string) {
   selectedTags.value.push(name);
 }
 
+function previewDraftImage() {
+  if (!selectedDraft.value) return;
+  uni.previewImage({
+    urls: [selectedDraft.value.image],
+    current: selectedDraft.value.image
+  });
+}
+
 function submit() {
   if (!selectedDraft.value) {
     uni.showToast({ title: "请选择要发布的作品", icon: "none" });
@@ -71,7 +79,7 @@ function submit() {
               </view>
             </template>
             <template v-else>
-              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" />
+              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" @click.stop="previewDraftImage" />
               <view class="draft-selected-text">
                 <view class="draft-selected-title">{{ selectedDraft.title }}</view>
                 <view class="draft-selected-sub">{{ selectedDraft.resolution }}</view>
@@ -156,7 +164,7 @@ function submit() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .page-scroll {
@@ -270,6 +278,12 @@ function submit() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .text-input {

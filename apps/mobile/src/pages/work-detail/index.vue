@@ -98,6 +98,14 @@ function goUserProfile() {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${user.value.id}` });
 }
 
+function previewWorkImage() {
+  if (!work.value) return;
+  uni.previewImage({
+    urls: [work.value.image],
+    current: work.value.image
+  });
+}
+
 function openLongPressSheet() {
   if (isOwn.value) return;
   longPressOpen.value = true;
@@ -157,6 +165,7 @@ function showToast(title: string) {
           :src="work.image"
           mode="aspectFill"
           :style="detailImageStyle"
+          @click="previewWorkImage"
           @longpress="openLongPressSheet"
           @mousedown="startLongPress"
           @mouseup="cancelLongPress"

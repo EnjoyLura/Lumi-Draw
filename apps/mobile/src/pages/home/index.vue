@@ -4,31 +4,36 @@ import { gameplays, homeBanners, homeUsers, homeWorks, type HomeWork } from "./h
 
 type HomeTab = "recommend" | "new";
 
+const statusBarHeight = ref(0);
+try {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
+} catch {
+  statusBarHeight.value = 0;
+}
+
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
-const renderedHomeTab = ref<HomeTab>("recommend");
 const likedWorkIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(8);
-const isSwitchingWorks = ref(false);
 const isLoadingMore = ref(false);
+const isSwitchingWorks = ref(false);
 const worksRenderKey = ref(0);
-const tabSwitchEpoch = ref(0);
+const worksSlideClass = ref("");
 
-let switchTimer: ReturnType<typeof setTimeout> | undefined;
+let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 
 const currentTabWorks = computed(() => {
-  return renderedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
+  return selectedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
 });
 
 const displayedWorks = computed(() => currentTabWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length);
-const showWorksLoading = computed(() => isSwitchingWorks.value || selectedHomeTab.value !== renderedHomeTab.value);
 
 onBeforeUnmount(() => {
-  if (switchTimer) clearTimeout(switchTimer);
+  if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
 
@@ -54,6 +59,18 @@ function goCreate() {
 function goPlaza() {
   uni.navigateTo({
     url: "/pages/plaza/index"
+  });
+}
+
+function goMessages() {
+  uni.navigateTo({
+    url: "/pages/messages/index"
+  });
+}
+
+function goUserProfile(userId: number) {
+  uni.navigateTo({
+    url: `/pages/user-profile/index?id=${userId}`
   });
 }
 
@@ -103,17 +120,18 @@ function openWorkDetail(workId: number) {
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
 
+  const direction = tab === "new" && selectedHomeTab.value === "recommend" ? "left" : "right";
   selectedHomeTab.value = tab;
-  isSwitchingWorks.value = true;
   visibleWorkCount.value = 8;
-  tabSwitchEpoch.value += 1;
+  isSwitchingWorks.value = true;
+  worksSlideClass.value = "";
 
-  if (switchTimer) clearTimeout(switchTimer);
-  switchTimer = setTimeout(() => {
-    renderedHomeTab.value = tab;
+  if (slideTimer) clearTimeout(slideTimer);
+  slideTimer = setTimeout(() => {
     worksRenderKey.value += 1;
+    worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
     isSwitchingWorks.value = false;
-  }, 850);
+  }, 300);
 }
 
 function handleReachBottom() {
@@ -172,6 +190,17 @@ function getRatioClass(ratio: string) {
       :lower-threshold="80"
       @scrolltolower="handleReachBottom"
     >
+      <view class="nav-header">
+        <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
+        <view class="nav-row">
+          <view class="nav-notify" @click="goMessages">
+            <view class="nav-notify-icon" />
+            <view class="nav-notify-dot" />
+          </view>
+          <text class="nav-title">露米绘画</text>
+        </view>
+      </view>
+
       <view class="home-content">
         <view class="banner-card">
           <swiper
@@ -249,27 +278,15 @@ function getRatioClass(ratio: string) {
               最新
             </view>
             <view class="tab-indicator" :class="{ right: selectedHomeTab === 'new' }" />
-            <view v-if="tabSwitchEpoch > 0" :key="tabSwitchEpoch" class="tab-loading-line" />
           </view>
         </view>
 
         <view class="works-stage">
-          <view v-if="showWorksLoading" class="works-loading">
+          <view v-if="isSwitchingWorks" class="works-loading">
             <view class="loading-spinner" />
-            <text class="loading-text">正在加载作品</text>
-            <view class="skeleton-waterfall">
-              <view class="skeleton-col">
-                <view class="skeleton-card tall" />
-                <view class="skeleton-card short" />
-              </view>
-              <view class="skeleton-col">
-                <view class="skeleton-card short" />
-                <view class="skeleton-card tall" />
-              </view>
-            </view>
           </view>
 
-          <view v-else :key="worksRenderKey" class="waterfall works-motion">
+          <view v-else :key="worksRenderKey" class="waterfall" :class="worksSlideClass">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
@@ -278,7 +295,7 @@ function getRatioClass(ratio: string) {
                 <view class="work-body">
                   <text class="work-title">{{ getWorkTitle(work) }}</text>
                   <view class="work-meta">
-                    <view class="author" @click.stop="showTodo('用户主页')">
+                    <view class="author" @click.stop="goUserProfile(work.userId)">
                       <view class="avatar" :style="{ background: getUser(work.userId).color }">
                         {{ getUser(work.userId).avatar }}
                       </view>
@@ -289,7 +306,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                      <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
                       <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
                     </view>
                   </view>
@@ -305,7 +322,7 @@ function getRatioClass(ratio: string) {
                 <view class="work-body">
                   <text class="work-title">{{ getWorkTitle(work) }}</text>
                   <view class="work-meta">
-                    <view class="author" @click.stop="showTodo('用户主页')">
+                    <view class="author" @click.stop="goUserProfile(work.userId)">
                       <view class="avatar" :style="{ background: getUser(work.userId).color }">
                         {{ getUser(work.userId).avatar }}
                       </view>
@@ -316,7 +333,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                      <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
                       <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
                     </view>
                   </view>
@@ -329,7 +346,7 @@ function getRatioClass(ratio: string) {
         <view class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
           <view v-if="isLoadingMore" class="mini-spinner" />
           <text>
-            {{ isLoadingMore ? "正在刷新更多作品" : hasMoreWorks ? "继续上滑刷新更多作品" : "上滑刷新最新作品" }}
+            {{ isLoadingMore ? "正在加载更多作品" : hasMoreWorks ? "继续往下滑获取更多作品" : "我也是有底线的~" }}
           </text>
         </view>
       </view>
@@ -367,7 +384,54 @@ function getRatioClass(ratio: string) {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
+}
+
+.nav-header {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-base);
+}
+
+.nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+}
+
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.nav-notify {
+  position: absolute;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.nav-notify-icon {
+  width: 21px;
+  height: 21px;
+  background: var(--fg-primary);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7v4.586l-1.707 1.707A1 1 0 0 0 4 17h16a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm0 20a3 3 0 0 0 2.995-2.824L15 19H9a3 3 0 0 0 3 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7v4.586l-1.707 1.707A1 1 0 0 0 4 17h16a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm0 20a3 3 0 0 0 2.995-2.824L15 19H9a3 3 0 0 0 3 3z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.nav-notify-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  background: var(--rose);
+  border-radius: 50%;
 }
 
 .home-page::after {
@@ -379,6 +443,10 @@ function getRatioClass(ratio: string) {
   background:
     radial-gradient(ellipse 120% 40% at 80% 0%, rgba(91, 159, 232, 0.06), transparent 60%),
     radial-gradient(ellipse 100% 30% at 10% 100%, rgba(111, 212, 176, 0.04), transparent 50%);
+}
+
+:root[data-theme="dark"] .home-page::after {
+  background: none;
 }
 
 .content-area {
@@ -454,7 +522,7 @@ function getRatioClass(ratio: string) {
   left: 16px;
   display: flex;
   flex-direction: column;
-  max-width: 220px;
+  max-width: 250px;
   color: #fff;
 }
 
@@ -528,6 +596,10 @@ function getRatioClass(ratio: string) {
   font-size: 14px;
   font-weight: 600;
   color: var(--accent);
+}
+
+:root[data-theme="dark"] .more-link {
+  color: #fff;
 }
 
 .chevron {
@@ -649,29 +721,6 @@ function getRatioClass(ratio: string) {
   transform: translateX(42px);
 }
 
-.tab-loading-line {
-  position: absolute;
-  right: 0;
-  bottom: -7px;
-  left: 0;
-  height: 2px;
-  overflow: hidden;
-  border-radius: 999px;
-  opacity: 0;
-  background: rgba(91, 159, 232, 0.12);
-  animation: tab-loading 0.85s ease forwards;
-}
-
-.tab-loading-line::after {
-  display: block;
-  width: 45%;
-  height: 100%;
-  content: "";
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  border-radius: inherit;
-  animation: tab-loading-sweep 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
 .works-stage {
   min-height: 420px;
 }
@@ -682,8 +731,12 @@ function getRatioClass(ratio: string) {
   padding: 0 8px;
 }
 
-.works-motion {
-  animation: works-in 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+.wf-slide-left {
+  animation: slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wf-slide-right {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-col {
@@ -699,7 +752,21 @@ function getRatioClass(ratio: string) {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 10px;
-  animation: work-card-in 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.works-loading {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
 }
 
 .work-media {
@@ -797,15 +864,29 @@ function getRatioClass(ratio: string) {
   color: var(--rose);
 }
 
-.works-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 8px 0;
-  animation: works-out 0.22s ease;
+.like-heart {
+  display: inline-block;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.loading-spinner,
+.like.liked .like-heart {
+  animation: heart-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes heart-pop {
+  0% {
+    transform: scale(1);
+  }
+
+  40% {
+    transform: scale(1.4);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 .mini-spinner {
   width: 22px;
   height: 22px;
@@ -813,42 +894,6 @@ function getRatioClass(ratio: string) {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-.loading-text {
-  margin: 8px 0 12px;
-  font-size: 12px;
-  color: var(--fg-muted);
-}
-
-.skeleton-waterfall {
-  display: flex;
-  width: 100%;
-  gap: 6px;
-}
-
-.skeleton-col {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.skeleton-card {
-  overflow: hidden;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.55), rgba(91, 159, 232, 0.08), rgba(255, 255, 255, 0.55));
-  background-size: 220% 100%;
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  animation: skeleton 1.2s ease-in-out infinite;
-}
-
-.skeleton-card.tall {
-  height: 220px;
-}
-
-.skeleton-card.short {
-  height: 150px;
 }
 
 .load-more-hint {
@@ -941,37 +986,27 @@ function getRatioClass(ratio: string) {
   margin-top: 2px;
 }
 
-@keyframes works-in {
+@keyframes slide-in-left {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateX(-30px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
-@keyframes works-out {
+@keyframes slide-in-right {
   from {
     opacity: 0;
+    transform: translateX(30px);
   }
 
   to {
     opacity: 1;
-  }
-}
-
-@keyframes work-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
   }
 }
 
@@ -981,34 +1016,4 @@ function getRatioClass(ratio: string) {
   }
 }
 
-@keyframes tab-loading {
-  0%,
-  85% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes tab-loading-sweep {
-  from {
-    transform: translateX(-100%);
-  }
-
-  to {
-    transform: translateX(230%);
-  }
-}
-
-@keyframes skeleton {
-  0% {
-    background-position: 120% 0;
-  }
-
-  100% {
-    background-position: -120% 0;
-  }
-}
 </style>

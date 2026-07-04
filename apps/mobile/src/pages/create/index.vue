@@ -20,9 +20,23 @@ const promptText = ref("");
 const promptImage = ref("");
 const isGenerating = ref(false);
 const modelDrawerOpen = ref(false);
+const ratioSheetOpen = ref(false);
+const gameplaySheetOpen = ref(false);
+const styleSheetOpen = ref(false);
+const previewSheetOpen = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
-const generatedSeeds = ref<string[]>([]);
+
+interface GenResult {
+  id: string;
+  failed: boolean;
+  seed: string;
+  error: string;
+}
+
+const generatedResults = ref<GenResult[]>([]);
+const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
+const previewData = ref<{ src: string; resolution: string; size: string; ratio: string } | null>(null);
 
 let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
@@ -36,9 +50,14 @@ const selectedRatio = computed(() => ratioOptions[selectedRatioIndex.value]);
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
 const totalCost = computed(() => selectedModel.value.cost * selectedCount.value);
 const visibleStyles = computed(() => createStyles.slice(0, 7));
+const allStyles = computed(() => createStyles.slice(0, -1));
+const inlineRatios = computed(() => ratioOptions);
 const moreStyleSelected = computed(() => {
   return !!selectedStyleName.value && createStyles.findIndex((style) => style.name === selectedStyleName.value) > 6;
 });
+const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
+const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
+const refundCredits = computed(() => failCount.value * selectedModel.value.cost);
 
 const generationStages = [
   "解析提示词，理解创作意图...",
@@ -47,6 +66,30 @@ const generationStages = [
   "精修细节，优化光影与色彩...",
   "高清渲染输出，即将完成..."
 ];
+
+const generationErrors = [
+  "模型服务暂时不可用",
+  "GPU资源不足，排队超时",
+  "内容安全检测未通过",
+  "生成超时，请重试",
+  "渲染异常，请重试"
+];
+
+function resolveResolution(label: string) {
+  const map: Record<string, [number, number]> = {
+    "1:1": [1024, 1024],
+    "3:4": [768, 1024],
+    "4:3": [1024, 768],
+    "16:9": [1024, 576],
+    "9:16": [576, 1024]
+  };
+  const [width, height] = map[label] || [1024, 1024];
+  return `${width}×${height}`;
+}
+
+function randomError() {
+  return generationErrors[Math.floor(Math.random() * generationErrors.length)];
+}
 
 onLoad((query) => {
   const gameplay = typeof query?.gameplay === "string" ? decodeURIComponent(query.gameplay) : "";
@@ -80,17 +123,42 @@ function showToast(title: string) {
 }
 
 function chooseGameplay() {
-  const nextIndex = selectedGameplay.value
-    ? (gameplayTemplates.findIndex((item) => item.name === selectedGameplayName.value) + 1) % gameplayTemplates.length
-    : 0;
-  selectedGameplayName.value = gameplayTemplates[nextIndex].name;
-  showToast(`已套用「${selectedGameplayName.value}」模板`);
+  gameplaySheetOpen.value = true;
+}
+
+function closeGameplaySheet() {
+  gameplaySheetOpen.value = false;
+}
+
+function selectGameplayTemplate(name: string) {
+  selectedGameplayName.value = name;
+  closeGameplaySheet();
+  showToast(`已套用「${name}」模板`);
+}
+
+function clearGameplayTemplate() {
+  selectedGameplayName.value = "";
+  closeGameplaySheet();
+  showToast("已取消玩法模板");
 }
 
 function clearGameplay(event?: Event) {
   event?.stopPropagation();
   selectedGameplayName.value = "";
   showToast("已取消玩法模板");
+}
+
+function openRatioSheet() {
+  ratioSheetOpen.value = true;
+}
+
+function closeRatioSheet() {
+  ratioSheetOpen.value = false;
+}
+
+function selectRatio(index: number) {
+  selectedRatioIndex.value = index;
+  closeRatioSheet();
 }
 
 function applySelectedModel(modelId: string) {
@@ -122,12 +190,16 @@ function selectStyle(name: string) {
   selectedStyleName.value = name;
 }
 
-function selectMoreStyle() {
-  const moreStyles = createStyles.slice(7, -1);
-  const currentIndex = moreStyles.findIndex((style) => style.name === selectedStyleName.value);
-  const nextStyle = moreStyles[(currentIndex + 1) % moreStyles.length];
-  selectedStyleName.value = nextStyle.name;
-  showToast(`已选择${nextStyle.name}`);
+function openStyleSheet() {
+  styleSheetOpen.value = true;
+}
+
+function closeStyleSheet() {
+  styleSheetOpen.value = false;
+}
+
+function selectStyleFromSheet(name: string) {
+  selectedStyleName.value = name;
 }
 
 function uploadPromptImage() {
@@ -138,6 +210,14 @@ function uploadPromptImage() {
 function removePromptImage(event?: Event) {
   event?.stopPropagation();
   promptImage.value = "";
+}
+
+function previewPromptImage() {
+  if (!promptImage.value) return;
+  uni.previewImage({
+    urls: [promptImage.value],
+    current: promptImage.value
+  });
 }
 
 function clearPrompt() {
@@ -162,7 +242,8 @@ function startGenerate() {
 
   isGenerating.value = true;
   progress.value = 0;
-  generatedSeeds.value = [];
+  generatedResults.value = [];
+  genMeta.value = null;
   stageText.value = generationStages[0];
   showToast(`创作任务已提交，正在生成 ${selectedCount.value} 张图片`);
 
@@ -176,9 +257,65 @@ function startGenerate() {
     if (progressTimer) clearInterval(progressTimer);
     progress.value = 100;
     stageText.value = "生成完成！";
-    generatedSeeds.value = Array.from({ length: selectedCount.value }, (_, index) => `gen-${Date.now()}-${index}`);
+
+    const count = selectedCount.value;
+    const stamp = Date.now();
+    const results: GenResult[] = Array.from({ length: count }, (_, index) => {
+      const failed = Math.random() < 0.15;
+      return {
+        id: `gen-${stamp}-${index}`,
+        failed,
+        seed: `gen${stamp}${index}`,
+        error: failed ? randomError() : ""
+      };
+    });
+    generatedResults.value = results;
+    genMeta.value = {
+      time: (Math.random() * 8 + 7).toFixed(1),
+      resolution: resolveResolution(selectedRatio.value.label),
+      size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`
+    };
     isGenerating.value = false;
+
+    const fails = results.filter((item) => item.failed).length;
+    const refund = fails * selectedModel.value.cost;
+    if (fails === 0) showToast(`生成成功！消耗${totalCost.value}积分`);
+    else if (fails === count) showToast(`全部生成失败，${totalCost.value}积分已退还`);
+    else showToast(`${count - fails}张成功，${fails}张失败，退还${refund}积分`);
   }, 3600);
+}
+
+function openPreview(item: GenResult) {
+  if (item.failed || !genMeta.value) return;
+  previewData.value = {
+    src: `https://picsum.photos/seed/${item.seed}/800/800`,
+    resolution: genMeta.value.resolution,
+    size: genMeta.value.size,
+    ratio: selectedRatio.value.label
+  };
+  previewSheetOpen.value = true;
+}
+
+function closePreview() {
+  previewSheetOpen.value = false;
+}
+
+function zoomPreview() {
+  if (!previewData.value) return;
+  uni.previewImage({ urls: [previewData.value.src], current: previewData.value.src });
+}
+
+function savePreview() {
+  showToast("图片已保存到相册");
+  closePreview();
+}
+
+function saveAllResults() {
+  showToast("全部图片已保存到相册和草稿箱");
+}
+
+function goPublish() {
+  uni.navigateTo({ url: "/pages/publish/index" });
 }
 </script>
 
@@ -245,9 +382,12 @@ function startGenerate() {
             <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
             <view class="prompt-action accent" @click="uploadPromptImage">上传图片</view>
             <view class="action-spacer" />
-            <view v-if="promptText" class="prompt-action neutral" @click="clearPrompt">清除</view>
+            <view v-if="promptText" class="prompt-action neutral has-icon" @click="clearPrompt">
+              <text class="prompt-action-icon">⌫</text>
+              <text>清除</text>
+            </view>
           </view>
-          <view v-if="promptImage" class="prompt-preview" @click="showToast('图片预览将在后续补齐')">
+          <view v-if="promptImage" class="prompt-preview" @click="previewPromptImage">
             <image class="prompt-preview-img" :src="promptImage" mode="aspectFill" />
             <view class="prompt-remove" @click="removePromptImage">×</view>
           </view>
@@ -267,7 +407,7 @@ function startGenerate() {
               <view class="style-overlay" />
               <text class="style-label">{{ style.name }}</text>
             </view>
-            <view class="style-card" :class="{ selected: moreStyleSelected }" @click="selectMoreStyle">
+            <view class="style-card" :class="{ selected: moreStyleSelected }" @click="openStyleSheet">
               <image class="style-img" :src="createStyles[7].image" mode="aspectFill" />
               <view class="style-overlay strong" />
               <text class="style-more">+8</text>
@@ -295,11 +435,11 @@ function startGenerate() {
         <view class="section">
           <view class="section-title with-more">
             <text>画面比例</text>
-            <text class="more-link" @click="showToast('全部尺寸将在后续二级界面迁移')">全部尺寸 ›</text>
+            <text class="more-link" @click="openRatioSheet">全部尺寸 ›</text>
           </view>
           <view class="ratio-grid">
             <view
-              v-for="(ratio, index) in ratioOptions"
+              v-for="(ratio, index) in inlineRatios"
               :key="ratio.label"
               class="ratio-card"
               :class="{ selected: selectedRatioIndex === index }"
@@ -329,7 +469,7 @@ function startGenerate() {
         <view class="section result-section">
           <view class="section-title">生成结果</view>
           <view v-if="isGenerating" class="generating-card">
-            <view class="progress-ring" :style="{ background: `conic-gradient(var(--accent) ${progress}%, var(--border) 0)` }">
+            <view class="progress-ring" :style="{ '--progress': progress }">
               <view class="progress-num">{{ progress }}%</view>
             </view>
             <text class="stage-text">{{ stageText }}</text>
@@ -340,9 +480,37 @@ function startGenerate() {
               消耗 {{ totalCost }} 积分 · 使用 {{ selectedModel.name }} · {{ selectedQuality.description }}
             </text>
           </view>
-          <view v-else-if="generatedSeeds.length" class="result-grid">
-            <view v-for="seed in generatedSeeds" :key="seed" class="result-img">
-              <image :src="`https://picsum.photos/seed/${seed}/400/400`" mode="aspectFill" />
+          <view v-else-if="generatedResults.length" class="result-wrap">
+            <view class="result-grid">
+              <template v-for="item in generatedResults" :key="item.id">
+                <view v-if="item.failed" class="result-cell failed">
+                  <text class="fail-icon">✕</text>
+                  <text class="fail-msg">{{ item.error }}</text>
+                </view>
+                <view v-else class="result-img" @click="openPreview(item)">
+                  <image :src="`https://picsum.photos/seed/${item.seed}/400/400`" mode="aspectFill" />
+                </view>
+              </template>
+            </view>
+            <view v-if="failCount > 0" class="refund-note">
+              <text v-if="successCount > 0">{{ failCount }}张生成失败，已退还 {{ refundCredits }} 积分</text>
+              <text v-else>全部失败，已退还 {{ totalCost }} 积分</text>
+            </view>
+            <view v-if="genMeta" class="result-meta">
+              <text class="meta-item">耗时 {{ genMeta.time }}s</text>
+              <text class="meta-item">{{ genMeta.resolution }}</text>
+              <text class="meta-item">{{ genMeta.size }}</text>
+              <text class="meta-item">{{ selectedModel.name }}</text>
+            </view>
+            <view class="result-actions">
+              <button class="result-action ghost" @click="goPublish">
+                <text class="result-action-icon">✈</text>
+                <text>发布作品</text>
+              </button>
+              <button class="result-action primary" @click="saveAllResults">
+                <text class="result-action-icon">⇩</text>
+                <text>全部保存</text>
+              </button>
             </view>
           </view>
           <view v-else class="empty-result">
@@ -354,22 +522,25 @@ function startGenerate() {
     </scroll-view>
 
     <view class="create-bottom">
-      <view class="cost-wrap">
-        <text class="bottom-cost">{{ totalCost }}</text>
-        <text class="bottom-unit">积分</text>
+      <view class="create-bottom-inner">
+        <view class="create-bottom-row">
+          <view class="cost-wrap">
+            <text class="bottom-cost">{{ totalCost }}</text>
+            <text class="bottom-unit">积分</text>
+          </view>
+          <button class="create-btn" @click="startGenerate">✦ 开始创作</button>
+        </view>
+        <text class="bottom-note">内容由AI生成，仅供参考</text>
       </view>
-      <button class="create-btn" @click="startGenerate">✦ 开始创作</button>
-      <text class="bottom-note">内容由AI生成，仅供参考</text>
     </view>
     <view class="model-overlay" :class="{ show: modelDrawerOpen }" @click="closeModelDrawer" />
     <view class="model-sheet" :class="{ show: modelDrawerOpen }">
       <view class="sheet-handle" />
       <view class="sheet-title-row">
         <view>
-          <view class="sheet-title">选择模型</view>
+          <view class="sheet-title">切换模型</view>
           <view class="sheet-count">共 {{ createModels.length }} 款模型可选</view>
         </view>
-        <view class="sheet-close" @click="closeModelDrawer">×</view>
       </view>
       <scroll-view class="model-drawer-scroll" scroll-y>
         <view class="model-drawer-list">
@@ -402,6 +573,109 @@ function startGenerate() {
         </view>
       </scroll-view>
     </view>
+
+    <view class="model-overlay" :class="{ show: gameplaySheetOpen }" @click="closeGameplaySheet" />
+    <view class="model-sheet" :class="{ show: gameplaySheetOpen }">
+      <view class="sheet-handle" />
+      <view class="sheet-title-row">
+        <view class="sheet-title">选择玩法模板</view>
+      </view>
+      <scroll-view class="gameplay-drawer-scroll" scroll-y>
+        <view class="gameplay-drawer-grid">
+          <view class="gameplay-clear-card" @click="clearGameplayTemplate">
+            <text class="gameplay-clear-icon">×</text>
+            <text class="gameplay-clear-label">不使用</text>
+          </view>
+          <view
+            v-for="template in gameplayTemplates"
+            :key="template.name"
+            class="gameplay-drawer-card"
+            :class="{ selected: selectedGameplayName === template.name }"
+            @click="selectGameplayTemplate(template.name)"
+          >
+            <image class="gameplay-drawer-img" :src="template.image" mode="aspectFill" />
+            <view class="gameplay-drawer-shade" />
+            <view class="gameplay-drawer-info">
+              <text class="gameplay-drawer-name">{{ template.name }}</text>
+              <text class="gameplay-drawer-uses">♨ {{ template.uses }}</text>
+            </view>
+            <view v-if="selectedGameplayName === template.name" class="gameplay-drawer-check">✓</view>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view class="model-overlay" :class="{ show: ratioSheetOpen }" @click="closeRatioSheet" />
+    <view class="model-sheet" :class="{ show: ratioSheetOpen }">
+      <view class="sheet-handle" />
+      <view class="sheet-title-row">
+        <view class="sheet-title">选择尺寸</view>
+        <view class="sheet-close" @click="closeRatioSheet">×</view>
+      </view>
+      <view class="ratio-sheet-grid">
+        <view
+          v-for="(ratio, index) in ratioOptions"
+          :key="ratio.label"
+          class="ratio-card"
+          :class="{ selected: selectedRatioIndex === index }"
+          @click="selectRatio(index)"
+        >
+          <view class="ratio-shape" :style="ratioShapeStyle(ratio.width, ratio.height)" />
+          <text class="ratio-name">{{ ratio.label }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="model-overlay" :class="{ show: styleSheetOpen }" @click="closeStyleSheet" />
+    <view class="model-sheet" :class="{ show: styleSheetOpen }">
+      <view class="sheet-handle" />
+      <view class="sheet-title-row">
+        <view class="style-sheet-head">
+          <text class="sheet-title">选择风格</text>
+          <text class="sheet-count">共 {{ allStyles.length }} 种风格可选</text>
+        </view>
+      </view>
+      <scroll-view class="style-sheet-scroll" scroll-y>
+        <view class="style-sheet-grid">
+          <view
+            v-for="style in allStyles"
+            :key="style.name"
+            class="style-sheet-card"
+            :class="{ selected: selectedStyleName === style.name }"
+            @click="selectStyleFromSheet(style.name)"
+          >
+            <image class="style-img" :src="style.image" mode="aspectFill" />
+            <view class="style-overlay" />
+            <text class="style-label">{{ style.name }}</text>
+          </view>
+        </view>
+      </scroll-view>
+      <button class="style-confirm-btn" @click="closeStyleSheet">确认选择</button>
+    </view>
+
+    <view class="model-overlay" :class="{ show: previewSheetOpen }" @click="closePreview" />
+    <view class="model-sheet preview-sheet" :class="{ show: previewSheetOpen }">
+      <view class="sheet-handle" />
+      <view class="preview-head">
+        <text class="preview-title">图片预览</text>
+        <view class="preview-head-actions">
+          <button class="preview-ghost-btn" @click="savePreview">
+            <text class="preview-btn-icon">⇩</text>
+            <text>保存</text>
+          </button>
+          <button class="preview-ghost-btn icon" @click="closePreview">×</button>
+        </view>
+      </view>
+      <view v-if="previewData" class="preview-img-wrap" @click="zoomPreview">
+        <image class="preview-img" :src="previewData.src" mode="widthFix" />
+      </view>
+      <view v-if="previewData" class="preview-info">
+        <text class="meta-item">{{ previewData.resolution }}</text>
+        <text class="meta-item">{{ previewData.size }}</text>
+        <text class="meta-item">{{ selectedModel.name }}</text>
+        <text class="meta-item">{{ previewData.ratio }}</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -412,7 +686,7 @@ function startGenerate() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .create-scroll {
@@ -469,7 +743,7 @@ function startGenerate() {
   align-items: center;
   padding: 10px;
   background: var(--bg-card);
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--card-border);
   border-radius: 10px;
 }
 
@@ -623,6 +897,12 @@ function startGenerate() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.prompt-box:focus-within .prompt-input {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .prompt-count {
@@ -660,6 +940,17 @@ function startGenerate() {
 .prompt-action.neutral {
   color: var(--fg-muted);
   background: var(--bg-soft);
+}
+
+.prompt-action.has-icon {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.prompt-action-icon {
+  font-size: 14px;
+  line-height: 1;
 }
 
 .action-spacer {
@@ -761,7 +1052,7 @@ function startGenerate() {
 }
 
 .ratio-grid {
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .option-card,
@@ -852,6 +1143,12 @@ function startGenerate() {
   border-radius: 14px;
 }
 
+@property --progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
 .progress-ring {
   display: flex;
   align-items: center;
@@ -860,14 +1157,15 @@ function startGenerate() {
   height: 64px;
   background: conic-gradient(var(--accent) calc(var(--progress, 0) * 1%), var(--border) 0);
   border-radius: 50%;
+  transition: --progress 0.4s ease;
 }
 
 .progress-num {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   font-size: 14px;
   font-weight: 700;
   color: var(--accent);
@@ -902,7 +1200,7 @@ function startGenerate() {
 
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -917,21 +1215,116 @@ function startGenerate() {
   height: 100%;
 }
 
+.result-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  padding: 0 8px;
+  text-align: center;
+  background: var(--bg-soft);
+  border-radius: 7px;
+}
+
+.result-cell.failed {
+  border: 1.5px dashed var(--rose);
+}
+
+.fail-icon {
+  font-size: 26px;
+  color: var(--rose);
+}
+
+.fail-msg {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--rose);
+}
+
+.refund-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mint);
+  background: var(--mint-soft);
+  border: 1px solid rgba(111, 212, 176, 0.3);
+  border-radius: 10px;
+}
+
+.result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+}
+
+.result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.result-action {
+  display: inline-flex;
+  flex: 1;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+}
+
+.result-action::after {
+  border: none;
+}
+
+.result-action-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.result-action.ghost {
+  color: var(--fg-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+}
+
+.result-action.primary {
+  color: #fff;
+  background: var(--accent);
+}
+
 .create-bottom {
   position: absolute;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 5;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px;
-  align-items: center;
   padding: 12px 16px 14px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
   backdrop-filter: blur(20px) saturate(180%);
+}
+
+.create-bottom-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.create-bottom-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .cost-wrap {
@@ -953,21 +1346,17 @@ function startGenerate() {
 }
 
 .create-btn {
+  flex: 1;
   height: 44px;
-  border: none;
-  border-radius: 12px;
-}
-
-.create-btn {
   font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
+  border: none;
+  border-radius: 14px;
 }
 
 .bottom-note {
-  grid-column: 1 / -1;
-  margin-top: -6px;
   font-size: 11px;
   color: var(--fg-muted);
   text-align: center;
@@ -1167,5 +1556,216 @@ function startGenerate() {
   font-size: 22px;
   font-weight: 700;
   color: var(--accent);
+}
+
+.gameplay-drawer-scroll {
+  max-height: calc(76vh - 82px);
+}
+
+.gameplay-drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.gameplay-clear-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  background: var(--bg-soft);
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+}
+
+.gameplay-clear-icon {
+  font-size: 22px;
+  color: var(--fg-muted);
+}
+
+.gameplay-clear-label {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.gameplay-drawer-card {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+}
+
+.gameplay-drawer-card.selected {
+  border-color: var(--accent);
+}
+
+.gameplay-drawer-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.gameplay-drawer-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, transparent 60%);
+}
+
+.gameplay-drawer-info {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+.gameplay-drawer-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.gameplay-drawer-uses {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.gameplay-drawer-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.ratio-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.style-sheet-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.style-sheet-scroll {
+  max-height: calc(76vh - 140px);
+}
+
+.style-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.style-sheet-card {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid transparent;
+  border-radius: 12px;
+}
+
+.style-sheet-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(91, 159, 232, 0.28);
+}
+
+.style-confirm-btn {
+  width: 100%;
+  height: 46px;
+  margin-top: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
+  border: none;
+  border-radius: 12px;
+}
+
+.style-confirm-btn::after {
+  border: none;
+}
+
+.preview-sheet {
+  max-height: 92vh;
+}
+
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.preview-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.preview-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.preview-ghost-btn {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  font-size: 14px;
+  color: var(--fg-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+}
+
+.preview-ghost-btn::after {
+  border: none;
+}
+
+.preview-btn-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.preview-ghost-btn.icon {
+  padding: 6px 10px;
+  font-size: 18px;
+}
+
+.preview-img-wrap {
+  overflow: hidden;
+  margin-bottom: 12px;
+  cursor: pointer;
+  background: var(--bg-base);
+  border-radius: 16px;
+}
+
+.preview-img {
+  display: block;
+  width: 100%;
+}
+
+.preview-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--fg-muted);
 }
 </style>

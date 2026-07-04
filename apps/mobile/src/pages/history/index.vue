@@ -61,7 +61,7 @@ function goHome() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .page-scroll {

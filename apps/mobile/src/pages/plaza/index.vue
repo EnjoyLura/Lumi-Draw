@@ -1,7 +1,52 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
+
+const filterOpen = ref(false);
+const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
+const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
+const filterQualities = ["全部", "标清", "高清", "超清"];
+const filterSelection = reactive({
+  category: new Set<string>(),
+  model: new Set<string>(),
+  size: new Set<string>(),
+  quality: new Set<string>()
+});
+type FilterGroup = keyof typeof filterSelection;
+
+function isFilterActive(group: FilterGroup, value: string) {
+  return filterSelection[group].has(value);
+}
+
+function toggleFilter(group: FilterGroup, value: string) {
+  const set = filterSelection[group];
+  if (set.has(value)) {
+    set.delete(value);
+  } else {
+    set.add(value);
+  }
+}
+
+function resetPlazaFilter() {
+  filterSelection.category.clear();
+  filterSelection.model.clear();
+  filterSelection.size.clear();
+  filterSelection.quality.clear();
+  uni.showToast({ title: "已重置筛选", icon: "none" });
+}
+
+function applyPlazaFilter() {
+  filterOpen.value = false;
+  uni.showToast({ title: "筛选已应用", icon: "none" });
+}
+
+const statusBarHeight = ref(0);
+try {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
+} catch {
+  statusBarHeight.value = 0;
+}
 
 const activeTab = ref<PlazaTab>("recommend");
 const renderedTab = ref<PlazaTab>("recommend");
@@ -10,10 +55,12 @@ const lastCategoryIndex = ref(0);
 const likedWorkIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
+const isLoadingMore = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
@@ -41,6 +88,7 @@ const filteredWorks = computed(() => {
 
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
 
 function showTodo(label: string) {
@@ -96,7 +144,7 @@ function queueRefresh(after?: () => void) {
     after?.();
     renderKey.value += 1;
     isLoading.value = false;
-  }, 360);
+  }, 300);
 }
 
 function filterByCategory(works: HomeWork[], category: string) {
@@ -138,24 +186,35 @@ function toggleLike(event: Event, workId: number) {
 }
 
 function openFilter() {
-  uni.showToast({ title: "筛选抽屉将在后续任务迁移", icon: "none" });
+  filterOpen.value = true;
+}
+
+function closeFilter() {
+  filterOpen.value = false;
 }
 
 function handleReachBottom() {
-  if (!hasMoreWorks.value || isLoading.value) return;
-  isLoading.value = true;
-  if (loadingTimer) clearTimeout(loadingTimer);
-  loadingTimer = setTimeout(() => {
+  if (isLoading.value || isLoadingMore.value || !hasMoreWorks.value) return;
+  isLoadingMore.value = true;
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  loadMoreTimer = setTimeout(() => {
     visibleWorkCount.value = Math.min(visibleWorkCount.value + 4, filteredWorks.value.length);
-    isLoading.value = false;
-  }, 520);
+    isLoadingMore.value = false;
+  }, 500);
 }
 </script>
 
 <template>
   <view class="plaza-page">
-    <scroll-view class="plaza-scroll" scroll-y @scrolltolower="handleReachBottom">
+    <scroll-view class="plaza-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="plaza-content">
+        <view class="nav-header">
+          <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
+          <view class="nav-row">
+            <text class="nav-title">广场</text>
+          </view>
+        </view>
+
         <view class="top-tabs">
           <view class="menu-btn" @click="showTodo('侧边菜单')">☰</view>
           <view class="tab-group">
@@ -245,9 +304,9 @@ function handleReachBottom() {
           <view class="empty-sub">{{ renderedTab === "favorite" ? "点击作品上的收藏按钮，收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
         </view>
 
-        <view v-if="filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoading }">
-          <view v-if="isLoading" class="spinner mini" />
-          <text>{{ hasMoreWorks ? "继续上滑刷新更多作品" : "已经到底啦" }}</text>
+        <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view v-if="isLoadingMore" class="spinner mini" />
+          <text>{{ isLoadingMore ? "正在加载更多作品" : hasMoreWorks ? "继续往下滑获取更多作品" : "我也是有底线的~" }}</text>
         </view>
       </view>
     </scroll-view>
@@ -274,6 +333,69 @@ function handleReachBottom() {
         <text class="tab-label">我的</text>
       </view>
     </view>
+
+    <view class="sheet-overlay" :class="{ show: filterOpen }" @click="closeFilter" />
+    <view class="filter-sheet" :class="{ show: filterOpen }">
+      <view class="sheet-handle" />
+      <view class="sheet-body">
+        <view class="filter-title">分类</view>
+        <view class="chip-wrap">
+          <view
+            v-for="cat in plazaCategories"
+            :key="`fc-${cat}`"
+            class="chip chip-outline"
+            :class="{ active: isFilterActive('category', cat) }"
+            @click="toggleFilter('category', cat)"
+          >
+            {{ cat }}
+          </view>
+        </view>
+
+        <view class="filter-title">模型</view>
+        <view class="chip-wrap">
+          <view
+            v-for="model in filterModels"
+            :key="`fm-${model}`"
+            class="chip chip-outline"
+            :class="{ active: isFilterActive('model', model) }"
+            @click="toggleFilter('model', model)"
+          >
+            {{ model }}
+          </view>
+        </view>
+
+        <view class="filter-title">尺寸</view>
+        <view class="chip-wrap">
+          <view
+            v-for="size in filterSizes"
+            :key="`fz-${size}`"
+            class="chip chip-outline"
+            :class="{ active: isFilterActive('size', size) }"
+            @click="toggleFilter('size', size)"
+          >
+            {{ size }}
+          </view>
+        </view>
+
+        <view class="filter-title">精度</view>
+        <view class="chip-wrap">
+          <view
+            v-for="quality in filterQualities"
+            :key="`fq-${quality}`"
+            class="chip chip-outline"
+            :class="{ active: isFilterActive('quality', quality) }"
+            @click="toggleFilter('quality', quality)"
+          >
+            {{ quality }}
+          </view>
+        </view>
+
+        <view class="filter-actions">
+          <view class="btn btn-secondary" @click="resetPlazaFilter">重置</view>
+          <view class="btn btn-gradient" @click="applyPlazaFilter">确认</view>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -284,7 +406,7 @@ function handleReachBottom() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .plaza-scroll {
@@ -307,6 +429,26 @@ function handleReachBottom() {
   padding-bottom: 12px;
 }
 
+.nav-header {
+  position: relative;
+  z-index: 1;
+  background: var(--bg-base);
+}
+
+.nav-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+}
+
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
 .top-tabs {
   display: flex;
   gap: 10px;
@@ -323,6 +465,10 @@ function handleReachBottom() {
   height: 30px;
   font-size: 22px;
   color: var(--fg-primary);
+}
+
+.search-btn {
+  font-size: 26px;
 }
 
 .tab-group {
@@ -354,7 +500,7 @@ function handleReachBottom() {
 .tab-indicator {
   position: absolute;
   bottom: 0;
-  left: calc(50% - 112px);
+  left: calc(50% - 96px);
   width: 24px;
   height: 3px;
   background: var(--tab-active);
@@ -402,7 +548,7 @@ function handleReachBottom() {
 
 .category-chip.active {
   font-weight: 600;
-  color: var(--accent);
+  color: var(--tab-active);
 }
 
 .filter-btn {
@@ -425,11 +571,11 @@ function handleReachBottom() {
 }
 
 .waterfall.slide-left {
-  animation: wf-left 0.42s ease;
+  animation: wf-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall.slide-right {
-  animation: wf-right 0.42s ease;
+  animation: wf-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-column {
@@ -445,7 +591,6 @@ function handleReachBottom() {
   border: 1px solid var(--card-border);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
-  animation: work-in 0.42s ease both;
 }
 
 .work-img {
@@ -662,7 +807,7 @@ function handleReachBottom() {
 @keyframes wf-left {
   from {
     opacity: 0;
-    transform: translateX(18px);
+    transform: translateX(-30px);
   }
 
   to {
@@ -674,7 +819,7 @@ function handleReachBottom() {
 @keyframes wf-right {
   from {
     opacity: 0;
-    transform: translateX(-18px);
+    transform: translateX(30px);
   }
 
   to {
@@ -683,21 +828,134 @@ function handleReachBottom() {
   }
 }
 
-@keyframes work-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.sheet-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s;
+}
+
+.sheet-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.filter-sheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 200;
+  max-height: 80%;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0.4s;
+}
+
+.filter-sheet.show {
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 10px auto 4px;
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+.sheet-body {
+  padding: 8px 20px 24px;
+}
+
+.filter-title {
+  margin-bottom: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.chip {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 999px;
+  transition: all 0.2s ease;
+}
+
+.chip-outline {
+  color: var(--fg-secondary);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+}
+
+.chip-outline.active {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+:root[data-theme="dark"] .chip-outline.active {
+  color: var(--tab-active-fg);
+  background: var(--tab-active);
+  border-color: var(--tab-active);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: transform 0.2s ease;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-secondary {
+  color: var(--fg-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-gradient {
+  color: #fff;
+  background: var(--gradient-dream);
 }
 </style>

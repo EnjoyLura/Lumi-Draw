@@ -1,18 +1,24 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import type { HomeWork } from "../home/homeData";
-import { galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
+import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
+
+const PAGE_SIZE = 10;
 
 const activeTab = ref<GalleryTab>("all");
 const renderedTab = ref<GalleryTab>("all");
 const works = ref<HomeWork[]>(galleryWorks);
+const genTasks = ref(galleryGenTasks);
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(false);
+const isLoadingMore = ref(false);
+const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 
 const filteredWorks = computed(() => {
   if (renderedTab.value === "published") return works.value.filter((work) => work.published);
@@ -20,12 +26,12 @@ const filteredWorks = computed(() => {
   return works.value;
 });
 
-const leftColumnWorks = computed(() => filteredWorks.value.filter((_, index) => index % 2 === 0));
-const rightColumnWorks = computed(() => filteredWorks.value.filter((_, index) => index % 2 === 1));
+const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleCount.value));
+const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
+const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
+const hasMore = computed(() => visibleCount.value < filteredWorks.value.length);
 const selectedCount = computed(() => selectedIds.value.size);
-const allCurrentSelected = computed(() => filteredWorks.value.length > 0 && selectedCount.value === filteredWorks.value.length);
-const publishedCount = computed(() => works.value.filter((work) => work.published).length);
-const draftCount = computed(() => works.value.filter((work) => !work.published).length);
+const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
@@ -34,6 +40,7 @@ const emptyInfo = computed(() => {
 
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
 
 function showTodo(label: string) {
@@ -60,6 +67,10 @@ function goSearch() {
   uni.navigateTo({ url: "/pages/search/index" });
 }
 
+function goEditProfile() {
+  uni.navigateTo({ url: "/pages/edit-profile/index" });
+}
+
 function goPublish() {
   uni.navigateTo({ url: "/pages/publish/index" });
 }
@@ -77,9 +88,20 @@ function switchGalleryTab(tab: GalleryTab, index: number) {
   if (loadingTimer) clearTimeout(loadingTimer);
   loadingTimer = setTimeout(() => {
     renderedTab.value = tab;
+    visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;
     isLoading.value = false;
   }, 320);
+}
+
+function handleReachBottom() {
+  if (isLoading.value || isLoadingMore.value || !hasMore.value) return;
+  isLoadingMore.value = true;
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  loadMoreTimer = setTimeout(() => {
+    visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, filteredWorks.value.length);
+    isLoadingMore.value = false;
+  }, 500);
 }
 
 function toggleManage() {
@@ -87,9 +109,7 @@ function toggleManage() {
   selectedIds.value = new Set();
 }
 
-function toggleSelect(event: Event, workId: number) {
-  if (!manageMode.value) return;
-  event.stopPropagation();
+function toggleWorkSelection(workId: number) {
   const next = new Set(selectedIds.value);
   if (next.has(workId)) {
     next.delete(workId);
@@ -99,9 +119,15 @@ function toggleSelect(event: Event, workId: number) {
   selectedIds.value = next;
 }
 
+function toggleSelect(event: Event, workId: number) {
+  if (!manageMode.value) return;
+  event.stopPropagation();
+  toggleWorkSelection(workId);
+}
+
 function selectAll() {
-  if (!filteredWorks.value.length) return;
-  selectedIds.value = allCurrentSelected.value ? new Set() : new Set(filteredWorks.value.map((work) => work.id));
+  if (!displayedWorks.value.length) return;
+  selectedIds.value = allCurrentSelected.value ? new Set() : new Set(displayedWorks.value.map((work) => work.id));
 }
 
 function deleteSelected() {
@@ -129,7 +155,10 @@ function getAspectRatio(ratio: string) {
 }
 
 function openWork(work: HomeWork) {
-  if (manageMode.value) return;
+  if (manageMode.value) {
+    toggleWorkSelection(work.id);
+    return;
+  }
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
@@ -137,15 +166,11 @@ function openWork(work: HomeWork) {
 
 <template>
   <view class="gallery-page">
-    <scroll-view class="gallery-scroll" scroll-y>
+    <scroll-view class="gallery-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="header-bg">
         <view class="header-bar">
           <view class="icon-btn" @click="showTodo('侧边菜单')">☰</view>
           <view class="spacer" />
-          <view class="bg-btn" @click="showTodo('设置背景')">
-            <text>◉</text>
-            <text>设置背景</text>
-          </view>
           <view class="icon-btn search" @click="goSearch">⌕</view>
         </view>
 
@@ -153,17 +178,18 @@ function openWork(work: HomeWork) {
           <view class="profile-row">
             <view class="avatar-wrap">
               <view class="profile-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
-              <view class="avatar-plus" @click="showTodo('更换头像')">+</view>
             </view>
             <view class="profile-main">
               <view class="profile-name">{{ galleryUser.name }}</view>
-              <view class="profile-id">ID: {{ galleryUser.userNo }}</view>
-              <view class="gender-tag">♀</view>
+              <view class="id-row">
+                <text class="profile-id">ID: {{ galleryUser.userNo }}</text>
+                <view class="gender-tag">♀</view>
+              </view>
+              <view class="role-tag">✦ {{ galleryUser.role }}</view>
             </view>
           </view>
 
           <view class="bio">{{ galleryUser.bio }}</view>
-          <view class="role-tag">✦ {{ galleryUser.role }}</view>
 
           <view class="stats-row">
             <view class="stats">
@@ -180,7 +206,7 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">获赞</text>
               </view>
             </view>
-            <button class="edit-btn" @click="showTodo('编辑资料')">编辑资料</button>
+            <button class="edit-btn" @click="goEditProfile">编辑资料</button>
           </view>
         </view>
       </view>
@@ -203,13 +229,32 @@ function openWork(work: HomeWork) {
         </button>
       </view>
 
-      <view class="summary-row">
-        <text>全部 {{ works.length }}</text>
-        <text>已发布 {{ publishedCount }}</text>
-        <text>草稿 {{ draftCount }}</text>
-      </view>
-
       <view class="gallery-content">
+        <view v-if="genTasks.length" class="gen-cards">
+          <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
+            <view class="shimmer-bg" />
+            <view class="gen-inner">
+              <view class="gen-row1">
+                <view class="gen-info">
+                  <view class="gen-prompt">{{ task.prompt }}</view>
+                  <view class="gen-meta">{{ task.model }} · {{ task.count }}张 · {{ task.ratio }} · {{ task.quality }}</view>
+                </view>
+                <view class="gen-status">
+                  <text class="gen-percent">{{ task.percent }}%</text>
+                  <text class="gen-elapsed">{{ task.elapsed }}s</text>
+                </view>
+              </view>
+              <view class="gen-row2">
+                <view class="gen-track">
+                  <view class="gen-fill" :style="{ width: `${task.percent}%` }" />
+                </view>
+                <view class="gen-spinner" />
+                <text class="gen-stage">{{ task.stage }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
         <view v-if="isLoading" :key="`loading-${activeTab}`" class="loading-card">
           <view class="spinner" />
         </view>
@@ -258,6 +303,11 @@ function openWork(work: HomeWork) {
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
           <button v-if="renderedTab === 'all'" class="empty-btn" @click="goCreate">✦ 去创作</button>
         </view>
+
+        <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view v-if="isLoadingMore" class="spinner mini" />
+          <text>{{ isLoadingMore ? "正在加载更多作品" : hasMore ? "继续往下滑获取更多作品" : "我也是有底线的~" }}</text>
+        </view>
       </view>
 
       <view :class="['manage-bar', { show: manageMode }]">
@@ -301,7 +351,7 @@ function openWork(work: HomeWork) {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .gallery-scroll {
@@ -342,14 +392,13 @@ function openWork(work: HomeWork) {
 }
 
 .icon-btn.search {
-  font-size: 20px;
+  font-size: 25px;
 }
 
 .spacer {
   flex: 1;
 }
 
-.bg-btn,
 .manage-btn,
 .edit-btn,
 .select-all-btn,
@@ -393,22 +442,6 @@ function openWork(work: HomeWork) {
   border-radius: 50%;
 }
 
-.avatar-plus {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  font-size: 16px;
-  color: #fff;
-  background: var(--accent);
-  border: 2px solid var(--bg-base);
-  border-radius: 50%;
-}
-
 .profile-main {
   flex: 1;
   min-width: 0;
@@ -419,8 +452,14 @@ function openWork(work: HomeWork) {
   font-weight: 700;
 }
 
-.profile-id {
+.id-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   margin-top: 3px;
+}
+
+.profile-id {
   font-size: 13px;
   color: var(--fg-muted);
 }
@@ -430,7 +469,6 @@ function openWork(work: HomeWork) {
   align-items: center;
   justify-content: center;
   padding: 2px 8px;
-  margin-top: 2px;
   font-size: 12px;
   color: var(--rose);
   background: var(--rose-soft);
@@ -446,7 +484,7 @@ function openWork(work: HomeWork) {
 
 .role-tag {
   display: inline-flex;
-  margin: 8px 16px 0;
+  margin-top: 6px;
   padding: 3px 9px;
   font-size: 12px;
   color: #8470c7;
@@ -555,16 +593,116 @@ function openWork(work: HomeWork) {
   background: var(--accent-soft);
 }
 
-.summary-row {
+.gallery-content {
+  padding: 0 8px 12px;
+}
+
+.gen-cards {
+  margin-bottom: 6px;
+}
+
+.gen-task-card {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent-soft);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(91, 159, 232, 0.1);
+}
+
+.shimmer-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 25%, rgba(91, 159, 232, 0.06) 50%, transparent 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s ease infinite;
+}
+
+.gen-inner {
+  position: relative;
+  padding: 14px;
+}
+
+.gen-row1 {
   display: flex;
-  gap: 8px;
-  padding: 0 16px 10px;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.gen-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gen-prompt {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gen-meta {
+  margin-top: 3px;
   font-size: 11px;
   color: var(--fg-muted);
 }
 
-.gallery-content {
-  padding: 0 8px 12px;
+.gen-status {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.gen-percent {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.gen-elapsed {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.gen-row2 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.gen-track {
+  flex: 1;
+  height: 4px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.gen-fill {
+  height: 100%;
+  background: var(--gradient-dream);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.gen-spinner {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.gen-stage {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--accent);
 }
 
 .waterfall {
@@ -718,6 +856,27 @@ function openWork(work: HomeWork) {
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+.spinner.mini {
+  width: 16px;
+  height: 16px;
+  border-width: 1.5px;
+}
+
+.load-more-hint {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.load-more-hint.is-loading {
+  color: var(--accent);
 }
 
 .empty-state {

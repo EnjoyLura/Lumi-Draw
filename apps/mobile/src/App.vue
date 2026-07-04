@@ -30,6 +30,7 @@ onLaunch(() => {
   --accent-soft: rgba(91, 159, 232, 0.12);
   --accent-glow: rgba(91, 159, 232, 0.28);
   --tab-active: #5b9fe8;
+  --tab-active-fg: #ffffff;
   --mint: #6fd4b0;
   --mint-soft: rgba(111, 212, 176, 0.16);
   --peach: #ffb59a;
@@ -43,6 +44,77 @@ onLaunch(() => {
   --rose-soft: rgba(255, 168, 184, 0.22);
   --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
   --gradient-aurora: linear-gradient(135deg, #a3e4cc 0%, #5b9fe8 52%, #b8a5e3 100%);
+  --page-bg: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+}
+
+uni-page-wrapper,
+uni-page,
+uni-page-body {
+  overflow-x: hidden;
+}
+
+.page-anim-sub-in {
+  animation: pageSubIn 0.36s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-anim-back {
+  animation: pageBack 0.28s ease;
+}
+
+.page-anim-tab-right {
+  animation: tabInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.page-anim-tab-left {
+  animation: tabInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pageSubIn {
+  from {
+    opacity: 0.4;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pageBack {
+  from {
+    opacity: 0.6;
+    transform: translateX(-6%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tabInRight {
+  from {
+    opacity: 0;
+    transform: translateX(36px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes tabInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 :root[data-theme="dark"] {
@@ -61,6 +133,8 @@ onLaunch(() => {
   --accent-deep: #3b7fc8;
   --accent-soft: rgba(91, 159, 232, 0.2);
   --accent-glow: rgba(91, 159, 232, 0.28);
+  --tab-active: #fafafa;
+  --tab-active-fg: #101010;
   --mint: #7bd4b5;
   --mint-soft: rgba(123, 212, 181, 0.22);
   --peach: #ffb59a;
@@ -71,5 +145,6 @@ onLaunch(() => {
   --lemon-soft: rgba(255, 224, 138, 0.26);
   --rose: #ffa8b8;
   --rose-soft: rgba(255, 168, 184, 0.26);
+  --page-bg: var(--bg-base);
 }
 </style>

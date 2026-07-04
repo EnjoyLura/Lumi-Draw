@@ -35,7 +35,7 @@ function applyGameplay(gameplay: Gameplay) {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .page-scroll {
@@ -63,8 +63,8 @@ function applyGameplay(gameplay: Gameplay) {
   position: relative;
   overflow: hidden;
   cursor: pointer;
-  background: #fff;
-  border: 1px solid rgba(91, 159, 232, 0.14);
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
   border-radius: 7px;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }

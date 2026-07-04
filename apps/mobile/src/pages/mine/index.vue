@@ -193,7 +193,7 @@ function login() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .mine-scroll {
@@ -324,16 +324,22 @@ function login() {
 }
 
 .list-row {
+  position: relative;
   display: flex;
   gap: 10px;
   align-items: center;
   min-height: 52px;
   padding: 0 14px;
-  border-bottom: 0.5px solid var(--border);
 }
 
-.list-row:last-child {
-  border-bottom: none;
+.list-row + .list-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  height: 0.5px;
+  background: var(--border);
 }
 
 .row-icon {

@@ -5,20 +5,13 @@ import type { HomeWork } from "../home/homeData";
 import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userProfileData";
 
 const userId = ref(1);
-const searchOpen = ref(false);
-const searchText = ref("");
 const confirmOpen = ref(false);
 
 const user = computed(() => getProfileUser(userId.value));
 const following = computed(() => isFollowing(userId.value));
 const allWorks = computed(() => getUserWorks(userId.value));
-const filteredWorks = computed(() => {
-  const query = searchText.value.trim().toLowerCase();
-  if (!query) return allWorks.value;
-  return allWorks.value.filter((work) => (work.title || work.prompt || "").toLowerCase().includes(query));
-});
-const leftColumn = computed(() => filteredWorks.value.filter((_, index) => index % 2 === 0));
-const rightColumn = computed(() => filteredWorks.value.filter((_, index) => index % 2 === 1));
+const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
+const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
 const genderIcon = computed(() => (user.value.gender === "female" ? "♀" : "♂"));
 
 onLoad((query) => {
@@ -38,11 +31,6 @@ function getAspectRatio(ratio: string) {
 
 function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
-}
-
-function toggleSearch() {
-  searchOpen.value = !searchOpen.value;
-  if (!searchOpen.value) searchText.value = "";
 }
 
 function toggleFollow() {
@@ -68,8 +56,11 @@ function confirmUnfollow() {
         <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
         <view class="header-main">
           <view class="user-name">{{ user.name }}</view>
-          <view class="user-id">ID: LUMI{{ user.id }}</view>
-          <view class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
+          <view class="id-row">
+            <text class="user-id">ID: LUMI{{ user.id }}</text>
+            <view class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
+          </view>
+          <view class="role-tag">✦ {{ user.role }}</view>
         </view>
       </view>
 
@@ -95,16 +86,10 @@ function confirmUnfollow() {
 
       <view class="works-head">
         <text class="works-title">TA的作品 ({{ allWorks.length }})</text>
-        <view class="search-toggle" @click="toggleSearch">⌕</view>
-      </view>
-
-      <view v-if="searchOpen" class="search-bar">
-        <text class="search-icon">⌕</text>
-        <input class="search-input" v-model="searchText" placeholder="搜索TA的作品..." />
       </view>
 
       <view class="works-wrap">
-        <view v-if="filteredWorks.length" class="waterfall">
+        <view v-if="allWorks.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
               <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
@@ -130,8 +115,8 @@ function confirmUnfollow() {
             </view>
           </view>
         </view>
-        <view v-else class="works-empty">未找到相关作品</view>
-        <view v-if="filteredWorks.length" class="load-more-hint">继续往下滑获取更多作品</view>
+        <view v-else class="works-empty">暂无作品</view>
+        <view v-if="allWorks.length" class="load-more-hint">继续往下滑获取更多作品</view>
       </view>
     </scroll-view>
 
@@ -156,7 +141,7 @@ function confirmUnfollow() {
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+  background: var(--page-bg);
 }
 
 .page-scroll {
@@ -194,8 +179,14 @@ function confirmUnfollow() {
   color: var(--fg-primary);
 }
 
-.user-id {
+.id-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
   margin-top: 3px;
+}
+
+.user-id {
   font-size: 13px;
   color: var(--fg-muted);
 }
@@ -206,9 +197,21 @@ function confirmUnfollow() {
   justify-content: center;
   min-width: 24px;
   height: 20px;
-  margin-top: 6px;
   padding: 0 6px;
   font-size: 12px;
+  border-radius: 999px;
+}
+
+.role-tag {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8470c7;
+  background: var(--lavender-soft);
   border-radius: 999px;
 }
 
@@ -339,6 +342,12 @@ function confirmUnfollow() {
   background: var(--bg-card);
   border: 1.5px solid var(--border);
   border-radius: 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.search-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .works-wrap {

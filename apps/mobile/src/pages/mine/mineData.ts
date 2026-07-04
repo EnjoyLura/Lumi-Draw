@@ -45,6 +45,5 @@ export const accountItems: MineListItem[] = [
 
 export const supportItems: MineListItem[] = [
   { key: "feedback", label: "意见反馈", icon: "✎" },
-  { key: "service", label: "联系客服", icon: "☏" },
-  { key: "about", label: "关于露米", icon: "ⓘ" }
+  { key: "service", label: "联系客服", icon: "☏" }
 ];
