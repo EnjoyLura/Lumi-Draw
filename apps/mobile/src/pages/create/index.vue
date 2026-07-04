@@ -19,6 +19,7 @@ const selectedCountIndex = ref(0);
 const promptText = ref("");
 const promptImage = ref("");
 const isGenerating = ref(false);
+const modelDrawerOpen = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
 const generatedSeeds = ref<string[]>([]);
@@ -67,11 +68,6 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
-  const modelId = uni.getStorageSync("lumiCreateModelId");
-  if (typeof modelId === "string" && modelId) {
-    applySelectedModel(modelId);
-    uni.removeStorageSync("lumiCreateModelId");
-  }
 });
 
 onBeforeUnmount(() => {
@@ -102,10 +98,18 @@ function applySelectedModel(modelId: string) {
   if (index >= 0) selectedModelIndex.value = index;
 }
 
-function selectModel() {
-  uni.navigateTo({
-    url: `/pages/model-switch/index?selected=${encodeURIComponent(selectedModel.value.id)}`
-  });
+function openModelDrawer() {
+  modelDrawerOpen.value = true;
+}
+
+function closeModelDrawer() {
+  modelDrawerOpen.value = false;
+}
+
+function selectModel(index: number) {
+  selectedModelIndex.value = index;
+  closeModelDrawer();
+  showToast(`已选择${selectedModel.value.name}`);
 }
 
 function goReversePrompt() {
@@ -204,7 +208,7 @@ function startGenerate() {
 
         <view class="section">
           <view class="section-title">选择模型</view>
-          <view class="model-card" @click="selectModel">
+          <view class="model-card" @click="openModelDrawer">
             <image class="model-img" :src="selectedModel.image" mode="aspectFill" />
             <view class="model-main">
               <view class="model-name-row">
@@ -356,6 +360,47 @@ function startGenerate() {
       </view>
       <button class="create-btn" @click="startGenerate">✦ 开始创作</button>
       <text class="bottom-note">内容由AI生成，仅供参考</text>
+    </view>
+    <view class="model-overlay" :class="{ show: modelDrawerOpen }" @click="closeModelDrawer" />
+    <view class="model-sheet" :class="{ show: modelDrawerOpen }">
+      <view class="sheet-handle" />
+      <view class="sheet-title-row">
+        <view>
+          <view class="sheet-title">选择模型</view>
+          <view class="sheet-count">共 {{ createModels.length }} 款模型可选</view>
+        </view>
+        <view class="sheet-close" @click="closeModelDrawer">×</view>
+      </view>
+      <scroll-view class="model-drawer-scroll" scroll-y>
+        <view class="model-drawer-list">
+          <view
+            v-for="(model, index) in createModels"
+            :key="model.id"
+            class="model-drawer-card"
+            :class="{ selected: selectedModelIndex === index }"
+            @click="selectModel(index)"
+          >
+            <image class="drawer-model-img" :src="model.image" mode="aspectFill" />
+            <view class="drawer-model-main">
+              <view class="drawer-model-name-row">
+                <text class="drawer-model-name">{{ model.name }}</text>
+                <text v-if="model.badge" class="drawer-model-badge" :style="{ color: model.badgeColor }">
+                  {{ model.badge }}
+                </text>
+              </view>
+              <view class="drawer-model-desc">{{ model.description }}</view>
+              <view class="drawer-tag-row">
+                <text v-for="tag in model.tags" :key="tag" class="drawer-tag">{{ tag }}</text>
+              </view>
+            </view>
+            <view class="drawer-model-cost">
+              <text class="drawer-cost-num">{{ model.cost }}</text>
+              <text class="drawer-cost-unit">积分起</text>
+            </view>
+            <view v-if="selectedModelIndex === index" class="drawer-selected-icon">✓</view>
+          </view>
+        </view>
+      </scroll-view>
     </view>
   </view>
 </template>
@@ -942,5 +987,201 @@ function startGenerate() {
   font-size: 11px;
   color: var(--fg-muted);
   text-align: center;
+}
+
+.model-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  background: rgba(15, 31, 58, 0);
+  opacity: 0;
+  transition: opacity 0.28s ease, background 0.28s ease;
+}
+
+.model-overlay.show {
+  pointer-events: auto;
+  background: rgba(15, 31, 58, 0.38);
+  opacity: 1;
+}
+
+.model-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 90;
+  max-height: 76vh;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+  background: var(--bg-card);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -10px 30px rgba(60, 120, 200, 0.16);
+  transform: translateY(105%);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.model-sheet.show {
+  transform: translateY(0);
+}
+
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0 auto 14px;
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+.sheet-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.sheet-title {
+  margin-bottom: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.sheet-count {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.sheet-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 24px;
+  color: var(--fg-muted);
+  background: var(--bg-soft);
+  border-radius: 50%;
+}
+
+.model-drawer-scroll {
+  max-height: calc(76vh - 82px);
+}
+
+.model-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 4px;
+}
+
+.model-drawer-card {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  transition: border-color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.model-drawer-card:active {
+  transform: scale(0.99);
+}
+
+.model-drawer-card.selected {
+  background: linear-gradient(180deg, rgba(91, 159, 232, 0.06) 0%, transparent 100%);
+  border-color: var(--accent);
+}
+
+.drawer-model-img {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+}
+
+.drawer-model-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.drawer-model-name-row {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.drawer-model-name {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-model-badge {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  margin-left: 4px;
+  font-size: 8px;
+  font-weight: 600;
+  line-height: 1;
+  background: rgba(91, 159, 232, 0.12);
+  border-radius: 3px;
+  transform: translateY(-6px);
+}
+
+.drawer-model-desc {
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.drawer-tag {
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
+.drawer-model-cost {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  align-items: baseline;
+}
+
+.drawer-cost-num {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.drawer-cost-unit {
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.drawer-selected-icon {
+  flex: 0 0 auto;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
 }
 </style>
