@@ -89,6 +89,18 @@
       "style": {
         "navigationBarTitleText": "会员中心"
       }
+    },
+    {
+      "path": "pages/messages/index",
+      "style": {
+        "navigationBarTitleText": "消息"
+      }
+    },
+    {
+      "path": "pages/message-detail/index",
+      "style": {
+        "navigationBarTitleText": "消息详情"
+      }
     }
   ],
   "globalStyle": {

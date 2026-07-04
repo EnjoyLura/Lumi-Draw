@@ -69,6 +69,10 @@ function handleListItem(item: MineListItem) {
     showLoginSheet.value = true;
     return;
   }
+  if (item.key === "messages") {
+    uni.navigateTo({ url: "/pages/messages/index" });
+    return;
+  }
   showTodo(item.label);
 }
 
