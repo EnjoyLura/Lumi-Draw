@@ -73,6 +73,10 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/messages/index" });
     return;
   }
+  if (item.key === "settings") {
+    uni.navigateTo({ url: "/pages/settings/index" });
+    return;
+  }
   showTodo(item.label);
 }
 

@@ -101,6 +101,18 @@
       "style": {
         "navigationBarTitleText": "消息详情"
       }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/edit-profile/index",
+      "style": {
+        "navigationBarTitleText": "编辑资料"
+      }
     }
   ],
   "globalStyle": {
