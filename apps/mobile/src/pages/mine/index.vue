@@ -81,6 +81,14 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/feedback/index" });
     return;
   }
+  if (item.key === "drafts") {
+    uni.navigateTo({ url: "/pages/drafts/index" });
+    return;
+  }
+  if (item.key === "history") {
+    uni.navigateTo({ url: "/pages/history/index" });
+    return;
+  }
   showTodo(item.label);
 }
 

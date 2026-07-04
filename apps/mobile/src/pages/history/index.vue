@@ -1,0 +1,183 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { homeWorks, type HomeWork } from "../home/homeData";
+
+const cleared = ref(false);
+
+const todayWorks = computed(() => homeWorks.slice(0, 6));
+const yesterdayWorks = computed(() => homeWorks.slice(6, 9));
+
+function openWork(work: HomeWork) {
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+}
+
+function clearHistory() {
+  cleared.value = true;
+  uni.showToast({ title: "已清空浏览记录", icon: "none" });
+}
+
+function goHome() {
+  uni.reLaunch({ url: "/pages/home/index" });
+}
+</script>
+
+<template>
+  <view class="history-page">
+    <scroll-view class="page-scroll" scroll-y>
+      <template v-if="!cleared">
+        <view class="toolbar">
+          <button class="clear-btn" @click="clearHistory">清空记录</button>
+        </view>
+        <view class="history-content">
+          <view class="section-title">今天</view>
+          <view class="grid">
+            <view v-for="work in todayWorks" :key="work.id" class="grid-item" @click="openWork(work)">
+              <image class="grid-img" :src="work.image" mode="aspectFill" />
+            </view>
+          </view>
+
+          <view class="section-title">昨天</view>
+          <view class="grid">
+            <view v-for="work in yesterdayWorks" :key="work.id" class="grid-item" @click="openWork(work)">
+              <image class="grid-img" :src="work.image" mode="aspectFill" />
+            </view>
+          </view>
+        </view>
+      </template>
+
+      <view v-else class="empty-state">
+        <view class="empty-icon">◷</view>
+        <view class="empty-title">暂无浏览记录</view>
+        <view class="empty-sub">去广场逛逛，发现更多精彩作品</view>
+        <button class="empty-btn" @click="goHome">✦ 去逛逛</button>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<style scoped>
+.history-page {
+  --bg-base: #eef4fc;
+  --bg-soft: #e1ebf8;
+  --bg-card: #ffffff;
+  --fg-primary: #0e1f3a;
+  --fg-secondary: #445876;
+  --fg-muted: #8497b5;
+  --border: rgba(91, 159, 232, 0.14);
+  --accent: #5b9fe8;
+  --accent-soft: rgba(91, 159, 232, 0.12);
+  height: calc(100vh - var(--window-top) - var(--window-bottom));
+  min-height: calc(100vh - var(--window-top) - var(--window-bottom));
+  overflow: hidden;
+  color: var(--fg-primary);
+  background: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+}
+
+.page-scroll {
+  height: 100%;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+}
+
+.clear-btn {
+  min-height: 30px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: var(--fg-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.clear-btn::after {
+  border: none;
+}
+
+.history-content {
+  padding: 0 16px 20px;
+}
+
+.section-title {
+  margin-bottom: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.grid-item {
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.grid-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 10px;
+  font-size: 30px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 16px;
+}
+
+.empty-title {
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.empty-sub {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.empty-btn {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  margin-top: 14px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
+  border: none;
+  border-radius: 999px;
+}
+
+.empty-btn::after {
+  border: none;
+}
+</style>

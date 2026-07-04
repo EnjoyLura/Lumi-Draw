@@ -137,6 +137,18 @@
       "style": {
         "navigationBarTitleText": "编辑作品"
       }
+    },
+    {
+      "path": "pages/drafts/index",
+      "style": {
+        "navigationBarTitleText": "草稿箱"
+      }
+    },
+    {
+      "path": "pages/history/index",
+      "style": {
+        "navigationBarTitleText": "浏览记录"
+      }
     }
   ],
   "globalStyle": {
