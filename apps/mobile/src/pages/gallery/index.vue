@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
+import { useAuth } from "../../services/auth";
 import type { HomeWork } from "../home/homeData";
 import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
 
 const PAGE_SIZE = 10;
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 
 type SideAction = {
   icon: string;
@@ -28,6 +31,7 @@ const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const sideOpen = ref(false);
+const showLoginSheet = ref(false);
 const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
@@ -94,15 +98,32 @@ function goSearch() {
 }
 
 function goEditProfile() {
+  if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
 function goPublish() {
+  if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/publish/index" });
 }
 
 function goFollowList() {
+  if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/follow-list/index?type=followers" });
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+function login() {
+  commitLogin();
+  showLoginSheet.value = false;
+  uni.showToast({ title: "登录成功", icon: "none" });
 }
 
 function openSideMenu() {
@@ -115,6 +136,7 @@ function closeSideMenu() {
 
 function navigateSide(url: string) {
   closeSideMenu();
+  if (!ensureLogin()) return;
   uni.navigateTo({ url });
 }
 
@@ -144,6 +166,7 @@ function handleReachBottom() {
 }
 
 function toggleManage() {
+  if (!ensureLogin()) return;
   manageMode.value = !manageMode.value;
   selectedIds.value = new Set();
 }
@@ -194,6 +217,7 @@ function getAspectRatio(ratio: string) {
 }
 
 function openWork(work: HomeWork) {
+  if (!ensureLogin()) return;
   if (manageMode.value) {
     toggleWorkSelection(work.id);
     return;
@@ -216,7 +240,7 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view class="profile-area">
+        <view v-if="isLoggedIn" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
               <view class="profile-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
@@ -251,9 +275,16 @@ function openWork(work: HomeWork) {
             <button class="edit-btn" @click="goEditProfile">编辑资料</button>
           </view>
         </view>
+
+        <view v-else class="gallery-login-prompt">
+          <view class="gallery-login-icon">▣</view>
+          <view class="gallery-login-title">登录查看我的画廊</view>
+          <view class="gallery-login-sub">登录后即可管理你的AI作品、草稿与创作记录</view>
+          <button class="gallery-login-btn" @click="openLoginSheet">立即登录</button>
+        </view>
       </view>
 
-      <view class="gallery-tabs-row">
+      <view v-if="isLoggedIn" class="gallery-tabs-row">
         <view class="gallery-tabs">
           <view
             v-for="(tab, index) in galleryTabs"
@@ -271,7 +302,7 @@ function openWork(work: HomeWork) {
         </button>
       </view>
 
-      <view class="gallery-content">
+      <view v-if="isLoggedIn" class="gallery-content">
         <view v-if="genTasks.length" class="gen-cards">
           <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
             <view class="shimmer-bg" />
@@ -352,14 +383,14 @@ function openWork(work: HomeWork) {
         </view>
       </view>
 
-      <view :class="['manage-bar', { show: manageMode }]">
+      <view v-if="isLoggedIn" :class="['manage-bar', { show: manageMode }]">
         <text class="selected-count">已选择 {{ selectedCount }} 项</text>
         <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
         <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
       </view>
     </scroll-view>
 
-    <view class="publish-btn" @click="goPublish">+</view>
+    <view v-if="isLoggedIn" class="publish-btn" @click="goPublish">+</view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -394,6 +425,7 @@ function openWork(work: HomeWork) {
       @close="closeSideMenu"
       @navigate="navigateSide"
     />
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -568,6 +600,59 @@ function openWork(work: HomeWork) {
   display: flex;
   align-items: center;
   padding: 16px 16px 8px;
+}
+
+.gallery-login-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 70px 32px;
+  text-align: center;
+}
+
+.gallery-login-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 18px;
+  font-size: 38px;
+  color: #fff;
+  background: var(--gradient-dream);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.gallery-login-title {
+  margin-bottom: 8px;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.gallery-login-sub {
+  max-width: 260px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.gallery-login-btn {
+  width: 70%;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 12px;
+}
+
+.gallery-login-btn::after {
+  border: none;
 }
 
 .stats {

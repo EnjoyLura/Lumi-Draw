@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import { useAuth } from "../../services/auth";
 import {
   countOptions,
   createModels,
@@ -10,6 +12,7 @@ import {
   ratioOptions
 } from "./createData";
 
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const selectedGameplayName = ref("");
 const selectedModelIndex = ref(0);
 const selectedStyleName = ref("");
@@ -24,6 +27,7 @@ const ratioSheetOpen = ref(false);
 const gameplaySheetOpen = ref(false);
 const styleSheetOpen = ref(false);
 const previewSheetOpen = ref(false);
+const showLoginSheet = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
 
@@ -111,6 +115,9 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
+  if (!isLoggedIn.value) {
+    showLoginSheet.value = true;
+  }
 });
 
 onBeforeUnmount(() => {
@@ -122,7 +129,22 @@ function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+function login() {
+  commitLogin();
+  showLoginSheet.value = false;
+  showToast("登录成功");
+}
+
 function chooseGameplay() {
+  if (!ensureLogin()) return;
   gameplaySheetOpen.value = true;
 }
 
@@ -149,6 +171,7 @@ function clearGameplay(event?: Event) {
 }
 
 function openRatioSheet() {
+  if (!ensureLogin()) return;
   ratioSheetOpen.value = true;
 }
 
@@ -167,6 +190,7 @@ function applySelectedModel(modelId: string) {
 }
 
 function openModelDrawer() {
+  if (!ensureLogin()) return;
   modelDrawerOpen.value = true;
 }
 
@@ -181,16 +205,19 @@ function selectModel(index: number) {
 }
 
 function goReversePrompt() {
+  if (!ensureLogin()) return;
   uni.navigateTo({
     url: "/pages/reverse-prompt/index"
   });
 }
 
 function selectStyle(name: string) {
+  if (!ensureLogin()) return;
   selectedStyleName.value = name;
 }
 
 function openStyleSheet() {
+  if (!ensureLogin()) return;
   styleSheetOpen.value = true;
 }
 
@@ -203,6 +230,7 @@ function selectStyleFromSheet(name: string) {
 }
 
 function uploadPromptImage() {
+  if (!ensureLogin()) return;
   promptImage.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
   showToast("图片已上传");
 }
@@ -231,6 +259,8 @@ function ratioShapeStyle(width: number, height: number) {
 }
 
 function startGenerate() {
+  if (!ensureLogin()) return;
+
   const prompt = promptText.value.trim();
   if (!prompt) {
     showToast("请输入提示词");
@@ -311,10 +341,12 @@ function savePreview() {
 }
 
 function saveAllResults() {
+  if (!ensureLogin()) return;
   showToast("全部图片已保存到相册和草稿箱");
 }
 
 function goPublish() {
+  if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/publish/index" });
 }
 </script>
@@ -323,6 +355,13 @@ function goPublish() {
   <view class="create-page">
     <scroll-view class="create-scroll" scroll-y>
       <view class="create-content">
+        <view v-if="!isLoggedIn" class="login-gate">
+          <view class="login-gate-icon">✎</view>
+          <view class="login-gate-title">登录后开始 AI 创作</view>
+          <view class="login-gate-sub">登录即可使用模型、上传参考图、保存作品与管理草稿</view>
+          <button class="login-gate-btn" @click="openLoginSheet">立即登录</button>
+        </view>
+
         <view class="gameplay-wrap">
           <view v-if="selectedGameplay" class="gameplay-card selected" @click="chooseGameplay">
             <image class="gameplay-thumb" :src="selectedGameplay.image" mode="aspectFill" />
@@ -528,11 +567,14 @@ function goPublish() {
             <text class="bottom-cost">{{ totalCost }}</text>
             <text class="bottom-unit">积分</text>
           </view>
-          <button class="create-btn" @click="startGenerate">✦ 开始创作</button>
+          <button class="create-btn" :class="{ disabled: !isLoggedIn }" @click="startGenerate">
+            {{ isLoggedIn ? "✦ 开始创作" : "→ 登录后创作" }}
+          </button>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
       </view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
     <view class="model-overlay" :class="{ show: modelDrawerOpen }" @click="closeModelDrawer" />
     <view class="model-sheet" :class="{ show: modelDrawerOpen }">
       <view class="sheet-handle" />
@@ -710,6 +752,63 @@ function goPublish() {
 
 .create-content {
   padding: 10px 0 14px;
+}
+
+.login-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 34px 24px 28px;
+  margin: 0 16px 14px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(91, 159, 232, 0.08);
+}
+
+.login-gate-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 14px;
+  font-size: 32px;
+  color: #fff;
+  background: var(--gradient-dream);
+  border-radius: 20px;
+  box-shadow: 0 4px 16px var(--accent-glow);
+}
+
+.login-gate-title {
+  margin-bottom: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.login-gate-sub {
+  max-width: 260px;
+  margin-bottom: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.login-gate-btn {
+  width: 70%;
+  height: 40px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 12px;
+}
+
+.login-gate-btn::after {
+  border: none;
 }
 
 .gameplay-wrap,
@@ -1354,6 +1453,11 @@ function goPublish() {
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;
   border-radius: 14px;
+}
+
+.create-btn.disabled {
+  background: var(--bg-soft);
+  color: var(--accent);
 }
 
 .bottom-note {

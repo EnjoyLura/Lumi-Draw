@@ -1,27 +1,30 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import { useAuth } from "../../services/auth";
 import { setUseMockData, useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { aboutItems, type SettingsLink } from "./settingsData";
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
+const { isLoggedIn, login: commitLogin, logout } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
-const isLoggedIn = ref(true);
-
-onLoad(() => {
-  const login = uni.getStorageSync("lumi-logged-in");
-  if (login === "0" || login === "1") {
-    isLoggedIn.value = login === "1";
-  }
-});
+const showLoginSheet = ref(false);
 
 function goEditProfile() {
+  if (!isLoggedIn.value) {
+    showLoginSheet.value = true;
+    return;
+  }
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
 function tapPhone() {
+  if (!isLoggedIn.value) {
+    showLoginSheet.value = true;
+    return;
+  }
   uni.showToast({ title: "手机号已绑定", icon: "none" });
 }
 
@@ -46,10 +49,20 @@ function handleAbout(item: SettingsLink) {
   uni.showToast({ title: item.label, icon: "none" });
 }
 
-function toggleLogin() {
-  isLoggedIn.value = !isLoggedIn.value;
-  uni.setStorageSync("lumi-logged-in", isLoggedIn.value ? "1" : "0");
-  uni.showToast({ title: isLoggedIn.value ? "登录成功" : "已退出登录", icon: "none" });
+function handleLoginAction() {
+  if (!isLoggedIn.value) {
+    showLoginSheet.value = true;
+    return;
+  }
+
+  logout();
+  uni.showToast({ title: "已退出登录", icon: "none" });
+}
+
+function login() {
+  commitLogin();
+  showLoginSheet.value = false;
+  uni.showToast({ title: "登录成功", icon: "none" });
 }
 </script>
 
@@ -61,13 +74,13 @@ function toggleLogin() {
         <view class="card">
           <view class="list-row" @click="goEditProfile">
             <view class="lr-icon accent">✎</view>
-            <view class="lr-text">编辑个人资料</view>
+            <view class="lr-text">{{ isLoggedIn ? "编辑个人资料" : "登录后编辑个人资料" }}</view>
             <view class="lr-arrow">›</view>
           </view>
           <view class="list-row" @click="tapPhone">
             <view class="lr-icon mint">☏</view>
-            <view class="lr-text">手机号 138****8888</view>
-            <view class="tag tag-mint">已绑定</view>
+            <view class="lr-text">{{ isLoggedIn ? "手机号 138****8888" : "手机号 --" }}</view>
+            <view class="tag" :class="isLoggedIn ? 'tag-mint' : 'tag-muted'">{{ isLoggedIn ? "已绑定" : "未登录" }}</view>
           </view>
         </view>
 
@@ -102,11 +115,13 @@ function toggleLogin() {
           </view>
         </view>
 
-        <button class="logout-btn" :class="{ login: !isLoggedIn }" @click="toggleLogin">
+        <button class="logout-btn" :class="{ login: !isLoggedIn }" @click="handleLoginAction">
           {{ isLoggedIn ? "⤺ 退出登录" : "→ 立即登录" }}
         </button>
       </view>
     </scroll-view>
+
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -225,6 +240,11 @@ function toggleLogin() {
 .tag-mint {
   color: var(--mint);
   background: var(--mint-soft);
+}
+
+.tag-muted {
+  color: var(--fg-muted);
+  background: var(--bg-soft);
 }
 
 .switch {

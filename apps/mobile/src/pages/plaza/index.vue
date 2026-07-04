@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
+import { useAuth } from "../../services/auth";
 import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 
@@ -12,6 +14,8 @@ type SideAction = {
 
 const filterOpen = ref(false);
 const sideOpen = ref(false);
+const showLoginSheet = ref(false);
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
 const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
 const filterQualities = ["全部", "标清", "高清", "超清"];
@@ -224,9 +228,24 @@ function closeSideMenu() {
   sideOpen.value = false;
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
 function navigateSide(url: string) {
   closeSideMenu();
+  if (!ensureLogin()) return;
   uni.navigateTo({ url });
+}
+
+function login() {
+  commitLogin();
+  showLoginSheet.value = false;
+  uni.showToast({ title: "登录成功", icon: "none" });
 }
 
 function handleReachBottom() {
@@ -372,14 +391,15 @@ function handleReachBottom() {
 
     <LumiSideDrawer
       :open="sideOpen"
-      :user-name="homeUsers[0].name"
-      :user-avatar="homeUsers[0].avatar"
-      :user-color="homeUsers[0].color"
+      :user-name="isLoggedIn ? homeUsers[0].name : '点击登录'"
+      :user-avatar="isLoggedIn ? homeUsers[0].avatar : '♙'"
+      :user-color="isLoggedIn ? homeUsers[0].color : 'var(--bg-soft)'"
       :quick-actions="sideQuickActions"
       :rows="sideRows"
       @close="closeSideMenu"
       @navigate="navigateSide"
     />
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
 
     <view class="sheet-overlay" :class="{ show: filterOpen }" @click="closeFilter" />
     <view class="filter-sheet" :class="{ show: filterOpen }">
