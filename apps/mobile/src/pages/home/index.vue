@@ -69,6 +69,12 @@ function goMine() {
   });
 }
 
+function goAllGameplays() {
+  uni.navigateTo({
+    url: "/pages/all-gameplays/index"
+  });
+}
+
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
 
@@ -175,7 +181,7 @@ function getRatioClass(ratio: string) {
 
         <view class="section-title">
           <text>热门玩法</text>
-          <view class="more-link" @click="showTodo('全部玩法')">
+          <view class="more-link" @click="goAllGameplays">
             <text>全部</text>
             <text class="chevron">›</text>
           </view>

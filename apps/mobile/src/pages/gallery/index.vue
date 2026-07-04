@@ -56,6 +56,10 @@ function goMine() {
   uni.redirectTo({ url: "/pages/mine/index" });
 }
 
+function goSearch() {
+  uni.navigateTo({ url: "/pages/search/index" });
+}
+
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -134,7 +138,7 @@ function openWork(work: HomeWork) {
             <text>◉</text>
             <text>设置背景</text>
           </view>
-          <view class="icon-btn search" @click="showTodo('搜索')">⌕</view>
+          <view class="icon-btn search" @click="goSearch">⌕</view>
         </view>
 
         <view class="profile-area">

@@ -29,6 +29,18 @@
       "style": {
         "navigationBarTitleText": "我的"
       }
+    },
+    {
+      "path": "pages/all-gameplays/index",
+      "style": {
+        "navigationBarTitleText": "全部玩法"
+      }
+    },
+    {
+      "path": "pages/search/index",
+      "style": {
+        "navigationBarTitleText": "搜索"
+      }
     }
   ],
   "globalStyle": {

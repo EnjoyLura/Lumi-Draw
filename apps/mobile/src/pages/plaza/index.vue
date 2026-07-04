@@ -63,6 +63,10 @@ function goMine() {
   uni.redirectTo({ url: "/pages/mine/index" });
 }
 
+function goSearch() {
+  uni.navigateTo({ url: "/pages/search/index" });
+}
+
 function switchPlazaTab(tab: PlazaTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
@@ -162,7 +166,7 @@ function handleReachBottom() {
             </view>
             <view class="tab-indicator" :style="{ transform: `translateX(${plazaTabs.findIndex((tab) => tab.key === activeTab) * 56}px)` }" />
           </view>
-          <view class="search-btn" @click="showTodo('搜索')">⌕</view>
+          <view class="search-btn" @click="goSearch">⌕</view>
         </view>
 
         <view class="category-row">
