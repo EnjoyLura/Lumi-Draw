@@ -40,6 +40,20 @@ export class NotificationsService {
     });
   }
 
+  createSystemNotifications(userIds: number[], title: string, content: string) {
+    const uniqueUserIds = [...new Set(userIds.filter((id) => Number.isInteger(id) && id > 0))];
+    if (!uniqueUserIds.length) return Promise.resolve({ count: 0 });
+
+    return this.prisma.notification.createMany({
+      data: uniqueUserIds.map((userId) => ({
+        userId,
+        type: "system",
+        title: title.trim() || CATEGORY_META.system.title,
+        content: content.trim()
+      }))
+    });
+  }
+
   async createSocialNotification(params: {
     userId: number;
     actorName: string;

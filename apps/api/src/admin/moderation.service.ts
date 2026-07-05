@@ -164,7 +164,12 @@ export class ModerationService {
   async sendPush(id: number) {
     const p = await this.prisma.push.findUnique({ where: { id } });
     if (!p) throw new NotFoundException("推送不存在");
-    return this.prisma.push.update({ where: { id }, data: { status: "sent", sentAt: new Date() } });
+    if (p.status === "sent") return p;
+
+    const userIds = await this.resolvePushUserIds(p.target);
+    const sent = await this.prisma.push.update({ where: { id }, data: { status: "sent", sentAt: new Date() } });
+    await this.notifications.createSystemNotifications(userIds, sent.title, sent.content);
+    return { ...sent, deliveredCount: userIds.length };
   }
   async revokePush(id: number) {
     const p = await this.prisma.push.findUnique({ where: { id } });
@@ -247,5 +252,19 @@ export class ModerationService {
   }
   putCreditsConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("creditsConfig", body);
+  }
+
+  private async resolvePushUserIds(target: string) {
+    const ids = target
+      .split(/[,，\s]+/)
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0);
+    if (ids.length) {
+      const users = await this.prisma.user.findMany({ where: { id: { in: ids }, status: "normal" }, select: { id: true } });
+      return users.map((user) => user.id);
+    }
+
+    const users = await this.prisma.user.findMany({ where: { status: "normal" }, select: { id: true } });
+    return users.map((user) => user.id);
   }
 }

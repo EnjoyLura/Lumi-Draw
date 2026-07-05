@@ -520,6 +520,30 @@ async function main() {
       assert(typeof body.data.todos?.pendingReports === "number", "admin pending reports missing");
       assert(typeof body.data.todos?.pendingFeedback === "number", "admin pending feedback missing");
     });
+
+    await step("admin push notification", async () => {
+      const content = `smoke push notification ${Date.now()}`;
+      const { body: created } = await request(
+        "POST",
+        "/admin/pushes",
+        { title: "smoke push", content, target: String(user.user.id), status: "draft" },
+        admin.accessToken
+      );
+      assert(created.data?.id, "push id missing");
+
+      const { body: sent } = await request("POST", `/admin/pushes/${created.data.id}/send`, undefined, admin.accessToken);
+      assert(sent.data?.status === "sent", "push status did not become sent");
+      assert(sent.data?.deliveredCount === 1, "push delivered count mismatch");
+
+      const { body: messages } = await request("GET", "/notifications/system", undefined, user.accessToken);
+      assert(
+        Array.isArray(messages.data) && messages.data.some((item) => item.content === content && item.unread === true),
+        "pushed system notification missing"
+      );
+
+      const { body: revoked } = await request("POST", `/admin/pushes/${created.data.id}/revoke`, undefined, admin.accessToken);
+      assert(revoked.data?.status === "revoked", "push revoke failed");
+    });
   } else {
     console.log("- admin checks skipped (set ADMIN_USERNAME and ADMIN_PASSWORD to enable)");
   }
