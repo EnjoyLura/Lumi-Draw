@@ -117,10 +117,6 @@ function clearSearchHistory() {
   uni.showToast({ title: "已清空搜索历史", icon: "none" });
 }
 
-function showTodo(label: string) {
-  uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
-}
-
 function openWorkDetail(workId: number) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
 }

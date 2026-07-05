@@ -206,10 +206,6 @@ async function reloadPlazaData() {
   }
 }
 
-function showTodo(label: string) {
-  uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
-}
-
 function goHome() {
   uni.redirectTo({ url: "/pages/home/index" });
 }

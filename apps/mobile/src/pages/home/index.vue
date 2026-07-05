@@ -124,11 +124,8 @@ async function loadHomeData() {
   }
 }
 
-function showTodo(label: string) {
-  uni.showToast({
-    title: `${label}将在后续任务迁移`,
-    icon: "none"
-  });
+function showUnsupportedBanner(title: string) {
+  uni.showToast({ title: `${title}暂不可用`, icon: "none" });
 }
 
 function selectGameplay(name: string) {
@@ -200,7 +197,7 @@ function handleBannerTap(action: string, title: string) {
     return;
   }
 
-  showTodo(title);
+  showUnsupportedBanner(title);
 }
 
 function openWorkDetail(workId: number) {
@@ -473,7 +470,7 @@ function getRatioClass(ratio: string) {
     </scroll-view>
 
     <view class="tab-bar">
-      <view class="tab-item active" @click="showTodo('首页')">
+      <view class="tab-item active">
         <text class="tab-icon">⌂</text>
         <text class="tab-label">首页</text>
       </view>
