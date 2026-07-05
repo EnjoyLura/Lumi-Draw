@@ -47,6 +47,11 @@ interface BackendGenerateJob {
   createdAt: string;
 }
 
+export interface GalleryTerminalGenerateJob {
+  id: string;
+  status: "succeeded" | "partial_failed" | "failed" | "cancelled";
+}
+
 export interface GalleryWorkPage {
   works: HomeWork[];
   page: number;
@@ -138,4 +143,19 @@ export async function fetchGalleryGenerateTasks() {
   return [...running, ...queued]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map(toGalleryGenTask);
+}
+
+async function fetchTerminalGenerateJobsByStatus(status: GalleryTerminalGenerateJob["status"]) {
+  const result = await api.get<PageResult<GalleryTerminalGenerateJob>>(`/generate/jobs?status=${status}&page=1&pageSize=20`);
+  return result.items;
+}
+
+export async function fetchGalleryTerminalGenerateJobs() {
+  const [succeeded, partialFailed, failed, cancelled] = await Promise.all([
+    fetchTerminalGenerateJobsByStatus("succeeded"),
+    fetchTerminalGenerateJobsByStatus("partial_failed"),
+    fetchTerminalGenerateJobsByStatus("failed"),
+    fetchTerminalGenerateJobsByStatus("cancelled")
+  ]);
+  return [...succeeded, ...partialFailed, ...failed, ...cancelled];
 }

@@ -233,15 +233,36 @@ export class GenerateService {
       const results = await this.transferGeneratedImages(job.id, event.imageUrls);
       const updated = await this.prisma.$transaction(async (tx) => {
         await tx.generateResult.deleteMany({ where: { jobId: job.id } });
-        await tx.generateResult.createMany({
-          data: results.map((result) => ({
-            jobId: job.id,
-            status: "succeeded",
-            imageUrl: result.imageUrl,
-            ossKey: result.ossKey,
-            sizeBytes: result.sizeBytes
-          }))
-        });
+        for (const [index, result] of results.entries()) {
+          const work = await tx.work.create({
+            data: {
+              userId: job.userId,
+              title: this.draftTitle(job.prompt, results.length > 1 ? index + 1 : undefined),
+              description: "",
+              prompt: job.prompt,
+              imageUrl: result.imageUrl,
+              ratio: job.ratio,
+              quality: job.quality,
+              modelId: job.modelId,
+              style: job.style,
+              isPublic: false,
+              status: "draft"
+            }
+          });
+          await tx.generateResult.create({
+            data: {
+              jobId: job.id,
+              status: "succeeded",
+              imageUrl: result.imageUrl,
+              ossKey: result.ossKey,
+              sizeBytes: result.sizeBytes,
+              workId: work.id
+            }
+          });
+        }
+        if (results.length) {
+          await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: results.length } } });
+        }
         return tx.generateJob.update({
           where: { id: job.id },
           data: {
@@ -305,6 +326,11 @@ export class GenerateService {
   private async isManualReview() {
     const row = await this.prisma.appSetting.findUnique({ where: { key: "manualReviewEnabled" } });
     return row ? row.value === "true" : true;
+  }
+
+  private draftTitle(prompt: string, index?: number) {
+    const base = prompt.trim().replace(/\s+/g, " ").slice(0, 24) || "AI generated work";
+    return index ? `${base} ${index}` : base;
   }
 
   private async submitToProvider(jobId: string) {

@@ -162,6 +162,9 @@ onLoad((query) => {
 
   const prompt = typeof query?.prompt === "string" ? decodeURIComponent(query.prompt) : "";
   if (prompt) promptText.value = prompt.slice(0, 500);
+
+  const jobId = typeof query?.jobId === "string" ? decodeURIComponent(query.jobId) : "";
+  if (jobId) void resumeBackendJob(jobId);
 });
 
 onShow(() => {
@@ -399,8 +402,9 @@ function applyBackendJob(job: BackendGenerateJob) {
     size: `${job.costCredits - job.refundCredits}积分`
   };
 
-  if (job.status === "succeeded") showToast("生成成功");
-  else if (job.status === "partial_failed") showToast("部分图片生成成功");
+  const autoSaved = job.results.some((item) => item.workId);
+  if (job.status === "succeeded") showToast(autoSaved ? "生成成功，已自动保存到草稿箱" : "生成成功");
+  else if (job.status === "partial_failed") showToast(autoSaved ? "部分图片已自动保存到草稿箱" : "部分图片生成成功");
   else showToast(job.errorMessage || job.stageText || "生成失败，积分已按规则退回");
 }
 
@@ -414,6 +418,30 @@ async function pollBackendJob(jobId: string) {
   } catch {
     isGenerating.value = false;
     showToast("任务状态获取失败，请稍后在画廊查看");
+  }
+}
+
+async function resumeBackendJob(jobId: string) {
+  if (progressTimer) clearInterval(progressTimer);
+  if (finishTimer) clearTimeout(finishTimer);
+  if (pollTimer) clearTimeout(pollTimer);
+
+  isGenerating.value = true;
+  progress.value = 0;
+  generatedResults.value = [];
+  genMeta.value = null;
+  stageText.value = "正在读取生成任务...";
+
+  try {
+    const job = await fetchGenerateJob(jobId);
+    promptText.value = job.prompt || promptText.value;
+    applyBackendJob(job);
+    if (!isTerminalJob(job.status)) {
+      pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
+    }
+  } catch {
+    isGenerating.value = false;
+    showToast("生成任务读取失败，请稍后重试");
   }
 }
 

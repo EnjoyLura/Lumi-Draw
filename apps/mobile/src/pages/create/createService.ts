@@ -80,6 +80,7 @@ export interface BackendGenerateResult {
 
 export interface BackendGenerateJob {
   id: string;
+  prompt: string;
   status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
   progress: number;
   stageText: string;

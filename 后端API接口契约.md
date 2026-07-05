@@ -1337,6 +1337,7 @@ MVP 必需表：
   - `success` -> `succeeded`
   - `fail` -> `failed`
 - 成功回调会从 `resultJson.resultUrls`、`result_urls`、`urls`、`images`、`imageUrls` 等常见字段提取图片 URL，服务端转存到 OSS 后写入 `generate_results.imageUrl` 和 `ossKey`。
+- 每张成功生成图会自动创建一条 `draft` 作品，并回填 `generate_results.workId`；用户可在画廊草稿箱或发布页继续编辑发布。
 - 如果 KIE 成功但 OSS 转存失败，任务会标记为 `failed`，并幂等退回尚未退过的积分。
 - 失败回调会把任务标记为 `failed`，并幂等退回尚未退过的积分。
 - 重复回调如果任务已处于终态，会直接返回当前任务视图，不重复写结果或退款。

@@ -7,8 +7,14 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import type { HomeWork } from "../home/homeData";
-import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
-import { deleteGalleryWorks, fetchGalleryGenerateTasks, fetchGalleryUser, fetchGalleryWorks } from "./galleryService";
+import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab } from "./galleryData";
+import {
+  deleteGalleryWorks,
+  fetchGalleryGenerateTasks,
+  fetchGalleryTerminalGenerateJobs,
+  fetchGalleryUser,
+  fetchGalleryWorks
+} from "./galleryService";
 
 const PAGE_SIZE = 10;
 const tabEnterClass = resolveTabEnterClass("pages/gallery/index");
@@ -70,6 +76,7 @@ let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = "";
+let activeGenerateTaskIds = new Set<string>();
 
 const filteredWorks = computed(() => {
   if (!useMockData.value) return works.value;
@@ -122,18 +129,58 @@ function resetMockGalleryData() {
 async function loadGenerateTasks(scheduleNext = false) {
   if (useMockData.value || !isLoggedIn.value) {
     if (genTaskTimer) clearTimeout(genTaskTimer);
+    activeGenerateTaskIds = new Set();
     return;
   }
 
+  const previousIds = activeGenerateTaskIds;
+  let nextTasks: GalleryGenTask[] = [];
   try {
-    genTasks.value = await fetchGalleryGenerateTasks();
+    nextTasks = await fetchGalleryGenerateTasks();
+    genTasks.value = nextTasks;
   } catch {
     genTasks.value = [];
+  }
+
+  const nextIds = new Set(nextTasks.map((task) => String(task.id)));
+  const completedIds = [...previousIds].filter((id) => !nextIds.has(id));
+  activeGenerateTaskIds = nextIds;
+  if (completedIds.length) {
+    await handleGenerateTasksCompleted(completedIds);
   }
 
   if (genTaskTimer) clearTimeout(genTaskTimer);
   if (scheduleNext && genTasks.value.length) {
     genTaskTimer = setTimeout(() => void loadGenerateTasks(true), 5000);
+  }
+}
+
+async function handleGenerateTasksCompleted(ids: string[]) {
+  try {
+    const terminalJobs = await fetchGalleryTerminalGenerateJobs();
+    const finished = terminalJobs.filter((job) => ids.includes(job.id));
+    if (!finished.length) return;
+
+    const hasSavedDraft = finished.some((job) => job.status === "succeeded" || job.status === "partial_failed");
+    if (hasSavedDraft) {
+      await Promise.all([loadGalleryPage(1, false), fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))]);
+      visibleCount.value = PAGE_SIZE;
+      renderKey.value += 1;
+      uni.showModal({
+        title: "生成完成",
+        content: "生成的作品已自动保存到草稿箱，可回到创作页查看结果，或在画廊草稿箱继续发布。",
+        confirmText: "去创作页",
+        cancelText: "留在画廊",
+        success(result) {
+          if (result.confirm) uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(finished[0].id)}` });
+        }
+      });
+      return;
+    }
+
+    uni.showToast({ title: "生成任务已结束，未保存草稿", icon: "none" });
+  } catch {
+    uni.showToast({ title: "生成任务已结束，请刷新画廊查看", icon: "none" });
   }
 }
 
