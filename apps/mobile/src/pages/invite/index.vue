@@ -52,7 +52,17 @@ function copyInviteCode() {
 }
 
 function shareInvite() {
-  uni.showToast({ title: "请使用微信右上角分享", icon: "none" });
+  const path = `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`;
+  const link = typeof window !== "undefined" && window.location?.origin ? `${window.location.origin}/#${path}` : path;
+  uni.setClipboardData({
+    data: `我在露米绘画AI创作图片，邀请码 ${inviteCode.value}，一起领积分：${link}`,
+    success() {
+      uni.showToast({ title: "邀请文案已复制", icon: "none" });
+    },
+    fail() {
+      uni.showToast({ title: "分享失败，请稍后重试", icon: "none" });
+    }
+  });
 }
 </script>
 

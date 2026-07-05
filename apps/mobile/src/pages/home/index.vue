@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import {
   gameplays as mockGameplays,
   homeBanners as mockHomeBanners,
@@ -14,6 +14,7 @@ import {
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { resolveTabEnterClass } from "../../services/pageTransition";
+import { savePendingInviteCode } from "../../services/auth";
 
 const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
@@ -61,6 +62,13 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedState.new : feedState.recommend));
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
+
+onLoad((query) => {
+  const inviteCode = typeof query?.inviteCode === "string" ? query.inviteCode : "";
+  if (!inviteCode) return;
+  savePendingInviteCode(decodeURIComponent(inviteCode));
+  uni.showToast({ title: "已记录邀请码，登录后自动绑定", icon: "none" });
+});
 
 onShow(() => {
   if (lastMockMode === useMockData.value) return;

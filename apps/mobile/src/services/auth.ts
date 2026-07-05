@@ -4,6 +4,7 @@ import { useDataMode } from "./dataMode";
 
 const STORAGE_KEY = "lumi-logged-in";
 const USER_STORAGE_KEY = "lumi-mobile-user";
+const PENDING_INVITE_KEY = "lumi-pending-invite-code";
 
 export interface MobileUser {
   id: number;
@@ -126,6 +127,7 @@ async function loginWithBackend() {
   setAuthTokens(data);
   persistUser(data.user);
   persistLoginState(true);
+  await bindPendingInvite();
 }
 
 async function logoutFromBackend() {
@@ -143,6 +145,39 @@ function clearSession() {
   clearAuthTokens();
   persistUser(null);
   persistLoginState(false);
+}
+
+async function bindPendingInvite() {
+  let inviteCode = "";
+  try {
+    const stored = uni.getStorageSync(PENDING_INVITE_KEY);
+    inviteCode = typeof stored === "string" ? stored.trim() : "";
+  } catch {
+    inviteCode = "";
+  }
+  if (!inviteCode) return;
+
+  try {
+    await api.post<{ ok: boolean }>("/invite/bind", { code: inviteCode });
+  } catch {
+    // Invalid/self/repeated invite codes should not block login.
+  } finally {
+    try {
+      uni.removeStorageSync(PENDING_INVITE_KEY);
+    } catch {
+      // Storage can be unavailable in some preview environments.
+    }
+  }
+}
+
+export function savePendingInviteCode(code: string) {
+  const normalized = code.trim();
+  if (!normalized) return;
+  try {
+    uni.setStorageSync(PENDING_INVITE_KEY, normalized);
+  } catch {
+    // Storage can be unavailable in some preview environments.
+  }
 }
 
 setUnauthorizedHandler(() => {
