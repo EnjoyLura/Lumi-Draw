@@ -415,6 +415,39 @@ async function main() {
 
       const { body: drafts } = await request("GET", "/works/me/drafts?page=1&pageSize=20", undefined, user.accessToken);
       assert((drafts.data?.items || []).some((item) => item.id === job.results[0].workId), "generated draft missing from drafts");
+
+      const workId = job.results[0].workId;
+      const { body: submitted } = await request(
+        "PATCH",
+        `/works/${workId}`,
+        {
+          title: "smoke mock generated published work",
+          description: "published from generated draft in smoke test",
+          isPublic: true
+        },
+        user.accessToken
+      );
+      assert(["pending", "published"].includes(submitted.data?.status), "generated draft was not submitted for publishing");
+
+      if (submitted.data?.status === "pending") {
+        assert(ADMIN_USERNAME && ADMIN_PASSWORD, "admin credentials required to approve generated publish smoke");
+        const { body: adminLogin } = await request("POST", "/admin/auth/login", {
+          username: ADMIN_USERNAME,
+          password: ADMIN_PASSWORD
+        });
+        assert(adminLogin.data?.accessToken, "admin token missing for generated publish approval");
+        await request("POST", `/admin/reviews/${workId}/approve`, {}, adminLogin.data.accessToken);
+      }
+
+      const [{ body: publishedDetail }, { body: publishedPlaza }] = await Promise.all([
+        request("GET", `/works/${workId}`),
+        request("GET", "/works/plaza?page=1&pageSize=20")
+      ]);
+      assert(
+        publishedDetail.data?.status === "published" && publishedDetail.data?.isPublic === true,
+        "approved generated work is not public"
+      );
+      assert((publishedPlaza.data?.items || []).some((item) => item.id === workId), "approved generated work missing from plaza");
     });
   } else {
     console.log("- generate mock completion skipped (set SMOKE_GENERATE_MOCK=true with GENERATE_ALLOW_MOCK=true API)");
