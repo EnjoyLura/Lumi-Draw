@@ -15,6 +15,18 @@ interface ApiUser {
   worksCount: number; likesCount: number; followers: number; following: number; createdAt: string;
 }
 
+export interface AdminUserDetailData extends AdminUser {
+  recentWorks: AdminWork[];
+}
+
+function genderToCn(gender: string) {
+  return gender === "male" ? "男" : gender === "female" ? "女" : "";
+}
+
+function genderToApi(gender: string) {
+  return gender === "男" ? "male" : gender === "女" ? "female" : "unknown";
+}
+
 function mapUser(u: ApiUser): AdminUser {
   return {
     id: u.id,
@@ -22,7 +34,7 @@ function mapUser(u: ApiUser): AdminUser {
     avatar: u.avatarText,
     color: u.avatarColor,
     bio: u.bio,
-    gender: u.gender === "male" ? "男" : u.gender === "female" ? "女" : "",
+    gender: genderToCn(u.gender),
     credits: u.credits,
     member: u.memberPlan || "无",
     status: u.status === "banned" ? "封禁" : "正常",
@@ -44,10 +56,16 @@ interface ApiWork {
   id: number; userId: number; authorName?: string; title: string; modelId: string;
   ratio: string; quality: string; style: string; status: string; featured: boolean;
   recommend: boolean; likes: number; favorites: number; remakes: number; createdAt: string;
-  description?: string; prompt?: string;
+  description?: string; prompt?: string; imageUrl?: string;
+  author?: { id: number; nickname: string; avatarText: string; avatarColor: string } | null;
 }
 
-function mapWork(w: ApiWork): AdminWork {
+export interface AdminWorkDetailData extends AdminWork {
+  imageUrl?: string;
+  author?: { id: number; name: string; avatar: string; color: string } | null;
+}
+
+function mapWork(w: ApiWork): AdminWorkDetailData {
   return {
     id: w.id,
     userId: w.userId,
@@ -64,7 +82,13 @@ function mapWork(w: ApiWork): AdminWork {
     status: WORK_STATUS_CN[w.status] ?? w.status,
     featured: w.featured,
     recommend: w.recommend,
-    time: (w.createdAt ?? "").slice(0, 10)
+    time: (w.createdAt ?? "").slice(0, 10),
+    imageUrl: w.imageUrl,
+    author: w.author
+      ? { id: w.author.id, name: w.author.nickname, avatar: w.author.avatarText, color: w.author.avatarColor }
+      : w.authorName
+        ? { id: w.userId, name: w.authorName, avatar: w.authorName.slice(0, 1), color: "#5B9FE8" }
+        : null
   };
 }
 
@@ -73,9 +97,62 @@ export async function apiGetUsers(): Promise<AdminUser[]> {
   return page.items.map(mapUser);
 }
 
+export async function apiGetUserDetail(id: number): Promise<AdminUserDetailData> {
+  const data = await http.get<ApiUser & { recentWorks: ApiWork[] }>(`/admin/users/${id}`);
+  return { ...mapUser(data), recentWorks: (data.recentWorks ?? []).map(mapWork) };
+}
+
+export async function apiUpdateUser(id: number, values: { name: string; bio: string; gender: string }) {
+  return mapUser(await http.patch<ApiUser>(`/admin/users/${id}`, {
+    nickname: values.name,
+    bio: values.bio,
+    gender: genderToApi(values.gender)
+  }));
+}
+
+export async function apiBanUser(id: number) {
+  return mapUser(await http.post<ApiUser>(`/admin/users/${id}/ban`));
+}
+
+export async function apiUnbanUser(id: number) {
+  return mapUser(await http.post<ApiUser>(`/admin/users/${id}/unban`));
+}
+
+export async function apiAdjustUserCredits(id: number, amount: number, reason: string) {
+  return http.post<{ id: number; balance: number; amount: number }>(`/admin/users/${id}/credits/adjust`, { amount, reason });
+}
+
 export async function apiGetWorks(): Promise<AdminWork[]> {
   const page = await http.get<Paginated<ApiWork>>("/admin/works?page=1&pageSize=100");
   return page.items.map(mapWork);
+}
+
+export async function apiGetWorkDetail(id: number): Promise<AdminWorkDetailData> {
+  return mapWork(await http.get<ApiWork>(`/admin/works/${id}`));
+}
+
+export async function apiUpdateWork(id: number, values: { title: string; desc: string; style: string }) {
+  return mapWork(await http.patch<ApiWork>(`/admin/works/${id}`, {
+    title: values.title,
+    description: values.desc,
+    style: values.style
+  }));
+}
+
+export async function apiFeatureWork(id: number, featured: boolean) {
+  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/feature`, { featured }));
+}
+
+export async function apiRecommendWork(id: number, recommend: boolean) {
+  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/recommend`, { recommend }));
+}
+
+export async function apiOfflineWork(id: number) {
+  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/offline`));
+}
+
+export async function apiRestoreWork(id: number) {
+  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/restore`));
 }
 
 interface ApiSummary {

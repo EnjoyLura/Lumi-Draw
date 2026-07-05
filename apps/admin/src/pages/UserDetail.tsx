@@ -1,6 +1,16 @@
 import { useState } from "react";
+import {
+  apiAdjustUserCredits,
+  apiBanUser,
+  apiGetUserDetail,
+  apiUnbanUser,
+  apiUpdateUser,
+  type AdminUserDetailData
+} from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { MEMBER_PLANS, USERS, type AdminUser } from "../data/mock";
 import { getUser, getUserWorks } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Avatar, Badge, Seg, StatCard, StatusBadge, WorkCard } from "../ui";
 
@@ -37,19 +47,40 @@ const FOOT_STYLE: React.CSSProperties = {
   borderTop: "1px solid var(--border)"
 };
 
-function EditUserForm({ user }: { user: AdminUser }) {
+function mockUserDetail(id: number): AdminUserDetailData {
+  const user = getUser(id);
+  return { ...user, recentWorks: getUserWorks(user.id) };
+}
+
+function EditUserForm({ user, useMock, onDone }: { user: AdminUser; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
   const [name, setName] = useState(user.name);
   const [bio, setBio] = useState(user.bio);
-  const [gender, setGender] = useState(user.gender);
+  const [gender, setGender] = useState(user.gender || "男");
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
-    if (!name.trim()) { toast("请输入昵称"); return; }
-    user.name = name.trim();
-    user.bio = bio;
-    user.gender = gender;
-    closeSheet();
-    toast("已保存");
+  const save = async () => {
+    if (!name.trim()) {
+      toast("请输入昵称");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (useMock) {
+        user.name = name.trim();
+        user.bio = bio;
+        user.gender = gender;
+      } else {
+        await apiUpdateUser(user.id, { name: name.trim(), bio, gender });
+      }
+      closeSheet();
+      onDone();
+      toast("已保存");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -68,27 +99,55 @@ function EditUserForm({ user }: { user: AdminUser }) {
       <label className="field-label" style={{ marginTop: 12 }}>内部备注</label>
       <textarea className="input" rows={2} placeholder="内部备注" />
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
 }
 
-function AdjustCreditsForm() {
+function AdjustCreditsForm({ user, useMock, onDone }: { user: AdminUser; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
   const [op, setOp] = useState("add");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    const num = Number(amount);
+    if (!Number.isFinite(num) || num <= 0) {
+      toast("请输入有效积分数量");
+      return;
+    }
+    const signedAmount = op === "sub" ? -num : num;
+    setSaving(true);
+    try {
+      if (useMock) {
+        user.credits += signedAmount;
+      } else {
+        await apiAdjustUserCredits(user.id, signedAmount, reason.trim() || "人工调整");
+      }
+      closeSheet();
+      onDone();
+      toast("积分已调整");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "调整失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <label className="field-label">操作类型</label>
       <Seg items={[["add", "增加"], ["sub", "扣减"]]} active={op} onPick={setOp} />
       <label className="field-label" style={{ marginTop: 12 }}>数量</label>
-      <input className="input" type="number" placeholder="请输入积分数量" />
+      <input className="input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="请输入积分数量" />
       <label className="field-label" style={{ marginTop: 12 }}>原因</label>
-      <input className="input" placeholder="如：活动补偿" />
+      <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="如：活动补偿" />
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); toast("积分已调整"); }}>确定</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={submit} disabled={saving}>确定</button>
       </div>
     </>
   );
@@ -106,20 +165,35 @@ function GiftMemberForm() {
       <input className="input" placeholder="如：新用户福利" />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); toast("已赠送会员"); }}>确定</button>
+        <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); toast("会员赠送接口尚未接入"); }}>确定</button>
       </div>
     </>
   );
 }
 
-function BanUserForm({ user }: { user: AdminUser }) {
+function BanUserForm({ user, useMock, onDone }: { user: AdminUser; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
-  const doBan = () => {
-    user.status = "封禁";
-    user.active = false;
-    closeSheet();
-    toast("已封禁用户");
+  const [saving, setSaving] = useState(false);
+
+  const doBan = async () => {
+    setSaving(true);
+    try {
+      if (useMock) {
+        user.status = "封禁";
+        user.active = false;
+      } else {
+        await apiBanUser(user.id);
+      }
+      closeSheet();
+      onDone();
+      toast("已封禁用户");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "封禁失败");
+    } finally {
+      setSaving(false);
+    }
   };
+
   return (
     <>
       <label className="field-label">封禁原因</label>
@@ -137,8 +211,8 @@ function BanUserForm({ user }: { user: AdminUser }) {
         <option>永久</option>
       </select>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-danger btn-block" onClick={doBan}>确认封禁</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-danger btn-block" onClick={doBan} disabled={saving}>确认封禁</button>
       </div>
     </>
   );
@@ -146,14 +220,35 @@ function BanUserForm({ user }: { user: AdminUser }) {
 
 export function UserDetail({ param }: { param?: string }) {
   const { openSheet, confirmDlg, toast } = useNav();
+  const { useMock } = useAdminSession();
   const [tab, setTab] = useState("info");
-  const u = getUser(Number(param ?? 0));
+  const userId = Number(param ?? 0);
+  const { data, loading, error, reload } = useAsyncData(useMock ? null : () => apiGetUserDetail(userId), [useMock, userId]);
+  const u = useMock ? mockUserDetail(userId) : data;
+  const works = useMock ? getUserWorks(u?.id ?? 0) : u?.recentWorks ?? [];
+  const onDone = () => {
+    if (!useMock) reload();
+  };
+
+  if (loading) return <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载用户中</div></div>;
+  if (error) return <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div>;
+  if (!u) return <div className="empty"><i className="ri-user-line" /><div className="et">用户不存在</div></div>;
+
   const ban = u.status === "封禁";
 
-  const unban = () => confirmDlg("解封用户", "确定解除对该用户的封禁吗？", () => {
-    const target = USERS.find((x) => x.id === u.id);
-    if (target) target.status = "正常";
-    toast("已解封");
+  const unban = () => confirmDlg("解封用户", "确定解除对该用户的封禁吗？", async () => {
+    try {
+      if (useMock) {
+        const target = USERS.find((x) => x.id === u.id);
+        if (target) target.status = "正常";
+      } else {
+        await apiUnbanUser(u.id);
+        reload();
+      }
+      toast("已解封");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "解封失败");
+    }
   });
 
   return (
@@ -183,10 +278,10 @@ export function UserDetail({ param }: { param?: string }) {
 
       {tab === "works" ? (
         <div className="wgrid" style={{ marginTop: 10 }}>
-          {getUserWorks(u.id).length === 0 ? (
+          {works.length === 0 ? (
             <div className="empty" style={{ gridColumn: "1/-1" }}><i className="ri-image-line" /><div className="et">该用户暂无作品</div></div>
           ) : (
-            getUserWorks(u.id).map((w) => <WorkCard key={w.id} w={w} />)
+            works.map((w) => <WorkCard key={w.id} w={w} />)
           )}
         </div>
       ) : (
@@ -194,13 +289,12 @@ export function UserDetail({ param }: { param?: string }) {
           {tab === "info" && (
             <>
               <div className="kv"><span className="k">个人简介</span><span className="v">{u.bio || "—"}</span></div>
-              <div className="kv"><span className="k">性别</span><span className="v">{u.gender}</span></div>
+              <div className="kv"><span className="k">性别</span><span className="v">{u.gender || "未设置"}</span></div>
               <div className="kv"><span className="k">粉丝 / 关注</span><span className="v">{u.followers} / {u.following}</span></div>
               <div className="kv"><span className="k">获赞总数</span><span className="v">{u.likes}</span></div>
               <div className="kv"><span className="k">注册时间</span><span className="v">{u.reg}</span></div>
               <div className="kv"><span className="k">手机号</span><span className="v">{u.phone}</span></div>
-              <div className="kv"><span className="k">会员状态</span><span className="v">{u.member === "无" ? "未开通" : `${u.member}（有效期至 2026-03-01）`}</span></div>
-              <div className="kv"><span className="k">累计充值</span><span className="v">¥ 386</span></div>
+              <div className="kv"><span className="k">会员状态</span><span className="v">{u.member === "无" ? "未开通" : u.member}</span></div>
               <div className="kv"><span className="k">最近活跃</span><span className="v">{u.active ? "今天" : "7天前"}</span></div>
             </>
           )}
@@ -217,10 +311,10 @@ export function UserDetail({ param }: { param?: string }) {
       )}
 
       <div className="actionbar">
-        <button className="btn btn-ghost btn-sm" onClick={() => openSheet("编辑用户", <EditUserForm user={u} />)}><i className="ri-edit-line" />编辑</button>
-        <button className="btn btn-soft btn-sm" onClick={() => openSheet("调整积分", <AdjustCreditsForm />)}><i className="ri-coins-line" />积分</button>
+        <button className="btn btn-ghost btn-sm" onClick={() => openSheet("编辑用户", <EditUserForm user={u} useMock={useMock} onDone={onDone} />)}><i className="ri-edit-line" />编辑</button>
+        <button className="btn btn-soft btn-sm" onClick={() => openSheet("调整积分", <AdjustCreditsForm user={u} useMock={useMock} onDone={onDone} />)}><i className="ri-coins-line" />积分</button>
         <button className="btn btn-soft btn-sm" onClick={() => openSheet("赠送会员", <GiftMemberForm />)}><i className="ri-vip-crown-line" />会员</button>
-        <button className={`btn ${ban ? "btn-success" : "btn-danger"} btn-sm`} style={{ flex: 1 }} onClick={() => (ban ? unban() : openSheet("封禁用户", <BanUserForm user={u} />))}>
+        <button className={`btn ${ban ? "btn-success" : "btn-danger"} btn-sm`} style={{ flex: 1 }} onClick={() => (ban ? unban() : openSheet("封禁用户", <BanUserForm user={u} useMock={useMock} onDone={onDone} />))}>
           <i className={`ri-${ban ? "lock-unlock-line" : "forbid-line"}`} />{ban ? "解封" : "封禁"}
         </button>
       </div>
