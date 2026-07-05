@@ -1,0 +1,188 @@
+// Lumi Draw API - Prisma schema
+// 本增分聚焦「只读配置」相关模型，后续增分再补 User/Work/Generate 等核心表。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 走马灯 Banner
+model Banner {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  action      String   @default("")
+  sort        Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+// 玩法模板 Gameplay
+model Gameplay {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  uses        String   @default("")
+  hot         Boolean  @default(false)
+  enabled     Boolean  @default(true)
+  sort        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("gameplays")
+}
+
+// 风格 Style
+model Style {
+  id        Int      @id @default(autoincrement())
+  name      String
+  prompt    String
+  uses      Int      @default(0)
+  enabled   Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("styles")
+}
+
+// 分类 Category
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String
+  count     Int      @default(0)
+  sort      Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+// 热搜 HotSearch
+model HotSearch {
+  id        Int      @id @default(autoincrement())
+  keyword   String
+  hot       Int      @default(0)
+  top       Boolean  @default(false)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("hot_searches")
+}
+
+// AI 模型配置 ModelConfig
+model ModelConfig {
+  id                   String   @id
+  provider             String   @default("kie")
+  providerModel        String
+  name                 String
+  description          String
+  tags                 String[]
+  costCredits          Int      @default(0)
+  badge                String   @default("")
+  supportsTextToImage  Boolean  @default(true)
+  supportsImageToImage Boolean  @default(true)
+  enabled              Boolean  @default(true)
+  sort                 Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("model_configs")
+}
+
+// 分辨率配置 QualityConfig
+model QualityConfig {
+  id         Int      @id @default(autoincrement())
+  label      String
+  pixel      String
+  multiplier Float    @default(1)
+  enabled    Boolean  @default(true)
+  sort       Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("quality_configs")
+}
+
+// 尺寸比例 RatioConfig
+model RatioConfig {
+  id          Int      @id @default(autoincrement())
+  label       String
+  description String
+  enabled     Boolean  @default(true)
+  sort        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("ratio_configs")
+}
+
+// 充值方案 RechargeTier
+model RechargeTier {
+  id        Int      @id @default(autoincrement())
+  price     Int
+  credits   Int
+  bonus     Int      @default(0)
+  enabled   Boolean  @default(true)
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("recharge_tiers")
+}
+
+// 会员方案 MemberPlan
+model MemberPlan {
+  id           Int      @id @default(autoincrement())
+  name         String
+  price        Int
+  rights       String
+  giftCredits  Int      @default(0)
+  checkinBonus Int      @default(0)
+  enabled      Boolean  @default(true)
+  sort         Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("member_plans")
+}
+
+// 协议 Agreement（user / privacy / membership）
+model Agreement {
+  type      String   @id
+  title     String
+  content   String
+  updatedAt DateTime @updatedAt
+
+  @@map("agreements")
+}
+
+// 更新日志 / 版本 AppVersion
+model AppVersion {
+  id         Int      @id @default(autoincrement())
+  version    String
+  releasedAt String
+  items      Json
+  sort       Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@map("versions")
+}
+
+// 键值配置 AppSetting（reviewMode / manualReviewEnabled 等）
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_settings")
+}
