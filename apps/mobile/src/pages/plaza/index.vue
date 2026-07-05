@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
-import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
+import { useDataMode } from "../../services/dataMode";
+import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
+import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
 
 const tabEnterClass = resolveTabEnterClass("pages/plaza/index");
 
@@ -76,12 +79,17 @@ const activeTab = ref<PlazaTab>("recommend");
 const renderedTab = ref<PlazaTab>("recommend");
 const activeCategoryIndex = ref(0);
 const lastCategoryIndex = ref(0);
+const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) => ({ name })));
+const userList = ref<HomeUser[]>(mockHomeUsers);
+const workList = ref<HomeWork[]>(mockHomeWorks);
 const likedWorkIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
+const { useMockData } = useDataMode();
+const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
   { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
@@ -98,19 +106,24 @@ const sideRows: SideRow[] = [
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let lastMockMode: boolean | null = null;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
-const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length);
+const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
+const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
+const drawerUser = computed(() => userList.value[0] ?? mockHomeUsers[0]);
 
 const filteredWorks = computed(() => {
   if (renderedTab.value === "favorite") {
-    return homeWorks.filter((work) => likedWorkIds.value.has(work.id));
+    return workList.value.filter((work) => likedWorkIds.value.has(work.id));
   }
 
-  const category = plazaCategories[activeCategoryIndex.value];
-  const baseWorks = category === "全部" ? homeWorks : filterByCategory(homeWorks, category);
+  if (!useMockData.value) return workList.value;
+
+  const category = displayCategories.value[activeCategoryIndex.value];
+  const baseWorks = activeCategoryIndex.value === 0 ? mockHomeWorks : filterByCategory(mockHomeWorks, category);
 
   if (renderedTab.value === "hot") {
     return [...baseWorks].sort((a, b) => b.likes - a.likes);
@@ -123,10 +136,75 @@ const filteredWorks = computed(() => {
   return baseWorks;
 });
 
+onShow(() => {
+  if (lastMockMode === useMockData.value) return;
+  lastMockMode = useMockData.value;
+  void reloadPlazaData();
+});
+
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
+
+function resetMockPlazaData() {
+  categoryOptions.value = plazaCategories.map((name) => ({ name }));
+  userList.value = mockHomeUsers;
+  workList.value = mockHomeWorks;
+  pageState.page = 1;
+  pageState.hasMore = false;
+  visibleWorkCount.value = 10;
+  renderKey.value += 1;
+}
+
+function mergeUsers(nextUsers: HomeUser[]) {
+  const map = new Map<number, HomeUser>();
+  userList.value.forEach((user) => map.set(user.id, user));
+  nextUsers.forEach((user) => map.set(user.id, user));
+  userList.value = Array.from(map.values());
+}
+
+function getPlazaSort() {
+  return renderedTab.value === "new" ? "latest" : "hot";
+}
+
+async function loadCurrentPlazaPage(page = 1, append = false) {
+  if (renderedTab.value === "favorite") return;
+
+  const categoryId = categoryOptions.value[activeCategoryIndex.value]?.id;
+  const result = await fetchPlazaWorks({
+    categoryId,
+    sort: getPlazaSort(),
+    page,
+    pageSize: 10
+  });
+  workList.value = append ? [...workList.value, ...result.works] : result.works;
+  mergeUsers(result.users);
+  pageState.page = result.page;
+  pageState.hasMore = result.hasMore;
+}
+
+async function reloadPlazaData() {
+  if (useMockData.value) {
+    resetMockPlazaData();
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    categoryOptions.value = await fetchPlazaCategories();
+    activeCategoryIndex.value = Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1);
+    userList.value = mockHomeUsers;
+    await loadCurrentPlazaPage(1, false);
+    visibleWorkCount.value = 10;
+    renderKey.value += 1;
+  } catch {
+    uni.showToast({ title: "广场数据加载失败，已使用本地数据", icon: "none" });
+    resetMockPlazaData();
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function showTodo(label: string) {
   uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
@@ -181,8 +259,15 @@ function queueRefresh(after?: () => void) {
   isLoading.value = true;
   visibleWorkCount.value = 10;
   if (loadingTimer) clearTimeout(loadingTimer);
-  loadingTimer = setTimeout(() => {
+  loadingTimer = setTimeout(async () => {
     after?.();
+    if (!useMockData.value) {
+      try {
+        await loadCurrentPlazaPage(1, false);
+      } catch {
+        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+      }
+    }
     renderKey.value += 1;
     isLoading.value = false;
   }, 300);
@@ -206,7 +291,7 @@ function filterByCategory(works: HomeWork[], category: string) {
 }
 
 function getUser(work: HomeWork) {
-  return homeUsers.find((user) => user.id === work.userId) || homeUsers[0];
+  return userList.value.find((user) => user.id === work.userId) || userList.value[0] || mockHomeUsers[0];
 }
 
 function getAspectRatio(ratio: string) {
@@ -270,7 +355,14 @@ function handleReachBottom() {
   if (isLoading.value || isLoadingMore.value || !hasMoreWorks.value) return;
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
-  loadMoreTimer = setTimeout(() => {
+  loadMoreTimer = setTimeout(async () => {
+    if (!useMockData.value && visibleWorkCount.value >= filteredWorks.value.length && pageState.hasMore) {
+      try {
+        await loadCurrentPlazaPage(pageState.page + 1, true);
+      } catch {
+        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+      }
+    }
     visibleWorkCount.value = Math.min(visibleWorkCount.value + 4, filteredWorks.value.length);
     isLoadingMore.value = false;
   }, 500);
@@ -309,7 +401,7 @@ function handleReachBottom() {
           <scroll-view class="category-scroll" scroll-x show-scrollbar="false">
             <view class="category-inner">
               <view
-                v-for="(category, index) in plazaCategories"
+                v-for="(category, index) in displayCategories"
                 :key="category"
                 class="category-chip"
                 :class="{ active: activeCategoryIndex === index }"
@@ -409,9 +501,9 @@ function handleReachBottom() {
 
     <LumiSideDrawer
       :open="sideOpen"
-      :user-name="isLoggedIn ? homeUsers[0].name : '点击登录'"
-      :user-avatar="isLoggedIn ? homeUsers[0].avatar : '♙'"
-      :user-color="isLoggedIn ? homeUsers[0].color : 'var(--bg-soft)'"
+      :user-name="isLoggedIn ? drawerUser.name : '点击登录'"
+      :user-avatar="isLoggedIn ? drawerUser.avatar : '♙'"
+      :user-color="isLoggedIn ? drawerUser.color : 'var(--bg-soft)'"
       :user-points="isLoggedIn ? '2860' : '0'"
       :quick-actions="sideQuickActions"
       :rows="sideRows"
@@ -427,7 +519,7 @@ function handleReachBottom() {
         <view class="filter-title">分类</view>
         <view class="chip-wrap">
           <view
-            v-for="cat in plazaCategories"
+            v-for="cat in displayCategories"
             :key="`fc-${cat}`"
             class="chip chip-outline"
             :class="{ active: isFilterActive('category', cat) }"
