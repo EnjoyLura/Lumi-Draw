@@ -39,6 +39,13 @@ const isOwn = computed(() => {
   if (!work.value) return false;
   return useMockData.value ? work.value.userId === 1 : work.value.userId === currentUser.value?.id;
 });
+const isPendingReview = computed(() => work.value?.status === "pending");
+const managePrimaryIcon = computed(() => (work.value?.published ? "✎" : isPendingReview.value ? "◷" : "✈"));
+const managePrimaryText = computed(() => {
+  if (work.value?.published) return "\u7f16\u8f91\u4fe1\u606f";
+  if (isPendingReview.value) return "\u5ba1\u6838\u4e2d";
+  return "\u53d1\u5e03\u4f5c\u54c1";
+});
 const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value && liked.value ? 1 : 0));
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
 const detailImageStyle = computed(() => {
@@ -57,9 +64,14 @@ onLoad((query) => {
 });
 
 onShow(() => {
-  if (lastMode === useMockData.value) return;
-  lastMode = useMockData.value;
-  void loadDetail();
+  if (lastMode !== useMockData.value) {
+    lastMode = useMockData.value;
+    void loadDetail();
+    return;
+  }
+  if (!useMockData.value && work.value) {
+    void loadDetail();
+  }
 });
 
 function loadMockDetail() {
@@ -361,6 +373,10 @@ function editOrPublishWork() {
     uni.navigateTo({ url: `/pages/edit-work/index?id=${workId.value}` });
     return;
   }
+  if (work.value.status === "pending") {
+    uni.showToast({ title: "\u4f5c\u54c1\u6b63\u5728\u5ba1\u6838\u4e2d", icon: "none" });
+    return;
+  }
   uni.navigateTo({ url: `/pages/publish/index?draftId=${workId.value}` });
 }
 
@@ -612,8 +628,8 @@ function showToast(title: string) {
         <view class="manage-title">管理作品</view>
         <view class="manage-card">
           <view class="manage-row" @click="editOrPublishWork">
-            <view class="manage-icon lavender">{{ work.published ? "✎" : "✈" }}</view>
-            <view class="manage-text">{{ work.published ? "编辑信息" : "发布作品" }}</view>
+            <view class="manage-icon lavender">{{ managePrimaryIcon }}</view>
+            <view class="manage-text">{{ managePrimaryText }}</view>
             <view class="manage-arrow">›</view>
           </view>
           <view v-if="work.published" class="manage-row" @click="moveOwnWorkToDraft">

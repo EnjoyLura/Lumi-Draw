@@ -43,6 +43,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       ratio: item.ratio || "1:1",
       likes: item.likes,
       published,
+      status: item.status,
       description: item.description || `${title}，由露米绘画 AI 生成，适合继续同款创作。`,
       modelName: item.modelName || item.quality || "AI 模型",
       styleName,
