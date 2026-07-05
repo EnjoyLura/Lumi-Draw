@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import type { HomeWork } from "../home/homeData";
 import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
+import { deleteGalleryWorks, fetchGalleryUser, fetchGalleryWorks } from "./galleryService";
 
 const PAGE_SIZE = 10;
 const tabEnterClass = resolveTabEnterClass("pages/gallery/index");
@@ -36,6 +39,7 @@ try {
 const activeTab = ref<GalleryTab>("all");
 const renderedTab = ref<GalleryTab>("all");
 const works = ref<HomeWork[]>(galleryWorks);
+const profile = ref(galleryUser);
 const genTasks = ref(galleryGenTasks);
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
@@ -46,6 +50,8 @@ const showLoginSheet = ref(false);
 const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
+const { useMockData } = useDataMode();
+const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
   { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
@@ -62,8 +68,10 @@ const sideRows: SideRow[] = [
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let lastLoadKey = "";
 
 const filteredWorks = computed(() => {
+  if (!useMockData.value) return works.value;
   if (renderedTab.value === "published") return works.value.filter((work) => work.published);
   if (renderedTab.value === "draft") return works.value.filter((work) => !work.published);
   return works.value;
@@ -72,7 +80,7 @@ const filteredWorks = computed(() => {
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
-const hasMore = computed(() => visibleCount.value < filteredWorks.value.length);
+const hasMore = computed(() => visibleCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const selectedCount = computed(() => selectedIds.value.size);
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const emptyInfo = computed(() => {
@@ -81,10 +89,64 @@ const emptyInfo = computed(() => {
   return { icon: "□", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
 
+onShow(() => {
+  const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
+  if (lastLoadKey === loadKey) return;
+  lastLoadKey = loadKey;
+  void reloadGalleryData();
+});
+
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
+
+function getStatusForTab(tab = renderedTab.value) {
+  if (tab === "published") return "published";
+  if (tab === "draft") return "draft";
+  return undefined;
+}
+
+function resetMockGalleryData() {
+  profile.value = galleryUser;
+  works.value = galleryWorks;
+  pageState.page = 1;
+  pageState.hasMore = false;
+  visibleCount.value = PAGE_SIZE;
+  renderKey.value += 1;
+}
+
+async function loadGalleryPage(page = 1, append = false) {
+  const result = await fetchGalleryWorks({
+    status: getStatusForTab(),
+    page,
+    pageSize: PAGE_SIZE
+  });
+  works.value = append ? [...works.value, ...result.works] : result.works;
+  pageState.page = result.page;
+  pageState.hasMore = result.hasMore;
+}
+
+async function reloadGalleryData() {
+  if (useMockData.value) {
+    resetMockGalleryData();
+    return;
+  }
+
+  if (!isLoggedIn.value) return;
+
+  isLoading.value = true;
+  try {
+    const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false)]);
+    profile.value = nextProfile;
+    visibleCount.value = PAGE_SIZE;
+    renderKey.value += 1;
+  } catch {
+    uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function showTodo(label: string) {
   uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
@@ -137,6 +199,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
+    await reloadGalleryData();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -164,9 +227,16 @@ function switchGalleryTab(tab: GalleryTab, index: number) {
   selectedIds.value = new Set();
   isLoading.value = true;
   if (loadingTimer) clearTimeout(loadingTimer);
-  loadingTimer = setTimeout(() => {
+  loadingTimer = setTimeout(async () => {
     renderedTab.value = tab;
     visibleCount.value = PAGE_SIZE;
+    if (!useMockData.value) {
+      try {
+        await loadGalleryPage(1, false);
+      } catch {
+        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+      }
+    }
     renderKey.value += 1;
     isLoading.value = false;
   }, 320);
@@ -176,7 +246,14 @@ function handleReachBottom() {
   if (isLoading.value || isLoadingMore.value || !hasMore.value) return;
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
-  loadMoreTimer = setTimeout(() => {
+  loadMoreTimer = setTimeout(async () => {
+    if (!useMockData.value && visibleCount.value >= filteredWorks.value.length && pageState.hasMore) {
+      try {
+        await loadGalleryPage(pageState.page + 1, true);
+      } catch {
+        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+      }
+    }
     visibleCount.value = Math.min(visibleCount.value + PAGE_SIZE, filteredWorks.value.length);
     isLoadingMore.value = false;
   }, 500);
@@ -209,14 +286,24 @@ function selectAll() {
   selectedIds.value = allCurrentSelected.value ? new Set() : new Set(displayedWorks.value.map((work) => work.id));
 }
 
-function deleteSelected() {
+async function deleteSelected() {
   if (selectedIds.value.size === 0) {
     uni.showToast({ title: "请先选择要删除的作品", icon: "none" });
     return;
   }
 
   const count = selectedIds.value.size;
-  works.value = works.value.filter((work) => !selectedIds.value.has(work.id));
+  const ids = Array.from(selectedIds.value);
+  if (!useMockData.value) {
+    try {
+      await deleteGalleryWorks(ids);
+    } catch {
+      uni.showToast({ title: "删除失败，请稍后重试", icon: "none" });
+      return;
+    }
+  }
+
+  works.value = works.value.filter((work) => !ids.includes(work.id));
   selectedIds.value = new Set();
   manageMode.value = false;
   renderKey.value += 1;
@@ -260,32 +347,32 @@ function openWork(work: HomeWork) {
         <view v-if="isLoggedIn" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
-              <view class="profile-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
+              <view class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
             </view>
             <view class="profile-main">
-              <view class="profile-name">{{ galleryUser.name }}</view>
+              <view class="profile-name">{{ profile.name }}</view>
               <view class="id-row">
-                <text class="profile-id">ID: {{ galleryUser.userNo }}</text>
+                <text class="profile-id">ID: {{ profile.userNo }}</text>
                 <view class="gender-tag">♀</view>
               </view>
-              <view class="role-tag">✦ {{ galleryUser.role }}</view>
+              <view class="role-tag">✦ {{ profile.role }}</view>
             </view>
           </view>
 
-          <view class="bio">{{ galleryUser.bio }}</view>
+          <view class="bio">{{ profile.bio }}</view>
 
           <view class="stats-row">
             <view class="stats">
               <view class="stat">
-                <text class="stat-num rose">{{ galleryUser.works }}</text>
+                <text class="stat-num rose">{{ profile.works }}</text>
                 <text class="stat-label">作品</text>
               </view>
               <view class="stat" @click="goFollowList">
-                <text class="stat-num accent">{{ galleryUser.followers }}</text>
+                <text class="stat-num accent">{{ profile.followers }}</text>
                 <text class="stat-label">粉丝</text>
               </view>
               <view class="stat">
-                <text class="stat-num lavender">{{ galleryUser.likes }}</text>
+                <text class="stat-num lavender">{{ profile.likes }}</text>
                 <text class="stat-label">获赞</text>
               </view>
             </view>
@@ -359,8 +446,8 @@ function openWork(work: HomeWork) {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="author">
-                    <view class="mini-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
-                    <text class="author-name">{{ galleryUser.name }}</text>
+                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
+                    <text class="author-name">{{ profile.name }}</text>
                   </view>
                   <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
                 </view>
@@ -377,8 +464,8 @@ function openWork(work: HomeWork) {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="author">
-                    <view class="mini-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
-                    <text class="author-name">{{ galleryUser.name }}</text>
+                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
+                    <text class="author-name">{{ profile.name }}</text>
                   </view>
                   <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
                 </view>
@@ -434,10 +521,10 @@ function openWork(work: HomeWork) {
 
     <LumiSideDrawer
       :open="sideOpen"
-      :user-name="galleryUser.name"
-      :user-avatar="galleryUser.avatar"
-      :user-color="galleryUser.color"
-      :user-points="galleryUser.points"
+      :user-name="profile.name"
+      :user-avatar="profile.avatar"
+      :user-color="profile.color"
+      :user-points="profile.points"
       :quick-actions="sideQuickActions"
       :rows="sideRows"
       @close="closeSideMenu"
