@@ -13,7 +13,14 @@ import {
   qualityOptions,
   ratioOptions
 } from "./createData";
-import { createDraftWork, fetchCreateConfig } from "./createService";
+import {
+  createDraftWork,
+  createGenerateJob,
+  fetchCreateConfig,
+  fetchGenerateJob,
+  publishGenerateResult,
+  type BackendGenerateJob
+} from "./createService";
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -46,15 +53,19 @@ interface GenResult {
   id: string;
   failed: boolean;
   seed: string;
+  imageUrl?: string;
+  resultId?: string;
+  savedWorkId?: number;
   error: string;
 }
 
 const generatedResults = ref<GenResult[]>([]);
 const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
-const previewData = ref<{ src: string; resolution: string; size: string; ratio: string } | null>(null);
+const previewData = ref<{ src: string; resolution: string; size: string; ratio: string; resultId?: string; savedWorkId?: number } | null>(null);
 
 let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
+let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? createModels[0]);
@@ -173,6 +184,7 @@ onShow(() => {
 onBeforeUnmount(() => {
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
+  if (pollTimer) clearTimeout(pollTimer);
 });
 
 function showToast(title: string) {
@@ -181,6 +193,10 @@ function showToast(title: string) {
 
 function generatedImageUrl(seed: string, size = 800) {
   return `https://picsum.photos/seed/${seed}/${size}/${size}`;
+}
+
+function resultImageSrc(item: GenResult, size = 800) {
+  return item.imageUrl || generatedImageUrl(item.seed, size);
 }
 
 function draftTitle(index = 0) {
@@ -340,7 +356,101 @@ function ratioShapeStyle(width: number, height: number) {
   return { width: "20px", height: "36px" };
 }
 
-function startGenerate() {
+function isTerminalJob(status: BackendGenerateJob["status"]) {
+  return ["succeeded", "partial_failed", "failed", "cancelled"].includes(status);
+}
+
+function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
+  if (!job.results.length && (job.status === "failed" || job.status === "cancelled")) {
+    return [
+      {
+        id: job.id,
+        failed: true,
+        seed: job.id,
+        error: job.errorMessage || job.stageText || "生成失败"
+      }
+    ];
+  }
+
+  return job.results.map((item, index) => ({
+    id: item.id,
+    resultId: item.id,
+    failed: item.status === "failed" || !item.imageUrl,
+    seed: item.id || `${job.id}-${index}`,
+    imageUrl: item.imageUrl,
+    savedWorkId: item.workId,
+    error: item.errorMessage || "生成失败"
+  }));
+}
+
+function applyBackendJob(job: BackendGenerateJob) {
+  progress.value = Math.max(progress.value, Math.min(job.progress || 0, 100));
+  stageText.value = job.stageText || stageText.value;
+
+  if (!isTerminalJob(job.status)) return;
+
+  if (pollTimer) clearTimeout(pollTimer);
+  progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
+  isGenerating.value = false;
+  generatedResults.value = toGeneratedResults(job);
+  genMeta.value = {
+    time: Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000).toFixed(1),
+    resolution: resolveResolution(selectedRatio.value.label),
+    size: `${job.costCredits - job.refundCredits}积分`
+  };
+
+  if (job.status === "succeeded") showToast("生成成功");
+  else if (job.status === "partial_failed") showToast("部分图片生成成功");
+  else showToast(job.errorMessage || job.stageText || "生成失败，积分已按规则退回");
+}
+
+async function pollBackendJob(jobId: string) {
+  try {
+    const job = await fetchGenerateJob(jobId);
+    applyBackendJob(job);
+    if (!isTerminalJob(job.status)) {
+      pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
+    }
+  } catch {
+    isGenerating.value = false;
+    showToast("任务状态获取失败，请稍后在画廊查看");
+  }
+}
+
+async function startBackendGenerate(prompt: string) {
+  if (progressTimer) clearInterval(progressTimer);
+  if (finishTimer) clearTimeout(finishTimer);
+  if (pollTimer) clearTimeout(pollTimer);
+
+  isGenerating.value = true;
+  progress.value = 0;
+  generatedResults.value = [];
+  genMeta.value = null;
+  stageText.value = "任务提交中...";
+
+  try {
+    const created = await createGenerateJob({
+      mode: promptImage.value ? "image-to-image" : "text-to-image",
+      modelId: selectedModel.value.id,
+      prompt,
+      inputImageUrl: promptImage.value || undefined,
+      style: selectedStyleName.value,
+      ratio: selectedRatio.value.label,
+      quality: selectedQuality.value.label,
+      count: selectedCount.value
+    });
+    applyBackendJob(created.job);
+    if (!isTerminalJob(created.job.status)) {
+      pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
+    }
+  } catch (error) {
+    isGenerating.value = false;
+    const message = error instanceof Error ? error.message : "提交失败，请稍后重试";
+    showToast(message);
+  }
+}
+
+async function startGenerate() {
   if (!ensureLogin()) return;
 
   const prompt = promptText.value.trim();
@@ -349,8 +459,14 @@ function startGenerate() {
     return;
   }
 
+  if (!useMockData.value) {
+    await startBackendGenerate(prompt);
+    return;
+  }
+
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
+  if (pollTimer) clearTimeout(pollTimer);
 
   isGenerating.value = true;
   progress.value = 0;
@@ -400,10 +516,12 @@ function startGenerate() {
 function openPreview(item: GenResult) {
   if (item.failed || !genMeta.value) return;
   previewData.value = {
-    src: generatedImageUrl(item.seed),
+    src: resultImageSrc(item),
     resolution: genMeta.value.resolution,
     size: genMeta.value.size,
-    ratio: selectedRatio.value.label
+    ratio: selectedRatio.value.label,
+    resultId: item.resultId,
+    savedWorkId: item.savedWorkId
   };
   previewSheetOpen.value = true;
 }
@@ -427,9 +545,28 @@ async function savePreview() {
   }
 
   if (!ensureLogin()) return;
+  if (previewData.value.savedWorkId) {
+    showToast("鍥剧墖宸插湪鑽夌绠?");
+    closePreview();
+    return;
+  }
 
   isSavingDrafts.value = true;
   try {
+    if (previewData.value.resultId) {
+      const published = await publishGenerateResult(previewData.value.resultId, {
+        title: draftTitle(),
+        description: "",
+        isPublic: false
+      });
+      const result = generatedResults.value.find((item) => item.resultId === previewData.value?.resultId);
+      if (result) result.savedWorkId = published.workId;
+      previewData.value.savedWorkId = published.workId;
+      showToast("鍥剧墖宸蹭繚瀛樺埌鑽夌绠?");
+      closePreview();
+      return;
+    }
+
     const uploaded = await uploadRemoteImage(previewData.value.src, "work");
     await createDraftWork({
       title: draftTitle(),
@@ -467,8 +604,21 @@ async function saveAllResults() {
 
   isSavingDrafts.value = true;
   try {
+    let savedCount = 0;
     for (const [index, item] of successfulResults.entries()) {
-      const uploaded = await uploadRemoteImage(generatedImageUrl(item.seed), "work", `${item.seed}.jpg`);
+      if (item.savedWorkId) continue;
+      if (item.resultId) {
+        const published = await publishGenerateResult(item.resultId, {
+          title: draftTitle(index),
+          description: "",
+          isPublic: false
+        });
+        item.savedWorkId = published.workId;
+        savedCount += 1;
+        continue;
+      }
+
+      const uploaded = await uploadRemoteImage(resultImageSrc(item), "work", `${item.seed}.jpg`);
       await createDraftWork({
         title: draftTitle(index),
         description: "",
@@ -479,8 +629,9 @@ async function saveAllResults() {
         modelId: selectedModel.value.id,
         style: selectedStyleName.value
       });
+      savedCount += 1;
     }
-    showToast(`已保存 ${successfulResults.length} 张到草稿箱`);
+    showToast(savedCount ? `已保存 ${savedCount} 张到草稿箱` : "图片已在草稿箱");
   } catch {
     showToast("保存失败，请稍后重试");
   } finally {
@@ -488,8 +639,11 @@ async function saveAllResults() {
   }
 }
 
-function goPublish() {
+async function goPublish() {
   if (!ensureLogin()) return;
+  if (!useMockData.value && generatedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
+    await saveAllResults();
+  }
   uni.navigateTo({ url: "/pages/publish/index" });
 }
 </script>
@@ -672,7 +826,7 @@ function goPublish() {
                   <text class="fail-msg">{{ item.error }}</text>
                 </view>
                 <view v-else class="result-img" @click="openPreview(item)">
-                  <image :src="generatedImageUrl(item.seed, 400)" mode="aspectFill" />
+                  <image :src="resultImageSrc(item, 400)" mode="aspectFill" />
                 </view>
               </template>
             </view>

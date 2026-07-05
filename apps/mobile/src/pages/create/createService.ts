@@ -70,6 +70,59 @@ export interface CreateDraftWorkPayload {
   style: string;
 }
 
+export interface BackendGenerateResult {
+  id: string;
+  status: "succeeded" | "failed";
+  imageUrl?: string;
+  errorMessage?: string;
+  workId?: number;
+}
+
+export interface BackendGenerateJob {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
+  progress: number;
+  stageText: string;
+  costCredits: number;
+  refundCredits: number;
+  errorMessage?: string;
+  results: BackendGenerateResult[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateGenerateJobPayload {
+  mode: "text-to-image" | "image-to-image";
+  modelId: string;
+  prompt: string;
+  inputImageUrl?: string;
+  gameplayId?: number;
+  style?: string;
+  ratio: string;
+  quality: string;
+  count: number;
+}
+
+export interface CreateGenerateJobResponse {
+  jobId: string;
+  status: BackendGenerateJob["status"];
+  costCredits: number;
+  creditsAfter?: number;
+  job: BackendGenerateJob;
+}
+
+export interface PublishGenerateResultPayload {
+  title: string;
+  description?: string;
+  isPublic?: boolean;
+}
+
+export interface PublishGenerateResultResponse {
+  workId: number;
+  status: string;
+  isPublic: boolean;
+}
+
 function fallbackByIndex<T>(items: T[], index: number) {
   return items[index % items.length];
 }
@@ -135,4 +188,16 @@ export function createDraftWork(payload: CreateDraftWorkPayload) {
     ...payload,
     isPublic: false
   });
+}
+
+export function createGenerateJob(payload: CreateGenerateJobPayload) {
+  return api.post<CreateGenerateJobResponse>("/generate/jobs", payload);
+}
+
+export function fetchGenerateJob(jobId: string) {
+  return api.get<BackendGenerateJob>(`/generate/jobs/${jobId}`);
+}
+
+export function publishGenerateResult(resultId: string, payload: PublishGenerateResultPayload) {
+  return api.post<PublishGenerateResultResponse>(`/generate/results/${resultId}/publish`, payload);
 }
