@@ -21,7 +21,7 @@ export class GenerateService {
     const normalized = this.normalizeCreateDto(dto);
     const [model, quality, ratio] = await Promise.all([
       this.prisma.modelConfig.findFirst({ where: { id: normalized.modelId, enabled: true } }),
-      this.prisma.qualityConfig.findFirst({ where: { label: normalized.quality, enabled: true } }),
+      this.resolveQuality(normalized.quality),
       this.prisma.ratioConfig.findFirst({ where: { label: normalized.ratio, enabled: true } })
     ]);
 
@@ -164,6 +164,19 @@ export class GenerateService {
       quality: dto.quality.trim(),
       count: dto.count ?? 1
     };
+  }
+
+  private async resolveQuality(value: string) {
+    const normalized = value.trim();
+    const exact = await this.prisma.qualityConfig.findFirst({ where: { label: normalized, enabled: true } });
+    if (exact) return exact;
+
+    const shorthand = normalized.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase();
+    if (!shorthand) return null;
+    return this.prisma.qualityConfig.findFirst({
+      where: { enabled: true, OR: [{ label: { contains: shorthand } }, { pixel: { contains: shorthand.replace("K", "") } }] },
+      orderBy: [{ sort: "asc" }, { id: "asc" }]
+    });
   }
 
   private toJobView(job: JobWithResults) {
