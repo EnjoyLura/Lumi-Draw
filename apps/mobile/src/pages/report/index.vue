@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { reportReasons } from "../work-detail/workDetailData";
+import { submitWorkReport } from "./reportService";
 
 const selectedReasonIndex = ref(-1);
 const description = ref("");
 const workId = ref(0);
+const isSubmitting = ref(false);
+const showLoginSheet = ref(false);
+const { login: commitLogin, requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 onLoad((query) => {
   const id = Number(query?.workId || 0);
@@ -16,16 +24,45 @@ function selectReason(index: number) {
   selectedReasonIndex.value = index;
 }
 
-function submitReport() {
+async function submitReport() {
   if (selectedReasonIndex.value < 0) {
     uni.showToast({ title: "请选择举报原因", icon: "none" });
     return;
   }
+  if (!workId.value) {
+    uni.showToast({ title: "作品信息缺失", icon: "none" });
+    return;
+  }
+  if (!requireLogin(() => (showLoginSheet.value = true))) return;
+  if (isSubmitting.value) return;
 
-  uni.showToast({ title: "举报已提交，我们会尽快处理", icon: "none" });
-  setTimeout(() => {
-    uni.navigateBack();
-  }, 450);
+  isSubmitting.value = true;
+  try {
+    if (!useMockData.value) {
+      await submitWorkReport(workId.value, {
+        reason: reportReasons[selectedReasonIndex.value],
+        description: description.value.trim()
+      });
+    }
+    uni.showToast({ title: "举报已提交，我们会尽快处理", icon: "none" });
+    setTimeout(() => {
+      uni.navigateBack();
+    }, 450);
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "举报提交失败，请稍后重试", icon: "none" });
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
 }
 </script>
 
@@ -48,10 +85,13 @@ function submitReport() {
         </view>
 
         <view class="section-title desc-title">补充描述（选填）</view>
-        <textarea v-model="description" class="desc-input" placeholder="请描述具体问题..." />
-        <button class="submit-btn" @click="submitReport">提交举报</button>
+        <textarea v-model="description" class="desc-input" maxlength="500" placeholder="请描述具体问题..." />
+        <button class="submit-btn" :disabled="isSubmitting" @click="submitReport">
+          {{ isSubmitting ? "提交中..." : "提交举报" }}
+        </button>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -146,6 +186,10 @@ function submitReport() {
   background: var(--gradient-dream);
   border: none;
   border-radius: 14px;
+}
+
+.submit-btn[disabled] {
+  opacity: 0.72;
 }
 
 .submit-btn::after {

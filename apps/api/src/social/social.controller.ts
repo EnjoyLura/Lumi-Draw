@@ -1,7 +1,8 @@
-import { Controller, Delete, Get, Param, ParseIntPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { CreateReportDto } from "./social.dto";
 import { FollowListQueryDto, SocialPageQueryDto } from "./social.query";
 import { SocialService } from "./social.service";
 
@@ -35,6 +36,11 @@ export class SocialController {
   @Post("works/:id/remake")
   recordRemake(@Param("id", ParseIntPipe) id: number) {
     return this.social.recordRemake(id);
+  }
+
+  @Post("works/:id/report")
+  reportWork(@CurrentUser() user: { id: number }, @Param("id", ParseIntPipe) id: number, @Body() dto: CreateReportDto) {
+    return this.social.reportWork(user.id, id, dto.reason, dto.description);
   }
 
   @Get("history")

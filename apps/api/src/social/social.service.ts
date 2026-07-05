@@ -149,6 +149,36 @@ export class SocialService {
     return { remakes: updated.remakes };
   }
 
+  async reportWork(userId: number, workId: number, reason: string, description = "") {
+    const work = await this.publicWork(workId);
+    if (work.userId === userId) throw new BadRequestException("不能举报自己的作品");
+    const existing = await this.prisma.report.findFirst({
+      where: { workId, reporterId: userId, status: { in: ["pending", "processing"] } }
+    });
+    if (existing) {
+      return {
+        id: existing.id,
+        status: existing.status,
+        duplicated: true,
+        createdAt: existing.createdAt.toISOString()
+      };
+    }
+    const report = await this.prisma.report.create({
+      data: {
+        workId,
+        reporterId: userId,
+        reason: reason.trim(),
+        description: description.trim()
+      }
+    });
+    return {
+      id: report.id,
+      status: report.status,
+      duplicated: false,
+      createdAt: report.createdAt.toISOString()
+    };
+  }
+
   async profile(currentUserId: number, targetUserId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!user) throw new NotFoundException("用户不存在");
