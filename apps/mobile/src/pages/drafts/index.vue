@@ -1,11 +1,40 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { galleryUser, galleryWorks } from "../gallery/galleryData";
+import { fetchGalleryUser, fetchGalleryWorks } from "../gallery/galleryService";
 import type { HomeWork } from "../home/homeData";
 
-const drafts = computed(() => galleryWorks.filter((work) => !work.published));
+const PAGE_SIZE = 12;
+
+const { login: commitLogin, requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+const realDrafts = ref<HomeWork[]>([]);
+const profile = ref(galleryUser);
+const isLoading = ref(false);
+const isLoadingMore = ref(false);
+const loginRequired = ref(false);
+const showLoginSheet = ref(false);
+const pageState = reactive({ page: 1, hasMore: false });
+let lastMode: boolean | null = null;
+
+const drafts = computed(() => (useMockData.value ? galleryWorks.filter((work) => !work.published) : realDrafts.value));
 const leftColumn = computed(() => drafts.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => drafts.value.filter((_, index) => index % 2 === 1));
+const hasMore = computed(() => !useMockData.value && pageState.hasMore);
+
+onShow(() => {
+  if (lastMode !== useMockData.value) {
+    lastMode = useMockData.value;
+    realDrafts.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
+  }
+  void loadDrafts(1, false);
+});
 
 function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
@@ -24,13 +53,67 @@ function openWork(work: HomeWork) {
 function goCreate() {
   uni.navigateTo({ url: "/pages/create/index" });
 }
+
+async function loadDrafts(page = 1, append = false) {
+  if (useMockData.value) return;
+  if (!requireLogin()) {
+    loginRequired.value = true;
+    return;
+  }
+
+  loginRequired.value = false;
+  isLoading.value = !append;
+  isLoadingMore.value = append;
+  try {
+    const [draftPage, nextProfile] = await Promise.all([
+      fetchGalleryWorks({ status: "draft", page, pageSize: PAGE_SIZE }),
+      page === 1 ? fetchGalleryUser() : Promise.resolve(profile.value)
+    ]);
+    realDrafts.value = append ? [...realDrafts.value, ...draftPage.works] : draftPage.works;
+    profile.value = nextProfile;
+    pageState.page = draftPage.page;
+    pageState.hasMore = draftPage.hasMore;
+  } catch {
+    uni.showToast({ title: "草稿加载失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoading.value = false;
+    isLoadingMore.value = false;
+  }
+}
+
+function loadMore() {
+  if (isLoading.value || isLoadingMore.value || !hasMore.value) return;
+  void loadDrafts(pageState.page + 1, true);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadDrafts(1, false);
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
 </script>
 
 <template>
   <view class="drafts-page">
-    <scroll-view class="page-scroll" scroll-y>
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
-        <template v-if="drafts.length">
+        <view v-if="!useMockData && loginRequired" class="empty-state">
+          <view class="empty-icon">◎</view>
+          <view class="empty-title">登录后查看草稿箱</view>
+          <view class="empty-sub">生成完成的作品会自动保存为草稿</view>
+          <button class="empty-btn" @click="showLoginSheet = true">立即登录</button>
+        </view>
+
+        <view v-else-if="isLoading" class="loading-state">
+          <view class="spinner" />
+        </view>
+
+        <template v-else-if="drafts.length">
           <view class="waterfall">
             <view class="waterfall-column">
               <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
@@ -39,8 +122,8 @@ function goCreate() {
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
-                    <view class="mini-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
-                    <text class="author-name">{{ galleryUser.name }}</text>
+                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
+                    <text class="author-name">{{ profile.name }}</text>
                   </view>
                 </view>
               </view>
@@ -53,24 +136,28 @@ function goCreate() {
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
-                    <view class="mini-avatar" :style="{ background: galleryUser.color }">{{ galleryUser.avatar }}</view>
-                    <text class="author-name">{{ galleryUser.name }}</text>
+                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
+                    <text class="author-name">{{ profile.name }}</text>
                   </view>
                 </view>
               </view>
             </view>
           </view>
-          <view class="load-more-hint">继续往下滑获取更多作品</view>
+          <view class="load-more-hint" :class="{ loading: isLoadingMore }">
+            <view v-if="isLoadingMore" class="spinner mini" />
+            <text>{{ isLoadingMore ? "正在加载更多草稿" : hasMore ? "继续下滑查看更多草稿" : "没有更多草稿了" }}</text>
+          </view>
         </template>
 
         <view v-else class="empty-state">
           <view class="empty-icon">▤</view>
           <view class="empty-title">暂无草稿</view>
           <view class="empty-sub">生成的作品会自动保存到草稿箱</view>
-          <button class="empty-btn" @click="goCreate">＋ 去创作</button>
+          <button class="empty-btn" @click="goCreate">✦ 去创作</button>
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -176,10 +263,39 @@ function goCreate() {
 }
 
 .load-more-hint {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
   padding: 20px 0;
   font-size: 12px;
   color: var(--fg-muted);
   text-align: center;
+}
+
+.load-more-hint.loading {
+  color: var(--accent);
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 70px 0;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner.mini {
+  width: 15px;
+  height: 15px;
+  border-width: 1.5px;
 }
 
 .empty-state {
@@ -232,5 +348,11 @@ function goCreate() {
 
 .empty-btn::after {
   border: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
