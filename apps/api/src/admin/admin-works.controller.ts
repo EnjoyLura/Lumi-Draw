@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { AdminWorkQueryDto } from "./admin.query";
@@ -46,5 +46,10 @@ export class AdminWorksController {
   @Post(":id/restore")
   restore(@Param("id", ParseIntPipe) id: number) {
     return this.admin.restoreWork(id);
+  }
+
+  @Delete(":id")
+  delete(@Param("id", ParseIntPipe) id: number) {
+    return this.admin.deleteWork(id);
   }
 }

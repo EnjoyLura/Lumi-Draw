@@ -164,6 +164,10 @@ export async function apiRestoreWork(id: number) {
   return mapWork(await http.post<ApiWork>(`/admin/works/${id}/restore`));
 }
 
+export async function apiDeleteWork(id: number) {
+  return http.del<{ ok: boolean; id: number; action: "delete" }>(`/admin/works/${id}`);
+}
+
 interface ApiReviewWork {
   id: number; title: string; imageUrl?: string; prompt: string; style: string;
   status: string; authorName: string; createdAt: string;

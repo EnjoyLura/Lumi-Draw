@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  apiDeleteWork,
   apiFeatureWork,
   apiGetWorkDetail,
   apiOfflineWork,
@@ -166,14 +167,20 @@ export function WorkDetail({ param }: { param?: string }) {
     }
   };
 
-  const del = () => confirmDlg("删除作品", "后端暂未提供物理删除接口。真实模式下建议先下架作品。", () => {
+  const del = () => confirmDlg("删除作品", "删除后不可恢复，确定要删除这个作品吗？", async () => {
     if (useMock) {
       const i = WORKS.findIndex((x) => x.id === w.id);
       if (i > -1) WORKS.splice(i, 1);
       back();
       toast("已删除");
-    } else {
-      toast("请使用下架操作");
+      return;
+    }
+    try {
+      await apiDeleteWork(w.id);
+      back();
+      toast("已删除");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "删除失败");
     }
   }, true);
 
