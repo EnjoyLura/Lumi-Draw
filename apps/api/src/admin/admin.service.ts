@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { AdminUserQueryDto, AdminWorkQueryDto } from "./admin.query";
 
@@ -47,7 +48,10 @@ function workRow(work: Work & { user?: User | null }) {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly credits: CreditsService
+  ) {}
 
   async users(query: AdminUserQueryDto) {
     const { keyword, status, member, page, pageSize } = query;
@@ -106,5 +110,86 @@ export class AdminService {
       imageUrl: work.imageUrl,
       author: work.user ? { id: work.user.id, nickname: work.user.nickname, avatarText: work.user.avatarText, avatarColor: work.user.avatarColor } : null
     };
+  }
+
+  // ---------- 用户管理动作 ----------
+  private async ensureUser(id: number) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException("用户不存在");
+    return user;
+  }
+
+  async updateUser(id: number, body: Record<string, unknown>) {
+    await this.ensureUser(id);
+    const data: Prisma.UserUpdateInput = {};
+    if (typeof body.nickname === "string") data.nickname = body.nickname;
+    if (typeof body.bio === "string") data.bio = body.bio;
+    if (typeof body.phone === "string") data.phone = body.phone;
+    if (typeof body.memberPlan === "string") data.memberPlan = body.memberPlan;
+    if (typeof body.gender === "string") data.gender = body.gender;
+    if (body.status === "normal" || body.status === "banned") data.status = body.status;
+    const user = await this.prisma.user.update({ where: { id }, data });
+    return userRow(user);
+  }
+
+  async banUser(id: number) {
+    await this.ensureUser(id);
+    return userRow(await this.prisma.user.update({ where: { id }, data: { status: "banned" } }));
+  }
+
+  async unbanUser(id: number) {
+    await this.ensureUser(id);
+    return userRow(await this.prisma.user.update({ where: { id }, data: { status: "normal" } }));
+  }
+
+  async adjustCredits(id: number, amount: unknown, reason: unknown) {
+    await this.ensureUser(id);
+    if (typeof amount !== "number" || !Number.isFinite(amount) || amount === 0) {
+      throw new BadRequestException("amount 必须为非零数字");
+    }
+    const { balance } = await this.credits.addTransaction(id, "adjust", amount, typeof reason === "string" && reason ? reason : "人工调整");
+    return { id, balance, amount };
+  }
+
+  // ---------- 作品管理动作 ----------
+  private async ensureWork(id: number) {
+    const work = await this.prisma.work.findUnique({ where: { id } });
+    if (!work) throw new NotFoundException("作品不存在");
+    return work;
+  }
+
+  async updateWork(id: number, body: Record<string, unknown>) {
+    await this.ensureWork(id);
+    const data: Prisma.WorkUpdateInput = {};
+    if (typeof body.title === "string") data.title = body.title;
+    if (typeof body.description === "string") data.description = body.description;
+    if (typeof body.style === "string") data.style = body.style;
+    if (["draft", "pending", "published", "rejected", "offline"].includes(String(body.status))) data.status = String(body.status);
+    const work = await this.prisma.work.update({ where: { id }, data, include: { user: true } });
+    return workRow(work);
+  }
+
+  async featureWork(id: number, featured: unknown) {
+    await this.ensureWork(id);
+    const work = await this.prisma.work.update({ where: { id }, data: { featured: !!featured }, include: { user: true } });
+    return workRow(work);
+  }
+
+  async recommendWork(id: number, recommend: unknown) {
+    await this.ensureWork(id);
+    const work = await this.prisma.work.update({ where: { id }, data: { recommend: !!recommend }, include: { user: true } });
+    return workRow(work);
+  }
+
+  async offlineWork(id: number) {
+    await this.ensureWork(id);
+    const work = await this.prisma.work.update({ where: { id }, data: { status: "offline", isPublic: false }, include: { user: true } });
+    return workRow(work);
+  }
+
+  async restoreWork(id: number) {
+    await this.ensureWork(id);
+    const work = await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true }, include: { user: true } });
+    return workRow(work);
   }
 }
