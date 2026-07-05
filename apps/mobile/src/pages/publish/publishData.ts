@@ -42,7 +42,7 @@ export interface DraftWork {
   prompt?: string;
   ratio: string;
   resolution: string;
-  source?: "mock" | "backend";
+  source?: "mock" | "backend" | "uploaded";
 }
 
 export const draftWorks: DraftWork[] = galleryWorks

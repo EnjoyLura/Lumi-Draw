@@ -59,6 +59,17 @@ export interface CreateConfigView {
   gameplays: GameplayTemplate[];
 }
 
+export interface CreateDraftWorkPayload {
+  title: string;
+  description?: string;
+  prompt: string;
+  imageUrl: string;
+  ratio: string;
+  quality: string;
+  modelId: string;
+  style: string;
+}
+
 function fallbackByIndex<T>(items: T[], index: number) {
   return items[index % items.length];
 }
@@ -117,4 +128,11 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
       };
     })
   };
+}
+
+export function createDraftWork(payload: CreateDraftWorkPayload) {
+  return api.post("/works", {
+    ...payload,
+    isPublic: false
+  });
 }

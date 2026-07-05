@@ -4,6 +4,7 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { uploadChosenImage, uploadRemoteImage } from "../../services/upload";
 import {
   countOptions,
   createModels,
@@ -12,7 +13,7 @@ import {
   qualityOptions,
   ratioOptions
 } from "./createData";
-import { fetchCreateConfig } from "./createService";
+import { createDraftWork, fetchCreateConfig } from "./createService";
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -36,6 +37,8 @@ const gameplaySheetOpen = ref(false);
 const styleSheetOpen = ref(false);
 const previewSheetOpen = ref(false);
 const showLoginSheet = ref(false);
+const isUploadingPromptImage = ref(false);
+const isSavingDrafts = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
 
@@ -176,6 +179,18 @@ function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
 }
 
+function generatedImageUrl(seed: string, size = 800) {
+  return `https://picsum.photos/seed/${seed}/${size}/${size}`;
+}
+
+function draftTitle(index = 0) {
+  const base =
+    selectedGameplayName.value ||
+    selectedStyleName.value ||
+    (promptText.value.trim() ? promptText.value.trim().slice(0, 18) : "AI 创作");
+  return successCount.value > 1 ? `${base} ${index + 1}` : base;
+}
+
 function openLoginSheet() {
   showLoginSheet.value = true;
 }
@@ -280,10 +295,26 @@ function selectStyleFromSheet(name: string) {
   selectedStyleName.value = name;
 }
 
-function uploadPromptImage() {
+async function uploadPromptImage() {
   if (!ensureLogin()) return;
-  promptImage.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
-  showToast("图片已上传");
+  if (isUploadingPromptImage.value) return;
+
+  if (useMockData.value) {
+    promptImage.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
+    showToast("图片已上传");
+    return;
+  }
+
+  isUploadingPromptImage.value = true;
+  try {
+    const uploaded = await uploadChosenImage("prompt");
+    promptImage.value = uploaded.publicUrl;
+    showToast("图片已上传");
+  } catch {
+    showToast("图片上传失败，请稍后重试");
+  } finally {
+    isUploadingPromptImage.value = false;
+  }
 }
 
 function removePromptImage(event?: Event) {
@@ -369,7 +400,7 @@ function startGenerate() {
 function openPreview(item: GenResult) {
   if (item.failed || !genMeta.value) return;
   previewData.value = {
-    src: `https://picsum.photos/seed/${item.seed}/800/800`,
+    src: generatedImageUrl(item.seed),
     resolution: genMeta.value.resolution,
     size: genMeta.value.size,
     ratio: selectedRatio.value.label
@@ -386,14 +417,75 @@ function zoomPreview() {
   uni.previewImage({ urls: [previewData.value.src], current: previewData.value.src });
 }
 
-function savePreview() {
-  showToast("图片已保存到相册");
-  closePreview();
+async function savePreview() {
+  if (!previewData.value || isSavingDrafts.value) return;
+
+  if (useMockData.value) {
+    showToast("图片已保存到草稿箱");
+    closePreview();
+    return;
+  }
+
+  if (!ensureLogin()) return;
+
+  isSavingDrafts.value = true;
+  try {
+    const uploaded = await uploadRemoteImage(previewData.value.src, "generated");
+    await createDraftWork({
+      title: draftTitle(),
+      description: "",
+      prompt: promptText.value.trim(),
+      imageUrl: uploaded.publicUrl,
+      ratio: selectedRatio.value.label,
+      quality: selectedQuality.value.label,
+      modelId: selectedModel.value.id,
+      style: selectedStyleName.value
+    });
+    showToast("图片已保存到草稿箱");
+    closePreview();
+  } catch {
+    showToast("保存失败，请稍后重试");
+  } finally {
+    isSavingDrafts.value = false;
+  }
 }
 
-function saveAllResults() {
+async function saveAllResults() {
   if (!ensureLogin()) return;
-  showToast("全部图片已保存到相册和草稿箱");
+  if (isSavingDrafts.value) return;
+
+  const successfulResults = generatedResults.value.filter((item) => !item.failed);
+  if (!successfulResults.length) {
+    showToast("暂无可保存图片");
+    return;
+  }
+
+  if (useMockData.value) {
+    showToast("全部图片已保存到草稿箱");
+    return;
+  }
+
+  isSavingDrafts.value = true;
+  try {
+    for (const [index, item] of successfulResults.entries()) {
+      const uploaded = await uploadRemoteImage(generatedImageUrl(item.seed), "generated", `${item.seed}.jpg`);
+      await createDraftWork({
+        title: draftTitle(index),
+        description: "",
+        prompt: promptText.value.trim(),
+        imageUrl: uploaded.publicUrl,
+        ratio: selectedRatio.value.label,
+        quality: selectedQuality.value.label,
+        modelId: selectedModel.value.id,
+        style: selectedStyleName.value
+      });
+    }
+    showToast(`已保存 ${successfulResults.length} 张到草稿箱`);
+  } catch {
+    showToast("保存失败，请稍后重试");
+  } finally {
+    isSavingDrafts.value = false;
+  }
 }
 
 function goPublish() {
@@ -470,7 +562,9 @@ function goPublish() {
           </view>
           <view class="prompt-actions">
             <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
-            <view class="prompt-action accent" @click="uploadPromptImage">上传图片</view>
+            <view class="prompt-action accent" :class="{ disabled: isUploadingPromptImage }" @click="uploadPromptImage">
+              {{ isUploadingPromptImage ? "上传中..." : "上传图片" }}
+            </view>
             <view class="action-spacer" />
             <view v-if="promptText" class="prompt-action neutral has-icon" @click="clearPrompt">
               <text class="prompt-action-icon">⌫</text>
@@ -578,7 +672,7 @@ function goPublish() {
                   <text class="fail-msg">{{ item.error }}</text>
                 </view>
                 <view v-else class="result-img" @click="openPreview(item)">
-                  <image :src="`https://picsum.photos/seed/${item.seed}/400/400`" mode="aspectFill" />
+                  <image :src="generatedImageUrl(item.seed, 400)" mode="aspectFill" />
                 </view>
               </template>
             </view>
@@ -597,9 +691,9 @@ function goPublish() {
                 <text class="result-action-icon">✈</text>
                 <text>发布作品</text>
               </button>
-              <button class="result-action primary" @click="saveAllResults">
+              <button class="result-action primary" :disabled="isSavingDrafts" @click="saveAllResults">
                 <text class="result-action-icon">⇩</text>
-                <text>全部保存</text>
+                <text>{{ isSavingDrafts ? "保存中..." : "全部保存" }}</text>
               </button>
             </view>
           </view>
@@ -752,9 +846,9 @@ function goPublish() {
       <view class="preview-head">
         <text class="preview-title">图片预览</text>
         <view class="preview-head-actions">
-          <button class="preview-ghost-btn" @click="savePreview">
+          <button class="preview-ghost-btn" :disabled="isSavingDrafts" @click="savePreview">
             <text class="preview-btn-icon">⇩</text>
-            <text>保存</text>
+            <text>{{ isSavingDrafts ? "保存中..." : "保存" }}</text>
           </button>
           <button class="preview-ghost-btn icon" @click="closePreview">×</button>
         </view>
@@ -1090,6 +1184,10 @@ function goPublish() {
 .prompt-action.neutral {
   color: var(--fg-muted);
   background: var(--bg-soft);
+}
+
+.prompt-action.disabled {
+  opacity: 0.65;
 }
 
 .prompt-action.has-icon {
@@ -1434,6 +1532,11 @@ function goPublish() {
 
 .result-action::after {
   border: none;
+}
+
+.result-action[disabled],
+.preview-ghost-btn[disabled] {
+  opacity: 0.65;
 }
 
 .result-action-icon {

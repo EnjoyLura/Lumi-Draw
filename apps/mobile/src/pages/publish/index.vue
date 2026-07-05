@@ -3,7 +3,8 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { draftWorks, workTags, type DraftWork } from "./publishData";
+import { uploadChosenImage } from "../../services/upload";
+import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
 
 const { useMockData } = useDataMode();
@@ -17,6 +18,7 @@ const pickerOpen = ref(false);
 const backendDrafts = ref<DraftWork[]>([]);
 const isLoadingDrafts = ref(false);
 const isSubmitting = ref(false);
+const isUploadingLocalImage = ref(false);
 let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
@@ -68,6 +70,44 @@ function selectDraft(draft: DraftWork) {
   if (!title.value) title.value = draft.title;
   if (!desc.value && draft.prompt) desc.value = draft.prompt.slice(0, 200);
   closePicker();
+}
+
+async function uploadLocalImage() {
+  if (isUploadingLocalImage.value) return;
+  if (!requireLogin()) {
+    uni.showToast({ title: "请先登录后上传", icon: "none" });
+    return;
+  }
+
+  if (useMockData.value) {
+    selectDraft({
+      id: Date.now(),
+      image: `https://picsum.photos/seed/local${Date.now()}/800/800`,
+      title: "本地上传作品",
+      ratio: "1:1",
+      resolution: ratioToResolution("1:1"),
+      source: "uploaded"
+    });
+    return;
+  }
+
+  isUploadingLocalImage.value = true;
+  try {
+    const uploaded = await uploadChosenImage("works");
+    selectDraft({
+      id: Date.now(),
+      image: uploaded.publicUrl,
+      title: "本地上传作品",
+      ratio: "1:1",
+      resolution: ratioToResolution("1:1"),
+      source: "uploaded"
+    });
+    uni.showToast({ title: "图片已上传", icon: "none" });
+  } catch {
+    uni.showToast({ title: "图片上传失败，请稍后重试", icon: "none" });
+  } finally {
+    isUploadingLocalImage.value = false;
+  }
 }
 
 function isTagSelected(name: string) {
@@ -207,7 +247,12 @@ async function submit() {
     <view class="sheet-overlay" :class="{ show: pickerOpen }" @click="closePicker" />
     <view class="picker-sheet" :class="{ show: pickerOpen }">
       <view class="sheet-handle" />
-      <view class="picker-title">选择草稿作品</view>
+      <view class="picker-head">
+        <view class="picker-title">选择草稿作品</view>
+        <button class="picker-upload-btn" :disabled="isUploadingLocalImage" @click="uploadLocalImage">
+          {{ isUploadingLocalImage ? "上传中..." : "上传图片" }}
+        </button>
+      </view>
       <scroll-view class="picker-scroll" scroll-y>
         <view v-if="isLoadingDrafts" class="picker-state">草稿加载中...</view>
         <view v-else-if="!draftOptions.length" class="picker-state">暂无可发布草稿</view>
@@ -466,10 +511,36 @@ async function submit() {
   border-radius: 999px;
 }
 
-.picker-title {
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
+}
+
+.picker-title {
   font-size: 16px;
   font-weight: 600;
+}
+
+.picker-upload-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 32px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: 8px;
+}
+
+.picker-upload-btn[disabled] {
+  opacity: 0.65;
+}
+
+.picker-upload-btn::after {
+  border: none;
 }
 
 .picker-scroll {
