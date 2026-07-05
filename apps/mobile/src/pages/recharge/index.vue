@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
-import { createRechargeOrder, fetchCreditRecords, fetchCreditsBalance, fetchRechargeTiers, requestOrderPayment } from "../points/pointsService";
+import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchRechargeTiers, requestOrderPayment } from "../points/pointsService";
 
 type RecordTab = "earn" | "spend";
+const RECORD_PAGE_SIZE = 20;
 
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -21,11 +22,17 @@ const spendList = ref<PointRecord[]>(spendRecords);
 const customOpen = ref(false);
 const customAmount = ref("");
 const isLoading = ref(false);
+const isLoadingMoreRecords = ref(false);
 const isPaying = ref(false);
 const showLoginSheet = ref(false);
+const recordState = reactive({
+  earn: { page: 1, hasMore: false },
+  spend: { page: 1, hasMore: false }
+});
 let lastMockMode: boolean | null = null;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
+const activeRecordState = computed(() => recordState[activeTab.value]);
 const customValue = computed(() => Number.parseFloat(customAmount.value));
 const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 1 ? 0 : Math.floor(customValue.value * 10)));
 const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
@@ -44,6 +51,8 @@ async function loadPageData() {
     tiers.value = rechargeTiers;
     earnList.value = earnRecords;
     spendList.value = spendRecords;
+    recordState.earn = { page: 1, hasMore: false };
+    recordState.spend = { page: 1, hasMore: false };
     return;
   }
   if (!ensureLogin()) return;
@@ -53,13 +62,15 @@ async function loadPageData() {
     const [nextBalance, nextTiers, nextEarn, nextSpend] = await Promise.all([
       fetchCreditsBalance(),
       fetchRechargeTiers(),
-      fetchCreditRecords("earn"),
-      fetchCreditRecords("spend")
+      fetchCreditRecordPage("earn", 1, RECORD_PAGE_SIZE),
+      fetchCreditRecordPage("spend", 1, RECORD_PAGE_SIZE)
     ]);
     balance.value = nextBalance;
     tiers.value = nextTiers.length ? nextTiers : rechargeTiers;
-    earnList.value = nextEarn;
-    spendList.value = nextSpend;
+    earnList.value = nextEarn.items;
+    spendList.value = nextSpend.items;
+    recordState.earn = { page: nextEarn.page, hasMore: nextEarn.hasMore };
+    recordState.spend = { page: nextSpend.page, hasMore: nextSpend.hasMore };
     selectedTierIdx.value = Math.min(selectedTierIdx.value, tiers.value.length - 1);
   } catch {
     uni.showToast({ title: "积分数据加载失败", icon: "none" });
@@ -93,6 +104,23 @@ function selectTier(index: number) {
 
 function switchTab(tab: RecordTab) {
   activeTab.value = tab;
+}
+
+async function loadMoreRecords() {
+  if (useMockData.value || isLoading.value || isLoadingMoreRecords.value || !activeRecordState.value.hasMore) return;
+
+  isLoadingMoreRecords.value = true;
+  const tab = activeTab.value;
+  try {
+    const next = await fetchCreditRecordPage(tab, recordState[tab].page + 1, RECORD_PAGE_SIZE);
+    if (tab === "earn") earnList.value = [...earnList.value, ...next.items];
+    else spendList.value = [...spendList.value, ...next.items];
+    recordState[tab] = { page: next.page, hasMore: next.hasMore };
+  } catch {
+    uni.showToast({ title: "积分记录加载失败", icon: "none" });
+  } finally {
+    isLoadingMoreRecords.value = false;
+  }
 }
 
 function openCustomRecharge() {
@@ -145,7 +173,7 @@ function confirmCustomRecharge() {
 
 <template>
   <view class="recharge-page">
-    <scroll-view class="page-scroll" scroll-y>
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <view class="page-content">
         <view class="balance-card">
           <view class="balance-label">当前积分余额</view>
@@ -192,6 +220,9 @@ function confirmCustomRecharge() {
               <view class="record-sub">{{ activeTab === "earn" ? record.source : record.model }} · {{ record.time }}</view>
             </view>
             <view class="record-amount" :class="activeTab">{{ record.amount }}</view>
+          </view>
+          <view v-if="records.length && !useMockData" class="load-more-row">
+            {{ isLoadingMoreRecords ? "正在加载更多记录..." : activeRecordState.hasMore ? "继续下滑查看更多记录" : "没有更多积分记录了" }}
           </view>
         </view>
       </view>
@@ -406,6 +437,13 @@ function confirmCustomRecharge() {
 .empty-row {
   justify-content: center;
   color: var(--fg-muted);
+}
+
+.load-more-row {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
 }
 
 .record-icon {

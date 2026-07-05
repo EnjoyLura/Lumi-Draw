@@ -161,8 +161,16 @@ export async function fetchCreditsBalance() {
 }
 
 export async function fetchCreditRecords(type: "earn" | "spend", page = 1, pageSize = 20) {
+  const result = await fetchCreditRecordPage(type, page, pageSize);
+  return result.items;
+}
+
+export async function fetchCreditRecordPage(type: "earn" | "spend", page = 1, pageSize = 20) {
   const result = await api.get<PageResult<CreditRecord>>(`/credits/records?type=${type}&page=${page}&pageSize=${pageSize}`);
-  return result.items.map(toPointRecord);
+  return {
+    ...result,
+    items: result.items.map(toPointRecord)
+  };
 }
 
 export async function fetchRechargeTiers() {
