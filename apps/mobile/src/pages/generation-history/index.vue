@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -42,6 +42,7 @@ const showLoginSheet = ref(false);
 const lastMode = ref<boolean | null>(null);
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 const mockJobs = computed<GenerateHistoryJob[]>(() =>
   galleryGenTasks.map((task) => ({
@@ -64,6 +65,7 @@ const mockJobs = computed<GenerateHistoryJob[]>(() =>
 );
 
 const visibleJobs = computed(() => (useMockData.value ? mockJobs.value : jobs.value));
+const hasActiveJob = computed(() => !useMockData.value && jobs.value.some((job) => !isTerminal(job.status)));
 const emptyTitle = computed(() => {
   if (activeFilter.value === "running") return "暂无进行中的生成任务";
   if (activeFilter.value === "succeeded") return "暂无已完成记录";
@@ -80,6 +82,10 @@ onShow(() => {
   if (lastMode.value === useMockData.value) return;
   lastMode.value = useMockData.value;
   void reloadJobs();
+});
+
+onBeforeUnmount(() => {
+  clearRefreshTimer();
 });
 
 function isTerminal(status: GenerateJobStatus) {
@@ -120,18 +126,51 @@ function firstWorkId(job: GenerateHistoryJob) {
   return job.results.find((item) => item.workId)?.workId;
 }
 
-async function loadJobs(nextPage = 1, append = false) {
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = undefined;
+  }
+}
+
+function scheduleRefresh() {
+  clearRefreshTimer();
+  if (!isLoggedIn.value || !hasActiveJob.value) return;
+
+  refreshTimer = setTimeout(() => {
+    void refreshJobsSilently();
+  }, 5000);
+}
+
+async function refreshJobsSilently() {
+  if (isLoading.value || isLoadingMore.value) {
+    scheduleRefresh();
+    return;
+  }
+
+  try {
+    await loadJobs(1, false, Math.max(PAGE_SIZE, page.value * PAGE_SIZE));
+  } catch {
+    // Keep the current list visible; the next manual refresh can surface errors.
+  } finally {
+    scheduleRefresh();
+  }
+}
+
+async function loadJobs(nextPage = 1, append = false, pageSize = PAGE_SIZE) {
   if (useMockData.value) {
     jobs.value = [];
     hasMore.value = false;
+    clearRefreshTimer();
     return;
   }
   if (!ensureLogin()) return;
 
-  const result = await fetchGenerateHistoryJobs(activeFilter.value, nextPage, PAGE_SIZE);
+  const result = await fetchGenerateHistoryJobs(activeFilter.value, nextPage, pageSize);
   jobs.value = append ? [...jobs.value, ...result.items] : result.items;
-  page.value = result.page;
+  page.value = append ? result.page : Math.max(nextPage, Math.ceil(pageSize / PAGE_SIZE));
   hasMore.value = result.hasMore;
+  scheduleRefresh();
 }
 
 function openLoginSheet() {
