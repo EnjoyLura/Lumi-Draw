@@ -163,8 +163,17 @@ export class WorksService {
       await this.prisma.work.update({ where: { id }, data: { status: "draft", isPublic: false } });
       return { ok: true, action };
     }
-    await this.prisma.work.delete({ where: { id } });
-    await this.prisma.user.update({ where: { id: userId }, data: { worksCount: { decrement: 1 } } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.workInteraction.deleteMany({ where: { workId: id } });
+      await tx.workView.deleteMany({ where: { workId: id } });
+      await tx.report.deleteMany({ where: { workId: id } });
+      await tx.generateResult.updateMany({ where: { workId: id }, data: { workId: null } });
+      await tx.work.delete({ where: { id } });
+      await tx.user.updateMany({
+        where: { id: userId, worksCount: { gt: 0 } },
+        data: { worksCount: { decrement: 1 } }
+      });
+    });
     return { ok: true, action: "delete" };
   }
 

@@ -59,6 +59,7 @@ export async function publishWork(payload: PublishWorkPayload) {
     return api.patch<BackendWorkDetail>(`/works/${payload.draft.id}`, {
       title: payload.title,
       description: payload.description,
+      style: payload.tags[0] || detail.style || "",
       isPublic: true
     });
   }
