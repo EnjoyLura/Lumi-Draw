@@ -1,28 +1,43 @@
 import { useState } from "react";
+import { apiDeleteGameplay, apiGetGameplays, apiSaveGameplay, apiSetGameplayEnabled } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { GAMEPLAYS, IMG, nextId, type AdminGameplay } from "../data/mock";
 import { getGameplays } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function GameplayForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: AdminGameplay; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const g = id ? GAMEPLAYS.find((x) => x.id === id) : undefined;
+  const g = item ?? (id ? GAMEPLAYS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(g?.name ?? "");
   const [desc, setDesc] = useState(g?.desc ?? "");
   const [prompt, setPrompt] = useState("");
   const [hot, setHot] = useState(g?.hot ?? false);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
     void prompt;
-    if (g) Object.assign(g, { name: name.trim(), desc, hot });
-    else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: "0", on: true });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (g) Object.assign(g, { name: name.trim(), desc, hot });
+        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: "0", on: true });
+      } else {
+        await apiSaveGameplay(id, { name: name.trim(), desc, hot, on: g?.on ?? true });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -38,8 +53,8 @@ function GameplayForm({ id, onSaved }: { id: number; onSaved: () => void }) {
         <Switch on={hot} onToggle={() => setHot((v) => !v)} />
       </div>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -47,21 +62,51 @@ function GameplayForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function OpsGameplay() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const gameplays = getGameplays();
+  const { data, loading, error, reload } = useAsyncData<AdminGameplay[]>(useMock ? null : () => apiGetGameplays(), [useMock]);
+  const gameplays = useMock ? getGameplays() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑玩法" : "新增玩法", <GameplayForm id={id} onSaved={refresh} />);
-  const toggle = (g: AdminGameplay) => { g.on = !g.on; refresh(); toast(g.on ? "已启用" : "已停用"); };
+  const openForm = (id: number) => openSheet(id ? "编辑玩法" : "新增玩法", <GameplayForm id={id} item={gameplays.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
+  const toggle = async (g: AdminGameplay) => {
+    const next = !g.on;
+    try {
+      if (useMock) {
+        g.on = next;
+        refresh();
+      } else {
+        await apiSetGameplayEnabled(g.id, next);
+        reload();
+      }
+      toast(next ? "已启用" : "已停用");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "操作失败");
+    }
+  };
   const del = (g: AdminGameplay) => confirmDlg("删除玩法", "确定删除该玩法吗？", () => {
-    const i = gameplays.findIndex((x) => x.id === g.id);
-    if (i > -1) gameplays.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = gameplays.findIndex((x) => x.id === g.id);
+          if (i > -1) gameplays.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteGameplay(g.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <AddBtn text="新增玩法模板" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载玩法中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       <div className="card">
         {gameplays.map((g) => (
           <div key={g.id} className="lrow" style={{ cursor: "default" }}>

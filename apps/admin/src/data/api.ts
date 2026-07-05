@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminFeedback, AdminReport, AdminUser, AdminWork } from "./mock";
+import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminReport, AdminStyle, AdminUser, AdminWork } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -271,6 +271,98 @@ export async function apiUpdateFeedbackStatus(id: number, status: string) {
 
 export async function apiReplyFeedback(id: number, reply: string) {
   return mapFeedback(await http.post<ApiFeedback>(`/admin/feedback/${id}/reply`, { reply }));
+}
+
+interface ApiBanner {
+  id: number; title: string; description: string; action: string; sort: number; enabled: boolean;
+}
+
+function mapBanner(b: ApiBanner): AdminBanner {
+  return { id: b.id, title: b.title, desc: b.description, action: b.action, sort: b.sort, on: b.enabled };
+}
+
+export async function apiGetBanners() {
+  return (await http.get<ApiBanner[]>("/admin/banners")).map(mapBanner);
+}
+
+export async function apiSaveBanner(id: number, values: Pick<AdminBanner, "title" | "desc" | "action" | "sort"> & { on?: boolean }) {
+  const body = { title: values.title, description: values.desc, action: values.action, sort: values.sort, enabled: values.on };
+  return mapBanner(id ? await http.patch<ApiBanner>(`/admin/banners/${id}`, body) : await http.post<ApiBanner>("/admin/banners", body));
+}
+
+export async function apiDeleteBanner(id: number) {
+  return http.del<ApiBanner>(`/admin/banners/${id}`);
+}
+
+export async function apiSetBannerEnabled(id: number, enabled: boolean) {
+  return mapBanner(await http.patch<ApiBanner>(`/admin/banners/${id}`, { enabled }));
+}
+
+interface ApiGameplay {
+  id: number; name: string; description: string; uses: number; hot: boolean; enabled: boolean; sort: number;
+}
+
+function mapGameplay(g: ApiGameplay): AdminGameplay {
+  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, on: g.enabled };
+}
+
+export async function apiGetGameplays() {
+  return (await http.get<ApiGameplay[]>("/admin/gameplays")).map(mapGameplay);
+}
+
+export async function apiSaveGameplay(id: number, values: { name: string; desc: string; hot: boolean; on?: boolean }) {
+  const body = { name: values.name, description: values.desc, hot: values.hot, enabled: values.on };
+  return mapGameplay(id ? await http.patch<ApiGameplay>(`/admin/gameplays/${id}`, body) : await http.post<ApiGameplay>("/admin/gameplays", body));
+}
+
+export async function apiDeleteGameplay(id: number) {
+  return http.del<ApiGameplay>(`/admin/gameplays/${id}`);
+}
+
+export async function apiSetGameplayEnabled(id: number, enabled: boolean) {
+  return mapGameplay(await http.patch<ApiGameplay>(`/admin/gameplays/${id}`, { enabled }));
+}
+
+interface ApiStyle {
+  id: number; name: string; prompt: string; uses: number; enabled: boolean; sort: number;
+}
+
+function mapStyle(s: ApiStyle): AdminStyle {
+  return { id: s.id, n: s.name, prompt: s.prompt, s: s.uses };
+}
+
+export async function apiGetStyles() {
+  return (await http.get<ApiStyle[]>("/admin/styles")).map(mapStyle);
+}
+
+export async function apiSaveStyle(id: number, values: { n: string; prompt: string; s: number; sort?: number }) {
+  const body = { name: values.n, prompt: values.prompt, uses: values.s, sort: values.sort };
+  return mapStyle(id ? await http.patch<ApiStyle>(`/admin/styles/${id}`, body) : await http.post<ApiStyle>("/admin/styles", body));
+}
+
+export async function apiDeleteStyle(id: number) {
+  return http.del<ApiStyle>(`/admin/styles/${id}`);
+}
+
+interface ApiCategory {
+  id: number; name: string; count: number; enabled: boolean; sort: number;
+}
+
+function mapCategory(c: ApiCategory): AdminCategory {
+  return { id: c.id, n: c.name, cnt: c.count };
+}
+
+export async function apiGetCategories() {
+  return (await http.get<ApiCategory[]>("/admin/categories")).map(mapCategory);
+}
+
+export async function apiSaveCategory(id: number, values: { n: string; cnt?: number; sort?: number }) {
+  const body = { name: values.n, count: values.cnt, sort: values.sort };
+  return mapCategory(id ? await http.patch<ApiCategory>(`/admin/categories/${id}`, body) : await http.post<ApiCategory>("/admin/categories", body));
+}
+
+export async function apiDeleteCategory(id: number) {
+  return http.del<ApiCategory>(`/admin/categories/${id}`);
 }
 
 interface ApiSummary {

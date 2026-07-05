@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { apiDeleteStyle, apiGetStyles, apiSaveStyle } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { IMG, nextId, STYLES, type AdminStyle } from "../data/mock";
 import { getStyles } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, CtrlIcons, SortCtrl } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
@@ -8,22 +11,34 @@ import { moveItem, useRefresh } from "./opsShared";
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed" };
 
-function StyleForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function StyleForm({ id, item, useMock, onSaved }: { id: number; item?: AdminStyle; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const s = id ? STYLES.find((x) => x.id === id) : undefined;
+  const s = item ?? (id ? STYLES.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(s?.n ?? "");
   const [prompt, setPrompt] = useState(s?.prompt ?? "");
   const [uses, setUses] = useState(String(s?.s ?? 0));
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
     const n = name.trim();
     const val = parseInt(uses) || 0;
-    if (s) { s.n = n; s.prompt = prompt; s.s = val; }
-    else STYLES.push({ id: nextId(STYLES), n, s: val, prompt });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (s) { s.n = n; s.prompt = prompt; s.s = val; }
+        else STYLES.push({ id: nextId(STYLES), n, s: val, prompt });
+      } else {
+        await apiSaveStyle(id, { n, prompt, s: val });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -37,8 +52,8 @@ function StyleForm({ id, onSaved }: { id: number; onSaved: () => void }) {
       <label className="field-label" style={{ marginTop: 12 }}>封面图</label>
       <div className="card" style={UPLOAD_STYLE}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} />&nbsp;点击上传</div>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -46,20 +61,44 @@ function StyleForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function OpsStyle() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const styles = getStyles();
+  const { data, loading, error, reload } = useAsyncData<AdminStyle[]>(useMock ? null : () => apiGetStyles(), [useMock]);
+  const styles = useMock ? getStyles() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑风格" : "新增风格", <StyleForm id={id} onSaved={refresh} />);
+  const openForm = (id: number) => openSheet(id ? "编辑风格" : "新增风格", <StyleForm id={id} item={styles.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
   const del = (s: AdminStyle) => confirmDlg("删除风格", "确定删除该风格吗？", () => {
-    const i = styles.findIndex((x) => x.id === s.id);
-    if (i > -1) styles.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = styles.findIndex((x) => x.id === s.id);
+          if (i > -1) styles.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteStyle(s.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
+  const move = async (i: number, dir: number) => {
+    moveItem(styles, i, dir);
+    if (useMock) refresh();
+    else {
+      await Promise.all(styles.map((s, idx) => apiSaveStyle(s.id, { ...s, sort: idx + 1 })));
+      reload();
+    }
+  };
 
   return (
     <>
       <AddBtn text="新增风格" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载风格中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       <div className="card">
         {styles.map((s, i) => (
           <div key={s.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
@@ -70,7 +109,7 @@ export function OpsStyle() {
               <div className="lr-s" style={{ whiteSpace: "normal", color: "var(--fg-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{s.prompt || "（未设置提示词）"}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-              <SortCtrl index={i} len={styles.length} onMove={(d) => { moveItem(styles, i, d); refresh(); }} />
+              <SortCtrl index={i} len={styles.length} onMove={(d) => { void move(i, d); }} />
               <CtrlIcons onEdit={() => openForm(s.id)} onDelete={() => del(s)} />
             </div>
           </div>
