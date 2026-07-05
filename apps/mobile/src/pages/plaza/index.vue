@@ -6,6 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { toggleWorkLike } from "../../services/social";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
@@ -83,6 +84,7 @@ const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) =>
 const userList = ref<HomeUser[]>(mockHomeUsers);
 const workList = ref<HomeWork[]>(mockHomeWorks);
 const likedWorkIds = ref<Set<number>>(new Set());
+const likePendingIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -296,8 +298,39 @@ function getAspectRatio(ratio: string) {
   return `${width} / ${height}`;
 }
 
-function toggleLike(event: Event, workId: number) {
+function setPendingLike(workId: number, pending: boolean) {
+  const next = new Set(likePendingIds.value);
+  if (pending) next.add(workId);
+  else next.delete(workId);
+  likePendingIds.value = next;
+}
+
+function updateWorkLikeCount(workId: number, likes: number) {
+  workList.value = workList.value.map((work) => (work.id === workId ? { ...work, likes } : work));
+}
+
+async function toggleLike(event: Event, workId: number) {
   event.stopPropagation();
+  if (!useMockData.value && !ensureLogin()) return;
+  if (likePendingIds.value.has(workId)) return;
+
+  if (!useMockData.value) {
+    setPendingLike(workId, true);
+    try {
+      const result = await toggleWorkLike(workId);
+      const next = new Set(likedWorkIds.value);
+      if (result.liked) next.add(workId);
+      else next.delete(workId);
+      likedWorkIds.value = next;
+      updateWorkLikeCount(workId, result.likes);
+    } catch {
+      uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
+    } finally {
+      setPendingLike(workId, false);
+    }
+    return;
+  }
+
   const next = new Set(likedWorkIds.value);
   if (next.has(workId)) {
     next.delete(workId);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import {
   gameplays as mockGameplays,
   homeBanners as mockHomeBanners,
@@ -14,7 +15,8 @@ import {
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { resolveTabEnterClass } from "../../services/pageTransition";
-import { savePendingInviteCode } from "../../services/auth";
+import { savePendingInviteCode, useAuth } from "../../services/auth";
+import { toggleWorkLike } from "../../services/social";
 
 const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
@@ -37,6 +39,8 @@ const userList = ref<HomeUser[]>(mockHomeUsers);
 const recommendWorks = ref<HomeWork[]>(mockHomeWorks);
 const latestWorks = ref<HomeWork[]>([...mockHomeWorks].reverse());
 const likedWorkIds = ref<Set<number>>(new Set());
+const likePendingIds = ref<Set<number>>(new Set());
+const showLoginSheet = ref(false);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -44,6 +48,7 @@ const isSwitchingWorks = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
 const { useMockData } = useDataMode();
+const { login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
   recommend: { page: 1, hasMore: false },
   new: { page: 1, hasMore: false }
@@ -296,7 +301,58 @@ function handleReachBottom() {
   }, 650);
 }
 
-function toggleLike(work: HomeWork) {
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
+function setPendingLike(workId: number, pending: boolean) {
+  const next = new Set(likePendingIds.value);
+  if (pending) next.add(workId);
+  else next.delete(workId);
+  likePendingIds.value = next;
+}
+
+function updateWorkLikeCount(workId: number, likes: number) {
+  const update = (work: HomeWork) => (work.id === workId ? { ...work, likes } : work);
+  recommendWorks.value = recommendWorks.value.map(update);
+  latestWorks.value = latestWorks.value.map(update);
+}
+
+async function toggleLike(work: HomeWork) {
+  if (!useMockData.value && !ensureLogin()) return;
+  if (likePendingIds.value.has(work.id)) return;
+
+  if (!useMockData.value) {
+    setPendingLike(work.id, true);
+    try {
+      const result = await toggleWorkLike(work.id);
+      const next = new Set(likedWorkIds.value);
+      if (result.liked) next.add(work.id);
+      else next.delete(work.id);
+      likedWorkIds.value = next;
+      updateWorkLikeCount(work.id, result.likes);
+    } catch {
+      uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
+    } finally {
+      setPendingLike(work.id, false);
+    }
+    return;
+  }
+
   const next = new Set(likedWorkIds.value);
   if (next.has(work.id)) {
     next.delete(work.id);
@@ -514,6 +570,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-label">我的</text>
       </view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
