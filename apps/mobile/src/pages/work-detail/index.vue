@@ -13,7 +13,7 @@ import {
   unfollowUser
 } from "../../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
-import { deleteWork, fetchWorkDetail } from "./workDetailService";
+import { deleteWork, fetchWorkDetail, moveWorkToDraft } from "./workDetailService";
 
 const workId = ref(1);
 const { currentUser, requireLogin } = useAuth();
@@ -25,6 +25,7 @@ const favorited = ref(false);
 const following = ref(false);
 const confirmFollowOpen = ref(false);
 const longPressOpen = ref(false);
+const detailManageOpen = ref(false);
 const likePulse = ref(false);
 const favoritePulse = ref(false);
 const isDeleting = ref(false);
@@ -238,6 +239,7 @@ function getShareLink() {
 
 function shareWork() {
   longPressOpen.value = false;
+  detailManageOpen.value = false;
   uni.setClipboardData({
     data: getShareLink(),
     success() {
@@ -323,13 +325,64 @@ async function remakeWork(current: DetailWork) {
   });
 }
 
-function manageWork() {
+function openDetailManage() {
+  detailManageOpen.value = true;
+}
+
+function closeDetailManage() {
+  detailManageOpen.value = false;
+}
+
+function editOrPublishWork() {
+  closeDetailManage();
   if (!work.value) return;
   if (work.value.published) {
     uni.navigateTo({ url: `/pages/edit-work/index?id=${workId.value}` });
     return;
   }
   uni.navigateTo({ url: `/pages/publish/index?draftId=${workId.value}` });
+}
+
+function confirmMoveToDraft() {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "下架作品",
+      content: "下架后作品将转入草稿箱，广场和详情分享中不再公开展示，确定继续吗？",
+      confirmText: "下架",
+      confirmColor: "#ff5c7a",
+      success(result) {
+        resolve(Boolean(result.confirm));
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function moveOwnWorkToDraft() {
+  if (!work.value || !work.value.published || isDeleting.value) return;
+  closeDetailManage();
+  const confirmed = await confirmMoveToDraft();
+  if (!confirmed) return;
+
+  if (useMockData.value) {
+    work.value.published = false;
+    uni.showToast({ title: "作品已转入草稿箱", icon: "none" });
+    return;
+  }
+
+  if (!requireLogin()) return;
+  isDeleting.value = true;
+  try {
+    await moveWorkToDraft(work.value.id);
+    await loadDetail();
+    uni.showToast({ title: "作品已转入草稿箱", icon: "none" });
+  } catch {
+    uni.showToast({ title: "下架失败，请稍后重试", icon: "none" });
+  } finally {
+    isDeleting.value = false;
+  }
 }
 
 function confirmDeleteWork() {
@@ -360,6 +413,7 @@ function leaveAfterDelete() {
 
 async function removeOwnWork() {
   if (!work.value || isDeleting.value) return;
+  closeDetailManage();
   const confirmed = await confirmDeleteWork();
   if (!confirmed) return;
 
@@ -414,7 +468,7 @@ function showToast(title: string) {
                 <view class="author-sub">{{ isOwn ? "48作品 · 1.2k获赞" : "32作品 · 860获赞" }}</view>
               </view>
             </view>
-            <button v-if="isOwn" class="small-btn muted" @click="manageWork">
+            <button v-if="isOwn" class="small-btn muted" @click="openDetailManage">
               <text class="btn-icon">⚙</text>
               <text>管理</text>
             </button>
@@ -528,6 +582,41 @@ function showToast(title: string) {
         <view class="confirm-actions">
           <button class="confirm-cancel" @click="closeConfirmFollow">取消</button>
           <button class="confirm-ok" @click="cancelFollow">取消关注</button>
+        </view>
+      </view>
+
+      <view class="sheet-overlay" :class="{ show: detailManageOpen }" @click="closeDetailManage" />
+      <view class="detail-manage-sheet" :class="{ show: detailManageOpen }">
+        <view class="sheet-handle" />
+        <view class="manage-title">管理作品</view>
+        <view class="manage-card">
+          <view class="manage-row" @click="editOrPublishWork">
+            <view class="manage-icon lavender">{{ work.published ? "✎" : "✈" }}</view>
+            <view class="manage-text">{{ work.published ? "编辑信息" : "发布作品" }}</view>
+            <view class="manage-arrow">›</view>
+          </view>
+          <view v-if="work.published" class="manage-row" @click="moveOwnWorkToDraft">
+            <view class="manage-icon peach">↓</view>
+            <view class="manage-text">下架回草稿</view>
+            <view class="manage-arrow">›</view>
+          </view>
+          <view class="manage-row" @click="saveWorkImage(); closeDetailManage()">
+            <view class="manage-icon accent">⇩</view>
+            <view class="manage-text">保存图片</view>
+            <view class="manage-arrow">›</view>
+          </view>
+          <view class="manage-row" @click="shareWork">
+            <view class="manage-icon mint">⇪</view>
+            <view class="manage-text">分享作品</view>
+            <view class="manage-arrow">›</view>
+          </view>
+        </view>
+        <view class="manage-card danger-card">
+          <view class="manage-row" :class="{ disabled: isDeleting }" @click="removeOwnWork">
+            <view class="manage-icon rose">⌫</view>
+            <view class="manage-text danger">{{ isDeleting ? "处理中" : "删除作品" }}</view>
+            <view class="manage-arrow">›</view>
+          </view>
         </view>
       </view>
     </template>
@@ -927,6 +1016,103 @@ function showToast(title: string) {
 
 .long-press-sheet.show {
   transform: translateY(0);
+}
+
+.detail-manage-sheet {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 135;
+  padding: 8px 16px calc(18px + env(safe-area-inset-bottom));
+  background: var(--bg-card);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  box-shadow: 0 -10px 30px rgba(60, 120, 200, 0.16);
+  transform: translateY(105%);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.detail-manage-sheet.show {
+  transform: translateY(0);
+}
+
+.manage-title {
+  margin: 8px 4px 14px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.manage-card {
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.manage-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 14px;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.manage-row:last-child {
+  border-bottom: none;
+}
+
+.manage-row.disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.manage-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+}
+
+.manage-icon.lavender {
+  color: var(--lavender);
+}
+
+.manage-icon.peach {
+  color: #e07a5a;
+}
+
+.manage-icon.accent {
+  color: var(--accent);
+}
+
+.manage-icon.mint {
+  color: var(--mint);
+}
+
+.manage-icon.rose {
+  color: var(--rose);
+}
+
+.manage-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg-primary);
+}
+
+.manage-text.danger {
+  color: var(--rose);
+}
+
+.manage-arrow {
+  font-size: 18px;
+  color: var(--fg-muted);
 }
 
 .sheet-handle {

@@ -448,6 +448,31 @@ async function main() {
         "approved generated work is not public"
       );
       assert((publishedPlaza.data?.items || []).some((item) => item.id === workId), "approved generated work missing from plaza");
+
+      const { body: editedWork } = await request(
+        "PATCH",
+        `/works/${workId}`,
+        { title: "smoke managed generated work", description: "edited by smoke work management flow", style: "managed" },
+        user.accessToken
+      );
+      assert(editedWork.data?.title === "smoke managed generated work", "managed work title did not update");
+
+      const { body: movedDraft } = await request("DELETE", `/works/${workId}?action=draft`, undefined, user.accessToken);
+      assert(movedDraft.data?.ok === true && movedDraft.data?.action === "draft", "managed work did not move back to draft");
+
+      const [{ body: draftDetail }, { body: afterDrafts }, { body: plazaAfterDraft }] = await Promise.all([
+        request("GET", `/works/${workId}`),
+        request("GET", "/works/me/drafts?page=1&pageSize=20", undefined, user.accessToken),
+        request("GET", "/works/plaza?page=1&pageSize=20")
+      ]);
+      assert(draftDetail.data?.status === "draft" && draftDetail.data?.isPublic === false, "managed work draft state mismatch");
+      assert((afterDrafts.data?.items || []).some((item) => item.id === workId), "managed work missing from drafts after takedown");
+      assert(!(plazaAfterDraft.data?.items || []).some((item) => item.id === workId), "drafted managed work still visible in plaza");
+
+      const { body: deletedWork } = await request("DELETE", `/works/${workId}?action=delete`, undefined, user.accessToken);
+      assert(deletedWork.data?.ok === true && deletedWork.data?.action === "delete", "managed work delete failed");
+      const deletedDetail = await request("GET", `/works/${workId}`, undefined, undefined, true);
+      assert(deletedDetail.status === 404 || deletedDetail.body?.code === 40004, "deleted managed work should not be readable");
     });
   } else {
     console.log("- generate mock completion skipped (set SMOKE_GENERATE_MOCK=true with GENERATE_ALLOW_MOCK=true API)");
