@@ -129,6 +129,32 @@ const works = [
   { id: 10, userId: 3, title: "蒸汽城市", description: "蒸汽朋克风格的城市，黄铜齿轮和维多利亚时代风貌", prompt: "steampunk city, brass, gears, victorian", modelId: "gpt-image-2", ratio: "4:3", quality: "2K", style: "蒸汽波", status: "published", featured: false, recommend: false, likes: 356, favorites: 98, remakes: 43 }
 ];
 
+const reports = [
+  { id: 1, workId: 7, reporterId: 5, reason: "色情低俗", status: "pending" },
+  { id: 2, workId: 9, reporterId: 2, reason: "侵权盗版", status: "pending" },
+  { id: 3, workId: 1, reporterId: 3, reason: "垃圾广告", status: "resolved" }
+];
+
+const feedback = [
+  { id: 1, userId: 2, type: "优化建议", content: "希望增加更多国风模型，现在的风格不够多", imageUrls: "", wechat: "", status: "pending" },
+  { id: 2, userId: 5, type: "Bug反馈", content: "生成图片有时候会失败，但积分被扣了，麻烦核实一下", imageUrls: "", wechat: "lumi_user_05", status: "processing" },
+  { id: 3, userId: 1, type: "体验反馈", content: "整体体验很流畅，客服响应也快，点赞！", imageUrls: "", wechat: "", status: "resolved" }
+];
+
+const announcements = [
+  { id: 1, title: "夏日创作季活动", summary: "活动期间创作作品即可参与抽奖，有机会获得1000积分大奖！", action: "活动页", popup: true, rangeText: "06-25 ~ 07-10", enabled: true },
+  { id: 2, title: "系统维护通知", summary: "7月5日凌晨2:00-4:00进行系统维护，期间服务暂停", action: "无", popup: false, rangeText: "07-05", enabled: true },
+  { id: 3, title: "新模型上线公告", summary: "GPT Image 2 正式上线，画质与理解力全面提升，欢迎体验", action: "创作页", popup: false, rangeText: "长期", enabled: true }
+];
+
+const pushes = [
+  { id: 1, title: "新模型上线通知", content: "GPT Image 2 正式上线，欢迎前往创作页体验全新画质。", target: "全部用户", status: "sent" },
+  { id: 2, title: "会员限时活动", content: "年度会员限时5折，每日生成次数翻倍，速来抢购！", target: "会员用户", status: "sent" },
+  { id: 3, title: "系统维护通知", content: "7月5日凌晨2:00-4:00进行系统维护。", target: "全部用户", status: "revoked" }
+];
+
+const sensitiveWords = ["敏感词A", "违规词B", "广告词C", "政治敏感D"];
+
 async function main() {
   for (const b of banners) {
     await prisma.banner.upsert({ where: { id: b.id }, update: b, create: b });
@@ -191,11 +217,27 @@ async function main() {
     create: { username: adminUsername, passwordHash: hashPassword(adminPassword), nickname: "超级管理员", role: "super_admin" }
   });
 
+  for (const r of reports) {
+    await prisma.report.upsert({ where: { id: r.id }, update: r, create: r });
+  }
+  for (const f of feedback) {
+    await prisma.feedback.upsert({ where: { id: f.id }, update: f, create: f });
+  }
+  for (const a of announcements) {
+    await prisma.announcement.upsert({ where: { id: a.id }, update: a, create: a });
+  }
+  for (const p of pushes) {
+    await prisma.push.upsert({ where: { id: p.id }, update: p, create: p });
+  }
+  for (const w of sensitiveWords) {
+    await prisma.sensitiveWord.upsert({ where: { word: w }, update: {}, create: { word: w } });
+  }
+
   // 显式 id 播种后，需把各表自增序列推进到 MAX(id)，否则后续 create 会撞主键
   const seqTables = [
     "users", "works", "banners", "gameplays", "styles", "categories",
     "hot_searches", "quality_configs", "ratio_configs", "recharge_tiers",
-    "member_plans", "versions"
+    "member_plans", "versions", "reports", "feedback", "announcements", "pushes"
   ];
   for (const t of seqTables) {
     await prisma.$executeRawUnsafe(

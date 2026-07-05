@@ -219,6 +219,87 @@ model User {
   @@map("users")
 }
 
+// 举报 Report
+model Report {
+  id          Int       @id @default(autoincrement())
+  workId      Int
+  reporterId  Int
+  reason      String
+  description String    @default("")
+  status      String    @default("pending") // pending | processing | resolved | ignored
+  createdAt   DateTime  @default(now())
+  handledAt   DateTime?
+
+  @@index([status])
+  @@map("reports")
+}
+
+// 用户反馈 Feedback
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  content   String
+  imageUrls String   @default("") // 逗号分隔
+  wechat    String   @default("")
+  status    String   @default("pending") // pending | processing | resolved | ignored
+  reply     String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@map("feedback")
+}
+
+// 弹窗公告 Announcement
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  title     String
+  summary   String   @default("")
+  action    String   @default("")
+  popup     Boolean  @default(false)
+  rangeText String   @default("")
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
+}
+
+// 系统通知 Push
+model Push {
+  id        Int       @id @default(autoincrement())
+  title     String
+  content   String
+  target    String    @default("全部用户")
+  status    String    @default("draft") // draft | sent | revoked
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("pushes")
+}
+
+// 站内信 Notification
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  content   String   @default("")
+  type      String   @default("system")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// 敏感词 SensitiveWord
+model SensitiveWord {
+  id        Int      @id @default(autoincrement())
+  word      String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("sensitive_words")
+}
+
 // 邀请记录 InviteRecord
 model InviteRecord {
   id            Int      @id @default(autoincrement())
