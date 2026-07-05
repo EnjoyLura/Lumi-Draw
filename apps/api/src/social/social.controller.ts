@@ -34,8 +34,8 @@ export class SocialController {
   }
 
   @Post("works/:id/remake")
-  recordRemake(@Param("id", ParseIntPipe) id: number) {
-    return this.social.recordRemake(id);
+  recordRemake(@CurrentUser() user: { id: number }, @Param("id", ParseIntPipe) id: number) {
+    return this.social.recordRemake(user.id, id);
   }
 
   @Post("works/:id/report")

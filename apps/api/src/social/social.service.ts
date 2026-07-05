@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 type WorkWithAuthor = Work & { user: User };
@@ -52,7 +53,10 @@ function toUserCard(user: User, following = false) {
 
 @Injectable()
 export class SocialService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService
+  ) {}
 
   private async publicWork(id: number) {
     const work = await this.prisma.work.findFirst({
@@ -95,7 +99,10 @@ export class SocialService {
 
   toggleInteraction(userId: number, workId: number, type: InteractionType) {
     return this.prisma.$transaction(async (tx) => {
-      const work = await tx.work.findFirst({ where: { id: workId, ...PUBLIC_WORK_WHERE } });
+      const work = await tx.work.findFirst({
+        where: { id: workId, ...PUBLIC_WORK_WHERE },
+        include: { user: true }
+      });
       if (!work) throw new NotFoundException("作品不存在或暂不可见");
 
       const existing = await tx.workInteraction.findUnique({
@@ -130,6 +137,17 @@ export class SocialService {
       if (type === "like") {
         await tx.user.update({ where: { id: work.userId }, data: { likesCount: { increment: 1 } } });
       }
+      if (work.userId !== userId) {
+        const actor = await tx.user.findUnique({ where: { id: userId }, select: { nickname: true } });
+        await tx.notification.create({
+          data: {
+            userId: work.userId,
+            type,
+            title: type === "like" ? "点赞" : "收藏",
+            content: `${actor?.nickname || "有用户"} ${type === "like" ? "点赞" : "收藏"}了你的作品「${work.title}」`
+          }
+        });
+      }
       return {
         liked: type === "like" ? true : undefined,
         favorited: type === "favorite" ? true : undefined,
@@ -139,13 +157,25 @@ export class SocialService {
     });
   }
 
-  async recordRemake(workId: number) {
-    await this.publicWork(workId);
+  async recordRemake(userId: number, workId: number) {
+    const work = await this.publicWork(workId);
     const updated = await this.prisma.work.update({
       where: { id: workId },
       data: { remakes: { increment: 1 } },
       select: { remakes: true }
     });
+    if (work.userId !== userId) {
+      const actor = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { nickname: true }
+      });
+      await this.notifications.createSocialNotification({
+        userId: work.userId,
+        actorName: actor?.nickname ?? "",
+        type: "remake",
+        workTitle: work.title
+      });
+    }
     return { remakes: updated.remakes };
   }
 
@@ -212,6 +242,18 @@ export class SocialService {
         await tx.follow.create({ data: { followerId: currentUserId, followingId: targetUserId } });
         await tx.user.update({ where: { id: currentUserId }, data: { following: { increment: 1 } } });
         await tx.user.update({ where: { id: targetUserId }, data: { followers: { increment: 1 } } });
+        const actor = await tx.user.findUnique({
+          where: { id: currentUserId },
+          select: { nickname: true }
+        });
+        await tx.notification.create({
+          data: {
+            userId: targetUserId,
+            type: "follow",
+            title: "关注",
+            content: `${actor?.nickname || "有用户"} 关注了你`
+          }
+        });
       }
       const updated = await tx.user.findUniqueOrThrow({ where: { id: targetUserId } });
       return { following: true, followers: updated.followers };

@@ -107,6 +107,62 @@ async function main() {
     assert(deleted.data?.ok, "work delete failed");
   });
 
+  await step("social notifications", async () => {
+    const ownerLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-owner-${Date.now()}` });
+    const actorLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-actor-${Date.now()}` });
+    const owner = ownerLogin.body.data;
+    const actor = actorLogin.body.data;
+    assert(owner?.accessToken && actor?.accessToken, "social smoke tokens missing");
+
+    const { body: created } = await request(
+      "POST",
+      "/works",
+      {
+        title: "smoke-social-work",
+        description: "social smoke",
+        prompt: "social smoke prompt",
+        imageUrl: "https://example.com/smoke-social-work.png",
+        ratio: "1:1",
+        quality: "1K",
+        modelId: "smoke-model",
+        style: "smoke-style",
+        isPublic: true
+      },
+      owner.accessToken
+    );
+    const workId = created.data?.id;
+    assert(workId, "social work id missing");
+
+    if (created.data?.status !== "published") {
+      await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
+      console.log("skipped (manual review kept work unpublished)");
+      return;
+    }
+
+    const { body: like } = await request("POST", `/social/works/${workId}/like`, undefined, actor.accessToken);
+    assert(like.data?.liked === true, "like did not toggle on");
+    const { body: favorite } = await request("POST", `/social/works/${workId}/favorite`, undefined, actor.accessToken);
+    assert(favorite.data?.favorited === true, "favorite did not toggle on");
+    const { body: remake } = await request("POST", `/social/works/${workId}/remake`, undefined, actor.accessToken);
+    assert(typeof remake.data?.remakes === "number", "remake count missing");
+    const { body: follow } = await request("POST", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
+    assert(follow.data?.following === true, "follow did not toggle on");
+
+    const { body: summary } = await request("GET", "/notifications/summary", undefined, owner.accessToken);
+    const rows = summary.data || [];
+    const unreadByType = Object.fromEntries(rows.map((row) => [row.key, row.unread]));
+    assert(unreadByType.like >= 1, "like notification missing");
+    assert(unreadByType.favorite >= 1, "favorite notification missing");
+    assert(unreadByType.remake >= 1, "remake notification missing");
+    assert(unreadByType.follow >= 1, "follow notification missing");
+
+    const { body: likeMessages } = await request("GET", "/notifications/like", undefined, owner.accessToken);
+    assert((likeMessages.data || []).some((item) => item.content.includes("smoke-social-work")), "like message content missing");
+
+    await request("DELETE", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
+    await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
+  });
+
   if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     const admin = await step("admin login", async () => {
       const { body } = await request("POST", "/admin/auth/login", { username: ADMIN_USERNAME, password: ADMIN_PASSWORD });

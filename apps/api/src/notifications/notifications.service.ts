@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
+type SocialNotificationType = "like" | "favorite" | "remake" | "follow";
+
 const CATEGORY_META: Record<string, { title: string; icon: string; gradient: string; color: string }> = {
   like: { title: "点赞", icon: "♡", gradient: "linear-gradient(135deg,#FFB3C1,#FF8FA3)", color: "#ff8fa3" },
   favorite: { title: "收藏", icon: "☆", gradient: "linear-gradient(135deg,#A8D8F0,#7CC4E8)", color: "#7cc4e8" },
@@ -26,6 +28,32 @@ function timeText(date: Date) {
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async createSocialNotification(params: {
+    userId: number;
+    actorName: string;
+    type: SocialNotificationType;
+    workTitle?: string;
+  }) {
+    const title = CATEGORY_META[params.type]?.title ?? "消息";
+    const actor = params.actorName.trim() || "有用户";
+    const workTitle = params.workTitle?.trim();
+    const content =
+      params.type === "follow"
+        ? `${actor} 关注了你`
+        : workTitle
+          ? `${actor} ${title}了你的作品「${workTitle}」`
+          : `${actor} ${title}了你的作品`;
+
+    return this.prisma.notification.create({
+      data: {
+        userId: params.userId,
+        type: params.type,
+        title,
+        content
+      }
+    });
+  }
 
   async summary(userId: number) {
     const rows = await this.prisma.notification.findMany({
