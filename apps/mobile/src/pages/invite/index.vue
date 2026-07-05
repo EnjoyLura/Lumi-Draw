@@ -1,12 +1,58 @@
 <script setup lang="ts">
-import { inviteCode, invitedUsers } from "../points/pointsData";
+import { ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type InvitedUser } from "../points/pointsData";
+import { fetchInviteSummary } from "../points/pointsService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+
+const inviteCode = ref(mockInviteCode);
+const invitedUsers = ref<InvitedUser[]>(mockInvitedUsers);
+const rewardPerInvite = ref(50);
+const totalReward = ref(mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0));
+const isLoading = ref(false);
+let lastMockMode: boolean | null = null;
+
+onShow(() => {
+  if (lastMockMode !== useMockData.value) {
+    lastMockMode = useMockData.value;
+  }
+  void loadInvite();
+});
+
+async function loadInvite() {
+  if (useMockData.value) {
+    inviteCode.value = mockInviteCode;
+    invitedUsers.value = mockInvitedUsers;
+    rewardPerInvite.value = 50;
+    totalReward.value = mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0);
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    const summary = await fetchInviteSummary();
+    inviteCode.value = summary.inviteCode;
+    invitedUsers.value = summary.invitedUsers;
+    rewardPerInvite.value = summary.rewardPerInvite;
+    totalReward.value = summary.totalReward;
+  } catch {
+    uni.showToast({ title: "邀请数据加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function copyInviteCode() {
-  uni.setClipboardData({ data: inviteCode });
+  uni.setClipboardData({ data: inviteCode.value });
 }
 
 function shareInvite() {
-  uni.showToast({ title: "分享给微信好友", icon: "none" });
+  uni.showToast({ title: "请使用微信右上角分享", icon: "none" });
 }
 </script>
 
@@ -15,13 +61,13 @@ function shareInvite() {
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="hero-card">
-          <view class="hero-icon">□</view>
+          <view class="hero-icon">◆</view>
           <view class="hero-title">邀请好友，双方得积分</view>
-          <view class="hero-desc">好友填你的邀请码注册，你+50积分，好友+30积分</view>
+          <view class="hero-desc">好友填写你的邀请码注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
         </view>
 
         <view class="code-card">
-          <view class="code-label">我的邀请码</view>
+          <view class="code-label">{{ isLoading ? "邀请码同步中" : "我的邀请码" }}</view>
           <view class="invite-code">{{ inviteCode }}</view>
           <view class="code-actions">
             <button class="btn secondary" @click="copyInviteCode">复制邀请码</button>
@@ -29,13 +75,25 @@ function shareInvite() {
           </view>
         </view>
 
+        <view class="summary-row">
+          <view class="summary-card">
+            <view class="summary-num">{{ invitedUsers.length }}</view>
+            <view class="summary-label">已邀请</view>
+          </view>
+          <view class="summary-card">
+            <view class="summary-num">{{ totalReward }}</view>
+            <view class="summary-label">累计积分</view>
+          </view>
+        </view>
+
         <view class="section-title">已邀请 {{ invitedUsers.length }} 人</view>
         <view class="invite-list">
-          <view v-for="user in invitedUsers" :key="user.name" class="invite-row">
+          <view v-if="!invitedUsers.length" class="empty-row">暂无邀请记录</view>
+          <view v-for="user in invitedUsers" :key="`${user.name}-${user.date}`" class="invite-row">
             <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
             <view class="invite-main">
               <view class="invite-name">{{ user.name }}</view>
-              <view class="invite-date">{{ user.date }} 注册</view>
+              <view class="invite-date">{{ user.date || "已注册" }}</view>
             </view>
             <view class="reward-tag">+{{ user.reward }}</view>
           </view>
@@ -43,10 +101,9 @@ function shareInvite() {
 
         <view class="rules-card">
           <view class="rules-title">活动规则</view>
-          <view class="rule-line">1. 好友首次注册时填写你的邀请码，双方各获得积分奖励</view>
-          <view class="rule-line">2. 每人最多可邀请50位好友</view>
-          <view class="rule-line">3. 邀请奖励积分实时到账</view>
-          <view class="rule-line">4. 禁止刷邀请，违规者将扣除积分并封号</view>
+          <view class="rule-line">1. 好友首次注册时填写你的邀请码，双方获得积分奖励</view>
+          <view class="rule-line">2. 邀请奖励积分实时到账</view>
+          <view class="rule-line">3. 禁止刷邀请，违规将扣除积分并限制账号</view>
         </view>
       </view>
     </scroll-view>
@@ -72,7 +129,8 @@ function shareInvite() {
 
 .hero-card,
 .code-card,
-.invite-list {
+.invite-list,
+.summary-card {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 10px;
@@ -88,7 +146,6 @@ function shareInvite() {
 .hero-icon {
   margin-bottom: 8px;
   font-size: 40px;
-  line-height: 1;
   color: var(--accent);
 }
 
@@ -107,7 +164,7 @@ function shareInvite() {
 
 .code-card {
   padding: 20px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   text-align: center;
 }
 
@@ -125,7 +182,8 @@ function shareInvite() {
   letter-spacing: 4px;
 }
 
-.code-actions {
+.code-actions,
+.summary-row {
   display: flex;
   gap: 10px;
 }
@@ -157,6 +215,28 @@ function shareInvite() {
   background: var(--gradient-dream);
 }
 
+.summary-row {
+  margin-bottom: 16px;
+}
+
+.summary-card {
+  flex: 1;
+  padding: 14px 0;
+  text-align: center;
+}
+
+.summary-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.summary-label {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
 .section-title {
   margin-bottom: 12px;
   font-size: 18px;
@@ -167,7 +247,8 @@ function shareInvite() {
   overflow: hidden;
 }
 
-.invite-row {
+.invite-row,
+.empty-row {
   display: flex;
   gap: 10px;
   align-items: center;
@@ -176,8 +257,9 @@ function shareInvite() {
   border-bottom: 0.5px solid var(--border);
 }
 
-.invite-row:last-child {
-  border-bottom: none;
+.empty-row {
+  justify-content: center;
+  color: var(--fg-muted);
 }
 
 .avatar {

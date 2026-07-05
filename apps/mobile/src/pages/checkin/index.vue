@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { initialSignedDays, milestones, today, type Milestone } from "../points/pointsData";
+import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const checkinDone = ref(false);
 const checkinStreak = ref(7);
+const nextCredits = ref(10);
 const signedDays = ref<number[]>([...initialSignedDays]);
-const milestoneStates = ref<Record<number, Milestone["state"]>>(
-  milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
-    next[item.days] = item.state;
-    return next;
-  }, {})
-);
+const milestoneStates = ref<Record<number, Milestone["state"]>>({});
 const streakPulse = ref(false);
 const todayPulse = ref(false);
+const isLoading = ref(false);
+const isSubmitting = ref(false);
+let lastMockMode: boolean | null = null;
+
+function buildMilestoneStates(streak: number) {
+  return milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
+    next[item.days] = streak >= item.days ? "claimed" : streak + 1 >= item.days ? "available" : "locked";
+    return next;
+  }, {});
+}
+
+milestoneStates.value = buildMilestoneStates(checkinStreak.value);
 
 const calendarDays = computed(() => {
   return Array.from({ length: 30 }, (_, index) => {
@@ -26,37 +41,89 @@ const calendarDays = computed(() => {
   });
 });
 
+onShow(() => {
+  if (lastMockMode !== useMockData.value) {
+    lastMockMode = useMockData.value;
+  }
+  void loadStatus();
+});
+
+async function loadStatus() {
+  if (useMockData.value) {
+    checkinDone.value = false;
+    checkinStreak.value = 7;
+    nextCredits.value = 10;
+    signedDays.value = [...initialSignedDays];
+    milestoneStates.value = buildMilestoneStates(checkinStreak.value);
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    const status = await fetchCheckinStatus();
+    checkinDone.value = status.checkedToday;
+    checkinStreak.value = status.continuousDays;
+    nextCredits.value = status.nextCredits;
+    const visibleSigned = Math.min(status.continuousDays, today);
+    signedDays.value = Array.from({ length: visibleSigned }, (_, index) => index + 1);
+    if (status.checkedToday && !signedDays.value.includes(today)) signedDays.value = [...signedDays.value, today];
+    milestoneStates.value = buildMilestoneStates(status.continuousDays);
+  } catch {
+    uni.showToast({ title: "签到状态加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 function stateText(state: Milestone["state"]) {
   if (state === "claimed") return "已领";
   if (state === "available") return "可领";
   return "未达";
 }
 
-function doCheckin() {
-  if (checkinDone.value) return;
-
-  checkinDone.value = true;
-  checkinStreak.value += 1;
-  signedDays.value = [...signedDays.value, today];
+function pulseToday() {
   streakPulse.value = true;
   todayPulse.value = true;
-
   setTimeout(() => {
     streakPulse.value = false;
     todayPulse.value = false;
   }, 360);
+}
 
-  uni.showToast({ title: `签到成功！+10积分，连续${checkinStreak.value}天`, icon: "none" });
+async function doCheckin() {
+  if (checkinDone.value || isSubmitting.value) return;
+
+  if (useMockData.value) {
+    checkinDone.value = true;
+    checkinStreak.value += 1;
+    signedDays.value = [...new Set([...signedDays.value, today])];
+    milestoneStates.value = buildMilestoneStates(checkinStreak.value);
+    pulseToday();
+    uni.showToast({ title: `签到成功，+${nextCredits.value}积分`, icon: "none" });
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isSubmitting.value = true;
+  try {
+    const result = await submitCheckin();
+    checkinDone.value = true;
+    checkinStreak.value = result.continuousDays;
+    signedDays.value = [...new Set([...signedDays.value, today])];
+    milestoneStates.value = buildMilestoneStates(result.continuousDays);
+    pulseToday();
+    uni.showToast({ title: result.checked ? `签到成功，+${result.credits}积分` : "今日已签到", icon: "none" });
+  } catch {
+    uni.showToast({ title: "签到失败，请稍后重试", icon: "none" });
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 
 function claimMilestone(item: Milestone) {
   if (milestoneStates.value[item.days] !== "available") return;
-
-  milestoneStates.value = {
-    ...milestoneStates.value,
-    [item.days]: "claimed"
-  };
-  uni.showToast({ title: `领取成功！+${item.reward}积分`, icon: "none" });
+  uni.showToast({ title: "里程碑奖励已由每日签到自动发放", icon: "none" });
 }
 </script>
 
@@ -65,19 +132,19 @@ function claimMilestone(item: Milestone) {
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="streak-card">
-          <view class="streak-label">已连续签到</view>
+          <view class="streak-label">{{ isLoading ? "同步签到状态中" : "已连续签到" }}</view>
           <view class="streak-num" :class="{ pulse: streakPulse }">
             <text>{{ checkinStreak }}</text>
             <text class="streak-unit">天</text>
           </view>
-          <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone" @click="doCheckin">
+          <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone || isSubmitting" @click="doCheckin">
             <text v-if="checkinDone" class="check-icon">✓</text>
-            <text>{{ checkinDone ? "今日已签到" : "今日签到 +10积分" }}</text>
+            <text>{{ checkinDone ? "今日已签到" : `今日签到 +${nextCredits}积分` }}</text>
           </button>
         </view>
 
         <view class="section-title">
-          <text class="gift-icon">□</text>
+          <text class="gift-icon">◆</text>
           <text>里程碑奖励</text>
         </view>
         <view class="milestone-grid">
@@ -121,7 +188,7 @@ function claimMilestone(item: Milestone) {
               }"
             >
               <text>{{ item.day }}</text>
-              <text v-if="item.milestone" class="cal-gift">□</text>
+              <text v-if="item.milestone" class="cal-gift">◆</text>
             </view>
           </view>
         </view>
@@ -200,9 +267,6 @@ function claimMilestone(item: Milestone) {
   background: var(--gradient-dream);
   border: none;
   border-radius: 12px;
-  transition:
-    background 0.3s ease,
-    color 0.3s ease;
 }
 
 .checkin-btn::after {
@@ -213,10 +277,6 @@ function claimMilestone(item: Milestone) {
   color: var(--fg-primary);
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
-}
-
-.check-icon {
-  font-size: 17px;
 }
 
 .section-title {
@@ -248,24 +308,11 @@ function claimMilestone(item: Milestone) {
   min-height: 78px;
   padding: 12px 8px;
   text-align: center;
-  box-sizing: border-box;
-  transition:
-    transform 0.22s ease,
-    border-color 0.22s ease,
-    opacity 0.22s ease;
+  border-radius: 10px;
 }
 
 .milestone-card.available {
-  cursor: pointer;
   border: 1.5px solid var(--accent);
-}
-
-.milestone-card.available:active {
-  transform: scale(1.08);
-}
-
-.milestone-card.claimed {
-  border-color: var(--border);
 }
 
 .milestone-card.locked {
@@ -289,14 +336,6 @@ function claimMilestone(item: Milestone) {
 
 .milestone-card.available .milestone-reward {
   color: var(--accent);
-}
-
-.milestone-card.locked:nth-child(3) .milestone-reward {
-  color: var(--lavender);
-}
-
-.milestone-card.locked:nth-child(4) .milestone-reward {
-  color: var(--peach);
 }
 
 .state-tag {
@@ -332,28 +371,23 @@ function claimMilestone(item: Milestone) {
 }
 
 .month-row {
-  display: flex;
-  justify-content: space-between;
   margin-bottom: 10px;
   font-size: 12px;
   color: var(--fg-muted);
 }
 
-.week-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 6px;
-  font-size: 11px;
-  color: var(--fg-muted);
-  text-align: center;
-}
-
+.week-row,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
-  justify-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.week-row {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--fg-muted);
 }
 
 .cal-day {
@@ -363,6 +397,7 @@ function claimMilestone(item: Milestone) {
   justify-content: center;
   width: 32px;
   height: 32px;
+  margin: 0 auto;
   font-size: 12px;
   color: var(--fg-secondary);
   border-radius: 50%;
@@ -392,12 +427,7 @@ function claimMilestone(item: Milestone) {
   position: absolute;
   top: -3px;
   right: -3px;
-  z-index: 2;
   font-size: 10px;
   color: var(--mint);
-}
-
-.cal-day.signed .cal-gift {
-  color: rgba(255, 255, 255, 0.85);
 }
 </style>

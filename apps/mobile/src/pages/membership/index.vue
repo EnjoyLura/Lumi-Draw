@@ -1,20 +1,76 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { memberBenefits, memberPlans } from "../points/pointsData";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { memberBenefits, memberPlans, type MemberPlan } from "../points/pointsData";
+import { fetchMemberPlans, fetchMemberStatus } from "../points/pointsService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const selectedPlanIdx = ref(1);
-const selectedPlan = computed(() => memberPlans[selectedPlanIdx.value]);
+const plans = ref<MemberPlan[]>(memberPlans);
+const isMember = ref(false);
+const memberPlanName = ref("");
+const memberExpireAt = ref("");
+const isLoading = ref(false);
+let lastMockMode: boolean | null = null;
+
+const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
+const memberStatusText = computed(() => {
+  if (!isMember.value) return "未开通会员";
+  if (!memberExpireAt.value) return `${memberPlanName.value || "会员"} 生效中`;
+  return `${memberPlanName.value || "会员"} · 有效期至 ${memberExpireAt.value.slice(0, 10)}`;
+});
+
+onShow(() => {
+  if (lastMockMode !== useMockData.value) {
+    lastMockMode = useMockData.value;
+    selectedPlanIdx.value = 1;
+  }
+  void loadMembership();
+});
+
+async function loadMembership() {
+  if (useMockData.value) {
+    plans.value = memberPlans;
+    isMember.value = false;
+    memberPlanName.value = "";
+    memberExpireAt.value = "";
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    const nextPlans = await fetchMemberPlans();
+    plans.value = nextPlans.length ? nextPlans : memberPlans;
+    selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
+
+    if (requireLogin()) {
+      const status = await fetchMemberStatus();
+      isMember.value = status.isMember;
+      memberPlanName.value = status.memberPlan;
+      memberExpireAt.value = status.memberExpireAt || "";
+    }
+  } catch {
+    uni.showToast({ title: "会员数据加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function selectPlan(index: number) {
   selectedPlanIdx.value = index;
 }
 
 function openMember() {
-  uni.showToast({ title: `开通${selectedPlan.value.name}会员成功！`, icon: "none" });
+  if (!requireLogin()) return;
+  uni.showToast({ title: "会员支付待接入", icon: "none" });
 }
 
 function showAgreement() {
-  uni.showToast({ title: "查看服务协议", icon: "none" });
+  uni.navigateTo({ url: "/pages/settings/index" });
 }
 </script>
 
@@ -27,7 +83,7 @@ function showAgreement() {
             <view class="crown">♛</view>
             <view>
               <view class="member-title">Lumi 会员</view>
-              <view class="member-sub">每天自动领取积分，畅享AI创作</view>
+              <view class="member-sub">{{ isLoading ? "同步会员状态中" : memberStatusText }}</view>
             </view>
           </view>
           <view class="member-stats">
@@ -36,7 +92,7 @@ function showAgreement() {
               <view class="stat-label">每日积分</view>
             </view>
             <view class="stat-item">
-              <view class="stat-value lavender">×2</view>
+              <view class="stat-value lavender">x2</view>
               <view class="stat-label">签到加成</view>
             </view>
             <view class="stat-item">
@@ -49,8 +105,8 @@ function showAgreement() {
         <view class="section-title">选择套餐</view>
         <view class="plan-list">
           <view
-            v-for="(plan, index) in memberPlans"
-            :key="plan.name"
+            v-for="(plan, index) in plans"
+            :key="`${plan.name}-${plan.price}`"
             class="plan-card"
             :class="{ selected: selectedPlanIdx === index }"
             @click="selectPlan(index)"
@@ -63,12 +119,11 @@ function showAgreement() {
                   <text class="plan-name">{{ plan.name }}</text>
                   <text v-if="plan.badge" class="save-tag">{{ plan.badge }}</text>
                 </view>
-                <view class="plan-desc">每日领取50积分 · 共{{ plan.totalCredits }}积分</view>
+                <view class="plan-desc">赠送 {{ plan.totalCredits }} 积分 · {{ plan.unitPrice }}</view>
               </view>
             </view>
             <view class="plan-price">
               <view class="price">¥{{ plan.price }}</view>
-              <view class="unit">{{ plan.unitPrice }}</view>
             </view>
           </view>
         </view>
@@ -123,10 +178,8 @@ function showAgreement() {
 }
 
 .member-card {
-  position: relative;
   padding: 28px 20px;
   margin-bottom: 16px;
-  overflow: hidden;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
 }
 
@@ -218,17 +271,8 @@ function showAgreement() {
   justify-content: space-between;
   min-height: 74px;
   padding: 16px;
-  overflow: hidden;
-  box-sizing: border-box;
   border: 2px solid var(--border);
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.plan-card:active {
-  transform: scale(0.98);
+  border-radius: 10px;
 }
 
 .plan-card.selected {
@@ -293,7 +337,8 @@ function showAgreement() {
   align-items: center;
 }
 
-.plan-name {
+.plan-name,
+.benefit-title {
   font-size: 15px;
   font-weight: 700;
 }
@@ -307,28 +352,16 @@ function showAgreement() {
   border-radius: 999px;
 }
 
-.plan-desc {
+.plan-desc,
+.benefit-desc {
   margin-top: 2px;
-  overflow: hidden;
   font-size: 12px;
   color: var(--fg-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.plan-price {
-  flex: 0 0 auto;
-  text-align: right;
 }
 
 .price {
   font-size: 20px;
   font-weight: 700;
-}
-
-.unit {
-  font-size: 10px;
-  color: var(--fg-muted);
 }
 
 .open-btn {
@@ -352,10 +385,6 @@ function showAgreement() {
   border: none;
 }
 
-.open-icon {
-  font-size: 18px;
-}
-
 .benefit-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -369,7 +398,6 @@ function showAgreement() {
   align-items: flex-start;
   min-height: 70px;
   padding: 14px;
-  box-sizing: border-box;
 }
 
 .benefit-icon {
@@ -401,17 +429,6 @@ function showAgreement() {
 .benefit-icon.peach {
   color: var(--peach);
   background: rgba(255, 181, 154, 0.15);
-}
-
-.benefit-title {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.benefit-desc {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--fg-muted);
 }
 
 .agreement {

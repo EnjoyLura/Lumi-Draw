@@ -1,24 +1,76 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord } from "../points/pointsData";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
+import { fetchCreditRecords, fetchCreditsBalance, fetchRechargeTiers } from "../points/pointsService";
 
 type RecordTab = "earn" | "spend";
 
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+
+const balance = ref(currentCredits);
+const tiers = ref<RechargeTier[]>(rechargeTiers);
 const selectedTierIdx = ref(3);
 const activeTab = ref<RecordTab>("earn");
+const earnList = ref<PointRecord[]>(earnRecords);
+const spendList = ref<PointRecord[]>(spendRecords);
 const customOpen = ref(false);
 const customAmount = ref("");
+const isLoading = ref(false);
+let lastMockMode: boolean | null = null;
 
-const records = computed<PointRecord[]>(() => (activeTab.value === "earn" ? earnRecords : spendRecords));
+const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const customValue = computed(() => Number.parseFloat(customAmount.value));
-const customCredits = computed(() => {
-  if (Number.isNaN(customValue.value) || customValue.value < 1) return 0;
-  return Math.floor(customValue.value * 10);
-});
+const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 1 ? 0 : Math.floor(customValue.value * 10)));
 const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
+
+onShow(() => {
+  if (lastMockMode !== useMockData.value) {
+    lastMockMode = useMockData.value;
+    selectedTierIdx.value = 3;
+  }
+  void loadPageData();
+});
+
+async function loadPageData() {
+  if (useMockData.value) {
+    balance.value = currentCredits;
+    tiers.value = rechargeTiers;
+    earnList.value = earnRecords;
+    spendList.value = spendRecords;
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    const [nextBalance, nextTiers, nextEarn, nextSpend] = await Promise.all([
+      fetchCreditsBalance(),
+      fetchRechargeTiers(),
+      fetchCreditRecords("earn"),
+      fetchCreditRecords("spend")
+    ]);
+    balance.value = nextBalance;
+    tiers.value = nextTiers.length ? nextTiers : rechargeTiers;
+    earnList.value = nextEarn;
+    spendList.value = nextSpend;
+    selectedTierIdx.value = Math.min(selectedTierIdx.value, tiers.value.length - 1);
+  } catch {
+    uni.showToast({ title: "积分数据加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function selectTier(index: number) {
   selectedTierIdx.value = index;
+}
+
+function switchTab(tab: RecordTab) {
+  activeTab.value = tab;
 }
 
 function openCustomRecharge() {
@@ -30,17 +82,18 @@ function closeCustomRecharge() {
   customOpen.value = false;
 }
 
+function startRecharge() {
+  if (!requireLogin()) return;
+  uni.showToast({ title: "微信支付待接入", icon: "none" });
+}
+
 function confirmCustomRecharge() {
   if (Number.isNaN(customValue.value) || customValue.value < 1) {
-    uni.showToast({ title: "请输入至少1元", icon: "none" });
+    uni.showToast({ title: "请输入至少 1 元", icon: "none" });
     return;
   }
-
   closeCustomRecharge();
-  uni.showToast({
-    title: `支付¥${customValue.value}充值${customCredits.value}积分（含${customBonus.value}赠送）`,
-    icon: "none"
-  });
+  startRecharge();
 }
 </script>
 
@@ -49,16 +102,16 @@ function confirmCustomRecharge() {
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="balance-card">
-          <view class="balance-orb" />
           <view class="balance-label">当前积分余额</view>
-          <view class="balance-num">{{ currentCredits }}</view>
+          <view class="balance-num">{{ balance }}</view>
+          <view v-if="isLoading" class="balance-sub">同步中...</view>
         </view>
 
         <view class="section-title">充值档位</view>
         <view class="tier-grid">
           <view
-            v-for="(tier, index) in rechargeTiers"
-            :key="tier.price"
+            v-for="(tier, index) in tiers"
+            :key="`${tier.price}-${tier.credits}`"
             class="tier-card"
             :class="{ selected: selectedTierIdx === index }"
             @click="selectTier(index)"
@@ -77,14 +130,17 @@ function confirmCustomRecharge() {
           </view>
         </view>
 
+        <button class="pay-btn" @click="startRecharge">微信支付充值</button>
+
         <view class="sub-tabs">
-          <view class="sub-tab" :class="{ active: activeTab === 'earn' }" @click="activeTab = 'earn'">积分获得</view>
-          <view class="sub-tab" :class="{ active: activeTab === 'spend' }" @click="activeTab = 'spend'">积分消费</view>
+          <view class="sub-tab" :class="{ active: activeTab === 'earn' }" @click="switchTab('earn')">积分获得</view>
+          <view class="sub-tab" :class="{ active: activeTab === 'spend' }" @click="switchTab('spend')">积分消费</view>
         </view>
 
         <view class="record-card">
-          <view v-for="record in records" :key="`${record.title}-${record.time}`" class="record-row">
-            <view class="record-icon" :class="activeTab">{{ activeTab === "earn" ? "+" : "✦" }}</view>
+          <view v-if="!records.length" class="empty-row">暂无积分记录</view>
+          <view v-for="record in records" :key="`${record.title}-${record.time}-${record.amount}`" class="record-row">
+            <view class="record-icon" :class="activeTab">{{ activeTab === "earn" ? "+" : "-" }}</view>
             <view class="record-main">
               <view class="record-title">{{ record.title }}</view>
               <view class="record-sub">{{ activeTab === "earn" ? record.source : record.model }} · {{ record.time }}</view>
@@ -102,7 +158,7 @@ function confirmCustomRecharge() {
       <view class="field-label">输入充值金额（元）</view>
       <view class="amount-row">
         <text class="money-symbol">¥</text>
-        <input v-model="customAmount" class="amount-input" type="digit" placeholder="最低1元" />
+        <input v-model="customAmount" class="amount-input" type="digit" placeholder="最低 1 元" />
       </view>
       <view class="preview-card">
         <view class="preview-row">
@@ -149,34 +205,21 @@ function confirmCustomRecharge() {
 }
 
 .balance-card {
-  position: relative;
   padding: 20px;
   margin-bottom: 16px;
-  overflow: hidden;
   background: var(--gradient-dream);
 }
 
-.balance-orb {
-  position: absolute;
-  top: -20px;
-  right: -20px;
-  width: 100px;
-  height: 100px;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 50%;
-}
-
-.balance-label {
-  margin-bottom: 8px;
+.balance-label,
+.balance-sub {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
 }
 
 .balance-num {
+  margin-top: 8px;
   font-size: 32px;
   font-weight: 700;
-  line-height: 1;
   color: #fff;
 }
 
@@ -190,25 +233,16 @@ function confirmCustomRecharge() {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .tier-card {
   position: relative;
   min-height: 104px;
   padding: 14px 8px 12px;
-  overflow: hidden;
   text-align: center;
-  box-sizing: border-box;
   border: 2px solid var(--border);
-  transition:
-    transform 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
-}
-
-.tier-card:active {
-  transform: scale(0.96);
+  border-radius: 10px;
 }
 
 .tier-card.selected {
@@ -228,10 +262,10 @@ function confirmCustomRecharge() {
   border-radius: 999px;
 }
 
-.tier-credits {
+.tier-credits,
+.custom-plus {
   font-size: 20px;
   font-weight: 700;
-  line-height: 1.2;
   color: var(--accent);
 }
 
@@ -249,7 +283,8 @@ function confirmCustomRecharge() {
   color: var(--mint);
 }
 
-.tier-price {
+.tier-price,
+.custom-title {
   margin-top: 6px;
   font-size: 14px;
   font-weight: 700;
@@ -260,24 +295,24 @@ function confirmCustomRecharge() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1.5px dashed var(--border-strong);
+  border-style: dashed;
 }
 
-.custom-plus {
-  margin-bottom: 2px;
-  font-size: 24px;
-  line-height: 1;
-  color: var(--accent);
+.pay-btn {
+  width: 100%;
+  height: 46px;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 12px;
 }
 
-.custom-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-}
-
-.custom-sub {
-  margin-top: 2px;
+.pay-btn::after,
+.btn::after {
+  border: none;
 }
 
 .sub-tabs {
@@ -299,10 +334,6 @@ function confirmCustomRecharge() {
   color: var(--fg-muted);
   text-align: center;
   border-radius: 9px;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
 }
 
 .sub-tab.active {
@@ -315,7 +346,8 @@ function confirmCustomRecharge() {
   overflow: hidden;
 }
 
-.record-row {
+.record-row,
+.empty-row {
   display: flex;
   gap: 10px;
   align-items: center;
@@ -324,8 +356,9 @@ function confirmCustomRecharge() {
   border-bottom: 0.5px solid var(--border);
 }
 
-.record-row:last-child {
-  border-bottom: none;
+.empty-row {
+  justify-content: center;
+  color: var(--fg-muted);
 }
 
 .record-icon {
@@ -340,13 +373,21 @@ function confirmCustomRecharge() {
   border-radius: 10px;
 }
 
-.record-icon.earn {
+.record-icon.earn,
+.record-amount.earn {
   color: var(--mint);
+}
+
+.record-icon.spend,
+.record-amount.spend {
+  color: var(--rose);
+}
+
+.record-icon.earn {
   background: var(--mint-soft);
 }
 
 .record-icon.spend {
-  color: var(--rose);
   background: var(--rose-soft);
 }
 
@@ -372,14 +413,6 @@ function confirmCustomRecharge() {
 .record-amount {
   font-size: 14px;
   font-weight: 700;
-}
-
-.record-amount.earn {
-  color: var(--mint);
-}
-
-.record-amount.spend {
-  color: var(--rose);
 }
 
 .sheet-overlay {
@@ -452,20 +485,12 @@ function confirmCustomRecharge() {
   flex: 1;
   height: 46px;
   padding: 0 12px;
-  box-sizing: border-box;
   font-size: 18px;
   font-weight: 600;
   color: var(--fg-primary);
   background: var(--bg-soft);
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
-}
-
-.amount-input:focus-within {
-  background: var(--bg-card);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .preview-card {
@@ -474,12 +499,11 @@ function confirmCustomRecharge() {
   background: var(--accent-soft);
 }
 
-.preview-row {
+.preview-row,
+.sheet-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
-  color: var(--fg-secondary);
 }
 
 .preview-row + .preview-row {
@@ -499,24 +523,16 @@ function confirmCustomRecharge() {
 }
 
 .sheet-actions {
-  display: flex;
   gap: 10px;
 }
 
 .btn {
-  display: inline-flex;
   flex: 1;
-  align-items: center;
-  justify-content: center;
   height: 44px;
   font-size: 15px;
   font-weight: 700;
   border: none;
   border-radius: 12px;
-}
-
-.btn::after {
-  border: none;
 }
 
 .btn.secondary {

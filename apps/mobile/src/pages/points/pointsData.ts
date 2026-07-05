@@ -57,11 +57,11 @@ export const rechargeTiers: RechargeTier[] = [
 ];
 
 export const earnRecords: PointRecord[] = [
-  { title: "充值60积分", source: "微信支付", time: "06-18 14:30", amount: "+60" },
+  { title: "充值 60 积分", source: "微信支付", time: "06-18 14:30", amount: "+60" },
   { title: "每日签到", source: "签到奖励", time: "06-17 09:12", amount: "+10" },
-  { title: "充值180积分", source: "微信支付", time: "06-15 14:30", amount: "+180" },
-  { title: "邀请好友奖励", source: "邀请·星辰大海", time: "06-15 10:05", amount: "+50" },
-  { title: "充值680积分", source: "微信支付", time: "06-11 14:30", amount: "+680" }
+  { title: "充值 180 积分", source: "微信支付", time: "06-15 14:30", amount: "+180" },
+  { title: "邀请好友奖励", source: "邀请 星辰大海", time: "06-15 10:05", amount: "+50" },
+  { title: "充值 680 积分", source: "微信支付", time: "06-11 14:30", amount: "+680" }
 ];
 
 export const spendRecords: PointRecord[] = [
@@ -89,14 +89,14 @@ export const invitedUsers: InvitedUser[] = [
 ];
 
 export const memberPlans: MemberPlan[] = [
-  { name: "月卡", price: 18, unitPrice: "¥0.6/天", totalCredits: 1500, icon: "□", accent: "accent" },
-  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, icon: "▣", accent: "lavender", badge: "省10%", recommended: true },
-  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, icon: "♛", accent: "gold", badge: "省28%" }
+  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, icon: "◆", accent: "accent" },
+  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, icon: "◆", accent: "lavender", badge: "省 10%", recommended: true },
+  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, icon: "♛", accent: "gold", badge: "省 18%" }
 ];
 
 export const memberBenefits: MemberBenefit[] = [
-  { title: "每日积分", desc: "每天领取50积分", icon: "◇", tone: "mint" },
-  { title: "签到加成", desc: "签到积分翻倍", icon: "☆", tone: "accent" },
-  { title: "专属徽章", desc: "VIP身份标识", icon: "♛", tone: "lavender" },
-  { title: "优先生成", desc: "高峰期免排队", icon: "↗", tone: "peach" }
+  { title: "每日积分", desc: "每天领取 50 积分", icon: "●", tone: "mint" },
+  { title: "签到加成", desc: "签到积分翻倍", icon: "☀", tone: "accent" },
+  { title: "专属徽章", desc: "VIP 身份标识", icon: "♛", tone: "lavender" },
+  { title: "优先生成", desc: "高峰期优先排队", icon: "↗", tone: "peach" }
 ];
