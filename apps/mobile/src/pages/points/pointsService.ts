@@ -209,6 +209,25 @@ export function completeMockPayment(orderId: string) {
   return api.post<PaymentOrderView>(`/payments/${orderId}/mock-complete`);
 }
 
+export function fetchPaymentOrder(orderId: string) {
+  return api.get<PaymentOrderView>(`/payments/${orderId}`);
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForPaidOrder(orderId: string) {
+  let latest = await fetchPaymentOrder(orderId);
+  for (let index = 0; index < 5 && latest.status === "pending"; index += 1) {
+    await wait(900);
+    latest = await fetchPaymentOrder(orderId);
+  }
+  return latest;
+}
+
 export async function requestOrderPayment(order: PaymentOrderView) {
   const params = order.paymentParams;
   if (!params) return order;
@@ -234,5 +253,5 @@ export async function requestOrderPayment(order: PaymentOrderView) {
     });
   });
 
-  return order;
+  return waitForPaidOrder(order.id);
 }
