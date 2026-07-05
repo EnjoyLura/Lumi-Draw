@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
@@ -19,11 +19,17 @@ const backendDrafts = ref<DraftWork[]>([]);
 const isLoadingDrafts = ref(false);
 const isSubmitting = ref(false);
 const isUploadingLocalImage = ref(false);
+const pendingDraftId = ref<number | null>(null);
 let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
 const draftOptions = computed(() => (useMockData.value ? draftWorks : backendDrafts.value));
+
+onLoad((query) => {
+  const draftId = Number(query?.draftId || 0);
+  if (Number.isFinite(draftId) && draftId > 0) pendingDraftId.value = draftId;
+});
 
 onShow(() => {
   if (lastMockMode !== useMockData.value) {
@@ -39,6 +45,7 @@ onShow(() => {
 async function loadDrafts() {
   if (useMockData.value) {
     backendDrafts.value = [];
+    applyPendingDraft();
     return;
   }
   if (!requireLogin()) return;
@@ -46,6 +53,7 @@ async function loadDrafts() {
   isLoadingDrafts.value = true;
   try {
     backendDrafts.value = await fetchPublishDrafts();
+    applyPendingDraft();
     if (selectedDraft.value && !backendDrafts.value.some((draft) => draft.id === selectedDraft.value?.id)) {
       selectedDraft.value = null;
     }
@@ -70,6 +78,14 @@ function selectDraft(draft: DraftWork) {
   if (!title.value) title.value = draft.title;
   if (!desc.value && draft.prompt) desc.value = draft.prompt.slice(0, 200);
   closePicker();
+}
+
+function applyPendingDraft() {
+  if (!pendingDraftId.value || selectedDraft.value) return;
+  const draft = draftOptions.value.find((item) => item.id === pendingDraftId.value);
+  if (!draft) return;
+  pendingDraftId.value = null;
+  selectDraft(draft);
 }
 
 async function uploadLocalImage() {

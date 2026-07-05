@@ -329,7 +329,7 @@ function manageWork() {
     uni.navigateTo({ url: `/pages/edit-work/index?id=${workId.value}` });
     return;
   }
-  uni.navigateTo({ url: "/pages/publish/index" });
+  uni.navigateTo({ url: `/pages/publish/index?draftId=${workId.value}` });
 }
 
 function confirmDeleteWork() {
