@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type InvitedUser } from "../points/pointsData";
 import { fetchInviteSummary } from "../points/pointsService";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const inviteCode = ref(mockInviteCode);
@@ -14,6 +15,7 @@ const invitedUsers = ref<InvitedUser[]>(mockInvitedUsers);
 const rewardPerInvite = ref(50);
 const totalReward = ref(mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0));
 const isLoading = ref(false);
+const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 onShow(() => {
@@ -31,7 +33,7 @@ async function loadInvite() {
     totalReward.value = mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0);
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoading.value = true;
   try {
@@ -47,11 +49,32 @@ async function loadInvite() {
   }
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadInvite();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 function copyInviteCode() {
+  if (!ensureLogin()) return;
   uni.setClipboardData({ data: inviteCode.value });
 }
 
 function shareInvite() {
+  if (!ensureLogin()) return;
   const path = `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`;
   const link = typeof window !== "undefined" && window.location?.origin ? `${window.location.origin}/#${path}` : path;
   uni.setClipboardData({
@@ -117,6 +140,7 @@ function shareInvite() {
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

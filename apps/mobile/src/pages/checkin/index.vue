@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { initialSignedDays, milestones, today, type Milestone } from "../points/pointsData";
 import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const checkinDone = ref(false);
@@ -18,6 +19,7 @@ const streakPulse = ref(false);
 const todayPulse = ref(false);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
+const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 function buildMilestoneStates(streak: number) {
@@ -57,7 +59,7 @@ async function loadStatus() {
     milestoneStates.value = buildMilestoneStates(checkinStreak.value);
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoading.value = true;
   try {
@@ -73,6 +75,25 @@ async function loadStatus() {
     uni.showToast({ title: "签到状态加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadStatus();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 
@@ -103,7 +124,7 @@ async function doCheckin() {
     uni.showToast({ title: `签到成功，+${nextCredits.value}积分`, icon: "none" });
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isSubmitting.value = true;
   try {
@@ -194,6 +215,7 @@ function claimMilestone(item: Milestone) {
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
@@ -8,7 +9,7 @@ import { createRechargeOrder, fetchCreditRecords, fetchCreditsBalance, fetchRech
 
 type RecordTab = "earn" | "spend";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const balance = ref(currentCredits);
@@ -21,6 +22,7 @@ const customOpen = ref(false);
 const customAmount = ref("");
 const isLoading = ref(false);
 const isPaying = ref(false);
+const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
@@ -44,7 +46,7 @@ async function loadPageData() {
     spendList.value = spendRecords;
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoading.value = true;
   try {
@@ -66,6 +68,25 @@ async function loadPageData() {
   }
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadPageData();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 function selectTier(index: number) {
   selectedTierIdx.value = index;
 }
@@ -84,7 +105,7 @@ function closeCustomRecharge() {
 }
 
 async function startRecharge(amount?: number) {
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   if (isPaying.value) return;
 
   const tier = tiers.value[selectedTierIdx.value];
@@ -200,6 +221,7 @@ function confirmCustomRecharge() {
         <button class="btn gradient" @click="confirmCustomRecharge">确认充值</button>
       </view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

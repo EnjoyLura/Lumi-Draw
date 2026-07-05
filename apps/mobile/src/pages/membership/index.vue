@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberPlan } from "../points/pointsData";
 import { createMembershipOrder, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const selectedPlanIdx = ref(1);
@@ -16,6 +17,7 @@ const memberPlanName = ref("");
 const memberExpireAt = ref("");
 const isLoading = ref(false);
 const isPaying = ref(false);
+const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
@@ -48,16 +50,34 @@ async function loadMembership() {
     plans.value = nextPlans.length ? nextPlans : memberPlans;
     selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
 
-    if (requireLogin()) {
-      const status = await fetchMemberStatus();
-      isMember.value = status.isMember;
-      memberPlanName.value = status.memberPlan;
-      memberExpireAt.value = status.memberExpireAt || "";
-    }
+    if (!ensureLogin()) return;
+    const status = await fetchMemberStatus();
+    isMember.value = status.isMember;
+    memberPlanName.value = status.memberPlan;
+    memberExpireAt.value = status.memberExpireAt || "";
   } catch {
     uni.showToast({ title: "会员数据加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadMembership();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 
@@ -66,7 +86,7 @@ function selectPlan(index: number) {
 }
 
 async function openMember() {
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   if (isPaying.value) return;
 
   const plan = selectedPlan.value;
@@ -178,6 +198,7 @@ function showAgreement() {
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
