@@ -22,25 +22,27 @@ export const workTags: WorkTag[] = [
 ];
 
 const resolutionMap: Record<string, string> = {
-  "1:1": "1024×1024",
-  "3:4": "768×1024",
-  "4:3": "1024×768",
-  "2:3": "683×1024",
-  "3:2": "1024×683",
-  "9:16": "576×1024",
-  "16:9": "1024×576"
+  "1:1": "1024x1024",
+  "3:4": "768x1024",
+  "4:3": "1024x768",
+  "2:3": "683x1024",
+  "3:2": "1024x683",
+  "9:16": "576x1024",
+  "16:9": "1024x576"
 };
 
 export function ratioToResolution(ratio: string) {
-  return resolutionMap[ratio] || "1024×1024";
+  return resolutionMap[ratio] || "1024x1024";
 }
 
 export interface DraftWork {
   id: number;
   image: string;
   title: string;
+  prompt?: string;
   ratio: string;
   resolution: string;
+  source?: "mock" | "backend";
 }
 
 export const draftWorks: DraftWork[] = galleryWorks
@@ -49,6 +51,8 @@ export const draftWorks: DraftWork[] = galleryWorks
     id: work.id,
     image: work.image,
     title: work.title || (work.prompt ? work.prompt.slice(0, 20) : "未命名作品"),
+    prompt: work.prompt,
     ratio: work.ratio,
-    resolution: ratioToResolution(work.ratio)
+    resolution: ratioToResolution(work.ratio),
+    source: "mock"
   }));

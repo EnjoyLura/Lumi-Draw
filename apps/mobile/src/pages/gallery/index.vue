@@ -314,6 +314,21 @@ function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
 }
 
+function statusBadgeText(work: HomeWork) {
+  if (work.status === "pending") return "⌛ 审核中";
+  if (work.status === "rejected") return "× 未通过";
+  if (work.status === "offline") return "↓ 已下架";
+  return work.published ? "✓ 已发布" : "▤ 草稿";
+}
+
+function statusBadgeClass(work: HomeWork) {
+  return {
+    draft: !work.published && work.status !== "pending",
+    pending: work.status === "pending",
+    rejected: work.status === "rejected" || work.status === "offline"
+  };
+}
+
 function getAspectRatio(ratio: string) {
   const [width, height] = ratio.split(":").map(Number);
   if (!width || !height) return "1 / 1";
@@ -440,7 +455,7 @@ function openWork(work: HomeWork) {
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
-              <view class="status-badge" :class="{ draft: !work.published }">{{ work.published ? "✓ 已发布" : "▤ 草稿" }}</view>
+              <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
@@ -458,7 +473,7 @@ function openWork(work: HomeWork) {
           <view class="waterfall-column">
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
-              <view class="status-badge" :class="{ draft: !work.published }">{{ work.published ? "✓ 已发布" : "▤ 草稿" }}</view>
+              <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
@@ -1020,6 +1035,16 @@ function openWork(work: HomeWork) {
 
 .status-badge.draft {
   color: #e59a74;
+}
+
+.status-badge.pending {
+  color: #5b9fe8;
+  background: rgba(91, 159, 232, 0.14);
+}
+
+.status-badge.rejected {
+  color: #d4556a;
+  background: rgba(212, 85, 106, 0.14);
 }
 
 .select-dot {

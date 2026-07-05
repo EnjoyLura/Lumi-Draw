@@ -28,6 +28,7 @@ export interface HomeWork {
   ratio: string;
   likes: number;
   published: boolean;
+  status?: string;
 }
 
 export const homeBanners: HomeBanner[] = [

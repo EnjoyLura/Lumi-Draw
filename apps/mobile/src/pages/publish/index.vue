@@ -1,18 +1,62 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
+import { fetchPublishDrafts, publishWork } from "./publishService";
+
+const { useMockData } = useDataMode();
+const { requireLogin } = useAuth();
 
 const selectedDraft = ref<DraftWork | null>(null);
 const title = ref("");
 const desc = ref("");
 const selectedTags = ref<string[]>([]);
 const pickerOpen = ref(false);
+const backendDrafts = ref<DraftWork[]>([]);
+const isLoadingDrafts = ref(false);
+const isSubmitting = ref(false);
+let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
+const draftOptions = computed(() => (useMockData.value ? draftWorks : backendDrafts.value));
+
+onShow(() => {
+  if (lastMockMode !== useMockData.value) {
+    selectedDraft.value = null;
+    title.value = "";
+    desc.value = "";
+    selectedTags.value = [];
+    lastMockMode = useMockData.value;
+  }
+  void loadDrafts();
+});
+
+async function loadDrafts() {
+  if (useMockData.value) {
+    backendDrafts.value = [];
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isLoadingDrafts.value = true;
+  try {
+    backendDrafts.value = await fetchPublishDrafts();
+    if (selectedDraft.value && !backendDrafts.value.some((draft) => draft.id === selectedDraft.value?.id)) {
+      selectedDraft.value = null;
+    }
+  } catch {
+    uni.showToast({ title: "草稿加载失败", icon: "none" });
+  } finally {
+    isLoadingDrafts.value = false;
+  }
+}
 
 function openPicker() {
   pickerOpen.value = true;
+  void loadDrafts();
 }
 
 function closePicker() {
@@ -22,6 +66,7 @@ function closePicker() {
 function selectDraft(draft: DraftWork) {
   selectedDraft.value = draft;
   if (!title.value) title.value = draft.title;
+  if (!desc.value && draft.prompt) desc.value = draft.prompt.slice(0, 200);
   closePicker();
 }
 
@@ -50,7 +95,8 @@ function previewDraftImage() {
   });
 }
 
-function submit() {
+async function submit() {
+  if (isSubmitting.value) return;
   if (!selectedDraft.value) {
     uni.showToast({ title: "请选择要发布的作品", icon: "none" });
     return;
@@ -59,8 +105,33 @@ function submit() {
     uni.showToast({ title: "请输入作品标题", icon: "none" });
     return;
   }
-  uni.showToast({ title: `作品「${title.value.trim()}」发布成功！`, icon: "none" });
-  setTimeout(() => uni.navigateBack(), 800);
+
+  if (useMockData.value) {
+    uni.showToast({ title: `作品「${title.value.trim()}」发布成功`, icon: "none" });
+    setTimeout(() => uni.navigateBack(), 800);
+    return;
+  }
+
+  if (!requireLogin()) {
+    uni.showToast({ title: "请先登录后发布", icon: "none" });
+    return;
+  }
+
+  isSubmitting.value = true;
+  try {
+    await publishWork({
+      title: title.value.trim(),
+      description: desc.value.trim(),
+      tags: selectedTags.value,
+      draft: selectedDraft.value
+    });
+    uni.showToast({ title: "作品已提交审核", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 900);
+  } catch {
+    uni.showToast({ title: "发布失败，请稍后重试", icon: "none" });
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -127,7 +198,9 @@ function submit() {
           </view>
         </view>
 
-        <button class="submit-btn" @click="submit">✈ 发布作品</button>
+        <button class="submit-btn" :disabled="isSubmitting" @click="submit">
+          {{ isSubmitting ? "发布中..." : "✈ 发布作品" }}
+        </button>
       </view>
     </scroll-view>
 
@@ -136,9 +209,11 @@ function submit() {
       <view class="sheet-handle" />
       <view class="picker-title">选择草稿作品</view>
       <scroll-view class="picker-scroll" scroll-y>
-        <view class="picker-grid">
+        <view v-if="isLoadingDrafts" class="picker-state">草稿加载中...</view>
+        <view v-else-if="!draftOptions.length" class="picker-state">暂无可发布草稿</view>
+        <view v-else class="picker-grid">
           <view
-            v-for="draft in draftWorks"
+            v-for="draft in draftOptions"
             :key="draft.id"
             class="picker-item"
             :class="{ active: selectedDraft && selectedDraft.id === draft.id }"
@@ -342,6 +417,10 @@ function submit() {
   border-radius: 12px;
 }
 
+.submit-btn[disabled] {
+  opacity: 0.7;
+}
+
 .submit-btn::after {
   border: none;
 }
@@ -395,6 +474,13 @@ function submit() {
 
 .picker-scroll {
   max-height: 60vh;
+}
+
+.picker-state {
+  padding: 36px 0;
+  font-size: 13px;
+  color: var(--fg-muted);
+  text-align: center;
 }
 
 .picker-grid {

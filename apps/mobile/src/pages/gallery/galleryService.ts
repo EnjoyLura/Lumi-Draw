@@ -64,7 +64,8 @@ function toHomeWork(item: BackendWork): HomeWork {
     prompt: item.prompt || item.title,
     ratio: item.ratio || "1:1",
     likes: item.likes,
-    published: item.status === "published" && item.isPublic
+    published: item.status === "published" && item.isPublic,
+    status: item.status
   };
 }
 
