@@ -7,6 +7,7 @@ import { AuthModule } from "./auth/auth.module";
 import { ConfigCenterModule } from "./config-center/config-center.module";
 import { HealthModule } from "./health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { UploadsModule } from "./uploads/uploads.module";
 import { UsersModule } from "./users/users.module";
 import { WorksModule } from "./works/works.module";
 
@@ -23,6 +24,7 @@ import { WorksModule } from "./works/works.module";
     ConfigCenterModule,
     AuthModule,
     UsersModule,
+    UploadsModule,
     WorksModule,
     AdminModule
   ]
