@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const workId = ref(0);
 const image = ref("");
@@ -18,6 +19,7 @@ const desc = ref("");
 const selectedTags = ref<string[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
+const showLoginSheet = ref(false);
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
@@ -52,7 +54,7 @@ async function loadWork() {
     loadMockWork();
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoading.value = true;
   try {
@@ -63,6 +65,25 @@ async function loadWork() {
     loadMockWork();
   } finally {
     isLoading.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadWork();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 
@@ -101,7 +122,7 @@ async function submit() {
     setTimeout(() => uni.navigateBack(), 600);
     return;
   }
-  if (!workId.value || !requireLogin()) return;
+  if (!workId.value || !ensureLogin()) return;
 
   isSaving.value = true;
   try {
@@ -178,6 +199,7 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

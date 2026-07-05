@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
@@ -8,7 +9,7 @@ import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publi
 import { fetchPublishDrafts, publishWork } from "./publishService";
 
 const { useMockData } = useDataMode();
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 
 const selectedDraft = ref<DraftWork | null>(null);
 const title = ref("");
@@ -20,6 +21,7 @@ const isLoadingDrafts = ref(false);
 const isSubmitting = ref(false);
 const isUploadingLocalImage = ref(false);
 const pendingDraftId = ref<number | null>(null);
+const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
@@ -48,7 +50,7 @@ async function loadDrafts() {
     applyPendingDraft();
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoadingDrafts.value = true;
   try {
@@ -61,6 +63,25 @@ async function loadDrafts() {
     uni.showToast({ title: "草稿加载失败", icon: "none" });
   } finally {
     isLoadingDrafts.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadDrafts();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 
@@ -90,10 +111,7 @@ function applyPendingDraft() {
 
 async function uploadLocalImage() {
   if (isUploadingLocalImage.value) return;
-  if (!requireLogin()) {
-    uni.showToast({ title: "请先登录后上传", icon: "none" });
-    return;
-  }
+  if (!ensureLogin()) return;
 
   if (useMockData.value) {
     selectDraft({
@@ -168,10 +186,7 @@ async function submit() {
     return;
   }
 
-  if (!requireLogin()) {
-    uni.showToast({ title: "请先登录后发布", icon: "none" });
-    return;
-  }
+  if (!ensureLogin()) return;
 
   isSubmitting.value = true;
   try {
@@ -290,6 +305,7 @@ async function submit() {
         </view>
       </scroll-view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
