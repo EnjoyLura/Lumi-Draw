@@ -1,30 +1,77 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
+import { fetchEditableWork, updateEditableWork } from "./editWorkService";
 
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+const workId = ref(0);
 const image = ref("");
 const modelName = ref("");
 const info = ref("");
 const title = ref("");
 const desc = ref("");
 const selectedTags = ref<string[]>([]);
+const isLoading = ref(false);
+const isSaving = ref(false);
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
 
 onLoad((query) => {
   const id = Number(query?.id || 0);
-  const work = getWorkById(id);
-  if (!work) return;
+  if (Number.isFinite(id) && id > 0) workId.value = id;
+  void loadWork();
+});
+
+function applyWork(work: {
+  image: string;
+  modelName?: string;
+  ratio: string;
+  styleName?: string;
+  time: string;
+  title?: string;
+  description?: string;
+  tags: string[];
+}) {
   image.value = work.image;
-  modelName.value = work.modelName;
+  modelName.value = work.modelName || "";
   info.value = [work.ratio, work.styleName, work.time].filter(Boolean).join(" · ");
   title.value = work.title || "";
   desc.value = work.description || "";
   selectedTags.value = work.tags.filter((tag) => workTags.some((item) => item.name === tag));
-});
+}
+
+async function loadWork() {
+  if (!workId.value) return;
+  if (useMockData.value) {
+    loadMockWork();
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    const detail = await fetchEditableWork(workId.value);
+    applyWork(detail.work);
+  } catch {
+    uni.showToast({ title: "作品信息加载失败", icon: "none" });
+    loadMockWork();
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function loadMockWork() {
+  const id = workId.value;
+  const work = getWorkById(id);
+  if (!work) return;
+  applyWork(work);
+}
 
 function isTagSelected(name: string) {
   return selectedTags.value.includes(name);
@@ -43,13 +90,33 @@ function toggleTag(name: string) {
   selectedTags.value.push(name);
 }
 
-function submit() {
+async function submit() {
+  if (isSaving.value) return;
   if (!title.value.trim()) {
     uni.showToast({ title: "请输入作品标题", icon: "none" });
     return;
   }
-  uni.showToast({ title: "作品信息已保存", icon: "none" });
-  setTimeout(() => uni.navigateBack(), 600);
+  if (useMockData.value) {
+    uni.showToast({ title: "作品信息已保存", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+    return;
+  }
+  if (!workId.value || !requireLogin()) return;
+
+  isSaving.value = true;
+  try {
+    await updateEditableWork(workId.value, {
+      title: title.value.trim(),
+      description: desc.value.trim(),
+      style: selectedTags.value[0] || ""
+    });
+    uni.showToast({ title: "作品信息已保存", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+  } catch {
+    uni.showToast({ title: "保存失败，请稍后重试", icon: "none" });
+  } finally {
+    isSaving.value = false;
+  }
 }
 </script>
 
@@ -62,8 +129,8 @@ function submit() {
           <view class="preview-card">
             <image class="preview-thumb" :src="image" mode="aspectFill" />
             <view class="preview-text">
-              <view class="preview-model">{{ modelName }}</view>
-              <view class="preview-info">{{ info }}</view>
+              <view class="preview-model">{{ isLoading ? "加载中..." : modelName }}</view>
+              <view class="preview-info">{{ isLoading ? "正在读取作品信息" : info }}</view>
             </view>
           </view>
         </view>
@@ -106,7 +173,9 @@ function submit() {
           </view>
         </view>
 
-        <button class="submit-btn" @click="submit">✓ 保存修改</button>
+        <button class="submit-btn" :disabled="isSaving || isLoading" @click="submit">
+          {{ isSaving ? "保存中..." : "✓ 保存修改" }}
+        </button>
       </view>
     </scroll-view>
   </view>

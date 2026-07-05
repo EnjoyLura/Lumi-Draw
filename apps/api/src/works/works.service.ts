@@ -140,6 +140,7 @@ export class WorksService {
     const data: Prisma.WorkUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (dto.style !== undefined) data.style = dto.style;
     if (dto.isPublic !== undefined) {
       data.isPublic = dto.isPublic;
       if (dto.isPublic) {

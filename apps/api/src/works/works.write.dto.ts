@@ -56,6 +56,11 @@ export class UpdateWorkDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  style?: string;
 }
 
 export class MyGalleryQueryDto extends PageQueryDto {
