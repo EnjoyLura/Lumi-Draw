@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
+import { fetchWorkDetail } from "./workDetailService";
 
 const workId = ref(1);
+const { currentUser } = useAuth();
+const { useMockData } = useDataMode();
+const work = ref<DetailWork | undefined>();
+const user = ref<ReturnType<typeof getWorkUser> | undefined>();
 const liked = ref(false);
 const favorited = ref(false);
 const following = ref(false);
@@ -13,10 +20,12 @@ const likePulse = ref(false);
 const favoritePulse = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
+let lastMode: boolean | null = null;
 
-const work = computed(() => getWorkById(workId.value));
-const user = computed(() => (work.value ? getWorkUser(work.value) : undefined));
-const isOwn = computed(() => work.value?.userId === 1);
+const isOwn = computed(() => {
+  if (!work.value) return false;
+  return useMockData.value ? work.value.userId === 1 : work.value.userId === currentUser.value?.id;
+});
 const likeCount = computed(() => (work.value?.likes || 0) + (liked.value ? 1 : 0));
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (favorited.value ? 1 : 0));
 const detailImageStyle = computed(() => {
@@ -30,7 +39,39 @@ const detailImageStyle = computed(() => {
 onLoad((query) => {
   const id = Number(query?.id || 1);
   if (Number.isFinite(id) && id > 0) workId.value = id;
+  lastMode = useMockData.value;
+  void loadDetail();
 });
+
+onShow(() => {
+  if (lastMode === useMockData.value) return;
+  lastMode = useMockData.value;
+  void loadDetail();
+});
+
+function loadMockDetail() {
+  const item = getWorkById(workId.value);
+  work.value = item;
+  user.value = item ? getWorkUser(item) : undefined;
+}
+
+async function loadDetail() {
+  liked.value = false;
+  favorited.value = false;
+  if (useMockData.value) {
+    loadMockDetail();
+    return;
+  }
+
+  try {
+    const detail = await fetchWorkDetail(workId.value);
+    work.value = detail.work;
+    user.value = detail.user;
+  } catch {
+    loadMockDetail();
+    uni.showToast({ title: "作品详情加载失败，已使用本地数据", icon: "none" });
+  }
+}
 
 function copyPrompt() {
   if (!work.value) return;
