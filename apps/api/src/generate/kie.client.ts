@@ -19,6 +19,17 @@ type SubmitGenerateJobInput = {
   count: number;
 };
 
+type KieTaskRecord = {
+  taskId?: string;
+  state?: string;
+  status?: string;
+  resultJson?: string;
+  failMsg?: string;
+  errorMessage?: string;
+  msg?: string;
+  progress?: number;
+};
+
 @Injectable()
 export class KieClient {
   constructor(private readonly config: ConfigService) {}
@@ -52,6 +63,29 @@ export class KieClient {
     const taskId = payload.data?.taskId;
     if (!taskId) throw new Error("KIE response missing taskId");
     return { taskId, requestBody: body };
+  }
+
+  async getTaskDetail(taskId: string) {
+    const kie = this.config.getOrThrow<KieConfig>("app.kie");
+    if (!kie.apiKey) throw new Error("KIE_API_KEY is not configured");
+
+    const url = new URL(`${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/recordInfo`);
+    url.searchParams.set("taskId", taskId);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${kie.apiKey}`,
+        Accept: "application/json"
+      }
+    });
+
+    const payload = (await res.json().catch(() => null)) as { code?: number; msg?: string; data?: KieTaskRecord } | null;
+    if (!res.ok || !payload || (payload.code !== undefined && ![200, 500, 505].includes(payload.code))) {
+      throw new Error(payload?.msg || `KIE recordInfo failed with HTTP ${res.status}`);
+    }
+    if (!payload.data) throw new Error("KIE recordInfo response missing data");
+    return payload.data;
   }
 
   private buildCreateTaskBody(input: SubmitGenerateJobInput, callbackUrl: string) {

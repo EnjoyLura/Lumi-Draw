@@ -354,6 +354,26 @@ async function main() {
     await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
   });
 
+  await step("reverse prompt", async () => {
+    const login = await request("POST", "/auth/wechat/login", { code: `mock-smoke-reverse-${Date.now()}` });
+    const user = login.body.data;
+    assert(user?.accessToken, "reverse prompt token missing");
+
+    const { body: beforeBalance } = await request("GET", "/credits/balance", undefined, user.accessToken);
+    const { body: reversed } = await request(
+      "POST",
+      "/generate/reverse-prompt",
+      {
+        imageUrl: "https://example.com/anime-portrait-smoke.png",
+        hint: "anime portrait"
+      },
+      user.accessToken
+    );
+    assert(reversed.data?.prompt?.includes("anime"), "reverse prompt text missing expected style hint");
+    assert(reversed.data?.costCredits > 0, "reverse prompt cost missing");
+    assert(reversed.data?.creditsAfter === beforeBalance.data.credits - reversed.data.costCredits, "reverse prompt credits mismatch");
+  });
+
   if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     const admin = await step("admin login", async () => {
       const { body } = await request("POST", "/admin/auth/login", { username: ADMIN_USERNAME, password: ADMIN_PASSWORD });

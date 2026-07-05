@@ -9,6 +9,14 @@ import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto }
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
+type ProviderEvent = {
+  taskId: string;
+  status: string;
+  imageUrls: string[];
+  stageText: string;
+  errorMessage: string;
+  progress?: number;
+};
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
@@ -90,7 +98,7 @@ export class GenerateService {
     const job = await this.prisma.generateJob.findUnique({ where: { id }, include: { results: true } });
     if (!job) throw new NotFoundException("生成任务不存在");
     if (job.userId !== userId) throw new ForbiddenException("无权查看该任务");
-    return this.toJobView(job);
+    return this.toJobView(await this.syncProviderJob(job));
   }
 
   async listJobs(userId: number, status: string | undefined, page: number, pageSize: number) {
@@ -248,10 +256,28 @@ export class GenerateService {
     if (!job) throw new NotFoundException("generate job not found");
     if (TERMINAL_STATUSES.has(job.status)) return this.toJobView(job);
 
+    return this.toJobView(await this.applyProviderEvent(job, event));
+  }
+
+  private async syncProviderJob(job: JobWithResults) {
+    if (TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured()) return job;
+
+    try {
+      const detail = await this.kie.getTaskDetail(job.kieTaskId);
+      const event = this.normalizeCallback({ data: { ...detail, taskId: detail.taskId || job.kieTaskId } });
+      if (!event.taskId) event.taskId = job.kieTaskId;
+      if (event.taskId !== job.kieTaskId) return job;
+      return this.applyProviderEvent(job, event);
+    } catch {
+      return job;
+    }
+  }
+
+  private async applyProviderEvent(job: JobWithResults, event: ProviderEvent) {
     if (event.status === "succeeded") {
       if (!event.imageUrls.length) {
         const failed = await this.failAndRefund(job.id, "KIE callback did not include images");
-        return this.toJobView(failed.job);
+        return failed.job;
       }
       const results = await this.transferGeneratedImages(job.id, event.imageUrls);
       const updated = await this.prisma.$transaction(async (tx) => {
@@ -298,25 +324,25 @@ export class GenerateService {
           include: { results: true }
         });
       });
-      return this.toJobView(updated);
+      return updated;
     }
 
     if (event.status === "failed") {
       const failed = await this.failAndRefund(job.id, event.errorMessage || "KIE task failed");
-      return this.toJobView(failed.job);
+      return failed.job;
     }
 
     const running = await this.prisma.generateJob.update({
       where: { id: job.id },
       data: {
         status: event.status,
-        progress: event.status === "running" ? Math.max(job.progress, 30) : job.progress,
+        progress: event.progress ?? (event.status === "running" ? Math.max(job.progress, 30) : job.progress),
         stageText: event.stageText || "Generation is processing",
         startedAt: job.startedAt ?? new Date()
       },
       include: { results: true }
     });
-    return this.toJobView(running);
+    return running;
   }
 
   private normalizeCreateDto(dto: CreateGenerateJobDto) {
@@ -466,8 +492,15 @@ export class GenerateService {
       status: this.mapKieState(state),
       imageUrls,
       stageText: String(data.stageText ?? data.msg ?? body.msg ?? ""),
-      errorMessage: String(data.failMsg ?? data.errorMessage ?? data.msg ?? body.msg ?? "")
+      errorMessage: String(data.failMsg ?? data.errorMessage ?? data.msg ?? body.msg ?? ""),
+      progress: this.normalizeProgress(data.progress ?? body.progress)
     };
+  }
+
+  private normalizeProgress(value: unknown) {
+    const progress = typeof value === "number" ? value : Number.parseInt(String(value ?? ""), 10);
+    if (!Number.isFinite(progress)) return undefined;
+    return Math.max(0, Math.min(100, progress));
   }
 
   private parseJsonRecord(value: unknown) {
@@ -504,9 +537,10 @@ export class GenerateService {
 
   private mapKieState(state: string) {
     const normalized = state.toLowerCase();
-    if (["success", "succeeded", "completed"].includes(normalized)) return "succeeded";
-    if (["fail", "failed", "error"].includes(normalized)) return "failed";
-    if (["generating", "running", "processing"].includes(normalized)) return "running";
+    if (["success", "succeeded", "completed", "complete"].includes(normalized)) return "succeeded";
+    if (["fail", "failed", "error", "failure"].includes(normalized)) return "failed";
+    if (["generating", "running", "processing", "in_progress"].includes(normalized)) return "running";
+    if (["waiting", "queued", "queue", "pending", "created"].includes(normalized)) return "queued";
     return "queued";
   }
 
