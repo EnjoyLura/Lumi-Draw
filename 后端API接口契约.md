@@ -1313,3 +1313,35 @@ MVP 必需表：
 - 当前阶段新任务状态固定从 `queued` 开始，`stageText` 为“任务已创建，等待进入生成队列”。
 - `cancelled` 会写入 `cancelledAt`、`finishedAt` 和 `refundCredits`。
 - 下一阶段接入队列后，由 Worker 推进 `running`、`succeeded`、`partial_failed`、`failed`，并写入 `generate_results`。
+## 12. 当前实现补充：AI 生成 KIE 提交与回调
+
+本轮在 `generate` 模块内接入 KIE Market 通用任务接口，仍保持后端持有 KIE Key，前端只访问本项目 API。
+
+### 12.1 创建任务后的后端动作
+
+- `POST /generate/jobs` 仍先完成模型、清晰度、比例校验，并预扣积分。
+- 清晰度入参兼容 `全高清 1K` / `超清 2K` / `超高清 4K` 以及 `1K` / `2K` / `4K` 简写。
+- 如果服务端配置了 KIE Key，后端会调用 `POST {KIE_API_BASE}/api/v1/jobs/createTask`。
+- KIE 返回 `taskId` 后，后端写入 `generate_jobs.kieTaskId`，并把任务状态推进为 `running`。
+- 如果提交 KIE 失败，任务会标记为 `failed`，并通过积分流水自动退回本次预扣积分。
+
+### 12.2 KIE 回调
+
+`POST /generate/callback?secret=<CALLBACK_SECRET>`
+
+- 该接口不需要用户 JWT，但生产环境会校验 `CALLBACK_SECRET`。
+- 回调根据 `taskId` 匹配 `generate_jobs.kieTaskId`。
+- KIE 状态映射：
+  - `waiting` / `queuing` -> `queued`
+  - `generating` -> `running`
+  - `success` -> `succeeded`
+  - `fail` -> `failed`
+- 成功回调会从 `resultJson.resultUrls`、`result_urls`、`urls`、`images`、`imageUrls` 等常见字段提取图片 URL，并写入 `generate_results`。
+- 失败回调会把任务标记为 `failed`，并幂等退回尚未退过的积分。
+- 重复回调如果任务已处于终态，会直接返回当前任务视图，不重复写结果或退款。
+
+### 12.3 尚未完成
+
+- 生成结果转存 OSS 还未完成；当前成功回调先保存 KIE 返回的图片 URL。
+- BullMQ Worker 还未接入；当前创建接口直接提交 KIE。
+- 微信内容审核与作品自动入库仍属于后续任务。

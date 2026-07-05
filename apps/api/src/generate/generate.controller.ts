@@ -6,34 +6,47 @@ import { CreateGenerateJobDto, GenerateJobListQueryDto } from "./generate.dto";
 import { GenerateService } from "./generate.service";
 
 @ApiTags("generate")
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller("generate")
 export class GenerateController {
   constructor(private readonly generate: GenerateService) {}
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post("jobs")
   createJob(@CurrentUser() user: { id: number }, @Body() dto: CreateGenerateJobDto) {
     return this.generate.createJob(user.id, dto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get("jobs")
   listJobs(@CurrentUser() user: { id: number }, @Query() query: GenerateJobListQueryDto) {
     return this.generate.listJobs(user.id, query.status, query.page, query.pageSize);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get("jobs/:id")
   getJob(@CurrentUser() user: { id: number }, @Param("id") id: string) {
     return this.generate.getJob(user.id, id);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post("jobs/:id/cancel")
   cancelJob(@CurrentUser() user: { id: number }, @Param("id") id: string) {
     return this.generate.cancelJob(user.id, id);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post("jobs/:id/retry")
   retryJob(@CurrentUser() user: { id: number }, @Param("id") id: string) {
     return this.generate.retryJob(user.id, id);
+  }
+
+  @Post("callback")
+  handleCallback(@Body() body: Record<string, unknown>, @Query("secret") secret?: string) {
+    return this.generate.handleCallback(body, secret);
   }
 }

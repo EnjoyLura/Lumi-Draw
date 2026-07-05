@@ -1,9 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import type { GenerateJob, GenerateResult, Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateGenerateJobDto } from "./generate.dto";
+import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
 
@@ -14,7 +16,9 @@ const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 export class GenerateService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly credits: CreditsService
+    private readonly credits: CreditsService,
+    private readonly kie: KieClient,
+    private readonly config: ConfigService
   ) {}
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
@@ -68,12 +72,14 @@ export class GenerateService {
       return { job, balance };
     });
 
+    const submitted = await this.submitToProvider(created.job.id);
+
     return {
-      jobId: created.job.id,
-      status: created.job.status,
+      jobId: submitted.id,
+      status: submitted.status,
       costCredits,
-      creditsAfter: created.balance,
-      job: this.toJobView(created.job)
+      creditsAfter: submitted.status === "failed" ? submitted.creditsAfter : created.balance,
+      job: this.toJobView(submitted.job)
     };
   }
 
@@ -152,6 +158,64 @@ export class GenerateService {
     );
   }
 
+  async handleCallback(body: Record<string, unknown>, secret?: string) {
+    const callbackSecret = this.config.get<string>("app.callbackSecret");
+    if (callbackSecret && secret !== callbackSecret) throw new UnauthorizedException("invalid callback secret");
+
+    const event = this.normalizeCallback(body);
+    if (!event.taskId) throw new BadRequestException("callback missing taskId");
+
+    const job = await this.prisma.generateJob.findUnique({ where: { kieTaskId: event.taskId }, include: { results: true } });
+    if (!job) throw new NotFoundException("generate job not found");
+    if (TERMINAL_STATUSES.has(job.status)) return this.toJobView(job);
+
+    if (event.status === "succeeded") {
+      if (!event.imageUrls.length) {
+        const failed = await this.failAndRefund(job.id, "KIE callback did not include images");
+        return this.toJobView(failed.job);
+      }
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await tx.generateResult.deleteMany({ where: { jobId: job.id } });
+        await tx.generateResult.createMany({
+          data: event.imageUrls.map((imageUrl) => ({
+            jobId: job.id,
+            status: "succeeded",
+            imageUrl
+          }))
+        });
+        return tx.generateJob.update({
+          where: { id: job.id },
+          data: {
+            status: "succeeded",
+            progress: 100,
+            stageText: "Generation completed",
+            errorMessage: "",
+            finishedAt: new Date()
+          },
+          include: { results: true }
+        });
+      });
+      return this.toJobView(updated);
+    }
+
+    if (event.status === "failed") {
+      const failed = await this.failAndRefund(job.id, event.errorMessage || "KIE task failed");
+      return this.toJobView(failed.job);
+    }
+
+    const running = await this.prisma.generateJob.update({
+      where: { id: job.id },
+      data: {
+        status: event.status,
+        progress: event.status === "running" ? Math.max(job.progress, 30) : job.progress,
+        stageText: event.stageText || "Generation is processing",
+        startedAt: job.startedAt ?? new Date()
+      },
+      include: { results: true }
+    });
+    return this.toJobView(running);
+  }
+
   private normalizeCreateDto(dto: CreateGenerateJobDto) {
     return {
       mode: dto.mode,
@@ -177,6 +241,126 @@ export class GenerateService {
       where: { enabled: true, OR: [{ label: { contains: shorthand } }, { pixel: { contains: shorthand.replace("K", "") } }] },
       orderBy: [{ sort: "asc" }, { id: "asc" }]
     });
+  }
+
+  private async submitToProvider(jobId: string) {
+    const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+    if (!this.kie.isConfigured()) {
+      return { job, id: job.id, status: job.status, creditsAfter: undefined as number | undefined };
+    }
+
+    const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
+    try {
+      const submitted = await this.kie.submitGenerateJob({
+        jobId: job.id,
+        mode: job.mode,
+        model,
+        prompt: job.prompt,
+        inputImageUrl: job.inputImageUrl,
+        ratio: job.ratio,
+        quality: job.quality,
+        count: job.count
+      });
+      const updated = await this.prisma.generateJob.update({
+        where: { id: job.id },
+        data: {
+          status: "running",
+          progress: 5,
+          stageText: "Submitted to KIE",
+          kieTaskId: submitted.taskId,
+          startedAt: new Date()
+        },
+        include: { results: true }
+      });
+      return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
+    } catch (error) {
+      const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "KIE submit failed");
+      return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
+    }
+  }
+
+  private async failAndRefund(jobId: string, errorMessage: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+      const refundCredits = job.costCredits - job.refundCredits;
+      const updated = await tx.generateJob.update({
+        where: { id: job.id },
+        data: {
+          status: "failed",
+          progress: 0,
+          stageText: "Generation failed",
+          errorMessage: errorMessage.slice(0, 500),
+          refundCredits: job.refundCredits + Math.max(refundCredits, 0),
+          finishedAt: new Date()
+        },
+        include: { results: true }
+      });
+      const { balance } =
+        refundCredits > 0
+          ? await this.credits.addTransactionInTx(tx, job.userId, "refund", refundCredits, "AI generation failed refund", job.id)
+          : { balance: (await tx.user.findUniqueOrThrow({ where: { id: job.userId }, select: { credits: true } })).credits };
+      return { job: updated, balance };
+    });
+  }
+
+  private normalizeCallback(body: Record<string, unknown>) {
+    const data = this.asRecord(body.data) ?? body;
+    const result = this.parseJsonRecord(data.resultJson);
+    const state = String(data.state ?? data.status ?? body.state ?? body.status ?? "");
+    const taskId = String(data.taskId ?? body.taskId ?? "");
+    const imageUrls = this.extractImageUrls(result);
+    return {
+      taskId,
+      status: this.mapKieState(state),
+      imageUrls,
+      stageText: String(data.stageText ?? data.msg ?? body.msg ?? ""),
+      errorMessage: String(data.failMsg ?? data.errorMessage ?? data.msg ?? body.msg ?? "")
+    };
+  }
+
+  private parseJsonRecord(value: unknown) {
+    if (!value) return undefined;
+    if (typeof value === "object") return this.asRecord(value);
+    if (typeof value !== "string") return undefined;
+    try {
+      return this.asRecord(JSON.parse(value));
+    } catch {
+      return undefined;
+    }
+  }
+
+  private extractImageUrls(result: Record<string, unknown> | undefined) {
+    if (!result) return [];
+    const candidates = [result.resultUrls, result.result_urls, result.urls, result.images, result.imageUrls];
+    const urls: string[] = [];
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        for (const item of candidate) {
+          if (typeof item === "string") urls.push(item);
+          else {
+            const itemRecord = this.asRecord(item);
+            const url = itemRecord ? itemRecord.url ?? itemRecord.imageUrl : undefined;
+            if (typeof url === "string") urls.push(url);
+          }
+        }
+      } else if (typeof candidate === "string") {
+        urls.push(candidate);
+      }
+    }
+    return [...new Set(urls.filter(Boolean))];
+  }
+
+  private mapKieState(state: string) {
+    const normalized = state.toLowerCase();
+    if (["success", "succeeded", "completed"].includes(normalized)) return "succeeded";
+    if (["fail", "failed", "error"].includes(normalized)) return "failed";
+    if (["generating", "running", "processing"].includes(normalized)) return "running";
+    return "queued";
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+    return undefined;
   }
 
   private toJobView(job: JobWithResults) {
