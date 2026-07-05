@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminQuality, AdminRatio, AdminReport, AdminStyle, AdminUser, AdminWork } from "./mock";
+import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminWork, CheckinTier, MemberPlan } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -478,6 +478,155 @@ export async function apiDeleteRatio(id: number) {
 
 export async function apiSetRatioEnabled(id: number, enabled: boolean) {
   return mapRatio(await http.patch<ApiRatioConfig>(`/admin/ratios/${id}`, { enabled }));
+}
+
+interface ApiRechargeTier {
+  id: number; price: number; credits: number; bonus: number; enabled: boolean; sort: number;
+}
+
+function mapRecharge(t: ApiRechargeTier): AdminRecharge {
+  return { id: t.id, price: t.price, credits: t.credits, bonus: t.bonus, on: t.enabled };
+}
+
+export async function apiGetRecharges() {
+  return (await http.get<ApiRechargeTier[]>("/admin/recharge-tiers")).map(mapRecharge);
+}
+
+export async function apiSaveRecharge(id: number, values: AdminRecharge & { sort?: number }) {
+  const body = { price: values.price, credits: values.credits, bonus: values.bonus, enabled: values.on, sort: values.sort };
+  return mapRecharge(id ? await http.patch<ApiRechargeTier>(`/admin/recharge-tiers/${id}`, body) : await http.post<ApiRechargeTier>("/admin/recharge-tiers", body));
+}
+
+export async function apiDeleteRecharge(id: number) {
+  return http.del<ApiRechargeTier>(`/admin/recharge-tiers/${id}`);
+}
+
+export async function apiSetRechargeEnabled(id: number, enabled: boolean) {
+  return mapRecharge(await http.patch<ApiRechargeTier>(`/admin/recharge-tiers/${id}`, { enabled }));
+}
+
+interface ApiMemberPlan {
+  id: number; name: string; price: number; rights: string; giftCredits: number; checkinBonus: number; enabled: boolean; sort: number;
+}
+
+function mapMemberPlan(p: ApiMemberPlan): MemberPlan {
+  return { id: p.id, name: p.name, price: p.price, rights: p.rights, gift: p.giftCredits, ckBonus: p.checkinBonus };
+}
+
+export async function apiGetMemberPlans() {
+  return (await http.get<ApiMemberPlan[]>("/admin/member-plans")).map(mapMemberPlan);
+}
+
+export async function apiSaveMemberPlan(id: number, values: MemberPlan & { sort?: number }) {
+  const body = { name: values.name, price: values.price, rights: values.rights, giftCredits: values.gift, checkinBonus: values.ckBonus, enabled: true, sort: values.sort };
+  return mapMemberPlan(id ? await http.patch<ApiMemberPlan>(`/admin/member-plans/${id}`, body) : await http.post<ApiMemberPlan>("/admin/member-plans", body));
+}
+
+export async function apiDeleteMemberPlan(id: number) {
+  return http.del<ApiMemberPlan>(`/admin/member-plans/${id}`);
+}
+
+interface ApiCheckinConfig {
+  base?: number;
+  tiers?: number[] | CheckinTier[];
+}
+
+export interface AdminCheckinConfig {
+  base: number;
+  tiers: CheckinTier[];
+}
+
+function mapCheckinConfig(c: ApiCheckinConfig): AdminCheckinConfig {
+  const raw = c.tiers ?? [10, 10, 15, 15, 20, 20, 50];
+  return {
+    base: Number(c.base ?? 10),
+    tiers: raw.map((t, i) => typeof t === "number" ? { day: i + 1, c: t } : { day: t.day, c: t.c })
+  };
+}
+
+export async function apiGetCheckinConfig() {
+  return mapCheckinConfig(await http.get<ApiCheckinConfig>("/admin/checkin-config"));
+}
+
+export async function apiSaveCheckinConfig(config: AdminCheckinConfig) {
+  return mapCheckinConfig(await http.put<ApiCheckinConfig>("/admin/checkin-config", {
+    base: config.base,
+    tiers: config.tiers
+  }));
+}
+
+export interface AdminInviteConfig {
+  enabled: boolean;
+  inviterReward: number;
+  inviteeReward: number;
+  cap: number;
+}
+
+function mapInviteConfig(c: Partial<AdminInviteConfig>): AdminInviteConfig {
+  return {
+    enabled: c.enabled ?? true,
+    inviterReward: Number(c.inviterReward ?? 50),
+    inviteeReward: Number(c.inviteeReward ?? 30),
+    cap: Number(c.cap ?? 20)
+  };
+}
+
+export async function apiGetInviteConfig() {
+  return mapInviteConfig(await http.get<Partial<AdminInviteConfig>>("/admin/invite-config"));
+}
+
+export async function apiSaveInviteConfig(config: AdminInviteConfig) {
+  return mapInviteConfig(await http.put<Partial<AdminInviteConfig>>("/admin/invite-config", config));
+}
+
+export interface AdminCreditsConfig {
+  registerGift: number;
+  publishReward: number;
+  favoriteReward: number;
+  inviteReward: number;
+}
+
+function mapCreditsConfig(c: Partial<AdminCreditsConfig>): AdminCreditsConfig {
+  return {
+    registerGift: Number(c.registerGift ?? 100),
+    publishReward: Number(c.publishReward ?? 50),
+    favoriteReward: Number(c.favoriteReward ?? 5),
+    inviteReward: Number(c.inviteReward ?? 50)
+  };
+}
+
+export async function apiGetCreditsConfig() {
+  return mapCreditsConfig(await http.get<Partial<AdminCreditsConfig>>("/admin/credits/config"));
+}
+
+export async function apiSaveCreditsConfig(config: AdminCreditsConfig) {
+  return mapCreditsConfig(await http.put<Partial<AdminCreditsConfig>>("/admin/credits/config", config));
+}
+
+const TXN_TYPE_CN: Record<string, string> = {
+  recharge: "充值", consume: "消费", refund: "退款", checkin: "签到", invite: "邀请", membership: "会员", adjust: "调整"
+};
+
+interface ApiTransaction {
+  id: number; userId: number; userName: string; type: string; amount: number; balanceAfter: number; reason: string; createdAt: string;
+}
+
+function mapTransaction(t: ApiTransaction): AdminTxn {
+  const type = TXN_TYPE_CN[t.type] ?? t.type;
+  return {
+    id: t.id,
+    userId: t.userId,
+    type,
+    amount: `${t.amount >= 0 ? "+" : ""}${t.amount}积分`,
+    credits: `余额 ${t.balanceAfter}`,
+    status: "成功",
+    time: (t.createdAt ?? "").replace("T", " ").slice(0, 16)
+  };
+}
+
+export async function apiGetTransactions() {
+  const page = await http.get<Paginated<ApiTransaction>>("/admin/transactions?page=1&pageSize=100");
+  return page.items.map(mapTransaction);
 }
 
 interface ApiSummary {

@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { apiGetTransactions } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { userName, type AdminTxn } from "../data/mock";
 import { getTransactions } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Chips, StatusBadge } from "../ui";
 
@@ -29,7 +32,7 @@ function TxnDetail({ t }: { t: AdminTxn }) {
       </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet}>关闭</button>
-        {refundable ? <button className="btn btn-danger btn-block" onClick={() => { closeSheet(); toast("退款申请已提交"); }}>发起退款</button> : null}
+        {refundable ? <button className="btn btn-danger btn-block" onClick={() => { closeSheet(); toast("退款接口尚未接入"); }}>发起退款</button> : null}
       </div>
     </>
   );
@@ -37,7 +40,9 @@ function TxnDetail({ t }: { t: AdminTxn }) {
 
 export function FinTxn() {
   const { openSheet } = useNav();
-  const all = getTransactions();
+  const { useMock } = useAdminSession();
+  const { data, loading, error } = useAsyncData<AdminTxn[]>(useMock ? null : () => apiGetTransactions(), [useMock]);
+  const all = useMock ? getTransactions() : data ?? [];
   const [type, setType] = useState("全部");
   const [status, setStatus] = useState("全部");
 
@@ -49,6 +54,8 @@ export function FinTxn() {
       <Chips items={["全部", "充值", "消费", "会员", "签到", "退款"]} active={type} onPick={setType} />
       <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "0 2px 4px" }}>状态</div>
       <Chips items={["全部", "成功", "失败", "已退款"]} active={status} onPick={setStatus} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载交易记录中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       {list.length ? <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "0 2px 8px" }}>共 {list.length} 条记录</div> : null}
       <div className="card">
         {!list.length ? <div className="empty"><i className="ri-exchange-line" /><div className="et">暂无记录</div></div> : null}

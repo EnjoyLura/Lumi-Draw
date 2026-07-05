@@ -1,29 +1,44 @@
 import { useState } from "react";
+import { apiDeleteMemberPlan, apiGetMemberPlans, apiSaveMemberPlan } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { MEMBER_PLANS, nextId, type MemberPlan } from "../data/mock";
 import { getMemberPlans } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function MemberForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberPlan; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const p = id ? MEMBER_PLANS.find((x) => x.id === id) : undefined;
+  const p = item ?? (id ? MEMBER_PLANS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(p?.name ?? "");
   const [price, setPrice] = useState(String(p?.price ?? ""));
   const [gift, setGift] = useState(String(p?.gift ?? 0));
   const [ckBonus, setCkBonus] = useState(String(p?.ckBonus ?? 0));
   const [rights, setRights] = useState(p?.rights ?? "");
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
     const data = { name: name.trim(), price: parseInt(price) || 0, gift: parseInt(gift) || 0, ckBonus: parseInt(ckBonus) || 0, rights };
-    if (p) Object.assign(p, data);
-    else MEMBER_PLANS.push({ id: nextId(MEMBER_PLANS), ...data });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (p) Object.assign(p, data);
+        else MEMBER_PLANS.push({ id: nextId(MEMBER_PLANS), ...data });
+      } else {
+        await apiSaveMemberPlan(id, { id, ...data });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -39,8 +54,8 @@ function MemberForm({ id, onSaved }: { id: number; onSaved: () => void }) {
       <label className="field-label" style={{ marginTop: 12 }}>权益说明</label>
       <textarea className="input" rows={3} value={rights} onChange={(e) => setRights(e.target.value)} placeholder="如：每日20次·1K无限" />
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -48,20 +63,36 @@ function MemberForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function FinMember() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const plans = getMemberPlans();
+  const { data, loading, error, reload } = useAsyncData<MemberPlan[]>(useMock ? null : () => apiGetMemberPlans(), [useMock]);
+  const plans = useMock ? getMemberPlans() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑会员方案" : "新增会员方案", <MemberForm id={id} onSaved={refresh} />);
+  const openForm = (id: number) => openSheet(id ? "编辑会员方案" : "新增会员方案", <MemberForm id={id} item={plans.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
   const del = (p: MemberPlan) => confirmDlg("删除会员方案", "确定删除该会员方案吗？", () => {
-    const i = plans.findIndex((x) => x.id === p.id);
-    if (i > -1) plans.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = plans.findIndex((x) => x.id === p.id);
+          if (i > -1) plans.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteMemberPlan(p.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <AddBtn text="新增会员方案" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载会员方案中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       {plans.map((p) => (
         <div key={p.id} className="card" style={{ padding: 14, marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
