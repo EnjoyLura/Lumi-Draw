@@ -11,6 +11,7 @@ interface BackendWorkDetail {
   prompt: string;
   ratio: string;
   quality?: string | null;
+  modelId?: string | null;
   modelName?: string | null;
   style?: string | null;
   likes: number;
@@ -45,7 +46,9 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       published,
       status: item.status,
       description: item.description || `${title}，由露米绘画 AI 生成，适合继续同款创作。`,
+      modelId: item.modelId || "",
       modelName: item.modelName || item.quality || "AI 模型",
+      quality: item.quality || "",
       styleName,
       tags: [styleName, item.ratio || "1:1", published ? "已发布" : item.status === "pending" ? "审核中" : "草稿"],
       favorites: item.favorites,

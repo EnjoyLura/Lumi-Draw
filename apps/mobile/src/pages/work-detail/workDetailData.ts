@@ -4,7 +4,9 @@ import { createModels } from "../create/createData";
 
 export interface DetailWork extends HomeWork {
   description: string;
+  modelId?: string;
   modelName: string;
+  quality?: string;
   styleName: string;
   tags: string[];
   favorites: number;
@@ -33,7 +35,9 @@ export function getWorkById(id: number): DetailWork | undefined {
     ...work,
     title,
     description: `${title}，由露米绘画AI生成，画面细节完整，适合继续同款创作。`,
+    modelId: model.id,
     modelName: model.name,
+    quality: "1K",
     styleName,
     tags: [styleName, work.ratio, work.published ? "已发布" : "草稿"],
     favorites: Math.max(18, Math.round(work.likes * 0.34)),

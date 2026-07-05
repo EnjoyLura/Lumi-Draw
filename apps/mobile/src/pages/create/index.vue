@@ -68,6 +68,7 @@ let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
+const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? createModels[0]);
 const selectedGameplay = computed(() => {
@@ -128,6 +129,7 @@ function resetCreateConfig() {
   selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
   selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
   selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+  applyPendingRouteOptions();
 }
 
 async function loadCreateConfig() {
@@ -146,6 +148,7 @@ async function loadCreateConfig() {
     selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
     selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
     selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+    applyPendingRouteOptions();
   } catch {
     resetCreateConfig();
     showToast("创作配置加载失败，已使用本地配置");
@@ -159,7 +162,20 @@ onLoad((query) => {
   }
 
   const model = typeof query?.model === "string" ? decodeURIComponent(query.model) : "";
+  pendingRouteOptions.value.model = model;
   applySelectedModel(model);
+
+  const ratio = typeof query?.ratio === "string" ? decodeURIComponent(query.ratio) : "";
+  pendingRouteOptions.value.ratio = ratio;
+  applySelectedRatio(ratio);
+
+  const quality = typeof query?.quality === "string" ? decodeURIComponent(query.quality) : "";
+  pendingRouteOptions.value.quality = quality;
+  applySelectedQuality(quality);
+
+  const style = typeof query?.style === "string" ? decodeURIComponent(query.style) : "";
+  pendingRouteOptions.value.style = style;
+  applySelectedStyle(style);
 
   const prompt = typeof query?.prompt === "string" ? decodeURIComponent(query.prompt) : "";
   if (prompt) promptText.value = prompt.slice(0, 500);
@@ -271,8 +287,33 @@ function selectRatio(index: number) {
 }
 
 function applySelectedModel(modelId: string) {
+  if (!modelId) return;
   const index = modelOptions.value.findIndex((model) => model.id === modelId || model.name === modelId);
   if (index >= 0) selectedModelIndex.value = index;
+}
+
+function applySelectedRatio(label: string) {
+  if (!label) return;
+  const index = ratioList.value.findIndex((ratio) => ratio.label === label);
+  if (index >= 0) selectedRatioIndex.value = index;
+}
+
+function applySelectedQuality(label: string) {
+  if (!label) return;
+  const index = qualityList.value.findIndex((quality) => quality.label === label || quality.description === label);
+  if (index >= 0) selectedQualityIndex.value = index;
+}
+
+function applySelectedStyle(name: string) {
+  if (!name) return;
+  if (styleOptions.value.some((style) => style.name === name)) selectedStyleName.value = name;
+}
+
+function applyPendingRouteOptions() {
+  applySelectedModel(pendingRouteOptions.value.model);
+  applySelectedRatio(pendingRouteOptions.value.ratio);
+  applySelectedQuality(pendingRouteOptions.value.quality);
+  applySelectedStyle(pendingRouteOptions.value.style);
 }
 
 function openModelDrawer() {

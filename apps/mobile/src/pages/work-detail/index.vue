@@ -353,8 +353,17 @@ async function remakeWork(current: DetailWork) {
       // Counter update should not block users from starting a remake.
     }
   }
+  const query = [
+    `prompt=${encodeURIComponent(current.prompt)}`,
+    current.modelId ? `model=${encodeURIComponent(current.modelId)}` : "",
+    current.ratio ? `ratio=${encodeURIComponent(current.ratio)}` : "",
+    current.quality ? `quality=${encodeURIComponent(current.quality)}` : "",
+    current.styleName ? `style=${encodeURIComponent(current.styleName)}` : ""
+  ]
+    .filter(Boolean)
+    .join("&");
   uni.navigateTo({
-    url: `/pages/create/index?prompt=${encodeURIComponent(current.prompt)}`
+    url: `/pages/create/index?${query}`
   });
 }
 
