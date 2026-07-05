@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { WEEK } from "../data/mock";
+import { apiGetDashboardTrends, apiGetModels, apiGetStyles, type AdminDashboardTrends } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { getModels, getStyles, getTrend } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { BarChart, RankBar, Sec, Seg, StatCard } from "../ui";
 
@@ -15,22 +18,30 @@ const MODEL_COLORS = ["#5B9FE8", "#6FD4B0", "#8B7FD6", "#F59E0B", "#EF4444", "#F
 
 export function Dashboard() {
   const { go } = useNav();
+  const { useMock } = useAdminSession();
   const [trendKey, setTrendKey] = useState("users");
-  const trend = getTrend();
-  const models = getModels();
-  const styles = getStyles();
-  const sMax = Math.max(...styles.map((s) => s.s));
+  const trendsState = useAsyncData<AdminDashboardTrends>(useMock ? null : () => apiGetDashboardTrends(), [useMock]);
+  const modelsState = useAsyncData(useMock ? null : () => apiGetModels(), [useMock]);
+  const stylesState = useAsyncData(useMock ? null : () => apiGetStyles(), [useMock]);
+  const mockTrend = useMock ? getTrend() : null;
+  const trend = useMock ? { labels: WEEK, users: mockTrend!.users, works: mockTrend!.works, income: mockTrend!.income } : trendsState.data ?? { labels: [], users: [], works: [], income: [] };
+  const models = useMock ? getModels() : modelsState.data ?? [];
+  const styles = useMock ? getStyles() : stylesState.data ?? [];
+  const sMax = Math.max(1, ...styles.map((s) => s.s));
+  const trendData = trend[trendKey as keyof Omit<AdminDashboardTrends, "labels">] ?? [];
 
   return (
     <>
       <Sec title="数据趋势（近7日）" />
       <div className="card" style={{ padding: 14 }}>
+        {trendsState.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载趋势中</div></div> : null}
+        {trendsState.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{trendsState.error}</div></div> : null}
         <Seg
           items={[["users", "用户"], ["works", "作品"], ["income", "收入"]]}
           active={trendKey}
           onPick={setTrendKey}
         />
-        <BarChart data={trend[trendKey as keyof typeof trend]} labels={WEEK} grad={TREND_GRAD[trendKey]} />
+        <BarChart data={trendData} labels={trend.labels} grad={TREND_GRAD[trendKey]} />
       </div>
 
       <Sec title="数据对比" />
@@ -43,6 +54,8 @@ export function Dashboard() {
 
       <Sec title="模型使用占比" />
       <div className="card" style={{ padding: 14 }}>
+        {modelsState.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载模型中</div></div> : null}
+        {modelsState.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{modelsState.error}</div></div> : null}
         {models.map((m, i) => (
           <RankBar key={m.id} name={m.name} val={MODEL_USE[i]} max={3200} color={MODEL_COLORS[i % MODEL_COLORS.length]} />
         ))}
@@ -50,6 +63,8 @@ export function Dashboard() {
 
       <Sec title="风格 TOP" more="查看全部" onMore={() => go("opsStyle")} />
       <div className="card" style={{ padding: 14 }}>
+        {stylesState.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载风格中</div></div> : null}
+        {stylesState.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{stylesState.error}</div></div> : null}
         {styles.slice(0, 5).map((s, i) => (
           <RankBar key={s.id} name={`${i + 1}. ${s.n}`} val={s.s} max={sMax} color="linear-gradient(90deg,#7BB8F0,#5B9FE8)" />
         ))}

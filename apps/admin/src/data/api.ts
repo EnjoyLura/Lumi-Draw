@@ -806,3 +806,42 @@ export async function apiGetDashboard(): Promise<{ metrics: TodayMetric[]; todos
     todos: { review: s.todos.pendingWorks, report: s.todos.pendingReports, feedback: s.todos.pendingFeedback }
   };
 }
+
+export interface AdminDashboardTrends {
+  labels: string[];
+  users: number[];
+  works: number[];
+  income: number[];
+}
+
+interface ApiDashboardTrends {
+  labels: string[];
+  newUsers: number[];
+  newWorks: number[];
+}
+
+function shortDateLabels(labels: string[]) {
+  return labels.map((label) => label.slice(5));
+}
+
+export async function apiGetDashboardTrends(): Promise<AdminDashboardTrends> {
+  const t = await http.get<ApiDashboardTrends>("/admin/dashboard/trends?range=7d");
+  return {
+    labels: shortDateLabels(t.labels),
+    users: t.newUsers,
+    works: t.newWorks,
+    income: Array.from({ length: t.labels.length }, () => 0)
+  };
+}
+
+export interface AdminDashboardDetail {
+  labels: string[];
+  series: number[];
+  total: number;
+}
+
+export async function apiGetDashboardDetail(metric: string): Promise<AdminDashboardDetail> {
+  const actualMetric = metric === "works" ? "works" : "users";
+  const d = await http.get<{ labels: string[]; series: number[]; total: number }>(`/admin/dashboard/detail?metric=${actualMetric}&range=7d`);
+  return { labels: shortDateLabels(d.labels), series: d.series, total: d.total };
+}

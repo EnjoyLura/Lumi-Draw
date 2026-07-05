@@ -133,7 +133,7 @@ export function CtrlIcons({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
 }
 
 export function BarChart({ data, labels, grad }: { data: number[]; labels: string[]; grad: string }) {
-  const max = Math.max(...data);
+  const max = Math.max(1, ...data);
   return (
     <div className="bars">
       {data.map((v, i) => (
