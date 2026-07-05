@@ -10,6 +10,9 @@
     "build:mobile:h5": "pnpm --filter @lumi-draw/mobile build:h5",
     "dev:admin": "pnpm --filter @lumi-draw/admin dev",
     "build:admin": "pnpm --filter @lumi-draw/admin build",
+    "dev:api": "pnpm --filter @lumi-draw/api dev",
+    "build:api": "pnpm --filter @lumi-draw/api build",
+    "start:api": "pnpm --filter @lumi-draw/api start",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

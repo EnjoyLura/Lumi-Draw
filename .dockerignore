@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.git
+.cache
+.vite
+coverage
+*.log
+.env
+.env.*
+agent.md
+apps/*/node_modules
+apps/*/dist
+packages/*/node_modules
