@@ -6,6 +6,13 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import {
+  addNotifiedGenerateJobIds,
+  readActiveGenerateJobIds,
+  readNotifiedGenerateJobIds,
+  removeActiveGenerateJobIds,
+  syncActiveGenerateJobIds
+} from "../../services/generateTaskState";
 import type { HomeWork } from "../home/homeData";
 import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab } from "./galleryData";
 import {
@@ -78,7 +85,7 @@ let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = "";
-let activeGenerateTaskIds = new Set<string>();
+let activeGenerateTaskIds = readActiveGenerateJobIds();
 
 const filteredWorks = computed(() => {
   if (!useMockData.value) return works.value;
@@ -138,18 +145,22 @@ async function loadGenerateTasks(scheduleNext = false) {
     return;
   }
 
-  const previousIds = activeGenerateTaskIds;
+  const previousIds = new Set([...activeGenerateTaskIds, ...readActiveGenerateJobIds()]);
   let nextTasks: GalleryGenTask[] = [];
+  let loadedTasks = false;
   try {
     nextTasks = await fetchGalleryGenerateTasks();
     genTasks.value = nextTasks;
+    loadedTasks = true;
   } catch {
     genTasks.value = [];
   }
+  if (!loadedTasks) return;
 
   const nextIds = new Set(nextTasks.map((task) => String(task.id)));
   const completedIds = [...previousIds].filter((id) => !nextIds.has(id));
   activeGenerateTaskIds = nextIds;
+  syncActiveGenerateJobIds(nextIds);
   if (completedIds.length) {
     await handleGenerateTasksCompleted(completedIds);
   }
@@ -163,8 +174,17 @@ async function loadGenerateTasks(scheduleNext = false) {
 async function handleGenerateTasksCompleted(ids: string[]) {
   try {
     const terminalJobs = await fetchGalleryTerminalGenerateJobs();
-    const finished = terminalJobs.filter((job) => ids.includes(job.id));
+    const terminalIds = new Set(terminalJobs.map((job) => job.id));
+    const staleIds = ids.filter((id) => !terminalIds.has(id));
+    if (staleIds.length) removeActiveGenerateJobIds(staleIds);
+
+    const notifiedIds = readNotifiedGenerateJobIds();
+    const finished = terminalJobs.filter((job) => ids.includes(job.id) && !notifiedIds.has(job.id));
     if (!finished.length) return;
+
+    const finishedIds = finished.map((job) => job.id);
+    addNotifiedGenerateJobIds(finishedIds);
+    removeActiveGenerateJobIds(finishedIds);
 
     const hasSavedDraft = finished.some((job) => job.status === "succeeded" || job.status === "partial_failed");
     if (hasSavedDraft) {

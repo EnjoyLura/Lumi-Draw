@@ -4,6 +4,7 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { addActiveGenerateJobId } from "../../services/generateTaskState";
 import { uploadChosenImage, uploadRemoteImage } from "../../services/upload";
 import {
   countOptions,
@@ -467,6 +468,7 @@ async function startBackendGenerate(prompt: string) {
       quality: selectedQuality.value.label,
       count: selectedCount.value
     });
+    addActiveGenerateJobId(created.jobId);
     applyBackendJob(created.job);
     if (!isTerminalJob(created.job.status)) {
       pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
