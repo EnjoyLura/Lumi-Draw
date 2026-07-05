@@ -332,6 +332,10 @@ function updateWorkLikeCount(workId: number, likes: number) {
   latestWorks.value = latestWorks.value.map(update);
 }
 
+function displayLikeCount(work: HomeWork) {
+  return work.likes + (useMockData.value && likedWorkIds.value.has(work.id) ? 1 : 0);
+}
+
 async function toggleLike(work: HomeWork) {
   if (!useMockData.value && !ensureLogin()) return;
   if (likePendingIds.value.has(work.id)) return;
@@ -503,7 +507,7 @@ function getRatioClass(ratio: string) {
                       @click.stop="toggleLike(work)"
                     >
                       <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                      <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                      <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
                 </view>
@@ -530,7 +534,7 @@ function getRatioClass(ratio: string) {
                       @click.stop="toggleLike(work)"
                     >
                       <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                      <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                      <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
                 </view>

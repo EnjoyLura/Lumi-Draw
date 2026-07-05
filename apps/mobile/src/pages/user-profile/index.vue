@@ -115,6 +115,10 @@ function getAspectRatio(ratio: string) {
   return `${width} / ${height}`;
 }
 
+function displayLikeCount(work: HomeWork) {
+  return work.likes + (useMockData.value && likedWorkIds.value.has(work.id) ? 1 : 0);
+}
+
 function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
@@ -257,7 +261,7 @@ async function confirmUnfollow() {
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                    <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
               </view>
@@ -273,7 +277,7 @@ async function confirmUnfollow() {
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                    <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
               </view>
