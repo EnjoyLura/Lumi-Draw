@@ -56,6 +56,7 @@ export class CreditsService {
       amount: r.amount,
       balanceAfter: r.balanceAfter,
       reason: r.reason,
+      refId: r.refId,
       createdAt: r.createdAt.toISOString()
     }));
     return buildPage(items, total, page, pageSize);

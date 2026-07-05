@@ -171,6 +171,84 @@ async function main() {
     await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
   });
 
+  await step("payments recharge and membership", async () => {
+    const login = await request("POST", "/auth/wechat/login", { code: `mock-smoke-payments-${Date.now()}` });
+    const payer = login.body.data;
+    assert(payer?.accessToken, "payment smoke token missing");
+
+    const { body: beforeBalance } = await request("GET", "/credits/balance", undefined, payer.accessToken);
+    const initialCredits = beforeBalance.data?.credits;
+    assert(typeof initialCredits === "number", "initial credits missing");
+
+    const { body: bootstrap } = await request("GET", "/app/bootstrap");
+    const tier = (bootstrap.data?.rechargeTiers || []).find((item) => item.enabled !== false) || bootstrap.data?.rechargeTiers?.[0];
+    const plan = (bootstrap.data?.memberPlans || []).find((item) => item.enabled !== false) || bootstrap.data?.memberPlans?.[0];
+    assert(tier?.id, "recharge tier missing");
+    assert(plan?.id, "member plan missing");
+
+    const { body: rechargeOrder } = await request(
+      "POST",
+      "/payments/recharge/orders",
+      { tierId: tier.id },
+      payer.accessToken
+    );
+    assert(rechargeOrder.data?.status === "pending", "recharge order did not start pending");
+    assert(rechargeOrder.data?.credits === tier.credits, "recharge order credits mismatch");
+
+    if (rechargeOrder.data?.paymentParams?.provider !== "mock") {
+      assert(rechargeOrder.data?.paymentParams?.provider === "wechat", "unexpected recharge payment provider");
+      assert(rechargeOrder.data?.paymentParams?.configured === false, "unconfigured wechat payment should be explicit");
+      console.log("recharge completion skipped (mock payment disabled)");
+    } else {
+      const { body: paidRecharge } = await request(
+        "POST",
+        `/payments/${rechargeOrder.data.id}/mock-complete`,
+        undefined,
+        payer.accessToken
+      );
+      assert(paidRecharge.data?.status === "paid", "recharge order was not paid");
+
+      const { body: afterRechargeBalance } = await request("GET", "/credits/balance", undefined, payer.accessToken);
+      const expectedCredits = initialCredits + tier.credits + (tier.bonus || 0);
+      assert(afterRechargeBalance.data?.credits === expectedCredits, "recharge credits were not applied");
+    }
+
+    const { body: memberOrder } = await request(
+      "POST",
+      "/payments/membership/orders",
+      { planId: plan.id },
+      payer.accessToken
+    );
+    assert(memberOrder.data?.status === "pending", "membership order did not start pending");
+    assert(memberOrder.data?.memberDays > 0, "membership order days missing");
+
+    if (memberOrder.data?.paymentParams?.provider !== "mock") {
+      assert(memberOrder.data?.paymentParams?.provider === "wechat", "unexpected membership payment provider");
+      assert(memberOrder.data?.paymentParams?.configured === false, "unconfigured wechat payment should be explicit");
+      console.log("membership completion skipped (mock payment disabled)");
+      return;
+    }
+
+    const { body: paidMember } = await request(
+      "POST",
+      `/payments/${memberOrder.data.id}/mock-complete`,
+      undefined,
+      payer.accessToken
+    );
+    assert(paidMember.data?.status === "paid", "membership order was not paid");
+
+    const [{ body: memberStatus }, { body: earnRecords }] = await Promise.all([
+      request("GET", "/membership/status", undefined, payer.accessToken),
+      request("GET", "/credits/records?type=earn&page=1&pageSize=10", undefined, payer.accessToken)
+    ]);
+    assert(memberStatus.data?.isMember === true, "membership status was not activated");
+    assert(memberStatus.data?.memberPlan, "membership plan name missing");
+    assert(
+      (earnRecords.data?.items || []).some((item) => item.type === "membership" && item.refId === paidMember.data.id),
+      "membership credit transaction missing"
+    );
+  });
+
   if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     const admin = await step("admin login", async () => {
       const { body } = await request("POST", "/admin/auth/login", { username: ADMIN_USERNAME, password: ADMIN_PASSWORD });
