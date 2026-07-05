@@ -6,7 +6,7 @@ import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 
-const { requireLogin } = useAuth();
+const { currentUser, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const nickname = ref("云端造梦师");
@@ -80,12 +80,20 @@ async function save() {
 
   isSaving.value = true;
   try {
-    await updateMyProfile({
+    const profile = await updateMyProfile({
       nickname: nickname.value.trim(),
       avatarUrl: avatarUrl.value,
       bio: signature.value.trim(),
       gender: gender.value
     });
+    if (currentUser.value) {
+      currentUser.value.nickname = profile.nickname;
+      currentUser.value.avatarText = profile.avatarText;
+      currentUser.value.avatarColor = profile.avatarColor;
+      currentUser.value.avatarUrl = profile.avatarUrl;
+      currentUser.value.bio = profile.bio;
+      currentUser.value.gender = profile.gender;
+    }
     uni.showToast({ title: "资料已保存", icon: "none" });
     setTimeout(() => uni.navigateBack(), 600);
   } catch {
