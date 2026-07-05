@@ -22,3 +22,8 @@ export function toMineUser(profile: BackendMineProfile): MineUser {
 export function fetchMineProfile() {
   return api.get<BackendMineProfile>("/users/me");
 }
+
+export async function fetchUnreadMessageCount() {
+  const rows = await api.get<Array<{ unread: number }>>("/notifications/summary");
+  return rows.reduce((sum, row) => sum + (Number.isFinite(row.unread) ? row.unread : 0), 0);
+}

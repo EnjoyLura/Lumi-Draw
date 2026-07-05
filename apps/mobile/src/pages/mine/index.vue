@@ -1,24 +1,37 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
-import { fetchMineProfile, toMineUser } from "./mineService";
+import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
 const { isLoggedIn, currentUser, login: commitLogin } = useAuth();
 const { useMockData } = useDataMode();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const showLoginSheet = ref(false);
 const displayUser = ref(mineUser);
+const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
 let lastLoadKey = "";
 
+const accountRows = computed(() => {
+  if (useMockData.value) return accountItems;
+  return accountItems.map((item) => {
+    if (item.key !== "messages") return item;
+    return {
+      ...item,
+      badge: unreadMessageCount.value > 0 ? String(unreadMessageCount.value) : undefined,
+      dot: unreadMessageCount.value > 0
+    };
+  });
+});
+
 onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}`;
-  if (lastLoadKey === loadKey) return;
+  if (useMockData.value && lastLoadKey === loadKey) return;
   lastLoadKey = loadKey;
   void loadProfile();
 });
@@ -26,14 +39,19 @@ onShow(() => {
 async function loadProfile() {
   if (useMockData.value) {
     displayUser.value = mineUser;
+    unreadMessageCount.value = 0;
     return;
   }
-  if (!isLoggedIn.value) return;
+  if (!isLoggedIn.value) {
+    unreadMessageCount.value = 0;
+    return;
+  }
 
   isLoadingProfile.value = true;
   try {
-    const profile = await fetchMineProfile();
+    const [profile, unread] = await Promise.all([fetchMineProfile(), fetchUnreadMessageCount()]);
     displayUser.value = toMineUser(profile);
+    unreadMessageCount.value = unread;
     if (currentUser.value) {
       currentUser.value.nickname = profile.nickname;
       currentUser.value.avatarText = profile.avatarText;
@@ -180,7 +198,7 @@ async function login() {
         </view>
 
         <view class="list-card">
-          <view v-for="item in accountItems" :key="item.key" class="list-row" @click="handleListItem(item)">
+          <view v-for="item in accountRows" :key="item.key" class="list-row" @click="handleListItem(item)">
             <view class="row-icon" :style="{ color: item.color || 'var(--fg-muted)' }">{{ item.icon }}</view>
             <view class="row-text">{{ item.label }}</view>
             <view v-if="item.badge" class="badge">{{ item.badge }}</view>
