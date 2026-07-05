@@ -1,27 +1,42 @@
 import { useState } from "react";
+import { apiDeleteQuality, apiGetQualities, apiSaveQuality, apiSetQualityEnabled } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { nextId, QUALITIES, type AdminQuality } from "../data/mock";
 import { getQualities } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function QualityForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function QualityForm({ id, item, useMock, onSaved }: { id: number; item?: AdminQuality; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const q = id ? QUALITIES.find((x) => x.id === id) : undefined;
+  const q = item ?? (id ? QUALITIES.find((x) => x.id === id) : undefined);
   const [label, setLabel] = useState(q?.label ?? "");
   const [pixel, setPixel] = useState(q?.pixel ?? "");
   const [mult, setMult] = useState(String(q?.mult ?? 1));
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!label.trim()) { toast("请输入名称"); return; }
     const data = { label: label.trim(), pixel, mult: parseFloat(mult) || 1 };
-    if (q) Object.assign(q, data);
-    else QUALITIES.push({ id: nextId(QUALITIES), on: true, ...data });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (q) Object.assign(q, data);
+        else QUALITIES.push({ id: nextId(QUALITIES), on: true, ...data });
+      } else {
+        await apiSaveQuality(id, { id, on: q?.on ?? true, ...data });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -33,8 +48,8 @@ function QualityForm({ id, onSaved }: { id: number; onSaved: () => void }) {
       <label className="field-label" style={{ marginTop: 12 }}>积分倍率</label>
       <input className="input" type="number" step="0.1" value={mult} onChange={(e) => setMult(e.target.value)} />
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -42,22 +57,52 @@ function QualityForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function OpsQuality() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const qualities = getQualities();
+  const { data, loading, error, reload } = useAsyncData<AdminQuality[]>(useMock ? null : () => apiGetQualities(), [useMock]);
+  const qualities = useMock ? getQualities() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑分辨率" : "新增分辨率", <QualityForm id={id} onSaved={refresh} />);
-  const toggle = (q: AdminQuality) => { q.on = !q.on; refresh(); toast(q.on ? "已启用" : "已停用"); };
+  const openForm = (id: number) => openSheet(id ? "编辑分辨率" : "新增分辨率", <QualityForm id={id} item={qualities.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
+  const toggle = async (q: AdminQuality) => {
+    const next = !q.on;
+    try {
+      if (useMock) {
+        q.on = next;
+        refresh();
+      } else {
+        await apiSetQualityEnabled(q.id, next);
+        reload();
+      }
+      toast(next ? "已启用" : "已停用");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "操作失败");
+    }
+  };
   const del = (q: AdminQuality) => confirmDlg("删除档位", "确定删除该档位吗？", () => {
-    const i = qualities.findIndex((x) => x.id === q.id);
-    if (i > -1) qualities.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = qualities.findIndex((x) => x.id === q.id);
+          if (i > -1) qualities.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteQuality(q.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "2px 2px 10px" }}>创作时可选的清晰度档位，积分倍率作用于模型基础消耗。</div>
       <AddBtn text="新增分辨率档位" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载分辨率中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       <div className="card">
         {qualities.map((q) => (
           <div key={q.id} className="lrow" style={{ cursor: "default" }}>

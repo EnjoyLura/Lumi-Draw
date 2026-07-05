@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminReport, AdminStyle, AdminUser, AdminWork } from "./mock";
+import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminQuality, AdminRatio, AdminReport, AdminStyle, AdminUser, AdminWork } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -363,6 +363,121 @@ export async function apiSaveCategory(id: number, values: { n: string; cnt?: num
 
 export async function apiDeleteCategory(id: number) {
   return http.del<ApiCategory>(`/admin/categories/${id}`);
+}
+
+interface ApiHotSearch {
+  id: number; keyword: string; hot: number; top: boolean; enabled: boolean;
+}
+
+function mapHotSearch(h: ApiHotSearch): AdminHotSearch {
+  return { id: h.id, k: h.keyword, hot: h.hot, top: h.top };
+}
+
+export async function apiGetHotSearches() {
+  return (await http.get<ApiHotSearch[]>("/admin/hot-searches")).map(mapHotSearch);
+}
+
+export async function apiSaveHotSearch(id: number, values: { k: string; hot?: number; top: boolean }) {
+  const body = { keyword: values.k, hot: values.hot, top: values.top, enabled: true };
+  return mapHotSearch(id ? await http.patch<ApiHotSearch>(`/admin/hot-searches/${id}`, body) : await http.post<ApiHotSearch>("/admin/hot-searches", body));
+}
+
+export async function apiDeleteHotSearch(id: number) {
+  return http.del<ApiHotSearch>(`/admin/hot-searches/${id}`);
+}
+
+interface ApiModelConfig {
+  id: string; provider?: string; providerModel: string; name: string; description: string;
+  tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
+  supportsTextToImage: boolean; supportsImageToImage: boolean;
+}
+
+function modelTags(tags: string[] | string) {
+  return Array.isArray(tags) ? tags : tags.split(/[,，、]/).map((t) => t.trim()).filter(Boolean);
+}
+
+function mapModelConfig(m: ApiModelConfig): AdminModel {
+  return { id: m.id, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+}
+
+export async function apiGetModels() {
+  return (await http.get<ApiModelConfig[]>("/admin/models")).map(mapModelConfig);
+}
+
+export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & { id?: string }) {
+  const modelId = id || values.id || `model-${Date.now()}`;
+  const body = {
+    id: modelId,
+    provider: "kie",
+    providerModel: modelId,
+    name: values.name,
+    description: values.desc,
+    tags: values.tags,
+    costCredits: values.cost,
+    badge: values.badge,
+    enabled: values.on,
+    supportsTextToImage: true,
+    supportsImageToImage: true
+  };
+  return mapModelConfig(id ? await http.patch<ApiModelConfig>(`/admin/models/${id}`, body) : await http.post<ApiModelConfig>("/admin/models", body));
+}
+
+export async function apiDeleteModel(id: string) {
+  return http.del<ApiModelConfig>(`/admin/models/${id}`);
+}
+
+export async function apiSetModelEnabled(id: string, enabled: boolean) {
+  return mapModelConfig(await http.patch<ApiModelConfig>(`/admin/models/${id}`, { enabled }));
+}
+
+interface ApiQualityConfig {
+  id: number; label: string; pixel: string; multiplier: number; enabled: boolean; sort: number;
+}
+
+function mapQuality(q: ApiQualityConfig): AdminQuality {
+  return { id: q.id, label: q.label, pixel: q.pixel, mult: q.multiplier, on: q.enabled };
+}
+
+export async function apiGetQualities() {
+  return (await http.get<ApiQualityConfig[]>("/admin/qualities")).map(mapQuality);
+}
+
+export async function apiSaveQuality(id: number, values: AdminQuality & { sort?: number }) {
+  const body = { label: values.label, pixel: values.pixel, multiplier: values.mult, enabled: values.on, sort: values.sort };
+  return mapQuality(id ? await http.patch<ApiQualityConfig>(`/admin/qualities/${id}`, body) : await http.post<ApiQualityConfig>("/admin/qualities", body));
+}
+
+export async function apiDeleteQuality(id: number) {
+  return http.del<ApiQualityConfig>(`/admin/qualities/${id}`);
+}
+
+export async function apiSetQualityEnabled(id: number, enabled: boolean) {
+  return mapQuality(await http.patch<ApiQualityConfig>(`/admin/qualities/${id}`, { enabled }));
+}
+
+interface ApiRatioConfig {
+  id: number; label: string; description: string; enabled: boolean; sort: number;
+}
+
+function mapRatio(r: ApiRatioConfig): AdminRatio {
+  return { id: r.id, label: r.label, desc: r.description, on: r.enabled };
+}
+
+export async function apiGetRatios() {
+  return (await http.get<ApiRatioConfig[]>("/admin/ratios")).map(mapRatio);
+}
+
+export async function apiSaveRatio(id: number, values: AdminRatio & { sort?: number }) {
+  const body = { label: values.label, description: values.desc, enabled: values.on, sort: values.sort };
+  return mapRatio(id ? await http.patch<ApiRatioConfig>(`/admin/ratios/${id}`, body) : await http.post<ApiRatioConfig>("/admin/ratios", body));
+}
+
+export async function apiDeleteRatio(id: number) {
+  return http.del<ApiRatioConfig>(`/admin/ratios/${id}`);
+}
+
+export async function apiSetRatioEnabled(id: number, enabled: boolean) {
+  return mapRatio(await http.patch<ApiRatioConfig>(`/admin/ratios/${id}`, { enabled }));
 }
 
 interface ApiSummary {

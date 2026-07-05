@@ -1,25 +1,40 @@
 import { useState } from "react";
+import { apiDeleteHotSearch, apiGetHotSearches, apiSaveHotSearch } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { HOT_SEARCHES, nextId, type AdminHotSearch } from "../data/mock";
 import { getHotSearches } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, CtrlIcons, SortCtrl, Switch } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function HotForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function HotForm({ id, item, useMock, onSaved }: { id: number; item?: AdminHotSearch; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const s = id ? HOT_SEARCHES.find((x) => x.id === id) : undefined;
+  const s = item ?? (id ? HOT_SEARCHES.find((x) => x.id === id) : undefined);
   const [k, setK] = useState(s?.k ?? "");
   const [top, setTop] = useState(s?.top ?? false);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!k.trim()) { toast("请输入关键词"); return; }
-    if (s) { s.k = k.trim(); s.top = top; }
-    else HOT_SEARCHES.push({ id: nextId(HOT_SEARCHES), k: k.trim(), top, hot: 0 });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (s) { s.k = k.trim(); s.top = top; }
+        else HOT_SEARCHES.push({ id: nextId(HOT_SEARCHES), k: k.trim(), top, hot: 0 });
+      } else {
+        await apiSaveHotSearch(id, { k: k.trim(), top, hot: s?.hot ?? 0 });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -32,8 +47,8 @@ function HotForm({ id, onSaved }: { id: number; onSaved: () => void }) {
       </div>
       <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 10, lineHeight: 1.5 }}>展示顺序通过列表的上移/下移调整。</div>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -41,20 +56,36 @@ function HotForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function OpsHotSearch() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const hots = getHotSearches();
+  const { data, loading, error, reload } = useAsyncData<AdminHotSearch[]>(useMock ? null : () => apiGetHotSearches(), [useMock]);
+  const hots = useMock ? getHotSearches() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑热搜" : "新增热搜", <HotForm id={id} onSaved={refresh} />);
+  const openForm = (id: number) => openSheet(id ? "编辑热搜" : "新增热搜", <HotForm id={id} item={hots.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
   const del = (s: AdminHotSearch) => confirmDlg("删除热搜词", "确定删除该热搜词吗？", () => {
-    const i = hots.findIndex((x) => x.id === s.id);
-    if (i > -1) hots.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = hots.findIndex((x) => x.id === s.id);
+          if (i > -1) hots.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteHotSearch(s.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <AddBtn text="新增热搜词" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载热搜中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       <div className="card">
         {hots.map((s, i) => (
           <div key={s.id} className="lrow" style={{ cursor: "default" }}>
