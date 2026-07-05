@@ -13,7 +13,7 @@ import {
   unfollowUser
 } from "../../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
-import { fetchWorkDetail } from "./workDetailService";
+import { deleteWork, fetchWorkDetail } from "./workDetailService";
 
 const workId = ref(1);
 const { currentUser, requireLogin } = useAuth();
@@ -27,6 +27,7 @@ const confirmFollowOpen = ref(false);
 const longPressOpen = ref(false);
 const likePulse = ref(false);
 const favoritePulse = ref(false);
+const isDeleting = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMode: boolean | null = null;
@@ -255,6 +256,56 @@ function manageWork() {
   uni.navigateTo({ url: "/pages/publish/index" });
 }
 
+function confirmDeleteWork() {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "删除作品",
+      content: "删除后不可恢复，确定要删除这个作品吗？",
+      confirmText: "删除",
+      confirmColor: "#ff5c7a",
+      success(result) {
+        resolve(Boolean(result.confirm));
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+function leaveAfterDelete() {
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack();
+    return;
+  }
+  uni.redirectTo({ url: "/pages/gallery/index" });
+}
+
+async function removeOwnWork() {
+  if (!work.value || isDeleting.value) return;
+  const confirmed = await confirmDeleteWork();
+  if (!confirmed) return;
+
+  if (useMockData.value) {
+    uni.showToast({ title: "已删除作品", icon: "none" });
+    leaveAfterDelete();
+    return;
+  }
+
+  if (!requireLogin()) return;
+  isDeleting.value = true;
+  try {
+    await deleteWork(work.value.id);
+    uni.showToast({ title: "已删除作品", icon: "none" });
+    leaveAfterDelete();
+  } catch {
+    uni.showToast({ title: "删除失败，请稍后重试", icon: "none" });
+  } finally {
+    isDeleting.value = false;
+  }
+}
+
 function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
 }
@@ -341,9 +392,9 @@ function showToast(title: string) {
 
       <view class="detail-bottom" :class="{ own: isOwn }">
         <template v-if="isOwn">
-          <view class="bottom-icon danger" @click="showToast('删除作品将在后续任务迁移')">
+          <view class="bottom-icon danger" :class="{ disabled: isDeleting }" @click="removeOwnWork">
             <text>⌫</text>
-            <text>删除</text>
+            <text>{{ isDeleting ? "删除中" : "删除" }}</text>
           </view>
           <view class="bottom-icon" @click="showToast('已保存到相册')">
             <text>⇩</text>
@@ -718,6 +769,11 @@ function showToast(title: string) {
 
 .bottom-icon.danger {
   color: var(--rose);
+}
+
+.bottom-icon.disabled {
+  pointer-events: none;
+  opacity: 0.55;
 }
 
 .bottom-action text:first-child {

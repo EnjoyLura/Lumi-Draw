@@ -52,3 +52,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
     user: toHomeUser(item.author)
   };
 }
+
+export function deleteWork(id: number) {
+  return api.delete<{ ok: boolean; action: "delete" }>(`/works/${id}?action=delete`);
+}
