@@ -67,3 +67,14 @@ export class PublishGenerateResultDto {
   @IsBoolean()
   isPublic?: boolean;
 }
+
+export class ReversePromptDto {
+  @IsString()
+  @MinLength(1)
+  imageUrl!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  hint?: string;
+}

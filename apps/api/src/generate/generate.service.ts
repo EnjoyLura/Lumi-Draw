@@ -5,13 +5,14 @@ import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
-import type { CreateGenerateJobDto, PublishGenerateResultDto } from "./generate.dto";
+import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
+const REVERSE_PROMPT_COST = 2;
 
 @Injectable()
 export class GenerateService {
@@ -214,6 +215,28 @@ export class GenerateService {
     };
   }
 
+  async reversePrompt(userId: number, dto: ReversePromptDto) {
+    const imageUrl = dto.imageUrl.trim();
+    if (!/^https?:\/\//i.test(imageUrl)) throw new BadRequestException("imageUrl must be a public URL");
+
+    const hint = dto.hint?.trim() ?? "";
+    const prompt = this.buildReversePrompt(imageUrl, hint);
+    const { balance } = await this.credits.addTransaction(
+      userId,
+      "consume",
+      -REVERSE_PROMPT_COST,
+      "反推提示词",
+      imageUrl.slice(0, 200)
+    );
+
+    return {
+      prompt,
+      costCredits: REVERSE_PROMPT_COST,
+      creditsAfter: balance,
+      provider: "local-mvp"
+    };
+  }
+
   async handleCallback(body: Record<string, unknown>, secret?: string) {
     const callbackSecret = this.config.get<string>("app.callbackSecret");
     if (callbackSecret && secret !== callbackSecret) throw new UnauthorizedException("invalid callback secret");
@@ -331,6 +354,30 @@ export class GenerateService {
   private draftTitle(prompt: string, index?: number) {
     const base = prompt.trim().replace(/\s+/g, " ").slice(0, 24) || "AI generated work";
     return index ? `${base} ${index}` : base;
+  }
+
+  private buildReversePrompt(imageUrl: string, hint: string) {
+    const filename = decodeURIComponent(imageUrl.split("?")[0]?.split("/").pop() || "");
+    const lower = `${filename} ${hint}`.toLowerCase();
+    const styleParts: string[] = [];
+
+    if (/anime|二次元|cartoon|comic/.test(lower)) styleParts.push("anime illustration, clean line art");
+    if (/photo|portrait|人像|face/.test(lower)) styleParts.push("photorealistic portrait, natural skin texture");
+    if (/landscape|scene|风景|山|海|forest/.test(lower)) styleParts.push("wide landscape composition, atmospheric depth");
+    if (/cyber|neon|赛博/.test(lower)) styleParts.push("cyberpunk neon lighting, futuristic city mood");
+    if (/ink|chinese|国风|古风/.test(lower)) styleParts.push("Chinese ink painting mood, elegant traditional details");
+
+    const style = styleParts.length ? styleParts.join(", ") : "high quality visual description, clear subject, balanced composition";
+    const subject = hint || "the main subject and background from the reference image";
+    return [
+      subject,
+      style,
+      "soft cinematic lighting",
+      "rich details",
+      "harmonious color palette",
+      "sharp focus",
+      "professional AI art prompt"
+    ].join(", ");
   }
 
   private async submitToProvider(jobId: string) {

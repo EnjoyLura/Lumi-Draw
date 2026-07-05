@@ -1,29 +1,75 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { uploadChosenImage } from "../../services/upload";
+import { reversePrompt } from "./reversePromptService";
 
 const imageUrl = ref("");
+const localImageUrl = ref("");
 const resultText = ref("");
+const hintText = ref("");
+const isUploading = ref(false);
 const isAnalyzing = ref(false);
+const showLoginSheet = ref(false);
+const { login: commitLogin, requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const hasResult = computed(() => !!resultText.value);
+const busy = computed(() => isUploading.value || isAnalyzing.value);
 
-function uploadReverseImage() {
-  imageUrl.value = `https://picsum.photos/seed/reverse${Date.now()}/600/420`;
+async function uploadReverseImage() {
+  if (busy.value) return;
+
+  if (useMockData.value) {
+    const url = `https://picsum.photos/seed/reverse${Date.now()}/600/420`;
+    imageUrl.value = url;
+    localImageUrl.value = url;
+    resultText.value = "";
+    return;
+  }
+
+  if (!requireLogin(() => (showLoginSheet.value = true))) return;
+  isUploading.value = true;
+  try {
+    const uploaded = await uploadChosenImage("prompt-image");
+    imageUrl.value = uploaded.publicUrl;
+    localImageUrl.value = uploaded.localPath || uploaded.publicUrl;
+    resultText.value = "";
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "图片上传失败", icon: "none" });
+  } finally {
+    isUploading.value = false;
+  }
 }
 
-function startReverse() {
+async function startReverse() {
   if (!imageUrl.value) {
     uni.showToast({ title: "请先上传图片", icon: "none" });
     return;
   }
+  if (!requireLogin(() => (showLoginSheet.value = true))) return;
+  if (isAnalyzing.value) return;
 
   isAnalyzing.value = true;
-  setTimeout(() => {
-    resultText.value =
-      "A beautiful scene with soft lighting, dreamy atmosphere, pastel color palette, detailed composition, artistic style, high quality, ethereal mood, serene landscape with gentle bokeh";
+  try {
+    if (useMockData.value) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      resultText.value =
+        "A beautiful scene with soft lighting, dreamy atmosphere, pastel color palette, detailed composition, high quality, ethereal mood, sharp focus";
+      uni.showToast({ title: "分析完成，模拟消耗积分", icon: "none" });
+      return;
+    }
+
+    const result = await reversePrompt({ imageUrl: imageUrl.value, hint: hintText.value.trim() || undefined });
+    resultText.value = result.prompt;
+    uni.showToast({ title: `分析完成，消耗 ${result.costCredits} 积分`, icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "分析失败，请稍后重试", icon: "none" });
+  } finally {
     isAnalyzing.value = false;
-    uni.showToast({ title: "分析完成，消耗5积分", icon: "none" });
-  }, 900);
+  }
 }
 
 function copyResult() {
@@ -46,6 +92,16 @@ function useResult() {
     }
   });
 }
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
 </script>
 
 <template>
@@ -54,19 +110,23 @@ function useResult() {
       <view class="page-content">
         <view class="card upload-card">
           <view v-if="!imageUrl" class="upload-area" @click="uploadReverseImage">
-            <view class="upload-icon">▧</view>
+            <view class="upload-icon">▤</view>
             <view class="upload-title">上传图片</view>
             <view class="upload-sub">AI 将分析图片内容并反推可编辑提示词</view>
           </view>
 
           <view v-else class="preview-wrap">
-            <image class="preview-img" :src="imageUrl" mode="aspectFill" />
-            <button class="btn btn-secondary" @click="uploadReverseImage">重新上传</button>
+            <image class="preview-img" :src="localImageUrl || imageUrl" mode="aspectFill" />
+            <button class="btn btn-secondary" :disabled="busy" @click="uploadReverseImage">重新上传</button>
           </view>
 
-          <button class="btn btn-gradient analyze-btn" :disabled="isAnalyzing" @click="startReverse">
-            <view v-if="isAnalyzing" class="spinner" />
-            <text>{{ isAnalyzing ? "分析中..." : hasResult ? "重新分析" : "开始分析" }}</text>
+          <view class="hint-wrap">
+            <textarea v-model="hintText" class="hint-input" maxlength="200" placeholder="可选：补充主体、风格或用途，帮助生成更贴合的提示词" />
+          </view>
+
+          <button class="btn btn-gradient analyze-btn" :disabled="busy" @click="startReverse">
+            <view v-if="busy" class="spinner" />
+            <text>{{ isUploading ? "上传中..." : isAnalyzing ? "分析中..." : hasResult ? "重新分析" : "开始分析" }}</text>
           </button>
         </view>
 
@@ -82,6 +142,7 @@ function useResult() {
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -151,11 +212,29 @@ function useResult() {
   border-radius: 12px;
 }
 
+.hint-wrap {
+  margin-top: 12px;
+}
+
+.hint-input {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px;
+  box-sizing: border-box;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-primary);
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  text-align: left;
+}
+
 .btn {
   display: inline-flex;
+  gap: 6px;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   font-size: 14px;
   font-weight: 600;
   border: none;

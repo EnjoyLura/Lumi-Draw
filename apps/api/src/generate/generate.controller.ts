@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/co
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { CreateGenerateJobDto, GenerateJobListQueryDto, PublishGenerateResultDto } from "./generate.dto";
+import { CreateGenerateJobDto, GenerateJobListQueryDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
 import { GenerateService } from "./generate.service";
 
 @ApiTags("generate")
@@ -50,6 +50,13 @@ export class GenerateController {
   @Post("results/:id/publish")
   publishResult(@CurrentUser() user: { id: number }, @Param("id") id: string, @Body() dto: PublishGenerateResultDto) {
     return this.generate.publishResult(user.id, id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("reverse-prompt")
+  reversePrompt(@CurrentUser() user: { id: number }, @Body() dto: ReversePromptDto) {
+    return this.generate.reversePrompt(user.id, dto);
   }
 
   @Post("callback")
