@@ -8,24 +8,26 @@ import { aboutItems, type SettingsLink } from "./settingsData";
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
-const { isLoggedIn, login: commitLogin, logout } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 
+const phoneText = computed(() => (isLoggedIn.value ? "手机号 未绑定" : "手机号 --"));
+
+function requireSession() {
+  if (isLoggedIn.value) return true;
+  showLoginSheet.value = true;
+  return false;
+}
+
 function goEditProfile() {
-  if (!isLoggedIn.value) {
-    showLoginSheet.value = true;
-    return;
-  }
+  if (!requireSession()) return;
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
 function tapPhone() {
-  if (!isLoggedIn.value) {
-    showLoginSheet.value = true;
-    return;
-  }
-  uni.showToast({ title: "手机号已绑定", icon: "none" });
+  if (!requireSession()) return;
+  uni.showToast({ title: "手机号绑定待接入", icon: "none" });
 }
 
 function toggleDark() {
@@ -78,13 +80,13 @@ async function login() {
         <view class="card">
           <view class="list-row" @click="goEditProfile">
             <view class="lr-icon accent">✎</view>
-            <view class="lr-text">{{ isLoggedIn ? "编辑个人资料" : "登录后编辑个人资料" }}</view>
+            <view class="lr-text">{{ isLoggedIn ? `编辑个人资料${currentUser?.nickname ? ` · ${currentUser.nickname}` : ""}` : "登录后编辑个人资料" }}</view>
             <view class="lr-arrow">›</view>
           </view>
           <view class="list-row" @click="tapPhone">
-            <view class="lr-icon mint">☏</view>
-            <view class="lr-text">{{ isLoggedIn ? "手机号 138****8888" : "手机号 --" }}</view>
-            <view class="tag" :class="isLoggedIn ? 'tag-mint' : 'tag-muted'">{{ isLoggedIn ? "已绑定" : "未登录" }}</view>
+            <view class="lr-icon mint">●</view>
+            <view class="lr-text">{{ phoneText }}</view>
+            <view class="tag" :class="isLoggedIn ? 'tag-mint' : 'tag-muted'">{{ isLoggedIn ? "正常" : "未登录" }}</view>
           </view>
         </view>
 
@@ -100,7 +102,7 @@ async function login() {
         <view class="section-title">开发调试</view>
         <view class="card">
           <view class="list-row" @click="toggleMock">
-            <view class="lr-icon lavender">≣</view>
+            <view class="lr-icon lavender">≋</view>
             <view class="lr-multi">
               <view class="lr-text">模拟数据</view>
               <view class="lr-sub">开启后使用静态数据，关闭后请求后端接口</view>
@@ -120,7 +122,7 @@ async function login() {
         </view>
 
         <button class="logout-btn" :class="{ login: !isLoggedIn }" @click="handleLoginAction">
-          {{ isLoggedIn ? "⤺ 退出登录" : "→ 立即登录" }}
+          {{ isLoggedIn ? "退出登录" : "立即登录" }}
         </button>
       </view>
     </scroll-view>
@@ -174,10 +176,6 @@ async function login() {
   border-bottom: none;
 }
 
-.list-row:active {
-  background: var(--accent-soft);
-}
-
 .lr-icon {
   display: flex;
   flex: 0 0 auto;
@@ -211,11 +209,8 @@ async function login() {
   flex: 1;
 }
 
-.lr-multi .lr-text {
-  margin-bottom: 2px;
-}
-
 .lr-sub {
+  margin-top: 2px;
   font-size: 11px;
   color: var(--fg-muted);
 }
@@ -259,7 +254,6 @@ async function login() {
   background: var(--bg-soft);
   border: 1px solid var(--card-border);
   border-radius: 999px;
-  transition: all 0.2s ease;
 }
 
 .switch .knob {

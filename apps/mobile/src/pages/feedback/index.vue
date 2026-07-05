@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { uploadChosenImage } from "../../services/upload";
+import { submitFeedback } from "./feedbackService";
 
 interface FeedbackType {
   key: string;
@@ -7,32 +11,78 @@ interface FeedbackType {
   icon: string;
 }
 
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+
 const feedbackTypes: FeedbackType[] = [
-  { key: "bug", label: "Bug反馈", icon: "⚠" },
-  { key: "experience", label: "体验反馈", icon: "☺" },
-  { key: "suggestion", label: "优化建议", icon: "✦" }
+  { key: "bug", label: "Bug反馈", icon: "!" },
+  { key: "experience", label: "体验反馈", icon: "●" },
+  { key: "suggestion", label: "优化建议", icon: "✓" }
 ];
 
 const activeType = ref("bug");
 const desc = ref("");
 const wechat = ref("");
 const images = ref<string[]>([]);
+const isUploading = ref(false);
+const isSubmitting = ref(false);
 
 const descCount = computed(() => `${desc.value.length}/500`);
 
-function addImage() {
-  if (images.value.length >= 2) return;
-  const seed = images.value.length === 0 ? "fb1" : "fb2";
-  images.value.push(`https://picsum.photos/seed/${seed}/200/200`);
+async function addImage() {
+  if (images.value.length >= 2 || isUploading.value) return;
+  if (!requireLogin()) return;
+
+  if (useMockData.value) {
+    const seed = images.value.length === 0 ? "fb1" : "fb2";
+    images.value.push(`https://picsum.photos/seed/${seed}/200/200`);
+    return;
+  }
+
+  isUploading.value = true;
+  try {
+    const uploaded = await uploadChosenImage("feedback");
+    images.value.push(uploaded.publicUrl);
+  } catch {
+    uni.showToast({ title: "图片上传失败", icon: "none" });
+  } finally {
+    isUploading.value = false;
+  }
 }
 
 function removeImage(index: number) {
   images.value.splice(index, 1);
 }
 
-function submit() {
-  uni.showToast({ title: "感谢您的反馈！", icon: "none" });
-  setTimeout(() => uni.navigateBack(), 600);
+async function submit() {
+  if (isSubmitting.value) return;
+  if (!desc.value.trim() && !images.value.length) {
+    uni.showToast({ title: "请填写反馈内容或上传截图", icon: "none" });
+    return;
+  }
+
+  if (useMockData.value) {
+    uni.showToast({ title: "感谢您的反馈", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isSubmitting.value = true;
+  try {
+    await submitFeedback({
+      type: activeType.value,
+      content: desc.value.trim(),
+      imageUrls: images.value,
+      wechat: wechat.value.trim()
+    });
+    uni.showToast({ title: "感谢您的反馈", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+  } catch {
+    uni.showToast({ title: "提交失败，请稍后重试", icon: "none" });
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -57,40 +107,42 @@ function submit() {
         </view>
 
         <view class="field">
-          <view class="field-title">反馈描述 <text class="field-sub">（选填）</text></view>
+          <view class="field-title">反馈描述 <text class="field-sub">（可选）</text></view>
           <view class="input-card">
             <textarea
               class="desc-textarea"
               v-model="desc"
               :maxlength="500"
-              placeholder="请详细描述您遇到的问题或建议…"
+              placeholder="请详细描述您遇到的问题或建议..."
             />
           </view>
           <view class="counter">{{ descCount }}</view>
         </view>
 
         <view class="field">
-          <view class="field-title">截图 <text class="field-sub">（选填，最多2张）</text></view>
+          <view class="field-title">截图 <text class="field-sub">（可选，最多2张）</text></view>
           <view class="image-row">
-            <view v-for="(img, index) in images" :key="index" class="image-item">
+            <view v-for="(img, index) in images" :key="img" class="image-item">
               <image class="image-thumb" :src="img" mode="aspectFill" />
-              <view class="image-remove" @click="removeImage(index)">✕</view>
+              <view class="image-remove" @click="removeImage(index)">×</view>
             </view>
             <view v-if="images.length < 2" class="image-add" @click="addImage">
-              <view class="image-add-icon">＋</view>
-              <view class="image-add-text">添加图片</view>
+              <view class="image-add-icon">{{ isUploading ? "..." : "+" }}</view>
+              <view class="image-add-text">{{ isUploading ? "上传中" : "添加图片" }}</view>
             </view>
           </view>
         </view>
 
         <view class="field">
-          <view class="field-title">微信号 <text class="field-sub">（选填）</text></view>
+          <view class="field-title">微信号 <text class="field-sub">（可选）</text></view>
           <view class="input-card">
             <input class="wechat-input" type="text" v-model="wechat" :maxlength="30" placeholder="方便我们联系您" />
           </view>
         </view>
 
-        <button class="submit-btn" @click="submit">✈ 提交反馈</button>
+        <button class="submit-btn" :disabled="isSubmitting" @click="submit">
+          {{ isSubmitting ? "提交中..." : "提交反馈" }}
+        </button>
       </view>
     </scroll-view>
   </view>
@@ -142,7 +194,6 @@ function submit() {
   background: var(--bg-elevated);
   border: 2px solid var(--border);
   border-radius: 12px;
-  transition: all 0.3s ease;
 }
 
 .type-option.active {
@@ -162,20 +213,10 @@ function submit() {
   color: var(--fg-secondary);
 }
 
-.type-option.active .type-label {
-  color: var(--accent-deep);
-}
-
 .input-card {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.input-card:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .desc-textarea {
@@ -200,12 +241,16 @@ function submit() {
   gap: 10px;
 }
 
-.image-item {
-  position: relative;
+.image-item,
+.image-add {
   width: 80px;
   height: 80px;
-  overflow: hidden;
   border-radius: 12px;
+}
+
+.image-item {
+  position: relative;
+  overflow: hidden;
 }
 
 .image-thumb {
@@ -233,11 +278,8 @@ function submit() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 80px;
-  height: 80px;
   background: var(--bg-elevated);
   border: 2px dashed var(--border);
-  border-radius: 12px;
 }
 
 .image-add-icon {
@@ -271,6 +313,10 @@ function submit() {
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;
   border-radius: 12px;
+}
+
+.submit-btn[disabled] {
+  opacity: 0.65;
 }
 
 .submit-btn::after {

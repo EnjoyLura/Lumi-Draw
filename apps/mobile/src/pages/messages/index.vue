@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { getLatestMessage, getUnreadCount, messageCategories, type MessageCategoryKey } from "./messagesData";
+import { fetchMessageSummary, type MessageCategoryRow } from "./messagesService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const readKeys = ref<Set<string>>(new Set());
+const backendRows = ref<MessageCategoryRow[]>([]);
+const isLoading = ref(false);
 
 const categoryRows = computed(() => {
+  if (!useMockData.value) return backendRows.value;
   return messageCategories.map((category) => ({
     ...category,
     latest: getLatestMessage(category.key),
@@ -16,7 +25,22 @@ const categoryRows = computed(() => {
 onShow(() => {
   const stored = uni.getStorageSync("lumiReadMessageCategories");
   readKeys.value = new Set(Array.isArray(stored) ? stored : []);
+  void loadMessages();
 });
+
+async function loadMessages() {
+  if (useMockData.value) return;
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    backendRows.value = await fetchMessageSummary();
+  } catch {
+    uni.showToast({ title: "消息加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function openCategory(key: MessageCategoryKey) {
   uni.navigateTo({ url: `/pages/message-detail/index?type=${key}` });
@@ -27,6 +51,7 @@ function openCategory(key: MessageCategoryKey) {
   <view class="messages-page">
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
+        <view v-if="isLoading" class="empty-row">消息同步中...</view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
           <view class="category-icon" :style="{ background: category.gradient }">{{ category.icon }}</view>
           <view class="category-main">
@@ -63,7 +88,8 @@ function openCategory(key: MessageCategoryKey) {
   padding: 12px 16px;
 }
 
-.category-card {
+.category-card,
+.empty-row {
   display: flex;
   gap: 14px;
   align-items: center;
@@ -74,7 +100,11 @@ function openCategory(key: MessageCategoryKey) {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 10px;
-  transition: transform 0.2s ease;
+}
+
+.empty-row {
+  justify-content: center;
+  color: var(--fg-muted);
 }
 
 .category-card:active {

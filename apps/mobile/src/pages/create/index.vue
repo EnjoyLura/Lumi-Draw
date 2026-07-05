@@ -307,7 +307,7 @@ async function uploadPromptImage() {
 
   isUploadingPromptImage.value = true;
   try {
-    const uploaded = await uploadChosenImage("prompt");
+    const uploaded = await uploadChosenImage("prompt-image");
     promptImage.value = uploaded.publicUrl;
     showToast("图片已上传");
   } catch {
@@ -430,7 +430,7 @@ async function savePreview() {
 
   isSavingDrafts.value = true;
   try {
-    const uploaded = await uploadRemoteImage(previewData.value.src, "generated");
+    const uploaded = await uploadRemoteImage(previewData.value.src, "work");
     await createDraftWork({
       title: draftTitle(),
       description: "",
@@ -468,7 +468,7 @@ async function saveAllResults() {
   isSavingDrafts.value = true;
   try {
     for (const [index, item] of successfulResults.entries()) {
-      const uploaded = await uploadRemoteImage(generatedImageUrl(item.seed), "generated", `${item.seed}.jpg`);
+      const uploaded = await uploadRemoteImage(generatedImageUrl(item.seed), "work", `${item.seed}.jpg`);
       await createDraftWork({
         title: draftTitle(index),
         description: "",

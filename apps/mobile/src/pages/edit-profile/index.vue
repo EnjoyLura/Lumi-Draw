@@ -1,21 +1,98 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { uploadChosenImage } from "../../services/upload";
+import { fetchMyProfile, updateMyProfile } from "./profileService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const nickname = ref("云端造梦师");
-const gender = ref<"male" | "female">("male");
-const signature = ref("用AI描绘心中的梦境，每一笔都是想象力的延伸");
-const accountId = "LUMI8829";
+const gender = ref<"male" | "female" | "unknown">("male");
+const signature = ref("用 AI 描绘心中的梦境，每一笔都是想象力的延伸");
+const accountId = ref("LUMI8829");
+const avatarText = ref("梦");
+const avatarColor = ref("var(--accent)");
+const avatarUrl = ref("");
+const isSaving = ref(false);
+const isUploading = ref(false);
 
 const nickCount = computed(() => `${nickname.value.length}/20`);
 const signCount = computed(() => `${signature.value.length}/100`);
 
-function pickAvatar() {
-  uni.showToast({ title: "选择头像图片", icon: "none" });
+onShow(() => {
+  void loadProfile();
+});
+
+async function loadProfile() {
+  if (useMockData.value) return;
+  if (!requireLogin()) return;
+
+  try {
+    const profile = await fetchMyProfile();
+    nickname.value = profile.nickname || nickname.value;
+    gender.value = (profile.gender as "male" | "female" | "unknown") || "unknown";
+    signature.value = profile.bio || "";
+    accountId.value = `LUMI${String(profile.id).padStart(4, "0")}`;
+    avatarText.value = profile.avatarText || profile.nickname?.slice(0, 1) || "露";
+    avatarColor.value = profile.avatarColor || "var(--accent)";
+    avatarUrl.value = profile.avatarUrl || "";
+  } catch {
+    uni.showToast({ title: "资料加载失败", icon: "none" });
+  }
 }
 
-function save() {
-  uni.showToast({ title: "资料已保存", icon: "none" });
-  setTimeout(() => uni.navigateBack(), 600);
+async function pickAvatar() {
+  if (!requireLogin() || isUploading.value) return;
+
+  if (useMockData.value) {
+    uni.showToast({ title: "头像已更新", icon: "none" });
+    return;
+  }
+
+  isUploading.value = true;
+  try {
+    const uploaded = await uploadChosenImage("avatar");
+    avatarUrl.value = uploaded.publicUrl;
+    uni.showToast({ title: "头像已上传", icon: "none" });
+  } catch {
+    uni.showToast({ title: "头像上传失败", icon: "none" });
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+async function save() {
+  if (isSaving.value) return;
+  if (!nickname.value.trim()) {
+    uni.showToast({ title: "请输入昵称", icon: "none" });
+    return;
+  }
+
+  if (useMockData.value) {
+    uni.showToast({ title: "资料已保存", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+    return;
+  }
+  if (!requireLogin()) return;
+
+  isSaving.value = true;
+  try {
+    await updateMyProfile({
+      nickname: nickname.value.trim(),
+      avatarUrl: avatarUrl.value,
+      bio: signature.value.trim(),
+      gender: gender.value
+    });
+    uni.showToast({ title: "资料已保存", icon: "none" });
+    setTimeout(() => uni.navigateBack(), 600);
+  } catch {
+    uni.showToast({ title: "保存失败，请稍后重试", icon: "none" });
+  } finally {
+    isSaving.value = false;
+  }
 }
 </script>
 
@@ -25,8 +102,9 @@ function save() {
       <view class="edit-content">
         <view class="avatar-block">
           <view class="avatar-wrap" @click="pickAvatar">
-            <view class="avatar">梦</view>
-            <view class="avatar-cam">◎</view>
+            <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
+            <view v-else class="avatar" :style="{ background: avatarColor }">{{ avatarText }}</view>
+            <view class="avatar-cam">{{ isUploading ? "..." : "●" }}</view>
           </view>
           <view class="avatar-tip">点击更换头像</view>
         </view>
@@ -42,6 +120,7 @@ function save() {
           <view class="gender-row">
             <view class="gender-option" :class="{ active: gender === 'male' }" @click="gender = 'male'">男</view>
             <view class="gender-option" :class="{ active: gender === 'female' }" @click="gender = 'female'">女</view>
+            <view class="gender-option" :class="{ active: gender === 'unknown' }" @click="gender = 'unknown'">保密</view>
           </view>
         </view>
 
@@ -55,12 +134,12 @@ function save() {
           <view class="field-label">账号ID</view>
           <view class="lock-row">
             <input class="input locked" type="text" :value="accountId" disabled />
-            <view class="lock-icon">⚿</view>
+            <view class="lock-icon">●</view>
           </view>
           <view class="lock-tip">账号ID不可修改</view>
         </view>
 
-        <button class="save-btn" @click="save">保存</button>
+        <button class="save-btn" :disabled="isSaving" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
       </view>
     </scroll-view>
   </view>
@@ -102,9 +181,12 @@ function save() {
   font-size: 32px;
   font-weight: 700;
   color: #fff;
-  background: var(--accent);
   border-radius: 50%;
   box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.avatar-img {
+  display: block;
 }
 
 .avatar-cam {
@@ -117,7 +199,7 @@ function save() {
   box-sizing: border-box;
   width: 28px;
   height: 28px;
-  font-size: 14px;
+  font-size: 12px;
   color: #fff;
   background: var(--accent);
   border: 2px solid var(--bg-base);
@@ -142,28 +224,15 @@ function save() {
 }
 
 .input {
+  box-sizing: border-box;
   width: 100%;
   height: 44px;
-  box-sizing: border-box;
   padding: 0 14px;
   font-size: 14px;
   color: var(--fg-primary);
   background: var(--bg-elevated);
   border: 1.5px solid var(--border);
   border-radius: 12px;
-  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
-}
-
-.input:focus-within {
-  background: var(--bg-card);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.input.locked:focus-within {
-  background: var(--bg-elevated);
-  border-color: var(--border);
-  box-shadow: none;
 }
 
 .textarea {
@@ -195,7 +264,6 @@ function save() {
   background: var(--bg-elevated);
   border: 2px solid var(--border);
   border-radius: 10px;
-  transition: all 0.3s ease;
 }
 
 .gender-option.active {
@@ -222,16 +290,14 @@ function save() {
   opacity: 0.6;
 }
 
-.lock-icon {
-  flex: 0 0 auto;
-  font-size: 16px;
+.lock-icon,
+.lock-tip {
   color: var(--fg-muted);
 }
 
 .lock-tip {
   margin-top: 4px;
   font-size: 11px;
-  color: var(--fg-muted);
 }
 
 .save-btn {
@@ -244,6 +310,10 @@ function save() {
   background: var(--accent);
   border: none;
   border-radius: 12px;
+}
+
+.save-btn[disabled] {
+  opacity: 0.65;
 }
 
 .save-btn::after {

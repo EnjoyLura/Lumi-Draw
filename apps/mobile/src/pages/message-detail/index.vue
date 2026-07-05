@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { getMessageCategory, getMessages, type MessageCategory } from "../messages/messagesData";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { getMessageCategory, getMessages, type MessageCategory, type MessageCategoryKey, type MessageItem } from "../messages/messagesData";
+import { fetchMessageList, markMessageCategoryRead } from "../messages/messagesService";
+
+const { requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const category = ref<MessageCategory>(getMessageCategory("like"));
 const readKeys = ref<Set<string>>(new Set());
+const backendMessages = ref<MessageItem[]>([]);
+const isLoading = ref(false);
 
-const messages = computed(() => getMessages(category.value.key, readKeys.value));
+const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
 onLoad((query) => {
   category.value = getMessageCategory(String(query?.type || "like"));
@@ -19,20 +27,41 @@ onLoad((query) => {
   const next = new Set(current);
   next.add(category.value.key);
   uni.setStorageSync("lumiReadMessageCategories", [...next]);
+  void loadMessages(category.value.key);
 });
+
+async function loadMessages(type: MessageCategoryKey) {
+  if (useMockData.value) return;
+  if (!requireLogin()) return;
+
+  isLoading.value = true;
+  try {
+    backendMessages.value = await fetchMessageList(type);
+    await markMessageCategoryRead(type);
+  } catch {
+    uni.showToast({ title: "消息加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 </script>
 
 <template>
   <view class="message-detail-page">
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
-        <view v-if="messages.length === 0" class="empty-state">
+        <view v-if="isLoading" class="empty-state">
           <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
-          <view class="empty-title">暂无{{ category.title }}消息</view>
-          <view class="empty-sub">有新消息时会通知你</view>
+          <view class="empty-title">消息加载中</view>
         </view>
 
-        <view v-for="(message, index) in messages" :key="`${message.time}-${index}`" class="message-card">
+        <view v-else-if="messages.length === 0" class="empty-state">
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
+          <view class="empty-title">暂无{{ category.title }}</view>
+          <view class="empty-sub">有新消息时会显示在这里</view>
+        </view>
+
+        <view v-for="(message, index) in messages" v-else :key="`${message.time}-${index}`" class="message-card">
           <template v-if="message.user">
             <view class="avatar" :style="{ background: message.user.color }">{{ message.user.avatar }}</view>
             <view class="message-main">

@@ -93,7 +93,7 @@ async function uploadLocalImage() {
 
   isUploadingLocalImage.value = true;
   try {
-    const uploaded = await uploadChosenImage("works");
+    const uploaded = await uploadChosenImage("work");
     selectDraft({
       id: Date.now(),
       image: uploaded.publicUrl,
