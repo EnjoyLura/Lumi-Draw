@@ -476,7 +476,7 @@ async function main() {
       assert(movedDraft.data?.ok === true && movedDraft.data?.action === "draft", "managed work did not move back to draft");
 
       const [{ body: draftDetail }, { body: afterDrafts }, { body: plazaAfterDraft }] = await Promise.all([
-        request("GET", `/works/${workId}`),
+        request("GET", `/works/${workId}`, undefined, user.accessToken),
         request("GET", "/works/me/drafts?page=1&pageSize=20", undefined, user.accessToken),
         request("GET", "/works/plaza?page=1&pageSize=20")
       ]);
