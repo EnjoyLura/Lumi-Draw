@@ -119,7 +119,7 @@ async function openMember() {
 }
 
 function showAgreement() {
-  uni.navigateTo({ url: "/pages/settings/index" });
+  uni.navigateTo({ url: "/pages/agreement/index?type=membership" });
 }
 </script>
 
