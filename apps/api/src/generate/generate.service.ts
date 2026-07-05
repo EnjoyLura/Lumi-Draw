@@ -4,6 +4,7 @@ import type { GenerateJob, GenerateResult, Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
 import type { CreateGenerateJobDto } from "./generate.dto";
 import { KieClient } from "./kie.client";
 
@@ -18,7 +19,8 @@ export class GenerateService {
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
     private readonly kie: KieClient,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly uploads: UploadsService
   ) {}
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
@@ -174,13 +176,16 @@ export class GenerateService {
         const failed = await this.failAndRefund(job.id, "KIE callback did not include images");
         return this.toJobView(failed.job);
       }
+      const results = await this.transferGeneratedImages(job.id, event.imageUrls);
       const updated = await this.prisma.$transaction(async (tx) => {
         await tx.generateResult.deleteMany({ where: { jobId: job.id } });
         await tx.generateResult.createMany({
-          data: event.imageUrls.map((imageUrl) => ({
+          data: results.map((result) => ({
             jobId: job.id,
             status: "succeeded",
-            imageUrl
+            imageUrl: result.imageUrl,
+            ossKey: result.ossKey,
+            sizeBytes: result.sizeBytes
           }))
         });
         return tx.generateJob.update({
@@ -301,6 +306,21 @@ export class GenerateService {
           : { balance: (await tx.user.findUniqueOrThrow({ where: { id: job.userId }, select: { credits: true } })).credits };
       return { job: updated, balance };
     });
+  }
+
+  private async transferGeneratedImages(jobId: string, imageUrls: string[]) {
+    const results = [];
+    try {
+      for (const imageUrl of imageUrls) {
+        const transferred = await this.uploads.transferRemoteImage("generate", imageUrl);
+        results.push(transferred);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "OSS transfer failed";
+      await this.failAndRefund(jobId, message);
+      throw new BadRequestException(message);
+    }
+    return results;
   }
 
   private normalizeCallback(body: Record<string, unknown>) {

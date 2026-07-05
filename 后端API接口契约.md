@@ -1336,12 +1336,12 @@ MVP 必需表：
   - `generating` -> `running`
   - `success` -> `succeeded`
   - `fail` -> `failed`
-- 成功回调会从 `resultJson.resultUrls`、`result_urls`、`urls`、`images`、`imageUrls` 等常见字段提取图片 URL，并写入 `generate_results`。
+- 成功回调会从 `resultJson.resultUrls`、`result_urls`、`urls`、`images`、`imageUrls` 等常见字段提取图片 URL，服务端转存到 OSS 后写入 `generate_results.imageUrl` 和 `ossKey`。
+- 如果 KIE 成功但 OSS 转存失败，任务会标记为 `failed`，并幂等退回尚未退过的积分。
 - 失败回调会把任务标记为 `failed`，并幂等退回尚未退过的积分。
 - 重复回调如果任务已处于终态，会直接返回当前任务视图，不重复写结果或退款。
 
 ### 12.3 尚未完成
 
-- 生成结果转存 OSS 还未完成；当前成功回调先保存 KIE 返回的图片 URL。
 - BullMQ Worker 还未接入；当前创建接口直接提交 KIE。
 - 微信内容审核与作品自动入库仍属于后续任务。

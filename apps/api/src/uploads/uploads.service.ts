@@ -2,12 +2,20 @@ import { createHmac, randomUUID } from "node:crypto";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif"
+};
+
+type TransferRemoteImageResult = {
+  imageUrl: string;
+  ossKey: string;
+  sizeBytes: number;
+  contentType: string;
 };
 
 function encodeKeyPath(key: string) {
@@ -51,5 +59,38 @@ export class UploadsService {
     const oss = this.config.get<{ bucket: string; endpoint: string }>("app.oss");
     const resolved = publicUrl ?? (oss?.bucket && oss.endpoint ? `https://${oss.bucket}.${oss.endpoint}/${encodeKeyPath(ossKey)}` : "");
     return { ok: true, ossKey, publicUrl: resolved };
+  }
+
+  async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
+    const downloaded = await this.downloadImage(sourceUrl);
+    const policy = this.policy(scene, `generated.${EXT_BY_TYPE[downloaded.contentType] ?? "jpg"}`, downloaded.contentType);
+    const uploaded = await fetch(policy.uploadUrl, {
+      method: "PUT",
+      headers: policy.headers,
+      body: downloaded.buffer
+    });
+
+    if (!uploaded.ok) {
+      throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
+    }
+
+    return {
+      imageUrl: policy.publicUrl,
+      ossKey: policy.ossKey,
+      sizeBytes: downloaded.buffer.byteLength,
+      contentType: downloaded.contentType
+    };
+  }
+
+  private async downloadImage(sourceUrl: string) {
+    const response = await fetch(sourceUrl);
+    if (!response.ok) throw new BadRequestException(`image download failed with HTTP ${response.status}`);
+
+    const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() || "image/jpeg";
+    if (!EXT_BY_TYPE[contentType]) throw new BadRequestException("unsupported generated image type");
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength > MAX_TRANSFER_BYTES) throw new BadRequestException("generated image is too large");
+    return { buffer, contentType };
   }
 }
