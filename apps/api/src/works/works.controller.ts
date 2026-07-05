@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query,
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { OptionalJwtAuthGuard } from "../auth/guards/optional-jwt-auth.guard";
 import { FeedQueryDto, PlazaQueryDto, SearchQueryDto } from "./works.query";
 import { CreateWorkDto, DeleteWorkQueryDto, MyGalleryQueryDto, UpdateWorkDto } from "./works.write.dto";
 import { WorksService } from "./works.service";
@@ -61,8 +62,9 @@ export class WorksController {
     return this.works.remove(user.id, id, query.action);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(":id")
-  detail(@Param("id", ParseIntPipe) id: number) {
-    return this.works.detail(id);
+  detail(@Param("id", ParseIntPipe) id: number, @CurrentUser() user?: { id: number }) {
+    return this.works.detail(id, user?.id);
   }
 }

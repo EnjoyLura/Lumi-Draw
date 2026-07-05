@@ -28,7 +28,7 @@ export interface BackendWorkDetailView {
 }
 
 export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView> {
-  const item = await api.get<BackendWorkDetail>(`/works/${id}`, { skipAuth: true });
+  const item = await api.get<BackendWorkDetail>(`/works/${id}`);
   const styleName = item.style || "默认";
   const title = item.title || item.prompt.slice(0, 20);
   const published = item.status === "published" && item.isPublic;

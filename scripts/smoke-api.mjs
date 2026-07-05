@@ -101,7 +101,10 @@ async function main() {
     );
     assert(patched.data?.style === "smoke-style-after", "work style did not update");
 
-    const { body: detail } = await request("GET", `/works/${workId}`);
+    const anonymousDetail = await request("GET", `/works/${workId}`, undefined, undefined, true);
+    assert(anonymousDetail.status === 404 || anonymousDetail.body?.code !== 0, "draft work should not be public");
+
+    const { body: detail } = await request("GET", `/works/${workId}`, undefined, user.accessToken);
     assert(detail.data?.title === "smoke-work-after", "work detail did not persist");
 
     const { body: deleted } = await request("DELETE", `/works/${workId}?action=delete`, undefined, user.accessToken);

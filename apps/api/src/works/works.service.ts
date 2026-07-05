@@ -71,10 +71,13 @@ export class WorksService {
     return this.listCards(where, [{ likes: "desc" }, { id: "desc" }], page, pageSize);
   }
 
-  async detail(id: number) {
+  async detail(id: number, currentUserId?: number) {
     const work = await this.prisma.work.findUnique({ where: { id }, include: { user: true } });
     if (!work) {
       throw new NotFoundException("作品不存在");
+    }
+    if ((work.status !== "published" || !work.isPublic) && work.userId !== currentUserId) {
+      throw new NotFoundException("work not found");
     }
     const model = work.modelId
       ? await this.prisma.modelConfig.findUnique({ where: { id: work.modelId } })
@@ -132,7 +135,7 @@ export class WorksService {
       }
     });
     await this.prisma.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
-    return this.detail(work.id);
+    return this.detail(work.id, userId);
   }
 
   async update(userId: number, id: number, dto: UpdateWorkDto) {
@@ -150,7 +153,7 @@ export class WorksService {
       }
     }
     await this.prisma.work.update({ where: { id }, data });
-    return this.detail(id);
+    return this.detail(id, userId);
   }
 
   async remove(userId: number, id: number, action: "delete" | "offline" | "draft" = "delete") {
