@@ -249,6 +249,111 @@ async function main() {
     );
   });
 
+  await step("checkin and invite rewards", async () => {
+    const inviterLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-inviter-${Date.now()}` });
+    const inviteeLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-invitee-${Date.now()}` });
+    const inviter = inviterLogin.body.data;
+    const invitee = inviteeLogin.body.data;
+    assert(inviter?.accessToken && invitee?.accessToken, "invite smoke tokens missing");
+
+    const { body: checkinStatus } = await request("GET", "/checkin/status", undefined, invitee.accessToken);
+    assert(typeof checkinStatus.data?.checkedToday === "boolean", "checkin status missing");
+
+    const { body: beforeCheckinBalance } = await request("GET", "/credits/balance", undefined, invitee.accessToken);
+    const { body: checked } = await request("POST", "/checkin", undefined, invitee.accessToken);
+    assert(checked.data?.checked === true, "first checkin did not succeed");
+    assert(checked.data?.credits > 0, "checkin credits missing");
+    assert(checked.data?.balance === beforeCheckinBalance.data.credits + checked.data.credits, "checkin balance mismatch");
+
+    const { body: checkedAgain } = await request("POST", "/checkin", undefined, invitee.accessToken);
+    assert(checkedAgain.data?.checked === false, "second same-day checkin should be idempotent");
+
+    const { body: inviterSummary } = await request("GET", "/invite/summary", undefined, inviter.accessToken);
+    const inviteCode = inviterSummary.data?.inviteCode;
+    assert(inviteCode, "invite code missing");
+
+    const { body: bindResult } = await request("POST", "/invite/bind", { code: inviteCode }, invitee.accessToken);
+    assert(bindResult.data?.ok === true, "invite bind failed");
+    assert(bindResult.data?.rewardCredits > 0, "invitee reward missing");
+
+    const { body: updatedSummary } = await request("GET", "/invite/summary", undefined, inviter.accessToken);
+    assert(updatedSummary.data?.invitedCount >= inviterSummary.data.invitedCount + 1, "invited count did not increase");
+    assert(updatedSummary.data?.totalReward >= inviterSummary.data.totalReward + updatedSummary.data.rewardPerInvite, "inviter reward missing");
+
+    const duplicate = await request("POST", "/invite/bind", { code: inviteCode }, invitee.accessToken, true);
+    assert(duplicate.status >= 400 || duplicate.body?.code !== 0, "duplicate invite bind should fail");
+  });
+
+  await step("history and report", async () => {
+    const ownerLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-report-owner-${Date.now()}` });
+    const viewerLogin = await request("POST", "/auth/wechat/login", { code: `mock-smoke-report-viewer-${Date.now()}` });
+    const owner = ownerLogin.body.data;
+    const viewer = viewerLogin.body.data;
+    assert(owner?.accessToken && viewer?.accessToken, "history/report smoke tokens missing");
+
+    const { body: created } = await request(
+      "POST",
+      "/works",
+      {
+        title: "smoke-history-report-work",
+        description: "history report smoke",
+        prompt: "history report prompt",
+        imageUrl: "https://example.com/smoke-history-report-work.png",
+        ratio: "1:1",
+        quality: "1K",
+        modelId: "smoke-model",
+        style: "smoke-style",
+        isPublic: true
+      },
+      owner.accessToken
+    );
+    const workId = created.data?.id;
+    assert(workId, "history/report work id missing");
+
+    if (created.data?.status !== "published") {
+      if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+        await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
+        console.log("skipped (manual review kept work unpublished)");
+        return;
+      }
+      const { body: adminLogin } = await request("POST", "/admin/auth/login", {
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD
+      });
+      assert(adminLogin.data?.accessToken, "admin token missing for history/report approval");
+      await request("POST", `/admin/reviews/${workId}/approve`, {}, adminLogin.data.accessToken);
+    }
+
+    const { body: viewed } = await request("POST", `/social/works/${workId}/view`, undefined, viewer.accessToken);
+    assert(viewed.data?.viewed === true, "work view was not recorded");
+
+    const { body: history } = await request("GET", "/social/history?page=1&pageSize=10", undefined, viewer.accessToken);
+    assert((history.data?.items || []).some((item) => item.id === workId), "viewed work missing from history");
+
+    const { body: report } = await request(
+      "POST",
+      `/social/works/${workId}/report`,
+      { reason: "smoke-test", description: "smoke report" },
+      viewer.accessToken
+    );
+    assert(report.data?.id, "report id missing");
+    assert(report.data?.duplicated === false, "first report should not be duplicated");
+
+    const { body: duplicateReport } = await request(
+      "POST",
+      `/social/works/${workId}/report`,
+      { reason: "smoke-test", description: "smoke report duplicate" },
+      viewer.accessToken
+    );
+    assert(duplicateReport.data?.duplicated === true, "duplicate report should be idempotent");
+
+    await request("DELETE", "/social/history", undefined, viewer.accessToken);
+    const { body: clearedHistory } = await request("GET", "/social/history?page=1&pageSize=10", undefined, viewer.accessToken);
+    assert(!(clearedHistory.data?.items || []).some((item) => item.id === workId), "history was not cleared");
+
+    await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
+  });
+
   if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     const admin = await step("admin login", async () => {
       const { body } = await request("POST", "/admin/auth/login", { username: ADMIN_USERNAME, password: ADMIN_PASSWORD });
