@@ -5,8 +5,9 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { setUseMockData, useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { currentVersion } from "../changelog/changelogData";
 import { aboutItems, type SettingsLink } from "./settingsData";
-import { fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
+import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
@@ -14,6 +15,8 @@ const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState } = u
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const phone = ref(currentUser.value?.phone || "");
+const versionMeta = ref(currentVersion);
+const cacheMeta = ref("12.5MB");
 const isSavingPhone = ref(false);
 
 const phoneText = computed(() => {
@@ -25,9 +28,17 @@ const phoneTagText = computed(() => {
   if (!isLoggedIn.value) return "未登录";
   return phone.value ? "已绑定" : "未绑定";
 });
+const visibleAboutItems = computed(() =>
+  aboutItems.map((item) => {
+    if (item.key === "version") return { ...item, meta: versionMeta.value };
+    if (item.key === "cache") return { ...item, meta: cacheMeta.value };
+    return item;
+  })
+);
 
 onShow(() => {
   void loadSettingsProfile();
+  void loadVersionMeta();
 });
 
 function requireSession() {
@@ -56,6 +67,20 @@ async function loadSettingsProfile() {
     phone.value = profile.phone || "";
   } catch {
     phone.value = currentUser.value?.phone || "";
+  }
+}
+
+async function loadVersionMeta() {
+  if (useMockData.value) {
+    versionMeta.value = currentVersion;
+    return;
+  }
+
+  try {
+    const rows = await fetchChangelog();
+    versionMeta.value = rows[0]?.version || currentVersion;
+  } catch {
+    versionMeta.value = currentVersion;
   }
 }
 
@@ -116,7 +141,28 @@ function toggleMock() {
   setUseMockData(!useMockData.value);
   syncAuthState();
   void loadSettingsProfile();
+  void loadVersionMeta();
   uni.showToast({ title: useMockData.value ? "已切换为模拟数据" : "已切换为后端接口", icon: "none" });
+}
+
+function clearAppCache() {
+  const cacheKeys = [
+    "lumi-home-announcement-dismissed-week",
+    "lumiReadMessageCategories",
+    "lumiCreatePromptDraft",
+    "lumi-draw:active-generate-jobs",
+    "lumi-draw:notified-generate-jobs"
+  ];
+
+  cacheKeys.forEach((key) => {
+    try {
+      uni.removeStorageSync(key);
+    } catch {
+      // Ignore storage errors in preview runtimes.
+    }
+  });
+  cacheMeta.value = "0MB";
+  uni.showToast({ title: "缓存已清除", icon: "none" });
 }
 
 function handleAbout(item: SettingsLink) {
@@ -134,7 +180,7 @@ function handleAbout(item: SettingsLink) {
     return;
   }
   if (item.key === "cache") {
-    uni.showToast({ title: "缓存已清除", icon: "none" });
+    clearAppCache();
     return;
   }
   uni.showToast({ title: item.label, icon: "none" });
@@ -202,7 +248,7 @@ async function login() {
 
         <view class="section-title">关于</view>
         <view class="card">
-          <view v-for="item in aboutItems" :key="item.key" class="list-row" @click="handleAbout(item)">
+          <view v-for="item in visibleAboutItems" :key="item.key" class="list-row" @click="handleAbout(item)">
             <view class="lr-icon">{{ item.icon }}</view>
             <view class="lr-text">{{ item.label }}</view>
             <text v-if="item.meta" class="lr-meta">{{ item.meta }}</text>
