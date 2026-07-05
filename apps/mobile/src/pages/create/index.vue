@@ -574,7 +574,7 @@ async function savePreview() {
 
   if (!ensureLogin()) return;
   if (previewData.value.savedWorkId) {
-    showToast("鍥剧墖宸插湪鑽夌绠?");
+    showToast("图片已在草稿箱");
     closePreview();
     return;
   }
@@ -590,7 +590,7 @@ async function savePreview() {
       const result = generatedResults.value.find((item) => item.resultId === previewData.value?.resultId);
       if (result) result.savedWorkId = published.workId;
       previewData.value.savedWorkId = published.workId;
-      showToast("鍥剧墖宸蹭繚瀛樺埌鑽夌绠?");
+      showToast("图片已保存到草稿箱");
       closePreview();
       return;
     }
