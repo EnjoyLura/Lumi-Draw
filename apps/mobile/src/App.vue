@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
+import { initAuth } from "./services/auth";
+import { initDataMode } from "./services/dataMode";
 import { initTheme } from "./services/theme";
 
 onLaunch(() => {
+  initDataMode();
+  initAuth();
   initTheme();
   console.log("Lumi Draw mobile started");
 });

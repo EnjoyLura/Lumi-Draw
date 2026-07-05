@@ -49,20 +49,24 @@ function handleAbout(item: SettingsLink) {
   uni.showToast({ title: item.label, icon: "none" });
 }
 
-function handleLoginAction() {
+async function handleLoginAction() {
   if (!isLoggedIn.value) {
     showLoginSheet.value = true;
     return;
   }
 
-  logout();
+  await logout();
   uni.showToast({ title: "已退出登录", icon: "none" });
 }
 
-function login() {
-  commitLogin();
-  showLoginSheet.value = false;
-  uni.showToast({ title: "登录成功", icon: "none" });
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
 }
 </script>
 

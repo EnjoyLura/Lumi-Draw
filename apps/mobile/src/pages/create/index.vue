@@ -137,10 +137,14 @@ function ensureLogin() {
   return requireLogin(openLoginSheet);
 }
 
-function login() {
-  commitLogin();
-  showLoginSheet.value = false;
-  showToast("登录成功");
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    showToast("登录成功");
+  } catch {
+    showToast("登录失败，请稍后重试");
+  }
 }
 
 function chooseGameplay() {
