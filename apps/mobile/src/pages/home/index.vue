@@ -1,11 +1,24 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
-import { gameplays, homeBanners, homeUsers, homeWorks, type HomeWork } from "./homeData";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import {
+  gameplays as mockGameplays,
+  homeBanners as mockHomeBanners,
+  homeUsers as mockHomeUsers,
+  homeWorks as mockHomeWorks,
+  type Gameplay,
+  type HomeBanner,
+  type HomeUser,
+  type HomeWork
+} from "./homeData";
+import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
+import { useDataMode } from "../../services/dataMode";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 
 const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
 type HomeTab = "recommend" | "new";
+const FEED_PAGE_SIZE = 8;
 
 const statusBarHeight = ref(0);
 try {
@@ -17,29 +30,99 @@ try {
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
 const renderedHomeTab = ref<HomeTab>("recommend");
+const bannerList = ref<HomeBanner[]>(mockHomeBanners);
+const gameplayList = ref<Gameplay[]>(mockGameplays);
+const userList = ref<HomeUser[]>(mockHomeUsers);
+const recommendWorks = ref<HomeWork[]>(mockHomeWorks);
+const latestWorks = ref<HomeWork[]>([...mockHomeWorks].reverse());
 const likedWorkIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(8);
+const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
 const isSwitchingWorks = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
+const { useMockData } = useDataMode();
+const feedState = reactive({
+  recommend: { page: 1, hasMore: false },
+  new: { page: 1, hasMore: false }
+});
 
 let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let lastMockMode: boolean | null = null;
 
 const currentTabWorks = computed(() => {
-  return renderedHomeTab.value === "new" ? [...homeWorks].reverse() : homeWorks;
+  return renderedHomeTab.value === "new" ? latestWorks.value : recommendWorks.value;
 });
 
 const displayedWorks = computed(() => currentTabWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
-const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length);
+const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedState.new : feedState.recommend));
+const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
+
+onShow(() => {
+  if (lastMockMode === useMockData.value) return;
+  lastMockMode = useMockData.value;
+  void loadHomeData();
+});
 
 onBeforeUnmount(() => {
   if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
 });
+
+function resetMockHomeData() {
+  bannerList.value = mockHomeBanners;
+  gameplayList.value = mockGameplays;
+  userList.value = mockHomeUsers;
+  recommendWorks.value = mockHomeWorks;
+  latestWorks.value = [...mockHomeWorks].reverse();
+  feedState.recommend = { page: 1, hasMore: false };
+  feedState.new = { page: 1, hasMore: false };
+  visibleWorkCount.value = 8;
+  worksRenderKey.value += 1;
+}
+
+function mergeUsers(nextUsers: HomeUser[]) {
+  const map = new Map<number, HomeUser>();
+  userList.value.forEach((user) => map.set(user.id, user));
+  nextUsers.forEach((user) => map.set(user.id, user));
+  userList.value = Array.from(map.values());
+}
+
+async function loadHomeData() {
+  if (useMockData.value) {
+    resetMockHomeData();
+    return;
+  }
+
+  isPageLoading.value = true;
+  try {
+    const [bootstrap, recommendFeed, latestFeed] = await Promise.all([
+      fetchHomeBootstrap(),
+      fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE),
+      fetchHomeFeed("latest", 1, FEED_PAGE_SIZE)
+    ]);
+
+    bannerList.value = bootstrap.banners.length ? bootstrap.banners : mockHomeBanners;
+    gameplayList.value = bootstrap.gameplays.length ? bootstrap.gameplays : mockGameplays;
+    recommendWorks.value = recommendFeed.works;
+    latestWorks.value = latestFeed.works;
+    userList.value = mockHomeUsers;
+    mergeUsers([...recommendFeed.users, ...latestFeed.users]);
+    feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
+    feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
+    visibleWorkCount.value = 8;
+    worksRenderKey.value += 1;
+  } catch {
+    uni.showToast({ title: "首页数据加载失败，已使用本地数据", icon: "none" });
+    resetMockHomeData();
+  } finally {
+    isPageLoading.value = false;
+  }
+}
 
 function showTodo(label: string) {
   uni.showToast({
@@ -144,13 +227,40 @@ function switchHomeTab(tab: HomeTab) {
   }, 280);
 }
 
+async function loadMoreFeed() {
+  const tab = renderedHomeTab.value;
+  const state = tab === "new" ? feedState.new : feedState.recommend;
+  if (useMockData.value || !state.hasMore) return false;
+
+  try {
+    const nextPage = state.page + 1;
+    const feed = await fetchHomeFeed(tab === "new" ? "latest" : "recommend", nextPage, FEED_PAGE_SIZE);
+    if (tab === "new") {
+      latestWorks.value = [...latestWorks.value, ...feed.works];
+      feedState.new = { page: feed.page, hasMore: feed.hasMore };
+    } else {
+      recommendWorks.value = [...recommendWorks.value, ...feed.works];
+      feedState.recommend = { page: feed.page, hasMore: feed.hasMore };
+    }
+    mergeUsers(feed.users);
+    return feed.works.length > 0;
+  } catch {
+    uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+    return false;
+  }
+}
+
 function handleReachBottom() {
   if (isSwitchingWorks.value || isLoadingMore.value) return;
 
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
 
-  loadMoreTimer = setTimeout(() => {
+  loadMoreTimer = setTimeout(async () => {
+    if (visibleWorkCount.value >= currentTabWorks.value.length) {
+      await loadMoreFeed();
+    }
+
     if (hasMoreWorks.value) {
       visibleWorkCount.value = Math.min(visibleWorkCount.value + 2, currentTabWorks.value.length);
       worksRenderKey.value += 1;
@@ -177,7 +287,7 @@ function toggleLike(work: HomeWork) {
 }
 
 function getUser(userId: number) {
-  return homeUsers.find((user) => user.id === userId) ?? homeUsers[0];
+  return userList.value.find((user) => user.id === userId) ?? userList.value[0] ?? mockHomeUsers[0];
 }
 
 function getWorkTitle(work: HomeWork) {
@@ -221,7 +331,7 @@ function getRatioClass(ratio: string) {
             :current="activeBanner"
             @change="activeBanner = $event.detail.current"
           >
-            <swiper-item v-for="banner in homeBanners" :key="banner.title">
+            <swiper-item v-for="banner in bannerList" :key="banner.title">
               <view class="banner-slide" @click="handleBannerTap(banner.action, banner.title)">
                 <image class="banner-image" :src="banner.image" mode="aspectFill" />
                 <view class="banner-shade" />
@@ -235,7 +345,7 @@ function getRatioClass(ratio: string) {
           </swiper>
           <view class="banner-dots">
             <text
-              v-for="(_, index) in homeBanners"
+              v-for="(_, index) in bannerList"
               :key="index"
               class="banner-dot"
               :class="{ active: index === activeBanner }"
@@ -254,7 +364,7 @@ function getRatioClass(ratio: string) {
         <scroll-view class="gameplay-scroll" scroll-x>
           <view class="gameplay-list">
             <view
-              v-for="gameplay in gameplays"
+              v-for="gameplay in gameplayList"
               :key="gameplay.name"
               class="gameplay-card"
               @click="selectGameplay(gameplay.name)"
@@ -292,7 +402,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <view class="works-stage">
-          <view v-if="isSwitchingWorks" class="works-loading">
+          <view v-if="isPageLoading || isSwitchingWorks" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
