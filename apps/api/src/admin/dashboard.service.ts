@@ -1,0 +1,81 @@
+import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+
+function dayKey(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function lastNDays(n: number): string[] {
+  const keys: string[] = [];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(base);
+    d.setDate(base.getDate() - i);
+    keys.push(dayKey(d));
+  }
+  return keys;
+}
+
+function bucketByDay(dates: Date[], keys: string[]): number[] {
+  const counts = new Map<string, number>(keys.map((k) => [k, 0]));
+  for (const d of dates) {
+    const k = dayKey(d);
+    if (counts.has(k)) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return keys.map((k) => counts.get(k) ?? 0);
+}
+
+@Injectable()
+export class DashboardService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async summary() {
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
+    const [totalUsers, totalWorks, publishedWorks, pendingWorks, todayNewUsers, todayNewWorks] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.work.count(),
+      this.prisma.work.count({ where: { status: "published" } }),
+      this.prisma.work.count({ where: { status: "pending" } }),
+      this.prisma.user.count({ where: { createdAt: { gte: startToday } } }),
+      this.prisma.work.count({ where: { createdAt: { gte: startToday } } })
+    ]);
+    return {
+      metrics: { totalUsers, totalWorks, publishedWorks, pendingWorks, todayNewUsers, todayNewWorks },
+      // 待办：举报/反馈模型后续增量补充，暂只给待审核作品数
+      todos: { pendingWorks, pendingReports: 0, pendingFeedback: 0 }
+    };
+  }
+
+  private daysOf(range?: string) {
+    return range === "30d" ? 30 : 7;
+  }
+
+  async trends(range?: string) {
+    const keys = lastNDays(this.daysOf(range));
+    const start = new Date(`${keys[0]}T00:00:00.000Z`);
+    const [users, works] = await Promise.all([
+      this.prisma.user.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+      this.prisma.work.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })
+    ]);
+    return {
+      range: `${this.daysOf(range)}d`,
+      labels: keys,
+      newUsers: bucketByDay(users.map((u) => u.createdAt), keys),
+      newWorks: bucketByDay(works.map((w) => w.createdAt), keys)
+    };
+  }
+
+  async detail(metric: string | undefined, range?: string) {
+    const keys = lastNDays(this.daysOf(range));
+    const start = new Date(`${keys[0]}T00:00:00.000Z`);
+    const m = metric === "works" ? "works" : "users";
+    const dates =
+      m === "works"
+        ? (await this.prisma.work.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })).map((w) => w.createdAt)
+        : (await this.prisma.user.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })).map((u) => u.createdAt);
+    const series = bucketByDay(dates, keys);
+    return { metric: m, range: `${this.daysOf(range)}d`, labels: keys, series, total: series.reduce((a, b) => a + b, 0) };
+  }
+}
