@@ -500,6 +500,8 @@ async function main() {
     await step("admin dashboard", async () => {
       const { body } = await request("GET", "/admin/dashboard/summary", undefined, admin.accessToken);
       assert(body.data, "admin dashboard summary missing");
+      assert(typeof body.data.todos?.pendingReports === "number", "admin pending reports missing");
+      assert(typeof body.data.todos?.pendingFeedback === "number", "admin pending feedback missing");
     });
   } else {
     console.log("- admin checks skipped (set ADMIN_USERNAME and ADMIN_PASSWORD to enable)");

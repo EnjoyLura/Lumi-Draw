@@ -33,18 +33,20 @@ export class DashboardService {
   async summary() {
     const startToday = new Date();
     startToday.setHours(0, 0, 0, 0);
-    const [totalUsers, totalWorks, publishedWorks, pendingWorks, todayNewUsers, todayNewWorks] = await Promise.all([
+    const [totalUsers, totalWorks, publishedWorks, pendingWorks, pendingReports, pendingFeedback, todayNewUsers, todayNewWorks] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.work.count(),
       this.prisma.work.count({ where: { status: "published" } }),
       this.prisma.work.count({ where: { status: "pending" } }),
+      this.prisma.report.count({ where: { status: { in: ["pending", "processing"] } } }),
+      this.prisma.feedback.count({ where: { status: { in: ["pending", "processing"] } } }),
       this.prisma.user.count({ where: { createdAt: { gte: startToday } } }),
       this.prisma.work.count({ where: { createdAt: { gte: startToday } } })
     ]);
     return {
       metrics: { totalUsers, totalWorks, publishedWorks, pendingWorks, todayNewUsers, todayNewWorks },
       // 待办：举报/反馈模型后续增量补充，暂只给待审核作品数
-      todos: { pendingWorks, pendingReports: 0, pendingFeedback: 0 }
+      todos: { pendingWorks, pendingReports, pendingFeedback }
     };
   }
 
