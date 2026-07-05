@@ -1,13 +1,51 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
+import { fetchMineProfile, toMineUser } from "./mineService";
 
-const { isLoggedIn, login: commitLogin } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin } = useAuth();
+const { useMockData } = useDataMode();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const showLoginSheet = ref(false);
+const displayUser = ref(mineUser);
+const isLoadingProfile = ref(false);
+let lastLoadKey = "";
+
+onShow(() => {
+  const loadKey = `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}`;
+  if (lastLoadKey === loadKey) return;
+  lastLoadKey = loadKey;
+  void loadProfile();
+});
+
+async function loadProfile() {
+  if (useMockData.value) {
+    displayUser.value = mineUser;
+    return;
+  }
+  if (!isLoggedIn.value) return;
+
+  isLoadingProfile.value = true;
+  try {
+    const profile = await fetchMineProfile();
+    displayUser.value = toMineUser(profile);
+    if (currentUser.value) {
+      currentUser.value.nickname = profile.nickname;
+      currentUser.value.avatarText = profile.avatarText;
+      currentUser.value.avatarColor = profile.avatarColor;
+      currentUser.value.credits = profile.credits;
+    }
+  } catch {
+    uni.showToast({ title: "用户资料加载失败", icon: "none" });
+  } finally {
+    isLoadingProfile.value = false;
+  }
+}
 
 function goHome() {
   uni.redirectTo({ url: "/pages/home/index" });
@@ -106,6 +144,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
+    await loadProfile();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -119,14 +158,16 @@ async function login() {
       <view class="mine-content">
         <view class="profile-card">
           <view class="user-row">
-            <view class="avatar" @click="handleProfileTap">{{ isLoggedIn ? mineUser.avatar : "☺" }}</view>
+            <view class="avatar" :style="{ background: isLoggedIn ? displayUser.color : 'var(--bg-soft)' }" @click="handleProfileTap">
+              {{ isLoggedIn ? displayUser.avatar : "☺" }}
+            </view>
             <view class="user-info" @click="handleProfileTap">
-              <view class="user-name">{{ isLoggedIn ? mineUser.name : "点击登录" }}</view>
-              <view class="user-id">{{ isLoggedIn ? `ID: ${mineUser.userNo}` : "登录解锁更多功能" }}</view>
+              <view class="user-name">{{ isLoggedIn ? (isLoadingProfile ? "加载中..." : displayUser.name) : "点击登录" }}</view>
+              <view class="user-id">{{ isLoggedIn ? `ID: ${displayUser.userNo}` : "登录解锁更多功能" }}</view>
             </view>
             <view class="credits" @click="handleCreditsTap">
               <view class="credits-label">我的积分</view>
-              <view class="credits-num">{{ isLoggedIn ? mineUser.credits : "--" }}</view>
+              <view class="credits-num">{{ isLoggedIn ? displayUser.credits : "--" }}</view>
             </view>
           </view>
 

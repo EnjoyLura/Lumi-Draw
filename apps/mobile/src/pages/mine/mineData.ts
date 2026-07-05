@@ -1,6 +1,7 @@
 export interface MineUser {
   name: string;
   avatar: string;
+  color: string;
   userNo: string;
   credits: number;
 }
@@ -24,6 +25,7 @@ export interface MineListItem {
 export const mineUser: MineUser = {
   name: "云端造梦师",
   avatar: "梦",
+  color: "var(--accent)",
   userNo: "LUMI8829",
   credits: 2860
 };
