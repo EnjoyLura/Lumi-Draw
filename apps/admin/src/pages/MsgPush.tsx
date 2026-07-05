@@ -1,19 +1,29 @@
 import { useState } from "react";
+import { apiCreateAndSendPush, apiGetPushes, apiRevokePush } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { nextId, PUSH_TARGETS, PUSHES, type AdminPush } from "../data/mock";
 import { getPushes } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Sec, StatusBadge } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function PushDetail({ p, onChanged }: { p: AdminPush; onChanged: () => void }) {
+function PushDetail({ p, useMock, onChanged }: { p: AdminPush; useMock: boolean; onChanged: () => void }) {
   const { closeSheet, toast, confirmDlg } = useNav();
   const recall = () => confirmDlg("撤回通知", "撤回后用户将不再看到该通知，确定撤回吗？", () => {
-    p.status = "已撤回";
-    closeSheet();
-    onChanged();
-    toast("已撤回");
+    void (async () => {
+      try {
+        if (useMock) p.status = "已撤回";
+        else await apiRevokePush(p.id);
+        closeSheet();
+        onChanged();
+        toast("已撤回");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "撤回失败");
+      }
+    })();
   }, true);
   return (
     <>
@@ -36,20 +46,37 @@ function PushDetail({ p, onChanged }: { p: AdminPush; onChanged: () => void }) {
 
 export function MsgPush() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const pushes = getPushes();
+  const { data, loading, error, reload } = useAsyncData<AdminPush[]>(useMock ? null : () => apiGetPushes(), [useMock]);
+  const pushes = useMock ? getPushes() : data ?? [];
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [target, setTarget] = useState(PUSH_TARGETS[0]);
+  const [sending, setSending] = useState(false);
+  const afterChanged = () => useMock ? refresh() : reload();
 
   const send = () => {
     if (!title.trim()) { toast("请输入通知标题"); return; }
     confirmDlg("发送通知", `确定向「${target}」推送该通知吗？`, () => {
-      PUSHES.unshift({ id: nextId(PUSHES), title: title.trim(), content, target, time: "刚刚", status: "已发送" });
-      setTitle("");
-      setContent("");
-      refresh();
-      toast("通知已发送");
+      void (async () => {
+        setSending(true);
+        try {
+          if (useMock) {
+            PUSHES.unshift({ id: nextId(PUSHES), title: title.trim(), content, target, time: "刚刚", status: "已发送" });
+          } else {
+            await apiCreateAndSendPush({ title: title.trim(), content, target });
+          }
+          setTitle("");
+          setContent("");
+          afterChanged();
+          toast("通知已发送");
+        } catch (e) {
+          toast(e instanceof Error ? e.message : "发送失败");
+        } finally {
+          setSending(false);
+        }
+      })();
     });
   };
 
@@ -66,13 +93,15 @@ export function MsgPush() {
         </select>
       </div>
       <div style={{ margin: "12px 0" }}>
-        <button className="btn btn-primary btn-block" onClick={send}><i className="ri-send-plane-line" />立即发送</button>
+        <button className="btn btn-primary btn-block" onClick={send} disabled={sending}><i className="ri-send-plane-line" />{sending ? "发送中" : "立即发送"}</button>
       </div>
       <Sec title="历史推送" />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载推送记录中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       <div className="card">
         {!pushes.length ? <div className="empty"><i className="ri-send-plane-line" /><div className="et">暂无推送记录</div></div> : null}
         {pushes.map((p) => (
-          <div key={p.id} className="lrow" onClick={() => openSheet("推送详情", <PushDetail p={p} onChanged={refresh} />)}>
+          <div key={p.id} className="lrow" onClick={() => openSheet("推送详情", <PushDetail p={p} useMock={useMock} onChanged={afterChanged} />)}>
             <div className="lr-ico" style={p.status === "已撤回" ? { background: "var(--bg-soft)", color: "var(--fg-muted)" } : { background: "var(--success-soft)", color: "#22C55E" }}><i className="ri-notification-3-line" /></div>
             <div className="lr-main"><div className="lr-t">{p.title}</div><div className="lr-s">{p.target} · {p.time}</div></div>
             <StatusBadge s={p.status} />

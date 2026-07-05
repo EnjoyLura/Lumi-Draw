@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { apiDeleteAnnouncement, apiGetAnnouncements, apiSaveAnnouncement, apiSetAnnouncementPopup } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { ANNOUNCEMENTS, ANNOUNCE_ACTIONS, IMG, nextId, type AdminAnnounce } from "../data/mock";
 import { getAnnouncements } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
@@ -8,22 +11,34 @@ import { useRefresh } from "./opsShared";
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const UPLOAD_STYLE: React.CSSProperties = { height: 96, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fg-muted)", borderStyle: "dashed", overflow: "hidden" };
 
-function AnnForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function AnnForm({ id, item, useMock, onSaved }: { id: number; item?: AdminAnnounce; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const a = id ? ANNOUNCEMENTS.find((x) => x.id === id) : undefined;
+  const a = item ?? (id ? ANNOUNCEMENTS.find((x) => x.id === id) : undefined);
   const [title, setTitle] = useState(a?.title ?? "");
   const [summary, setSummary] = useState(a?.summary ?? "");
   const [action, setAction] = useState(a?.action ?? "无");
   const [popup, setPopup] = useState(a?.popup ?? true);
+  const [saving, setSaving] = useState(false);
 
-  const save = () => {
+  const save = async () => {
     if (!title.trim()) { toast("请输入标题"); return; }
-    const data = { title: title.trim(), summary, action, popup };
-    if (a) Object.assign(a, data);
-    else ANNOUNCEMENTS.push({ id: nextId(ANNOUNCEMENTS), time: new Date().toISOString().slice(0, 10), range: "长期", ...data });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "已新增");
+    const data = { title: title.trim(), summary, action, popup, range: a?.range ?? "长期" };
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (a) Object.assign(a, data);
+        else ANNOUNCEMENTS.push({ id: nextId(ANNOUNCEMENTS), time: new Date().toISOString().slice(0, 10), ...data });
+      } else {
+        await apiSaveAnnouncement(id, data);
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "已新增");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -47,8 +62,8 @@ function AnnForm({ id, onSaved }: { id: number; onSaved: () => void }) {
         <Switch on={popup} onToggle={() => setPopup(!popup)} />
       </div>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>保存</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
     </>
   );
@@ -56,21 +71,51 @@ function AnnForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function MsgAnnounce() {
   const { openSheet, toast, confirmDlg } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const list = getAnnouncements();
+  const { data, loading, error, reload } = useAsyncData<AdminAnnounce[]>(useMock ? null : () => apiGetAnnouncements(), [useMock]);
+  const list = useMock ? getAnnouncements() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑公告" : "新增公告", <AnnForm id={id} onSaved={refresh} />);
-  const toggle = (a: AdminAnnounce) => { a.popup = !a.popup; refresh(); toast(a.popup ? "已开启首页弹出" : "已关闭弹出"); };
+  const openForm = (id: number) => openSheet(id ? "编辑公告" : "新增公告", <AnnForm id={id} item={list.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
+  const toggle = async (a: AdminAnnounce) => {
+    const next = !a.popup;
+    try {
+      if (useMock) {
+        a.popup = next;
+        refresh();
+      } else {
+        await apiSetAnnouncementPopup(a.id, next);
+        reload();
+      }
+      toast(next ? "已开启首页弹出" : "已关闭弹出");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "操作失败");
+    }
+  };
   const del = (a: AdminAnnounce) => confirmDlg("删除公告", "确定删除该公告吗？", () => {
-    const i = list.findIndex((x) => x.id === a.id);
-    if (i > -1) list.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = list.findIndex((x) => x.id === a.id);
+          if (i > -1) list.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteAnnouncement(a.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <AddBtn text="新增公告" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载公告中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       {list.map((a) => (
         <div key={a.id} className="card" style={{ marginBottom: 10, overflow: "hidden" }}>
           <div style={{ position: "relative" }}>

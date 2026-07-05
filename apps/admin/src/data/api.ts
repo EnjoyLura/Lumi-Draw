@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminWork, CheckinTier, MemberPlan } from "./mock";
+import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -627,6 +627,165 @@ function mapTransaction(t: ApiTransaction): AdminTxn {
 export async function apiGetTransactions() {
   const page = await http.get<Paginated<ApiTransaction>>("/admin/transactions?page=1&pageSize=100");
   return page.items.map(mapTransaction);
+}
+
+interface ApiAnnouncement {
+  id: number; title: string; summary: string; action: string; popup: boolean; rangeText: string; enabled: boolean; createdAt: string;
+}
+
+function mapAnnouncement(a: ApiAnnouncement): AdminAnnounce {
+  return {
+    id: a.id,
+    title: a.title,
+    summary: a.summary,
+    action: a.action || "无",
+    popup: a.popup,
+    time: (a.createdAt ?? "").slice(0, 10),
+    range: a.rangeText || "长期"
+  };
+}
+
+export async function apiGetAnnouncements() {
+  return (await http.get<ApiAnnouncement[]>("/admin/announcements")).map(mapAnnouncement);
+}
+
+export async function apiSaveAnnouncement(id: number, values: Pick<AdminAnnounce, "title" | "summary" | "action" | "popup" | "range">) {
+  const body = { title: values.title, summary: values.summary, action: values.action, popup: values.popup, rangeText: values.range, enabled: true };
+  return mapAnnouncement(id ? await http.patch<ApiAnnouncement>(`/admin/announcements/${id}`, body) : await http.post<ApiAnnouncement>("/admin/announcements", body));
+}
+
+export async function apiDeleteAnnouncement(id: number) {
+  return http.del<ApiAnnouncement>(`/admin/announcements/${id}`);
+}
+
+export async function apiSetAnnouncementPopup(id: number, popup: boolean) {
+  return mapAnnouncement(await http.patch<ApiAnnouncement>(`/admin/announcements/${id}`, { popup }));
+}
+
+const PUSH_STATUS_CN: Record<string, string> = { draft: "草稿", sent: "已发送", revoked: "已撤回" };
+
+interface ApiPush {
+  id: number; title: string; content: string; target: string; status: string; sentAt?: string | null; createdAt: string;
+}
+
+function mapPush(p: ApiPush): AdminPush {
+  const time = p.sentAt ?? p.createdAt;
+  return {
+    id: p.id,
+    title: p.title,
+    content: p.content,
+    target: p.target,
+    status: PUSH_STATUS_CN[p.status] ?? p.status,
+    time: (time ?? "").replace("T", " ").slice(0, 16)
+  };
+}
+
+export async function apiGetPushes() {
+  return (await http.get<ApiPush[]>("/admin/pushes")).map(mapPush);
+}
+
+export async function apiCreateAndSendPush(values: Pick<AdminPush, "title" | "content" | "target">) {
+  const created = await http.post<ApiPush>("/admin/pushes", { ...values, status: "draft" });
+  return mapPush(await http.post<ApiPush>(`/admin/pushes/${created.id}/send`));
+}
+
+export async function apiRevokePush(id: number) {
+  return mapPush(await http.post<ApiPush>(`/admin/pushes/${id}/revoke`));
+}
+
+interface ApiSensitiveWord {
+  id: number; word: string; createdAt: string;
+}
+
+export interface AdminSensitiveWord {
+  id: number;
+  word: string;
+}
+
+function mapSensitiveWord(w: ApiSensitiveWord): AdminSensitiveWord {
+  return { id: w.id, word: w.word };
+}
+
+export async function apiGetSensitiveWords() {
+  return (await http.get<ApiSensitiveWord[]>("/admin/sensitive-words")).map(mapSensitiveWord);
+}
+
+export async function apiAddSensitiveWords(words: string[]) {
+  return (await http.post<ApiSensitiveWord[]>("/admin/sensitive-words", { words })).map(mapSensitiveWord);
+}
+
+export async function apiDeleteSensitiveWord(id: number) {
+  return http.del<ApiSensitiveWord>(`/admin/sensitive-words/${id}`);
+}
+
+interface ApiVersion {
+  id: number; version: string; releasedAt: string; items: VersionItem[]; sort: number; createdAt: string;
+}
+
+function mapVersion(v: ApiVersion): AdminVersion {
+  return { id: v.id, ver: v.version, time: v.releasedAt, items: Array.isArray(v.items) ? v.items : [] };
+}
+
+export async function apiGetVersions() {
+  return (await http.get<ApiVersion[]>("/admin/versions")).map(mapVersion);
+}
+
+export async function apiSaveVersion(id: number, values: Pick<AdminVersion, "ver" | "items">) {
+  const body = { version: values.ver, releasedAt: new Date().toISOString().slice(0, 10), items: values.items, sort: 0 };
+  return mapVersion(id ? await http.patch<ApiVersion>(`/admin/versions/${id}`, body) : await http.post<ApiVersion>("/admin/versions", body));
+}
+
+export async function apiDeleteVersion(id: number) {
+  return http.del<ApiVersion>(`/admin/versions/${id}`);
+}
+
+const AGREEMENT_TYPE_BY_NAME: Record<string, string> = {
+  用户协议: "user",
+  隐私政策: "privacy",
+  充值协议: "recharge",
+  社区规范: "community"
+};
+
+const AGREEMENT_NAME_BY_TYPE: Record<string, string> = Object.fromEntries(Object.entries(AGREEMENT_TYPE_BY_NAME).map(([k, v]) => [v, k]));
+
+export interface AdminAgreement {
+  type: string;
+  name: string;
+  title: string;
+  content: string;
+  updatedAt?: string;
+}
+
+interface ApiAgreement {
+  type: string; title: string; content: string; updatedAt: string;
+}
+
+function mapAgreement(a: ApiAgreement): AdminAgreement {
+  return { type: a.type, name: AGREEMENT_NAME_BY_TYPE[a.type] ?? a.title, title: a.title, content: a.content, updatedAt: (a.updatedAt ?? "").slice(0, 10) };
+}
+
+export async function apiGetAgreements() {
+  return (await http.get<ApiAgreement[]>("/admin/agreements")).map(mapAgreement);
+}
+
+export async function apiSaveAgreement(name: string, content: string) {
+  const type = AGREEMENT_TYPE_BY_NAME[name] ?? name;
+  return mapAgreement(await http.put<ApiAgreement>(`/admin/agreements/${type}`, { title: name, content }));
+}
+
+export interface AdminReviewSettings {
+  wxTextSecCheckEnabled: boolean;
+  wxImageSecCheckEnabled: boolean;
+  manualReviewEnabled: boolean;
+  autoPublishAfterPass: boolean;
+}
+
+export async function apiGetReviewSettings() {
+  return http.get<AdminReviewSettings>("/admin/review-settings");
+}
+
+export async function apiSaveReviewSettings(values: AdminReviewSettings) {
+  return http.put<AdminReviewSettings>("/admin/review-settings", values);
 }
 
 interface ApiSummary {

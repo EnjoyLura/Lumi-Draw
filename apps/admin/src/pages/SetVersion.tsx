@@ -1,33 +1,48 @@
 import { useState } from "react";
+import { apiDeleteVersion, apiGetVersions, apiSaveVersion } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
 import { nextId, VER_TYPE_COLOR, VER_TYPES, VERSIONS, type AdminVersion, type VersionItem } from "../data/mock";
 import { getVersions } from "../data/service";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, CtrlIcons } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function VerForm({ id, onSaved }: { id: number; onSaved: () => void }) {
+function VerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminVersion; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const v = id ? VERSIONS.find((x) => x.id === id) : undefined;
+  const v = item ?? (id ? VERSIONS.find((x) => x.id === id) : undefined);
   const [ver, setVer] = useState(v?.ver ?? "");
   const [items, setItems] = useState<VersionItem[]>(
     v?.items?.length ? v.items.map((it) => ({ ...it })) : [{ type: "新增", text: "" }]
   );
+  const [saving, setSaving] = useState(false);
 
   const setItem = (i: number, patch: Partial<VersionItem>) => setItems(items.map((it, k) => (k === i ? { ...it, ...patch } : it)));
   const addItem = () => setItems([...items, { type: "新增", text: "" }]);
   const delItem = (i: number) => { const next = items.filter((_, k) => k !== i); setItems(next.length ? next : [{ type: "新增", text: "" }]); };
 
-  const save = () => {
+  const save = async () => {
     if (!ver.trim()) { toast("请输入版本号"); return; }
     const kept = items.filter((it) => it.text.trim());
     if (!kept.length) { toast("请至少填写一条更新内容"); return; }
-    if (v) { v.ver = ver.trim(); v.items = kept; }
-    else VERSIONS.unshift({ id: nextId(VERSIONS), ver: ver.trim(), time: new Date().toISOString().slice(0, 10), items: kept });
-    closeSheet();
-    onSaved();
-    toast(id ? "已保存" : "新版本已发布");
+    setSaving(true);
+    try {
+      if (useMock) {
+        if (v) { v.ver = ver.trim(); v.items = kept; }
+        else VERSIONS.unshift({ id: nextId(VERSIONS), ver: ver.trim(), time: new Date().toISOString().slice(0, 10), items: kept });
+      } else {
+        await apiSaveVersion(id, { ver: ver.trim(), items: kept });
+      }
+      closeSheet();
+      onSaved();
+      toast(id ? "已保存" : "新版本已发布");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -48,8 +63,8 @@ function VerForm({ id, onSaved }: { id: number; onSaved: () => void }) {
       </div>
       <button className="btn btn-soft btn-sm btn-block" onClick={addItem}><i className="ri-add-line" />添加一条</button>
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save}>{id ? "保存" : "发布"}</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : id ? "保存" : "发布"}</button>
       </div>
     </>
   );
@@ -57,20 +72,36 @@ function VerForm({ id, onSaved }: { id: number; onSaved: () => void }) {
 
 export function SetVersion() {
   const { openSheet, confirmDlg, toast } = useNav();
+  const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const list = getVersions();
+  const { data, loading, error, reload } = useAsyncData<AdminVersion[]>(useMock ? null : () => apiGetVersions(), [useMock]);
+  const list = useMock ? getVersions() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑版本" : "发布新版本", <VerForm id={id} onSaved={refresh} />);
+  const openForm = (id: number) => openSheet(id ? "编辑版本" : "发布新版本", <VerForm id={id} item={list.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
   const del = (v: AdminVersion) => confirmDlg("删除版本", "确定删除该版本吗？", () => {
-    const i = list.findIndex((x) => x.id === v.id);
-    if (i > -1) list.splice(i, 1);
-    refresh();
-    toast("已删除");
+    void (async () => {
+      try {
+        if (useMock) {
+          const i = list.findIndex((x) => x.id === v.id);
+          if (i > -1) list.splice(i, 1);
+          refresh();
+        } else {
+          await apiDeleteVersion(v.id);
+          reload();
+        }
+        toast("已删除");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "删除失败");
+      }
+    })();
   }, true);
 
   return (
     <>
       <AddBtn text="发布新版本" onClick={() => openForm(0)} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载版本中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       {list.map((v, vi) => (
         <div key={v.id} className="card" style={{ padding: 14, marginBottom: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
