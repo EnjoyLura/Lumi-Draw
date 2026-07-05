@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/common/crypto/password";
 
 const prisma = new PrismaClient();
 
@@ -180,6 +181,15 @@ async function main() {
     };
     await prisma.work.upsert({ where: { id: w.id }, update: data, create: data });
   }
+
+  // 默认管理员（密码来自 env，缺省 admin/admin123）。update 不覆盖密码，避免重跑重置。
+  const adminUsername = process.env.ADMIN_USERNAME ?? "admin";
+  const adminPassword = process.env.ADMIN_PASSWORD ?? "admin123";
+  await prisma.adminUser.upsert({
+    where: { username: adminUsername },
+    update: { nickname: "超级管理员", role: "super_admin" },
+    create: { username: adminUsername, passwordHash: hashPassword(adminPassword), nickname: "超级管理员", role: "super_admin" }
+  });
 
   console.log("Seed completed");
 }

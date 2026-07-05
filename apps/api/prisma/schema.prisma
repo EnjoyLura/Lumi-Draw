@@ -208,9 +208,37 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  works Work[]
+  works         Work[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+// 刷新令牌 RefreshToken（存哈希）
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  tokenHash String   @unique
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// 管理员 AdminUser
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  nickname     String   @default("管理员")
+  role         String   @default("super_admin") // super_admin | operator | auditor | finance
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin_users")
 }
 
 // 作品 Work

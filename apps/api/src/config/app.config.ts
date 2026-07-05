@@ -13,6 +13,11 @@ function parseOrigins(value: string | undefined) {
     .filter(Boolean);
 }
 
+function parseIntOr(value: string | undefined, fallback: number) {
+  const n = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const appConfig = registerAs("app", () => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parsePort(process.env.PORT),
@@ -20,9 +25,17 @@ export const appConfig = registerAs("app", () => ({
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
   databaseUrl: process.env.DATABASE_URL ?? "",
   redisUrl: process.env.REDIS_URL ?? "",
-  jwtSecret: process.env.JWT_SECRET ?? "",
-  adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? "",
+  jwtSecret: process.env.JWT_SECRET ?? "dev-jwt-secret",
+  adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? "dev-admin-jwt-secret",
   callbackSecret: process.env.CALLBACK_SECRET ?? "",
+  auth: {
+    // 开发环境默认允许 mock 登录；生产需显式开启
+    allowMockLogin: (process.env.AUTH_ALLOW_MOCK_LOGIN ?? (process.env.NODE_ENV === "production" ? "false" : "true")) === "true",
+    accessTtl: parseIntOr(process.env.ACCESS_TOKEN_TTL, 7200), // 秒
+    refreshTtlDays: parseIntOr(process.env.REFRESH_TOKEN_TTL_DAYS, 30),
+    adminUsername: process.env.ADMIN_USERNAME ?? "admin",
+    adminPassword: process.env.ADMIN_PASSWORD ?? "admin123"
+  },
   wx: {
     appId: process.env.WX_APPID ?? "",
     appSecret: process.env.WX_APPSECRET ?? "",
