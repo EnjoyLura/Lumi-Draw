@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import {
@@ -16,7 +17,7 @@ import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { deleteWork, fetchWorkDetail, moveWorkToDraft } from "./workDetailService";
 
 const workId = ref(1);
-const { currentUser, requireLogin } = useAuth();
+const { currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const work = ref<DetailWork | undefined>();
 const user = ref<ReturnType<typeof getWorkUser> | undefined>();
@@ -26,6 +27,7 @@ const following = ref(false);
 const confirmFollowOpen = ref(false);
 const longPressOpen = ref(false);
 const detailManageOpen = ref(false);
+const showLoginSheet = ref(false);
 const likePulse = ref(false);
 const favoritePulse = ref(false);
 const isDeleting = ref(false);
@@ -117,6 +119,25 @@ function playPulse(target: "like" | "favorite") {
   }, 220);
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadDetail();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 async function toggleLike() {
   if (!work.value) return;
   if (useMockData.value) {
@@ -124,7 +145,7 @@ async function toggleLike() {
     playPulse("like");
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   try {
     const result = await toggleWorkLike(work.value.id);
     liked.value = Boolean(result.liked);
@@ -142,7 +163,7 @@ async function toggleFavorite() {
     playPulse("favorite");
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   try {
     const result = await toggleWorkFavorite(work.value.id);
     favorited.value = Boolean(result.favorited);
@@ -156,7 +177,7 @@ async function toggleFavorite() {
 async function toggleFollow() {
   if (!user.value) return;
   if (!following.value) {
-    if (!useMockData.value && !requireLogin()) return;
+    if (!useMockData.value && !ensureLogin()) return;
     try {
       if (!useMockData.value) await followUser(user.value.id);
       following.value = true;
@@ -372,7 +393,7 @@ async function moveOwnWorkToDraft() {
     return;
   }
 
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   isDeleting.value = true;
   try {
     await moveWorkToDraft(work.value.id);
@@ -423,7 +444,7 @@ async function removeOwnWork() {
     return;
   }
 
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   isDeleting.value = true;
   try {
     await deleteWork(work.value.id);
@@ -625,6 +646,7 @@ function showToast(title: string) {
       <view class="empty-icon">▧</view>
       <view class="empty-title">作品不存在</view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

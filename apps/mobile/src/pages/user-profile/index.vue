@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import {
@@ -18,13 +19,14 @@ import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userP
 
 const userId = ref(1);
 const confirmOpen = ref(false);
+const showLoginSheet = ref(false);
 const likedWorkIds = ref<Set<number>>(new Set());
 const pulseId = ref<number | null>(null);
 const realProfile = ref<ProfileView | null>(null);
 const realWorks = ref<HomeWork[]>([]);
 const loading = ref(false);
 const { useMockData } = useDataMode();
-const { isLoggedIn, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 let lastMode: boolean | null = null;
 
 interface ProfileView {
@@ -117,10 +119,29 @@ function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadProfile();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 async function toggleLike(event: Event, workId: number) {
   event.stopPropagation();
   if (!useMockData.value) {
-    if (!requireLogin()) return;
+    if (!ensureLogin()) return;
     try {
       const result = await toggleWorkLike(workId);
       realWorks.value = realWorks.value.map((work) => (work.id === workId ? { ...work, likes: result.likes } : work));
@@ -151,7 +172,7 @@ async function toggleFollow() {
     confirmOpen.value = true;
     return;
   }
-  if (!useMockData.value && !requireLogin()) return;
+  if (!useMockData.value && !ensureLogin()) return;
   try {
     if (!useMockData.value) {
       const result = await followUser(userId.value);
@@ -275,6 +296,7 @@ async function confirmUnfollow() {
         </view>
       </view>
     </view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
