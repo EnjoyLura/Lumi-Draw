@@ -139,7 +139,14 @@ export class WorksService {
     const data: Prisma.WorkUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
-    if (dto.isPublic !== undefined) data.isPublic = dto.isPublic;
+    if (dto.isPublic !== undefined) {
+      data.isPublic = dto.isPublic;
+      if (dto.isPublic) {
+        data.status = (await this.isManualReview()) ? "pending" : "published";
+      } else {
+        data.status = "draft";
+      }
+    }
     await this.prisma.work.update({ where: { id }, data });
     return this.detail(id);
   }

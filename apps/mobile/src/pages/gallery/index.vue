@@ -91,7 +91,7 @@ const emptyInfo = computed(() => {
 
 onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
-  if (lastLoadKey === loadKey) return;
+  if (useMockData.value && lastLoadKey === loadKey) return;
   lastLoadKey = loadKey;
   void reloadGalleryData();
 });

@@ -56,6 +56,11 @@ export async function publishWork(payload: PublishWorkPayload) {
 
   if (payload.draft.source === "backend") {
     detail = await api.get<BackendWorkDetail>(`/works/${payload.draft.id}`);
+    return api.patch<BackendWorkDetail>(`/works/${payload.draft.id}`, {
+      title: payload.title,
+      description: payload.description,
+      isPublic: true
+    });
   }
 
   const prompt = detail.prompt || payload.draft.prompt || payload.description || payload.title;
