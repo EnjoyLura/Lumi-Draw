@@ -191,6 +191,18 @@ async function main() {
     create: { username: adminUsername, passwordHash: hashPassword(adminPassword), nickname: "超级管理员", role: "super_admin" }
   });
 
+  // 显式 id 播种后，需把各表自增序列推进到 MAX(id)，否则后续 create 会撞主键
+  const seqTables = [
+    "users", "works", "banners", "gameplays", "styles", "categories",
+    "hot_searches", "quality_configs", "ratio_configs", "recharge_tiers",
+    "member_plans", "versions"
+  ];
+  for (const t of seqTables) {
+    await prisma.$executeRawUnsafe(
+      `SELECT setval(pg_get_serial_sequence('"${t}"', 'id'), GREATEST((SELECT COALESCE(MAX(id), 1) FROM "${t}"), 1), true)`
+    );
+  }
+
   console.log("Seed completed");
 }
 
