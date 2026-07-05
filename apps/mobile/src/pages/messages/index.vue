@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { getLatestMessage, getUnreadCount, messageCategories, type MessageCategoryKey } from "./messagesData";
 import { fetchMessageSummary, type MessageCategoryRow } from "./messagesService";
 
@@ -25,6 +26,7 @@ const categoryRows = computed(() => {
 });
 
 onShow(() => {
+  refreshNavigationTitle("消息");
   const stored = uni.getStorageSync("lumiReadMessageCategories");
   readKeys.value = new Set(Array.isArray(stored) ? stored : []);
   void loadMessages();

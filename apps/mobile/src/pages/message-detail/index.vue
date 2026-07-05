@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { getMessageCategory, getMessages, type MessageCategory, type MessageCategoryKey, type MessageItem } from "../messages/messagesData";
 import { fetchMessageList, markMessageCategoryRead } from "../messages/messagesService";
 
@@ -15,25 +16,75 @@ const readKeys = ref<Set<string>>(new Set());
 const backendMessages = ref<MessageItem[]>([]);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
+const hasLoaded = ref(false);
 
 const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
 onLoad((query) => {
-  category.value = getMessageCategory(String(query?.type || "like"));
-  uni.setNavigationBarTitle({ title: category.value.title });
+  void syncCategory(resolveRouteType(query), true);
+});
+
+onShow(() => {
+  void syncCategory(resolveRouteType(), false);
+});
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  void syncCategory(resolveRouteType(), false);
+}
+
+function resolveRouteType(query?: Record<string, unknown>) {
+  const queryType = typeof query?.type === "string" ? query.type : undefined;
+  if (queryType) return getMessageCategory(queryType).key;
+
+  if (typeof window !== "undefined") {
+    const hashType = window.location.hash.match(/[?&]type=([^&]+)/)?.[1];
+    if (hashType) return getMessageCategory(decodeURIComponent(hashType)).key;
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string>; fullPath?: string };
+      }
+    | undefined;
+  const pageType = current?.options?.type || current?.$page?.options?.type;
+  if (pageType) return getMessageCategory(pageType).key;
+
+  return category.value.key;
+}
+
+async function syncCategory(type: MessageCategoryKey, force: boolean) {
+  const nextCategory = getMessageCategory(type);
+  const changed = nextCategory.key !== category.value.key;
+  if (!force && !changed && hasLoaded.value) return;
+
+  category.value = nextCategory;
+  refreshNavigationTitle(nextCategory.title);
 
   const stored = uni.getStorageSync("lumiReadMessageCategories");
-  const current = new Set<string>(Array.isArray(stored) ? stored : []);
-  readKeys.value = current;
+  const nextReadKeys = new Set<string>(Array.isArray(stored) ? stored : []);
+  nextReadKeys.add(nextCategory.key);
+  readKeys.value = nextReadKeys;
+  uni.setStorageSync("lumiReadMessageCategories", [...nextReadKeys]);
 
-  const next = new Set(current);
-  next.add(category.value.key);
-  uni.setStorageSync("lumiReadMessageCategories", [...next]);
-  void loadMessages(category.value.key);
-});
+  await loadMessages(nextCategory.key);
+  hasLoaded.value = true;
+}
 
 async function loadMessages(type: MessageCategoryKey) {
   if (useMockData.value) return;
+  backendMessages.value = [];
   if (!ensureLogin()) return;
 
   isLoading.value = true;
