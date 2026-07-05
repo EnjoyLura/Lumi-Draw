@@ -186,3 +186,57 @@ model AppSetting {
 
   @@map("app_settings")
 }
+
+// 用户 User
+model User {
+  id          Int      @id @default(autoincrement())
+  openId      String?  @unique
+  nickname    String
+  avatarText  String   @default("")
+  avatarColor String   @default("#5B9FE8")
+  avatarUrl   String?
+  bio         String   @default("")
+  gender      String   @default("unknown") // unknown | male | female
+  credits     Int      @default(0)
+  memberPlan  String   @default("") // "" | 月卡 | 季卡 | 年卡
+  status      String   @default("normal") // normal | banned
+  phone       String   @default("")
+  worksCount  Int      @default(0)
+  likesCount  Int      @default(0)
+  followers   Int      @default(0)
+  following   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  works Work[]
+
+  @@map("users")
+}
+
+// 作品 Work
+model Work {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  description String   @default("")
+  prompt      String   @default("")
+  imageUrl    String   @default("")
+  ratio       String   @default("1:1")
+  quality     String   @default("1K")
+  modelId     String   @default("")
+  style       String   @default("")
+  status      String   @default("published") // draft | pending | published | rejected | offline
+  isPublic    Boolean  @default(true)
+  featured    Boolean  @default(false)
+  recommend   Boolean  @default(false)
+  likes       Int      @default(0)
+  favorites   Int      @default(0)
+  remakes     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([userId])
+  @@map("works")
+}
