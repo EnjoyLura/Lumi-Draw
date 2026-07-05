@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { getUsers } from "../data/service";
+import { apiGetUsers } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Avatar, Chips, SearchBar, StatCard, StatusBadge } from "../ui";
 
@@ -7,7 +10,9 @@ const FILTERS = ["全部", "会员", "活跃", "封禁"];
 
 export function Users() {
   const { go } = useNav();
-  const users = getUsers();
+  const { useMock } = useAdminSession();
+  const { data } = useAsyncData(useMock ? null : apiGetUsers, [useMock]);
+  const users = useMock ? getUsers() : data ?? [];
   const [filter, setFilter] = useState("全部");
   const [query, setQuery] = useState("");
 

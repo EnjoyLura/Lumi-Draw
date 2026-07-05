@@ -1,6 +1,9 @@
 import { useNav } from "../shell/NavContext";
 import { MODULE_COLOR } from "../shell/menu";
 import { getDashboardTodos, getTodayMetrics } from "../data/service";
+import { useAdminSession } from "../data/adminSession";
+import { useAsyncData } from "../data/useAsyncData";
+import { apiGetDashboard } from "../data/api";
 
 const NAV_ENTRIES: Array<[keyof typeof MODULE_COLOR, string, string]> = [
   ["users", "用户管理", "ri-user-3-line"],
@@ -15,8 +18,10 @@ const NAV_ENTRIES: Array<[keyof typeof MODULE_COLOR, string, string]> = [
 
 export function Home() {
   const { go } = useNav();
-  const metrics = getTodayMetrics();
-  const todos = getDashboardTodos();
+  const { useMock } = useAdminSession();
+  const { data } = useAsyncData(useMock ? null : apiGetDashboard, [useMock]);
+  const metrics = useMock ? getTodayMetrics() : data?.metrics ?? [];
+  const todos = useMock ? getDashboardTodos() : data?.todos ?? { review: 0, report: 0, feedback: 0 };
 
   return (
     <>

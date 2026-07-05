@@ -1,3 +1,5 @@
+import { AdminSessionProvider, useAdminSession } from "./data/adminSession";
+import { AdminLogin } from "./pages/AdminLogin";
 import { Dialog } from "./shell/Dialog";
 import { Drawer } from "./shell/Drawer";
 import { NavProvider, useNav } from "./shell/NavContext";
@@ -11,7 +13,12 @@ function Overlay() {
   return <div className={`overlay${show ? " show" : ""}`} onClick={closeAll} />;
 }
 
-export default function App() {
+function Shell() {
+  const { useMock, loggedIn } = useAdminSession();
+  // 关闭模拟数据且未登录时，显示管理员登录页
+  if (!useMock && !loggedIn) {
+    return <AdminLogin />;
+  }
   return (
     <NavProvider>
       <div className="phone-frame">
@@ -25,5 +32,13 @@ export default function App() {
         </div>
       </div>
     </NavProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AdminSessionProvider>
+      <Shell />
+    </AdminSessionProvider>
   );
 }

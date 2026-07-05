@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { userName } from "../data/mock";
 import { getWorks } from "../data/service";
+import { apiGetWorks } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
+import { useAsyncData } from "../data/useAsyncData";
 import { Chips, SearchBar, StatCard, WorkCard } from "../ui";
 
 const FILTERS = ["全部", "已发布", "待审核", "已下架", "精选"];
 
 export function Works() {
-  const works = getWorks();
+  const { useMock } = useAdminSession();
+  const { data } = useAsyncData(useMock ? null : apiGetWorks, [useMock]);
+  const works = useMock ? getWorks() : data ?? [];
   const [filter, setFilter] = useState("全部");
   const [query, setQuery] = useState("");
 
