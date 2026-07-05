@@ -1,6 +1,6 @@
 import { api } from "../../services/api";
 import type { HomeWork } from "../home/homeData";
-import { galleryUser, type GalleryUser } from "./galleryData";
+import { galleryUser, type GalleryGenTask, type GalleryUser } from "./galleryData";
 
 interface BackendUser {
   id: number;
@@ -31,6 +31,20 @@ interface PageResult<T> {
   pageSize: number;
   total: number;
   hasMore: boolean;
+}
+
+interface BackendGenerateJob {
+  id: string;
+  prompt: string;
+  modelId: string;
+  providerModel?: string;
+  count: number;
+  ratio: string;
+  quality: string;
+  status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
+  progress: number;
+  stageText: string;
+  createdAt: string;
 }
 
 export interface GalleryWorkPage {
@@ -92,4 +106,36 @@ export async function fetchGalleryWorks(params: {
 
 export async function deleteGalleryWorks(ids: number[]) {
   await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=delete`)));
+}
+
+function elapsedSeconds(createdAt: string) {
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return 0;
+  return Math.max(0, Math.floor((Date.now() - created) / 1000));
+}
+
+function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
+  return {
+    id: job.id,
+    prompt: job.prompt,
+    model: job.modelId || job.providerModel || "AI",
+    count: job.count,
+    ratio: job.ratio,
+    quality: job.quality,
+    percent: Math.max(0, Math.min(job.progress || (job.status === "queued" ? 2 : 10), 99)),
+    elapsed: elapsedSeconds(job.createdAt),
+    stage: job.stageText || (job.status === "queued" ? "排队中..." : "AI绘制中...")
+  };
+}
+
+async function fetchGenerateJobsByStatus(status: "queued" | "running") {
+  const result = await api.get<PageResult<BackendGenerateJob>>(`/generate/jobs?status=${status}&page=1&pageSize=20`);
+  return result.items;
+}
+
+export async function fetchGalleryGenerateTasks() {
+  const [queued, running] = await Promise.all([fetchGenerateJobsByStatus("queued"), fetchGenerateJobsByStatus("running")]);
+  return [...running, ...queued]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map(toGalleryGenTask);
 }

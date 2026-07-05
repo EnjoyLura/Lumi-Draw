@@ -8,7 +8,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import type { HomeWork } from "../home/homeData";
 import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryTab } from "./galleryData";
-import { deleteGalleryWorks, fetchGalleryUser, fetchGalleryWorks } from "./galleryService";
+import { deleteGalleryWorks, fetchGalleryGenerateTasks, fetchGalleryUser, fetchGalleryWorks } from "./galleryService";
 
 const PAGE_SIZE = 10;
 const tabEnterClass = resolveTabEnterClass("pages/gallery/index");
@@ -68,6 +68,7 @@ const sideRows: SideRow[] = [
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = "";
 
 const filteredWorks = computed(() => {
@@ -99,6 +100,7 @@ onShow(() => {
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  if (genTaskTimer) clearTimeout(genTaskTimer);
 });
 
 function getStatusForTab(tab = renderedTab.value) {
@@ -110,10 +112,29 @@ function getStatusForTab(tab = renderedTab.value) {
 function resetMockGalleryData() {
   profile.value = galleryUser;
   works.value = galleryWorks;
+  genTasks.value = galleryGenTasks;
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
   renderKey.value += 1;
+}
+
+async function loadGenerateTasks(scheduleNext = false) {
+  if (useMockData.value || !isLoggedIn.value) {
+    if (genTaskTimer) clearTimeout(genTaskTimer);
+    return;
+  }
+
+  try {
+    genTasks.value = await fetchGalleryGenerateTasks();
+  } catch {
+    genTasks.value = [];
+  }
+
+  if (genTaskTimer) clearTimeout(genTaskTimer);
+  if (scheduleNext && genTasks.value.length) {
+    genTaskTimer = setTimeout(() => void loadGenerateTasks(true), 5000);
+  }
 }
 
 async function loadGalleryPage(page = 1, append = false) {
@@ -133,11 +154,14 @@ async function reloadGalleryData() {
     return;
   }
 
-  if (!isLoggedIn.value) return;
+  if (!isLoggedIn.value) {
+    genTasks.value = [];
+    return;
+  }
 
   isLoading.value = true;
   try {
-    const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false)]);
+    const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true)]);
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;

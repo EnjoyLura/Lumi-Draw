@@ -36,7 +36,7 @@ export const galleryUser: GalleryUser = {
 };
 
 export interface GalleryGenTask {
-  id: number;
+  id: number | string;
   prompt: string;
   model: string;
   count: number;
