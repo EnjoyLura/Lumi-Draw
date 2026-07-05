@@ -13,6 +13,7 @@ export interface MobileUser {
   avatarUrl?: string | null;
   bio?: string | null;
   gender?: string | null;
+  phone?: string | null;
   credits: number;
   memberPlan?: string | null;
   status?: string;

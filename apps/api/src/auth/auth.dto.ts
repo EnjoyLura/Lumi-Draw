@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
 
 export class WechatLoginDto {
   @IsString()
@@ -40,4 +40,9 @@ export class UpdateMeDto {
   @IsOptional()
   @IsIn(["unknown", "male", "female"])
   gender?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^$|^1[3-9]\d{9}$/)
+  phone?: string;
 }

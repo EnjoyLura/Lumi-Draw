@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
@@ -28,6 +29,13 @@ const isUploading = ref(false);
 const isSubmitting = ref(false);
 
 const descCount = computed(() => `${desc.value.length}/500`);
+
+onLoad((query) => {
+  if (query?.source === "service") {
+    activeType.value = "experience";
+    desc.value = "我想咨询：";
+  }
+});
 
 async function addImage() {
   if (images.value.length >= 2 || isUploading.value) return;

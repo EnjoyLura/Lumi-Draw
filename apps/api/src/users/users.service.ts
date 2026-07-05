@@ -12,6 +12,7 @@ function publicUser(user: User) {
     avatarUrl: user.avatarUrl ?? undefined,
     bio: user.bio,
     gender: user.gender,
+    phone: user.phone,
     credits: user.credits,
     memberPlan: user.memberPlan,
     status: user.status,
@@ -40,6 +41,7 @@ export class UsersService {
     if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl;
     if (dto.bio !== undefined) data.bio = dto.bio;
     if (dto.gender !== undefined) data.gender = dto.gender;
+    if (dto.phone !== undefined) data.phone = dto.phone;
     const user = await this.prisma.user.update({ where: { id: userId }, data });
     return publicUser(user);
   }

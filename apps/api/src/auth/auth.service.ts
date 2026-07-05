@@ -16,6 +16,7 @@ function publicUser(user: User) {
     avatarUrl: user.avatarUrl ?? undefined,
     bio: user.bio,
     gender: user.gender,
+    phone: user.phone,
     credits: user.credits,
     memberPlan: user.memberPlan,
     status: user.status

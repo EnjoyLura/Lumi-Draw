@@ -9,10 +9,6 @@ const { isLoggedIn, login: commitLogin } = useAuth();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const showLoginSheet = ref(false);
 
-function showTodo(label: string) {
-  uni.showToast({ title: `${label}将在后续任务迁移`, icon: "none" });
-}
-
 function goHome() {
   uni.redirectTo({ url: "/pages/home/index" });
 }
@@ -65,7 +61,6 @@ function handleQuickAction(label: string) {
     uni.navigateTo({ url: "/pages/invite/index" });
     return;
   }
-  showTodo(label);
 }
 
 function handleListItem(item: MineListItem) {
@@ -85,6 +80,10 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/feedback/index" });
     return;
   }
+  if (item.key === "service") {
+    uni.navigateTo({ url: "/pages/feedback/index?source=service" });
+    return;
+  }
   if (item.key === "drafts") {
     uni.navigateTo({ url: "/pages/drafts/index" });
     return;
@@ -101,7 +100,6 @@ function handleListItem(item: MineListItem) {
     uni.navigateTo({ url: "/pages/follow-list/index?type=following" });
     return;
   }
-  showTodo(item.label);
 }
 
 async function login() {

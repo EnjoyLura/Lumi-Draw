@@ -1,18 +1,34 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { setUseMockData, useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { aboutItems, type SettingsLink } from "./settingsData";
+import { fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
 const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
+const phone = ref(currentUser.value?.phone || "");
+const isSavingPhone = ref(false);
 
-const phoneText = computed(() => (isLoggedIn.value ? "手机号 未绑定" : "手机号 --"));
+const phoneText = computed(() => {
+  if (!isLoggedIn.value) return "手机号 --";
+  if (!phone.value) return "手机号 未绑定";
+  return `手机号 ${phone.value.slice(0, 3)}****${phone.value.slice(-4)}`;
+});
+const phoneTagText = computed(() => {
+  if (!isLoggedIn.value) return "未登录";
+  return phone.value ? "已绑定" : "未绑定";
+});
+
+onShow(() => {
+  void loadSettingsProfile();
+});
 
 function requireSession() {
   if (isLoggedIn.value) return true;
@@ -25,9 +41,71 @@ function goEditProfile() {
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
-function tapPhone() {
+async function loadSettingsProfile() {
+  if (!isLoggedIn.value) {
+    phone.value = "";
+    return;
+  }
+  if (useMockData.value) {
+    phone.value = currentUser.value?.phone || "";
+    return;
+  }
+
+  try {
+    const profile = await fetchSettingsProfile();
+    phone.value = profile.phone || "";
+  } catch {
+    phone.value = currentUser.value?.phone || "";
+  }
+}
+
+function showPhoneInput() {
+  return new Promise<string | null>((resolve) => {
+    uni.showModal({
+      title: phone.value ? "修改手机号" : "绑定手机号",
+      content: phone.value,
+      editable: true,
+      placeholderText: "请输入 11 位手机号",
+      confirmText: "保存",
+      success(result) {
+        const nextValue = "content" in result && typeof result.content === "string" ? result.content : "";
+        resolve(result.confirm ? nextValue.trim() : null);
+      },
+      fail() {
+        resolve(null);
+      }
+    } as UniApp.ShowModalOptions & { editable: boolean; placeholderText: string });
+  });
+}
+
+async function tapPhone() {
   if (!requireSession()) return;
-  uni.showToast({ title: "手机号绑定待接入", icon: "none" });
+  if (isSavingPhone.value) return;
+  const nextPhone = await showPhoneInput();
+  if (nextPhone === null) return;
+  if (!/^1[3-9]\d{9}$/.test(nextPhone)) {
+    uni.showToast({ title: "请输入正确的手机号", icon: "none" });
+    return;
+  }
+
+  if (useMockData.value) {
+    phone.value = nextPhone;
+    if (currentUser.value) currentUser.value.phone = nextPhone;
+    uni.showToast({ title: "手机号已保存", icon: "none" });
+    return;
+  }
+
+  isSavingPhone.value = true;
+  try {
+    const profile = await updateSettingsPhone(nextPhone);
+    phone.value = profile.phone || nextPhone;
+    if (currentUser.value) currentUser.value.phone = phone.value;
+    uni.showToast({ title: "手机号已保存", icon: "none" });
+  } catch {
+    uni.showToast({ title: "手机号保存失败", icon: "none" });
+  } finally {
+    isSavingPhone.value = false;
+  }
 }
 
 function toggleDark() {
@@ -95,7 +173,7 @@ async function login() {
           <view class="list-row" @click="tapPhone">
             <view class="lr-icon mint">●</view>
             <view class="lr-text">{{ phoneText }}</view>
-            <view class="tag" :class="isLoggedIn ? 'tag-mint' : 'tag-muted'">{{ isLoggedIn ? "正常" : "未登录" }}</view>
+            <view class="tag" :class="phone ? 'tag-mint' : 'tag-muted'">{{ isSavingPhone ? "保存中" : phoneTagText }}</view>
           </view>
         </view>
 
