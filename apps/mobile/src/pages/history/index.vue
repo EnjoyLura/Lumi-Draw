@@ -17,6 +17,7 @@ let lastMode: boolean | null = null;
 const sourceWorks = computed(() => (useMockData.value ? homeWorks : realWorks.value));
 const todayWorks = computed(() => sourceWorks.value.slice(0, 6));
 const yesterdayWorks = computed(() => sourceWorks.value.slice(6, 9));
+const earlierWorks = computed(() => sourceWorks.value.slice(9));
 
 onLoad(() => {
   lastMode = useMockData.value;
@@ -110,6 +111,15 @@ function goHome() {
               <image class="grid-img" :src="work.image" mode="aspectFill" />
             </view>
           </view>
+
+          <template v-if="earlierWorks.length">
+            <view class="section-title">更早</view>
+            <view class="grid">
+              <view v-for="work in earlierWorks" :key="work.id" class="grid-item" @click="openWork(work)">
+                <image class="grid-img" :src="work.image" mode="aspectFill" />
+              </view>
+            </view>
+          </template>
         </view>
       </template>
 
