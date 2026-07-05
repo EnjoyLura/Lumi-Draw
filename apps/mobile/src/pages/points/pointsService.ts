@@ -58,6 +58,33 @@ interface MemberStatus {
   isMember: boolean;
 }
 
+interface PaymentParams {
+  provider: "mock" | "wechat";
+  mockCompleteUrl?: string;
+  configured?: boolean;
+  message?: string;
+  timeStamp?: string;
+  nonceStr?: string;
+  package?: string;
+  signType?: string;
+  paySign?: string;
+}
+
+export interface PaymentOrderView {
+  id: string;
+  orderNo: string;
+  type: "recharge" | "membership";
+  status: "pending" | "paid" | "closed" | "failed";
+  amountFen: number;
+  amountYuan: number;
+  subject: string;
+  credits: number;
+  bonusCredits: number;
+  memberDays: number;
+  paidAt: string | null;
+  paymentParams: PaymentParams | null;
+}
+
 interface Bootstrap {
   rechargeTiers?: Array<{ id: number; price: number; credits: number; bonus: number }>;
   memberPlans?: MemberPlanRow[];
@@ -108,6 +135,7 @@ function toMemberPlan(plan: MemberPlanRow, index: number): MemberPlan {
   const days = plan.name.includes("年") ? 365 : plan.name.includes("季") ? 90 : 30;
   const unit = plan.price > 0 ? `¥${(plan.price / days).toFixed(2)}/天` : "免费";
   return {
+    id: plan.id,
     name: plan.name,
     price: plan.price,
     unitPrice: unit,
@@ -132,6 +160,7 @@ export async function fetchCreditRecords(type: "earn" | "spend", page = 1, pageS
 export async function fetchRechargeTiers() {
   const data = await api.get<Bootstrap>("/app/bootstrap", { skipAuth: true });
   return (data.rechargeTiers || []).map<RechargeTier>((tier, index) => ({
+    id: tier.id,
     price: tier.price,
     credits: tier.credits,
     bonus: tier.bonus,
@@ -166,4 +195,44 @@ export async function fetchMemberPlans() {
 
 export async function fetchMemberStatus() {
   return api.get<MemberStatus>("/membership/status");
+}
+
+export function createRechargeOrder(payload: { tierId?: number; amount?: number }) {
+  return api.post<PaymentOrderView>("/payments/recharge/orders", payload);
+}
+
+export function createMembershipOrder(planId: number) {
+  return api.post<PaymentOrderView>("/payments/membership/orders", { planId });
+}
+
+export function completeMockPayment(orderId: string) {
+  return api.post<PaymentOrderView>(`/payments/${orderId}/mock-complete`);
+}
+
+export async function requestOrderPayment(order: PaymentOrderView) {
+  const params = order.paymentParams;
+  if (!params) return order;
+
+  if (params.provider === "mock") {
+    return completeMockPayment(order.id);
+  }
+
+  if (!params.configured || !params.timeStamp || !params.nonceStr || !params.package || !params.signType || !params.paySign) {
+    throw new Error(params.message || "微信支付暂未配置");
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    uni.requestPayment({
+      provider: "wxpay",
+      timeStamp: params.timeStamp,
+      nonceStr: params.nonceStr,
+      package: params.package,
+      signType: params.signType,
+      paySign: params.paySign,
+      success: () => resolve(),
+      fail: (error) => reject(new Error(error.errMsg || "支付取消"))
+    });
+  });
+
+  return order;
 }

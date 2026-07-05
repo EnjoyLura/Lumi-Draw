@@ -1,0 +1,228 @@
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import type { PaymentOrder, Prisma } from "@prisma/client";
+import { CreditsService } from "../credits/credits.service";
+import { PrismaService } from "../prisma/prisma.service";
+import type { CreateMembershipOrderDto, CreateRechargeOrderDto } from "./payments.dto";
+
+type OrderWithUser = PaymentOrder & { user?: { memberExpireAt: Date | null } };
+
+@Injectable()
+export class PaymentsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly credits: CreditsService,
+    private readonly config: ConfigService
+  ) {}
+
+  async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto) {
+    const spec = dto.tierId ? await this.rechargeTierSpec(dto.tierId) : this.customRechargeSpec(dto.amount);
+    const order = await this.prisma.paymentOrder.create({
+      data: {
+        userId,
+        type: "recharge",
+        orderNo: this.createOrderNo("R"),
+        channel: "wechat",
+        amountFen: spec.amountFen,
+        subject: spec.subject,
+        body: spec.body,
+        rechargeTierId: dto.tierId,
+        credits: spec.credits,
+        bonusCredits: spec.bonusCredits
+      }
+    });
+    return this.toOrderView(order);
+  }
+
+  async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto) {
+    const plan = await this.prisma.memberPlan.findFirst({ where: { id: dto.planId, enabled: true } });
+    if (!plan) throw new NotFoundException("会员方案不存在");
+
+    const order = await this.prisma.paymentOrder.create({
+      data: {
+        userId,
+        type: "membership",
+        orderNo: this.createOrderNo("M"),
+        channel: "wechat",
+        amountFen: plan.price * 100,
+        subject: `开通${plan.name}`,
+        body: plan.rights,
+        memberPlanId: plan.id,
+        credits: plan.giftCredits,
+        memberDays: this.resolveMemberDays(plan.name)
+      }
+    });
+    return this.toOrderView(order);
+  }
+
+  async getOrder(userId: number, id: string) {
+    const order = await this.findUserOrder(userId, id);
+    return this.toOrderView(order);
+  }
+
+  async mockComplete(userId: number, id: string) {
+    if (!this.allowMockPayment()) {
+      throw new ForbiddenException("模拟支付未开启");
+    }
+
+    const order = await this.findUserOrder(userId, id);
+    const paid = await this.markOrderPaid(order, `mock_${Date.now()}`);
+    return this.toOrderView(paid);
+  }
+
+  async handleWechatNotify(body: unknown) {
+    // Real WeChat Pay v3 notify verification needs merchant serial, private key and API v3 key.
+    // The endpoint is reserved so nginx/routes can be wired before certificates are configured.
+    return { received: true, ignored: true, reason: "wechat notify verification not configured", bodyType: typeof body };
+  }
+
+  private async rechargeTierSpec(tierId: number) {
+    const tier = await this.prisma.rechargeTier.findFirst({ where: { id: tierId, enabled: true } });
+    if (!tier) throw new NotFoundException("充值方案不存在");
+    return {
+      amountFen: tier.price * 100,
+      credits: tier.credits,
+      bonusCredits: tier.bonus,
+      subject: `积分充值 ${tier.credits + tier.bonus}积分`,
+      body: `购买${tier.credits}积分，赠送${tier.bonus}积分`
+    };
+  }
+
+  private customRechargeSpec(amount: number | undefined) {
+    if (!amount || !Number.isFinite(amount) || amount < 1) throw new BadRequestException("充值金额不能低于1元");
+    const normalized = Math.round(amount * 100) / 100;
+    const credits = Math.floor(normalized * 10);
+    const bonusCredits = Math.floor(credits * 0.05);
+    return {
+      amountFen: Math.round(normalized * 100),
+      credits,
+      bonusCredits,
+      subject: `自定义充值 ${credits + bonusCredits}积分`,
+      body: `购买${credits}积分，赠送${bonusCredits}积分`
+    };
+  }
+
+  private async findUserOrder(userId: number, id: string) {
+    const order = await this.prisma.paymentOrder.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException("支付订单不存在");
+    if (order.userId !== userId) throw new ForbiddenException("无权查看该订单");
+    return order;
+  }
+
+  private async markOrderPaid(order: PaymentOrder, transactionId: string) {
+    if (order.status === "paid") return order;
+    if (order.status !== "pending") throw new BadRequestException("订单状态不能支付");
+
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await tx.paymentOrder.findUnique({
+        where: { id: order.id },
+        include: { user: { select: { memberExpireAt: true } } }
+      });
+      if (!locked) throw new NotFoundException("支付订单不存在");
+      if (locked.status === "paid") return locked;
+      if (locked.status !== "pending") throw new BadRequestException("订单状态不能支付");
+
+      const paid = await tx.paymentOrder.update({
+        where: { id: locked.id },
+        data: { status: "paid", transactionId, paidAt: new Date() },
+        include: { user: { select: { memberExpireAt: true } } }
+      });
+
+      await this.applyPaidOrder(tx, paid);
+      return paid;
+    });
+  }
+
+  private async applyPaidOrder(tx: Prisma.TransactionClient, order: OrderWithUser) {
+    if (order.type === "recharge") {
+      await this.credits.addTransactionInTx(
+        tx,
+        order.userId,
+        "recharge",
+        order.credits + order.bonusCredits,
+        order.subject,
+        order.id
+      );
+      return;
+    }
+
+    if (order.type === "membership") {
+      const expireAt = this.resolveMemberExpireAt(order.user?.memberExpireAt ?? null, order.memberDays);
+      await tx.user.update({
+        where: { id: order.userId },
+        data: {
+          memberPlan: order.subject.replace(/^开通/, ""),
+          memberExpireAt: expireAt
+        }
+      });
+      if (order.credits > 0) {
+        await this.credits.addTransactionInTx(tx, order.userId, "membership", order.credits, `${order.subject}赠送积分`, order.id);
+      }
+      return;
+    }
+
+    throw new BadRequestException("未知订单类型");
+  }
+
+  private resolveMemberExpireAt(current: Date | null, days: number) {
+    const base = current && current.getTime() > Date.now() ? current : new Date();
+    const next = new Date(base);
+    next.setDate(next.getDate() + Math.max(days, 1));
+    return next;
+  }
+
+  private resolveMemberDays(name: string) {
+    if (name.includes("年") || name.toLowerCase().includes("year")) return 365;
+    if (name.includes("季") || name.toLowerCase().includes("quarter")) return 90;
+    return 30;
+  }
+
+  private createOrderNo(prefix: string) {
+    const stamp = new Date()
+      .toISOString()
+      .replace(/[-:.TZ]/g, "")
+      .slice(0, 14);
+    const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+    return `${prefix}${stamp}${random}`;
+  }
+
+  private allowMockPayment() {
+    const explicit = process.env.PAYMENT_ALLOW_MOCK;
+    if (explicit) return explicit === "true";
+    return this.config.get<string>("app.nodeEnv") !== "production";
+  }
+
+  private paymentParams(order: PaymentOrder) {
+    if (this.allowMockPayment()) {
+      return {
+        provider: "mock",
+        mockCompleteUrl: `/payments/${order.id}/mock-complete`
+      };
+    }
+    return {
+      provider: "wechat",
+      configured: false,
+      message: "WeChat Pay signing is not configured"
+    };
+  }
+
+  private toOrderView(order: PaymentOrder) {
+    return {
+      id: order.id,
+      orderNo: order.orderNo,
+      type: order.type,
+      status: order.status,
+      channel: order.channel,
+      amountFen: order.amountFen,
+      amountYuan: order.amountFen / 100,
+      subject: order.subject,
+      body: order.body,
+      credits: order.credits,
+      bonusCredits: order.bonusCredits,
+      memberDays: order.memberDays,
+      paidAt: order.paidAt?.toISOString() ?? null,
+      createdAt: order.createdAt.toISOString(),
+      paymentParams: order.status === "pending" ? this.paymentParams(order) : null
+    };
+  }
+}

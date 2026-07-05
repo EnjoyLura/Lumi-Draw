@@ -213,6 +213,7 @@ model User {
 
   works              Work[]
   generateJobs       GenerateJob[]
+  paymentOrders      PaymentOrder[]
   refreshTokens      RefreshToken[]
   creditTransactions CreditTransaction[]
   checkinRecords     CheckinRecord[]
@@ -494,4 +495,31 @@ model GenerateResult {
 
   @@index([jobId])
   @@map("generate_results")
+}
+
+// User payment order for recharge and membership purchases.
+model PaymentOrder {
+  id             String    @id @default(cuid())
+  orderNo        String    @unique
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+  type           String    // recharge | membership
+  status         String    @default("pending") // pending | paid | closed | failed
+  channel        String    @default("wechat")
+  amountFen      Int
+  subject        String
+  body           String    @default("")
+  rechargeTierId Int?
+  memberPlanId   Int?
+  credits        Int       @default(0)
+  bonusCredits   Int       @default(0)
+  memberDays     Int       @default(0)
+  transactionId  String    @default("")
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("payment_orders")
 }

@@ -13,6 +13,7 @@ import { HealthModule } from "./health/health.module";
 import { InviteModule } from "./invite/invite.module";
 import { MembershipModule } from "./membership/membership.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { PaymentsModule } from "./payments/payments.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SocialModule } from "./social/social.module";
 import { UploadsModule } from "./uploads/uploads.module";
@@ -40,6 +41,7 @@ import { WorksModule } from "./works/works.module";
     FeedbackModule,
     GenerateModule,
     NotificationsModule,
+    PaymentsModule,
     SocialModule,
     WorksModule,
     AdminModule

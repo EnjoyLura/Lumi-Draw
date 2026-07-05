@@ -1,4 +1,5 @@
 export interface RechargeTier {
+  id?: number;
   price: number;
   credits: number;
   bonus: number;
@@ -28,6 +29,7 @@ export interface InvitedUser {
 }
 
 export interface MemberPlan {
+  id?: number;
   name: string;
   price: number;
   unitPrice: string;

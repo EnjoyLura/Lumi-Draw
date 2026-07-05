@@ -4,7 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberPlan } from "../points/pointsData";
-import { fetchMemberPlans, fetchMemberStatus } from "../points/pointsService";
+import { createMembershipOrder, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
 
 const { requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -15,6 +15,7 @@ const isMember = ref(false);
 const memberPlanName = ref("");
 const memberExpireAt = ref("");
 const isLoading = ref(false);
+const isPaying = ref(false);
 let lastMockMode: boolean | null = null;
 
 const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
@@ -64,9 +65,37 @@ function selectPlan(index: number) {
   selectedPlanIdx.value = index;
 }
 
-function openMember() {
+async function openMember() {
   if (!requireLogin()) return;
-  uni.showToast({ title: "会员支付待接入", icon: "none" });
+  if (isPaying.value) return;
+
+  const plan = selectedPlan.value;
+  isPaying.value = true;
+  try {
+    if (useMockData.value) {
+      isMember.value = true;
+      memberPlanName.value = plan.name;
+      const expire = new Date();
+      expire.setDate(expire.getDate() + 30);
+      memberExpireAt.value = expire.toISOString();
+      uni.showToast({ title: "模拟开通成功", icon: "none" });
+      return;
+    }
+
+    if (!plan.id) throw new Error("会员方案未同步，请刷新后重试");
+    const order = await createMembershipOrder(plan.id);
+    const paid = await requestOrderPayment(order);
+    if (paid.status === "paid") {
+      uni.showToast({ title: "会员开通成功", icon: "none" });
+      await loadMembership();
+    } else {
+      uni.showToast({ title: "支付已提交，请稍后刷新查看", icon: "none" });
+    }
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "支付失败，请稍后重试", icon: "none" });
+  } finally {
+    isPaying.value = false;
+  }
 }
 
 function showAgreement() {
@@ -128,9 +157,9 @@ function showAgreement() {
           </view>
         </view>
 
-        <button class="open-btn" @click="openMember">
+        <button class="open-btn" :disabled="isPaying" @click="openMember">
           <text class="open-icon">♛</text>
-          <text>立即开通 · ¥{{ selectedPlan.price }}</text>
+          <text>{{ isPaying ? "支付处理中..." : `立即开通 · ¥${selectedPlan.price}` }}</text>
         </button>
 
         <view class="section-title">会员权益</view>

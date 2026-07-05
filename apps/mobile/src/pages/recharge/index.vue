@@ -4,7 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
-import { fetchCreditRecords, fetchCreditsBalance, fetchRechargeTiers } from "../points/pointsService";
+import { createRechargeOrder, fetchCreditRecords, fetchCreditsBalance, fetchRechargeTiers, requestOrderPayment } from "../points/pointsService";
 
 type RecordTab = "earn" | "spend";
 
@@ -20,6 +20,7 @@ const spendList = ref<PointRecord[]>(spendRecords);
 const customOpen = ref(false);
 const customAmount = ref("");
 const isLoading = ref(false);
+const isPaying = ref(false);
 let lastMockMode: boolean | null = null;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
@@ -82,9 +83,33 @@ function closeCustomRecharge() {
   customOpen.value = false;
 }
 
-function startRecharge() {
+async function startRecharge(amount?: number) {
   if (!requireLogin()) return;
-  uni.showToast({ title: "微信支付待接入", icon: "none" });
+  if (isPaying.value) return;
+
+  const tier = tiers.value[selectedTierIdx.value];
+  isPaying.value = true;
+  try {
+    if (useMockData.value) {
+      const added = amount ? customCredits.value + customBonus.value : (tier?.credits || 0) + (tier?.bonus || 0);
+      balance.value += added;
+      uni.showToast({ title: "模拟支付成功", icon: "none" });
+      return;
+    }
+
+    const order = amount ? await createRechargeOrder({ amount }) : await createRechargeOrder({ tierId: tier?.id });
+    const paid = await requestOrderPayment(order);
+    if (paid.status === "paid") {
+      uni.showToast({ title: "充值成功", icon: "none" });
+      await loadPageData();
+    } else {
+      uni.showToast({ title: "支付已提交，请稍后刷新查看", icon: "none" });
+    }
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "支付失败，请稍后重试", icon: "none" });
+  } finally {
+    isPaying.value = false;
+  }
 }
 
 function confirmCustomRecharge() {
@@ -93,7 +118,7 @@ function confirmCustomRecharge() {
     return;
   }
   closeCustomRecharge();
-  startRecharge();
+  void startRecharge(customValue.value);
 }
 </script>
 
@@ -130,7 +155,7 @@ function confirmCustomRecharge() {
           </view>
         </view>
 
-        <button class="pay-btn" @click="startRecharge">微信支付充值</button>
+        <button class="pay-btn" :disabled="isPaying" @click="() => startRecharge()">{{ isPaying ? "支付处理中..." : "微信支付充值" }}</button>
 
         <view class="sub-tabs">
           <view class="sub-tab" :class="{ active: activeTab === 'earn' }" @click="switchTab('earn')">积分获得</view>
