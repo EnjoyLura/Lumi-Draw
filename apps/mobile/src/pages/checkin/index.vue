@@ -4,16 +4,22 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { initialSignedDays, milestones, today, type Milestone } from "../points/pointsData";
+import { milestones, type Milestone } from "../points/pointsData";
 import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
 
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
+const currentDate = new Date();
+const currentYear = currentDate.getFullYear();
+const currentMonth = currentDate.getMonth() + 1;
+const currentDay = currentDate.getDate();
+const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
+const monthTitle = `${currentYear}年${currentMonth}月`;
 
 const checkinDone = ref(false);
 const checkinStreak = ref(7);
 const nextCredits = ref(10);
-const signedDays = ref<number[]>([...initialSignedDays]);
+const signedDays = ref<number[]>([]);
 const milestoneStates = ref<Record<number, Milestone["state"]>>({});
 const streakPulse = ref(false);
 const todayPulse = ref(false);
@@ -31,13 +37,20 @@ function buildMilestoneStates(streak: number) {
 
 milestoneStates.value = buildMilestoneStates(checkinStreak.value);
 
+function buildVisibleSignedDays(streak: number, checkedToday: boolean) {
+  const endDay = checkedToday ? currentDay : currentDay - 1;
+  if (endDay < 1 || streak < 1) return [];
+  const startDay = Math.max(1, endDay - streak + 1);
+  return Array.from({ length: endDay - startDay + 1 }, (_, index) => startDay + index);
+}
+
 const calendarDays = computed(() => {
-  return Array.from({ length: 30 }, (_, index) => {
+  return Array.from({ length: daysInCurrentMonth }, (_, index) => {
     const day = index + 1;
     return {
       day,
       signed: signedDays.value.includes(day),
-      today: day === today,
+      today: day === currentDay,
       milestone: milestones.some((item) => item.days === day)
     };
   });
@@ -55,7 +68,7 @@ async function loadStatus() {
     checkinDone.value = false;
     checkinStreak.value = 7;
     nextCredits.value = 10;
-    signedDays.value = [...initialSignedDays];
+    signedDays.value = buildVisibleSignedDays(checkinStreak.value, false);
     milestoneStates.value = buildMilestoneStates(checkinStreak.value);
     return;
   }
@@ -67,9 +80,7 @@ async function loadStatus() {
     checkinDone.value = status.checkedToday;
     checkinStreak.value = status.continuousDays;
     nextCredits.value = status.nextCredits;
-    const visibleSigned = Math.min(status.continuousDays, today);
-    signedDays.value = Array.from({ length: visibleSigned }, (_, index) => index + 1);
-    if (status.checkedToday && !signedDays.value.includes(today)) signedDays.value = [...signedDays.value, today];
+    signedDays.value = buildVisibleSignedDays(status.continuousDays, status.checkedToday);
     milestoneStates.value = buildMilestoneStates(status.continuousDays);
   } catch {
     uni.showToast({ title: "签到状态加载失败", icon: "none" });
@@ -118,7 +129,7 @@ async function doCheckin() {
   if (useMockData.value) {
     checkinDone.value = true;
     checkinStreak.value += 1;
-    signedDays.value = [...new Set([...signedDays.value, today])];
+    signedDays.value = buildVisibleSignedDays(checkinStreak.value, true);
     milestoneStates.value = buildMilestoneStates(checkinStreak.value);
     pulseToday();
     uni.showToast({ title: `签到成功，+${nextCredits.value}积分`, icon: "none" });
@@ -131,7 +142,7 @@ async function doCheckin() {
     const result = await submitCheckin();
     checkinDone.value = true;
     checkinStreak.value = result.continuousDays;
-    signedDays.value = [...new Set([...signedDays.value, today])];
+    signedDays.value = buildVisibleSignedDays(result.continuousDays, true);
     milestoneStates.value = buildMilestoneStates(result.continuousDays);
     pulseToday();
     uni.showToast({ title: result.checked ? `签到成功，+${result.credits}积分` : "今日已签到", icon: "none" });
@@ -185,7 +196,7 @@ function claimMilestone(item: Milestone) {
         <view class="section-title plain">本月签到</view>
         <view class="calendar-card">
           <view class="month-row">
-            <text>2026年7月</text>
+            <text>{{ monthTitle }}</text>
           </view>
           <view class="week-row">
             <text>日</text>
@@ -205,7 +216,7 @@ function claimMilestone(item: Milestone) {
                 signed: item.signed,
                 today: item.today && !item.signed,
                 milestone: item.milestone,
-                pulse: todayPulse && item.day === today
+                pulse: todayPulse && item.day === currentDay
               }"
             >
               <text>{{ item.day }}</text>
