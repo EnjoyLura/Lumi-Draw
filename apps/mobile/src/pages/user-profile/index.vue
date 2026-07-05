@@ -17,6 +17,7 @@ import {
 import type { HomeWork } from "../home/homeData";
 import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userProfileData";
 
+const PAGE_SIZE = 20;
 const userId = ref(1);
 const confirmOpen = ref(false);
 const showLoginSheet = ref(false);
@@ -25,6 +26,8 @@ const pulseId = ref<number | null>(null);
 const realProfile = ref<ProfileView | null>(null);
 const realWorks = ref<HomeWork[]>([]);
 const loading = ref(false);
+const isLoadingMore = ref(false);
+const pageState = ref({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 let lastMode: boolean | null = null;
@@ -92,16 +95,34 @@ async function loadProfile() {
     const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
     const [profile, worksPage] = await Promise.all([
       fetchUserProfile(userId.value, requestOptions),
-      fetchUserWorks(userId.value, 1, 20, { skipAuth: true })
+      fetchUserWorks(userId.value, 1, PAGE_SIZE, { skipAuth: true })
     ]);
     realProfile.value = toProfileView(profile);
     realWorks.value = worksPage.items.map(toHomeWork);
+    pageState.value = { page: worksPage.page, hasMore: worksPage.hasMore };
   } catch {
     realProfile.value = null;
     realWorks.value = [];
+    pageState.value = { page: 1, hasMore: false };
     uni.showToast({ title: "用户主页加载失败", icon: "none" });
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMoreWorks() {
+  if (useMockData.value || loading.value || isLoadingMore.value || !pageState.value.hasMore) return;
+
+  isLoadingMore.value = true;
+  try {
+    const nextPage = pageState.value.page + 1;
+    const worksPage = await fetchUserWorks(userId.value, nextPage, PAGE_SIZE, { skipAuth: true });
+    realWorks.value = [...realWorks.value, ...worksPage.items.map(toHomeWork)];
+    pageState.value = { page: worksPage.page, hasMore: worksPage.hasMore };
+  } catch {
+    uni.showToast({ title: "作品加载失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoadingMore.value = false;
   }
 }
 
@@ -212,7 +233,7 @@ async function confirmUnfollow() {
 
 <template>
   <view class="profile-page">
-    <scroll-view class="page-scroll" scroll-y>
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view class="profile-header">
         <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
         <view class="header-main">
@@ -285,7 +306,9 @@ async function confirmUnfollow() {
           </view>
         </view>
         <view v-else class="works-empty">暂无作品</view>
-        <view v-if="allWorks.length" class="load-more-hint">继续往下滑获取更多作品</view>
+        <view v-if="allWorks.length" class="load-more-hint">
+          {{ isLoadingMore ? "正在加载更多作品" : useMockData || pageState.hasMore ? "继续往下滑获取更多作品" : "没有更多作品了" }}
+        </view>
       </view>
     </scroll-view>
 

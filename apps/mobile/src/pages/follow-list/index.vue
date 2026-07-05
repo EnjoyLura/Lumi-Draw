@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -7,10 +7,14 @@ import { useDataMode } from "../../services/dataMode";
 import { fetchFollowList, followUser, formatCompactNumber, unfollowUser, type BackendUserProfile } from "../../services/social";
 import { isFollowing, profileUsers, setFollowing, type ProfileUser } from "../user-profile/userProfileData";
 
+const PAGE_SIZE = 30;
 const type = ref<"following" | "followers">("following");
 const followTick = ref(0);
 type FollowProfileUser = ProfileUser & { isFollowing?: boolean };
 const realUsers = ref<FollowProfileUser[]>([]);
+const isLoading = ref(false);
+const isLoadingMore = ref(false);
+const pageState = reactive({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
 const { login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
@@ -49,15 +53,40 @@ function toProfileUser(user: BackendUserProfile): FollowProfileUser {
 async function loadList() {
   if (useMockData.value) {
     realUsers.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
     return;
   }
   if (!ensureLogin()) return;
+  isLoading.value = true;
   try {
-    const page = await fetchFollowList(type.value);
+    const page = await fetchFollowList(type.value, 1, PAGE_SIZE);
     realUsers.value = page.items.map(toProfileUser);
+    pageState.page = page.page;
+    pageState.hasMore = page.hasMore;
   } catch {
     realUsers.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
     uni.showToast({ title: "关注列表加载失败", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+async function loadMoreList() {
+  if (useMockData.value || isLoading.value || isLoadingMore.value || !pageState.hasMore) return;
+
+  isLoadingMore.value = true;
+  try {
+    const page = await fetchFollowList(type.value, pageState.page + 1, PAGE_SIZE);
+    realUsers.value = [...realUsers.value, ...page.items.map(toProfileUser)];
+    pageState.page = page.page;
+    pageState.hasMore = page.hasMore;
+  } catch {
+    uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoadingMore.value = false;
   }
 }
 
@@ -120,8 +149,13 @@ function goHome() {
 
 <template>
   <view class="follow-page">
-    <scroll-view class="page-scroll" scroll-y>
-      <view v-if="list.length" class="follow-content">
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
+      <view v-if="isLoading" class="empty-state">
+        <view class="empty-icon">♡</view>
+        <view class="empty-title">正在加载</view>
+      </view>
+
+      <view v-else-if="list.length" class="follow-content">
         <view v-for="user in list" :key="user.id" class="follow-row">
           <view class="avatar" :style="{ background: user.color }" @click="goProfile(user.id)">{{ user.avatar }}</view>
           <view class="row-text" @click="goProfile(user.id)">
@@ -131,6 +165,9 @@ function goHome() {
           <button class="follow-btn" :class="{ following: rowFollowing(user.id) }" @click="toggleFollow(user.id)">
             {{ rowFollowing(user.id) ? "已关注" : "+ 关注" }}
           </button>
+        </view>
+        <view v-if="!useMockData" class="load-more-hint">
+          {{ isLoadingMore ? "正在加载更多" : pageState.hasMore ? "继续下滑查看更多" : "没有更多了" }}
         </view>
       </view>
 
@@ -172,6 +209,13 @@ function goHome() {
 
 .follow-row:last-child {
   border-bottom: none;
+}
+
+.load-more-hint {
+  padding: 12px 0 4px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
 }
 
 .avatar {
