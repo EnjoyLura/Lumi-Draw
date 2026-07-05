@@ -1,15 +1,29 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { homeUsers, homeWorks, type HomeWork } from "../home/homeData";
+import { computed, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useDataMode } from "../../services/dataMode";
+import { homeUsers as mockHomeUsers, homeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searchData";
+import { fetchHotSearches, searchWorks } from "./searchService";
 
+const PAGE_SIZE = 12;
+const { useMockData } = useDataMode();
 const keyword = ref("");
 const submittedKeyword = ref("");
 const searchHistory = ref([...initialSearchHistory]);
+const backendResults = ref<HomeWork[]>([]);
+const userList = ref<HomeUser[]>(mockHomeUsers);
+const hotSearchList = ref([...hotSearches]);
+const isLoading = ref(false);
+const isLoadingMore = ref(false);
+const pageState = reactive({ page: 1, hasMore: false });
+let lastMockMode: boolean | null = null;
 
 const results = computed(() => {
   const query = submittedKeyword.value.trim().toLowerCase();
   if (!query) return [];
+  if (!useMockData.value) return backendResults.value;
+
   const terms = [query, ...(searchKeywordAliases[submittedKeyword.value.trim()] || [])].map((item) => item.toLowerCase());
 
   return homeWorks.filter((work) => {
@@ -21,9 +35,56 @@ const results = computed(() => {
 
 const leftColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 1));
+const hasMore = computed(() => !useMockData.value && pageState.hasMore);
+
+onShow(() => {
+  if (lastMockMode === useMockData.value) return;
+  lastMockMode = useMockData.value;
+  void loadHotSearches();
+  if (!useMockData.value && submittedKeyword.value) void runBackendSearch(submittedKeyword.value, 1, false);
+});
+
+function mergeUsers(nextUsers: HomeUser[]) {
+  const map = new Map<number, HomeUser>();
+  userList.value.forEach((user) => map.set(user.id, user));
+  nextUsers.forEach((user) => map.set(user.id, user));
+  userList.value = Array.from(map.values());
+}
+
+async function loadHotSearches() {
+  if (useMockData.value) {
+    hotSearchList.value = [...hotSearches];
+    return;
+  }
+
+  try {
+    const rows = await fetchHotSearches();
+    hotSearchList.value = rows.length ? rows : [...hotSearches];
+  } catch {
+    hotSearchList.value = [...hotSearches];
+  }
+}
+
+async function runBackendSearch(query: string, page = 1, append = false) {
+  isLoading.value = !append;
+  isLoadingMore.value = append;
+  try {
+    const result = await searchWorks(query, page, PAGE_SIZE);
+    backendResults.value = append ? [...backendResults.value, ...result.works] : result.works;
+    mergeUsers(result.users);
+    pageState.page = result.page;
+    pageState.hasMore = result.hasMore;
+  } catch {
+    if (!append) backendResults.value = [];
+    uni.showToast({ title: "搜索失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoading.value = false;
+    isLoadingMore.value = false;
+  }
+}
 
 function getUser(work: HomeWork) {
-  return homeUsers.find((user) => user.id === work.userId) || homeUsers[0];
+  return userList.value.find((user) => user.id === work.userId) || userList.value[0] || mockHomeUsers[0];
 }
 
 function getAspectRatio(ratio: string) {
@@ -32,13 +93,19 @@ function getAspectRatio(ratio: string) {
   return `${width} / ${height}`;
 }
 
-function doSearch(value = keyword.value) {
+async function doSearch(value = keyword.value) {
   const query = value.trim();
   keyword.value = query;
   submittedKeyword.value = query;
-  if (!query) return;
+  if (!query) {
+    backendResults.value = [];
+    return;
+  }
 
   searchHistory.value = [query, ...searchHistory.value.filter((item) => item !== query)].slice(0, 6);
+  if (!useMockData.value) {
+    await runBackendSearch(query, 1, false);
+  }
 }
 
 function handleTyping() {
@@ -57,11 +124,16 @@ function showTodo(label: string) {
 function openWorkDetail(workId: number) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
 }
+
+function handleReachBottom() {
+  if (useMockData.value || isLoading.value || isLoadingMore.value || !hasMore.value || !submittedKeyword.value) return;
+  void runBackendSearch(submittedKeyword.value, pageState.page + 1, true);
+}
 </script>
 
 <template>
   <view class="search-page">
-    <scroll-view class="page-scroll" scroll-y>
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">
           <view class="input-wrap">
@@ -96,12 +168,17 @@ function openWorkDetail(workId: number) {
               <text>热门搜索</text>
             </view>
             <view class="hot-list">
-              <view v-for="(item, index) in hotSearches" :key="item" class="hot-row" @click="doSearch(item)">
+              <view v-for="(item, index) in hotSearchList" :key="item" class="hot-row" @click="doSearch(item)">
                 <text class="hot-index" :class="{ top: index < 3 }">{{ index + 1 }}</text>
                 <text class="hot-text">{{ item }}</text>
               </view>
             </view>
           </view>
+        </view>
+
+        <view v-else-if="isLoading" class="loading-state">
+          <view class="spinner" />
+          <text>正在搜索</text>
         </view>
 
         <view v-else-if="results.length" class="waterfall">
@@ -138,7 +215,12 @@ function openWorkDetail(workId: number) {
           </view>
         </view>
 
-        <view v-else class="empty-state">
+        <view v-if="submittedKeyword && results.length && !isLoading" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view v-if="isLoadingMore" class="spinner mini" />
+          <text>{{ isLoadingMore ? "正在加载更多作品" : hasMore ? "继续往下滑获取更多作品" : "已经到底了" }}</text>
+        </view>
+
+        <view v-if="submittedKeyword && !isLoading && !results.length" class="empty-state">
           <view class="empty-icon">⌕</view>
           <view class="empty-title">没有找到相关作品</view>
           <view class="empty-sub">试试其他关键词吧</view>
@@ -418,6 +500,41 @@ function openWorkDetail(workId: number) {
   color: var(--fg-muted);
 }
 
+.loading-state,
+.load-more-hint {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.loading-state {
+  flex-direction: column;
+  padding: 54px 0;
+}
+
+.load-more-hint.is-loading {
+  color: var(--accent);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner.mini {
+  width: 16px;
+  height: 16px;
+  border-width: 1.5px;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -448,6 +565,12 @@ function openWorkDetail(workId: number) {
 .empty-sub {
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes work-in {
