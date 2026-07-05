@@ -7,6 +7,7 @@ agent.md
 *.pem
 *.key
 *.crt
+*_nginx.zip
 
 # Dependencies
 node_modules/
