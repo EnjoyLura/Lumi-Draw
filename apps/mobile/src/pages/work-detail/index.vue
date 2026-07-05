@@ -233,6 +233,66 @@ function shareWork() {
   uni.showToast({ title: "分享", icon: "none" });
 }
 
+function saveImageInBrowser(url: string) {
+  if (typeof document === "undefined") return false;
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `lumi-work-${work.value?.id || Date.now()}.jpg`;
+  anchor.target = "_blank";
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  return true;
+}
+
+function saveImageToAlbum(filePath: string) {
+  return new Promise<void>((resolve, reject) => {
+    uni.saveImageToPhotosAlbum({
+      filePath,
+      success() {
+        resolve();
+      },
+      fail(error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+function downloadImage(url: string) {
+  return new Promise<string>((resolve, reject) => {
+    uni.downloadFile({
+      url,
+      success(result) {
+        if (result.statusCode >= 200 && result.statusCode < 300 && result.tempFilePath) {
+          resolve(result.tempFilePath);
+          return;
+        }
+        reject(new Error("download failed"));
+      },
+      fail(error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function saveWorkImage() {
+  if (!work.value) return;
+  if (saveImageInBrowser(work.value.image)) {
+    uni.showToast({ title: "图片下载已开始", icon: "none" });
+    return;
+  }
+
+  try {
+    const filePath = await downloadImage(work.value.image);
+    await saveImageToAlbum(filePath);
+    uni.showToast({ title: "已保存到相册", icon: "none" });
+  } catch {
+    uni.showToast({ title: "保存失败，请长按图片保存", icon: "none" });
+  }
+}
+
 async function remakeWork(current: DetailWork) {
   if (!useMockData.value) {
     try {
@@ -396,7 +456,7 @@ function showToast(title: string) {
             <text>⌫</text>
             <text>{{ isDeleting ? "删除中" : "删除" }}</text>
           </view>
-          <view class="bottom-icon" @click="showToast('已保存到相册')">
+          <view class="bottom-icon" @click="saveWorkImage">
             <text>⇩</text>
             <text>下载</text>
           </view>
