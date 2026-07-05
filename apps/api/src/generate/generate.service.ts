@@ -17,6 +17,11 @@ type ProviderEvent = {
   errorMessage: string;
   progress?: number;
 };
+type GeneratedImage = {
+  imageUrl: string;
+  ossKey: string;
+  sizeBytes: number;
+};
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
@@ -280,51 +285,7 @@ export class GenerateService {
         return failed.job;
       }
       const results = await this.transferGeneratedImages(job.id, event.imageUrls);
-      const updated = await this.prisma.$transaction(async (tx) => {
-        await tx.generateResult.deleteMany({ where: { jobId: job.id } });
-        for (const [index, result] of results.entries()) {
-          const work = await tx.work.create({
-            data: {
-              userId: job.userId,
-              title: this.draftTitle(job.prompt, results.length > 1 ? index + 1 : undefined),
-              description: "",
-              prompt: job.prompt,
-              imageUrl: result.imageUrl,
-              ratio: job.ratio,
-              quality: job.quality,
-              modelId: job.modelId,
-              style: job.style,
-              isPublic: false,
-              status: "draft"
-            }
-          });
-          await tx.generateResult.create({
-            data: {
-              jobId: job.id,
-              status: "succeeded",
-              imageUrl: result.imageUrl,
-              ossKey: result.ossKey,
-              sizeBytes: result.sizeBytes,
-              workId: work.id
-            }
-          });
-        }
-        if (results.length) {
-          await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: results.length } } });
-        }
-        return tx.generateJob.update({
-          where: { id: job.id },
-          data: {
-            status: "succeeded",
-            progress: 100,
-            stageText: "Generation completed",
-            errorMessage: "",
-            finishedAt: new Date()
-          },
-          include: { results: true }
-        });
-      });
-      return updated;
+      return this.finishJobWithDrafts(job, results, "Generation completed");
     }
 
     if (event.status === "failed") {
@@ -408,6 +369,10 @@ export class GenerateService {
 
   private async submitToProvider(jobId: string) {
     const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+    if (this.config.get<boolean>("app.generate.allowMock")) {
+      return this.completeMockProviderJob(job);
+    }
+
     if (!this.kie.isConfigured()) {
       return { job, id: job.id, status: job.status, creditsAfter: undefined as number | undefined };
     }
@@ -440,6 +405,67 @@ export class GenerateService {
       const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "KIE submit failed");
       return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
     }
+  }
+
+  private async completeMockProviderJob(job: JobWithResults) {
+    const images: GeneratedImage[] = Array.from({ length: job.count }, (_, index) => {
+      const seed = `${job.id}-${index + 1}`;
+      return {
+        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(seed)}/1024/1024`,
+        ossKey: `mock/generate/${seed}.jpg`,
+        sizeBytes: 512 * 1024
+      };
+    });
+    const updated = await this.finishJobWithDrafts(job, images, "Mock generation completed");
+    return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
+  }
+
+  private async finishJobWithDrafts(job: JobWithResults, results: GeneratedImage[], stageText: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.generateResult.deleteMany({ where: { jobId: job.id } });
+      for (const [index, result] of results.entries()) {
+        const work = await tx.work.create({
+          data: {
+            userId: job.userId,
+            title: this.draftTitle(job.prompt, results.length > 1 ? index + 1 : undefined),
+            description: "",
+            prompt: job.prompt,
+            imageUrl: result.imageUrl,
+            ratio: job.ratio,
+            quality: job.quality,
+            modelId: job.modelId,
+            style: job.style,
+            isPublic: false,
+            status: "draft"
+          }
+        });
+        await tx.generateResult.create({
+          data: {
+            jobId: job.id,
+            status: "succeeded",
+            imageUrl: result.imageUrl,
+            ossKey: result.ossKey,
+            sizeBytes: result.sizeBytes,
+            workId: work.id
+          }
+        });
+      }
+      if (results.length) {
+        await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: results.length } } });
+      }
+      return tx.generateJob.update({
+        where: { id: job.id },
+        data: {
+          status: "succeeded",
+          progress: 100,
+          stageText,
+          errorMessage: "",
+          startedAt: job.startedAt ?? new Date(),
+          finishedAt: new Date()
+        },
+        include: { results: true }
+      });
+    });
   }
 
   private async failAndRefund(jobId: string, errorMessage: string) {

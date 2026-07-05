@@ -47,6 +47,9 @@ export const appConfig = registerAs("app", () => ({
     apiKey: process.env.KIE_API_KEY ?? "",
     callbackUrl: process.env.KIE_CALLBACK_URL ?? ""
   },
+  generate: {
+    allowMock: process.env.GENERATE_ALLOW_MOCK === "true"
+  },
   oss: {
     accessKeyId: process.env.OSS_ACCESS_KEY_ID ?? "",
     accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET ?? "",

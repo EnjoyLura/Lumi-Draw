@@ -1,6 +1,7 @@
 const API_BASE = (process.env.API_BASE || "http://127.0.0.1:3000/api").replace(/\/+$/, "");
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
+const SMOKE_GENERATE_MOCK = process.env.SMOKE_GENERATE_MOCK === "true";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -373,6 +374,51 @@ async function main() {
     assert(reversed.data?.costCredits > 0, "reverse prompt cost missing");
     assert(reversed.data?.creditsAfter === beforeBalance.data.credits - reversed.data.costCredits, "reverse prompt credits mismatch");
   });
+
+  if (SMOKE_GENERATE_MOCK) {
+    await step("generate mock completion", async () => {
+      const login = await request("POST", "/auth/wechat/login", { code: `mock-smoke-generate-${Date.now()}` });
+      const user = login.body.data;
+      assert(user?.accessToken, "generate smoke token missing");
+
+      const { body: bootstrap } = await request("GET", "/app/bootstrap");
+      const model = (bootstrap.data?.models || []).find((item) => item.enabled !== false) || bootstrap.data?.models?.[0];
+      const ratio = (bootstrap.data?.ratios || []).find((item) => item.enabled !== false) || bootstrap.data?.ratios?.[0];
+      const quality = (bootstrap.data?.qualities || []).find((item) => item.enabled !== false) || bootstrap.data?.qualities?.[0];
+      assert(model?.id, "generate model missing");
+      assert(ratio?.label, "generate ratio missing");
+      assert(quality?.label, "generate quality missing");
+
+      const { body: beforeBalance } = await request("GET", "/credits/balance", undefined, user.accessToken);
+      const { body: created } = await request(
+        "POST",
+        "/generate/jobs",
+        {
+          mode: "text-to-image",
+          modelId: model.id,
+          prompt: "smoke mock generate draft",
+          style: "smoke",
+          ratio: ratio.label,
+          quality: quality.label,
+          count: 1
+        },
+        user.accessToken
+      );
+      const job = created.data?.job;
+      assert(created.data?.status === "succeeded", "mock generate did not finish immediately");
+      assert(job?.results?.[0]?.workId, "mock generate did not auto-save draft");
+      assert(created.data?.creditsAfter === beforeBalance.data.credits - created.data.costCredits, "generate credits mismatch");
+
+      const { body: detail } = await request("GET", `/generate/jobs/${created.data.jobId}`, undefined, user.accessToken);
+      assert(detail.data?.status === "succeeded", "generated job detail status mismatch");
+      assert(detail.data?.results?.[0]?.workId === job.results[0].workId, "generated job result work mismatch");
+
+      const { body: drafts } = await request("GET", "/works/me/drafts?page=1&pageSize=20", undefined, user.accessToken);
+      assert((drafts.data?.items || []).some((item) => item.id === job.results[0].workId), "generated draft missing from drafts");
+    });
+  } else {
+    console.log("- generate mock completion skipped (set SMOKE_GENERATE_MOCK=true with GENERATE_ALLOW_MOCK=true API)");
+  }
 
   if (ADMIN_USERNAME && ADMIN_PASSWORD) {
     const admin = await step("admin login", async () => {
