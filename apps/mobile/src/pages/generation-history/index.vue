@@ -6,6 +6,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { galleryGenTasks } from "../gallery/galleryData";
 import {
+  cancelGenerateJob,
   fetchGenerateHistoryJobs,
   retryGenerateJob,
   type GenerateHistoryFilter,
@@ -87,6 +88,10 @@ function isTerminal(status: GenerateJobStatus) {
 
 function isSuccess(status: GenerateJobStatus) {
   return status === "succeeded" || status === "partial_failed";
+}
+
+function canCancel(status: GenerateJobStatus) {
+  return status === "queued" || status === "running";
 }
 
 function formatTime(value: string) {
@@ -183,6 +188,41 @@ async function retryJob(event: Event, job: GenerateHistoryJob) {
   }
 }
 
+function confirmCancelJob() {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "取消生成",
+      content: "取消后会按后端规则退回未消耗积分，确定取消这个任务吗？",
+      confirmText: "取消任务",
+      confirmColor: "#ff5c7a",
+      success(result) {
+        resolve(Boolean(result.confirm));
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function cancelJob(event: Event, job: GenerateHistoryJob) {
+  event.stopPropagation();
+  if (useMockData.value) {
+    uni.showToast({ title: "模拟任务已取消", icon: "none" });
+    return;
+  }
+  const confirmed = await confirmCancelJob();
+  if (!confirmed) return;
+
+  try {
+    await cancelGenerateJob(job.id);
+    uni.showToast({ title: "任务已取消", icon: "none" });
+    await reloadJobs();
+  } catch {
+    uni.showToast({ title: "取消失败，请稍后重试", icon: "none" });
+  }
+}
+
 function goCreate() {
   uni.navigateTo({ url: "/pages/create/index" });
 }
@@ -264,6 +304,7 @@ async function login() {
           <view class="action-row">
             <button v-if="isSuccess(job.status) && firstWorkId(job)" class="ghost-btn" @click="openWork($event, firstWorkId(job))">查看草稿</button>
             <button v-if="isSuccess(job.status)" class="primary-btn small" @click.stop="openCreate(job)">查看结果</button>
+            <button v-if="canCancel(job.status)" class="ghost-btn danger" @click="cancelJob($event, job)">取消任务</button>
             <button v-if="job.status === 'failed' || job.status === 'cancelled'" class="primary-btn small" @click="retryJob($event, job)">重新生成</button>
           </view>
         </view>
@@ -498,6 +539,12 @@ async function login() {
   color: var(--fg-secondary);
   background: var(--bg-card);
   border: 1px solid var(--card-border);
+}
+
+.ghost-btn.danger {
+  color: var(--rose);
+  background: var(--rose-soft);
+  border-color: transparent;
 }
 
 .primary-btn::after,

@@ -73,3 +73,7 @@ export async function fetchGenerateHistoryJobs(filter: GenerateHistoryFilter, pa
 export function retryGenerateJob(jobId: string) {
   return api.post<{ jobId: string; job: GenerateHistoryJob }>(`/generate/jobs/${jobId}/retry`);
 }
+
+export function cancelGenerateJob(jobId: string) {
+  return api.post<{ ok: boolean; job: GenerateHistoryJob }>(`/generate/jobs/${jobId}/cancel`);
+}
