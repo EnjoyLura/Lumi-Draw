@@ -14,6 +14,9 @@
     "build:api": "pnpm --filter @lumi-draw/api build",
     "start:api": "pnpm --filter @lumi-draw/api start",
     "typecheck": "pnpm -r typecheck",
+    "verify:static": "pnpm typecheck && pnpm build:api && pnpm build:admin && pnpm build:mobile:h5 && git diff --check",
+    "verify:api": "pnpm smoke:api",
+    "verify:full": "pnpm verify:static && pnpm verify:api",
     "smoke:api": "node scripts/smoke-api.mjs"
   },
   "devDependencies": {
