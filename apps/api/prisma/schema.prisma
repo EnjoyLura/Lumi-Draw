@@ -197,10 +197,13 @@ model User {
   avatarUrl   String?
   bio         String   @default("")
   gender      String   @default("unknown") // unknown | male | female
-  credits     Int      @default(0)
-  memberPlan  String   @default("") // "" | 月卡 | 季卡 | 年卡
-  status      String   @default("normal") // normal | banned
-  phone       String   @default("")
+  credits        Int       @default(0)
+  memberPlan     String    @default("") // "" | 月卡 | 季卡 | 年卡
+  memberExpireAt DateTime?
+  status         String    @default("normal") // normal | banned
+  phone          String    @default("")
+  inviteCode     String?   @unique
+  invitedById    Int?
   worksCount  Int      @default(0)
   likesCount  Int      @default(0)
   followers   Int      @default(0)
@@ -214,6 +217,19 @@ model User {
   checkinRecords     CheckinRecord[]
 
   @@map("users")
+}
+
+// 邀请记录 InviteRecord
+model InviteRecord {
+  id            Int      @id @default(autoincrement())
+  inviterId     Int
+  inviteeId     Int      @unique
+  rewardInviter Int      @default(0)
+  rewardInvitee Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@index([inviterId])
+  @@map("invite_records")
 }
 
 // 积分流水 CreditTransaction
