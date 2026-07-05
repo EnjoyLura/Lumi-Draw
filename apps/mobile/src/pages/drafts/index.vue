@@ -56,7 +56,7 @@ function goCreate() {
 
 async function loadDrafts(page = 1, append = false) {
   if (useMockData.value) return;
-  if (!requireLogin()) {
+  if (!ensureLogin()) {
     loginRequired.value = true;
     return;
   }
@@ -79,6 +79,14 @@ async function loadDrafts(page = 1, append = false) {
     isLoading.value = false;
     isLoadingMore.value = false;
   }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
 }
 
 function loadMore() {

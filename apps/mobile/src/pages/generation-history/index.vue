@@ -126,12 +126,20 @@ async function loadJobs(nextPage = 1, append = false) {
     hasMore.value = false;
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   const result = await fetchGenerateHistoryJobs(activeFilter.value, nextPage, PAGE_SIZE);
   jobs.value = append ? [...jobs.value, ...result.items] : result.items;
   page.value = result.page;
   hasMore.value = result.hasMore;
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
 }
 
 async function reloadJobs() {
@@ -175,6 +183,7 @@ function openWork(event: Event, workId?: number) {
 
 async function retryJob(event: Event, job: GenerateHistoryJob) {
   event.stopPropagation();
+  if (!useMockData.value && !ensureLogin()) return;
   if (useMockData.value) {
     uni.showToast({ title: "模拟数据下已重新加入队列", icon: "none" });
     return;
@@ -207,6 +216,7 @@ function confirmCancelJob() {
 
 async function cancelJob(event: Event, job: GenerateHistoryJob) {
   event.stopPropagation();
+  if (!useMockData.value && !ensureLogin()) return;
   if (useMockData.value) {
     uni.showToast({ title: "模拟任务已取消", icon: "none" });
     return;
