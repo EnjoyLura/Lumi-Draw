@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
 import {
   countOptions,
   createModels,
@@ -11,8 +12,15 @@ import {
   qualityOptions,
   ratioOptions
 } from "./createData";
+import { fetchCreateConfig } from "./createService";
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { useMockData } = useDataMode();
+const modelOptions = ref(createModels);
+const styleOptions = ref(createStyles);
+const qualityList = ref(qualityOptions);
+const ratioList = ref(ratioOptions);
+const gameplayOptions = ref(gameplayTemplates);
 const selectedGameplayName = ref("");
 const selectedModelIndex = ref(0);
 const selectedStyleName = ref("");
@@ -44,20 +52,21 @@ const previewData = ref<{ src: string; resolution: string; size: string; ratio: 
 
 let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
+let lastConfigMode: boolean | null = null;
 
-const selectedModel = computed(() => createModels[selectedModelIndex.value]);
+const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? createModels[0]);
 const selectedGameplay = computed(() => {
-  return gameplayTemplates.find((item) => item.name === selectedGameplayName.value);
+  return gameplayOptions.value.find((item) => item.name === selectedGameplayName.value);
 });
-const selectedQuality = computed(() => qualityOptions[selectedQualityIndex.value]);
-const selectedRatio = computed(() => ratioOptions[selectedRatioIndex.value]);
+const selectedQuality = computed(() => qualityList.value[selectedQualityIndex.value] ?? qualityOptions[0]);
+const selectedRatio = computed(() => ratioList.value[selectedRatioIndex.value] ?? ratioOptions[0]);
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
 const totalCost = computed(() => selectedModel.value.cost * selectedCount.value);
-const visibleStyles = computed(() => createStyles.slice(0, 7));
-const allStyles = computed(() => createStyles.slice(0, -1));
-const inlineRatios = computed(() => ratioOptions);
+const visibleStyles = computed(() => styleOptions.value.slice(0, 7));
+const allStyles = computed(() => styleOptions.value.slice(0, -1));
+const inlineRatios = computed(() => ratioList.value);
 const moreStyleSelected = computed(() => {
-  return !!selectedStyleName.value && createStyles.findIndex((style) => style.name === selectedStyleName.value) > 6;
+  return !!selectedStyleName.value && styleOptions.value.findIndex((style) => style.name === selectedStyleName.value) > 6;
 });
 const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
 const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
@@ -95,9 +104,42 @@ function randomError() {
   return generationErrors[Math.floor(Math.random() * generationErrors.length)];
 }
 
+function resetCreateConfig() {
+  modelOptions.value = createModels;
+  styleOptions.value = createStyles;
+  qualityList.value = qualityOptions;
+  ratioList.value = ratioOptions;
+  gameplayOptions.value = gameplayTemplates;
+  selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
+  selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
+  selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+}
+
+async function loadCreateConfig() {
+  if (useMockData.value) {
+    resetCreateConfig();
+    return;
+  }
+
+  try {
+    const config = await fetchCreateConfig();
+    modelOptions.value = config.models.length ? config.models : createModels;
+    styleOptions.value = config.styles.length ? config.styles : createStyles;
+    qualityList.value = config.qualities.length ? config.qualities : qualityOptions;
+    ratioList.value = config.ratios.length ? config.ratios : ratioOptions;
+    gameplayOptions.value = config.gameplays.length ? config.gameplays : gameplayTemplates;
+    selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
+    selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
+    selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+  } catch {
+    resetCreateConfig();
+    showToast("创作配置加载失败，已使用本地配置");
+  }
+}
+
 onLoad((query) => {
   const gameplay = typeof query?.gameplay === "string" ? decodeURIComponent(query.gameplay) : "";
-  if (gameplayTemplates.some((item) => item.name === gameplay)) {
+  if (gameplay) {
     selectedGameplayName.value = gameplay;
   }
 
@@ -109,6 +151,11 @@ onLoad((query) => {
 });
 
 onShow(() => {
+  if (lastConfigMode !== useMockData.value) {
+    lastConfigMode = useMockData.value;
+    void loadCreateConfig();
+  }
+
   const promptDraft = uni.getStorageSync("lumiCreatePromptDraft");
   if (typeof promptDraft === "string" && promptDraft.trim()) {
     promptText.value = promptDraft.slice(0, 500);
@@ -189,7 +236,7 @@ function selectRatio(index: number) {
 }
 
 function applySelectedModel(modelId: string) {
-  const index = createModels.findIndex((model) => model.id === modelId || model.name === modelId);
+  const index = modelOptions.value.findIndex((model) => model.id === modelId || model.name === modelId);
   if (index >= 0) selectedModelIndex.value = index;
 }
 
@@ -451,7 +498,7 @@ function goPublish() {
               <text class="style-label">{{ style.name }}</text>
             </view>
             <view class="style-card" :class="{ selected: moreStyleSelected }" @click="openStyleSheet">
-              <image class="style-img" :src="createStyles[7].image" mode="aspectFill" />
+              <image class="style-img" :src="styleOptions[7]?.image || styleOptions[0]?.image" mode="aspectFill" />
               <view class="style-overlay strong" />
               <text class="style-more">+8</text>
               <text class="style-label">更多</text>
@@ -463,7 +510,7 @@ function goPublish() {
           <view class="section-title">图片精度</view>
           <view class="quality-grid">
             <view
-              v-for="(quality, index) in qualityOptions"
+              v-for="(quality, index) in qualityList"
               :key="quality.label"
               class="option-card"
               :class="{ selected: selectedQualityIndex === index }"
@@ -585,13 +632,13 @@ function goPublish() {
       <view class="sheet-title-row">
         <view>
           <view class="sheet-title">切换模型</view>
-          <view class="sheet-count">共 {{ createModels.length }} 款模型可选</view>
+          <view class="sheet-count">共 {{ modelOptions.length }} 款模型可选</view>
         </view>
       </view>
       <scroll-view class="model-drawer-scroll" scroll-y>
         <view class="model-drawer-list">
           <view
-            v-for="(model, index) in createModels"
+            v-for="(model, index) in modelOptions"
             :key="model.id"
             class="model-drawer-card"
             :class="{ selected: selectedModelIndex === index }"
@@ -633,7 +680,7 @@ function goPublish() {
             <text class="gameplay-clear-label">不使用</text>
           </view>
           <view
-            v-for="template in gameplayTemplates"
+            v-for="template in gameplayOptions"
             :key="template.name"
             class="gameplay-drawer-card"
             :class="{ selected: selectedGameplayName === template.name }"
@@ -660,7 +707,7 @@ function goPublish() {
       </view>
       <view class="ratio-sheet-grid">
         <view
-          v-for="(ratio, index) in ratioOptions"
+          v-for="(ratio, index) in ratioList"
           :key="ratio.label"
           class="ratio-card"
           :class="{ selected: selectedRatioIndex === index }"
