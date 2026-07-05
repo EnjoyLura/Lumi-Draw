@@ -113,6 +113,10 @@ export async function deleteGalleryWorks(ids: number[]) {
   await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=delete`)));
 }
 
+export async function moveGalleryWorksToDraft(ids: number[]) {
+  await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=draft`)));
+}
+
 function elapsedSeconds(createdAt: string) {
   const created = new Date(createdAt).getTime();
   if (!Number.isFinite(created)) return 0;

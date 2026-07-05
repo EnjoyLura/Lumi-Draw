@@ -13,7 +13,8 @@ import {
   fetchGalleryGenerateTasks,
   fetchGalleryTerminalGenerateJobs,
   fetchGalleryUser,
-  fetchGalleryWorks
+  fetchGalleryWorks,
+  moveGalleryWorksToDraft
 } from "./galleryService";
 
 const PAGE_SIZE = 10;
@@ -91,6 +92,9 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMore = computed(() => visibleCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const selectedCount = computed(() => selectedIds.value.size);
+const selectedWorks = computed(() => works.value.filter((work) => selectedIds.value.has(work.id)));
+const selectedPublishedWorks = computed(() => selectedWorks.value.filter((work) => work.published));
+const canMoveSelectedToDraft = computed(() => selectedPublishedWorks.value.length > 0);
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
@@ -354,6 +358,68 @@ function selectAll() {
   selectedIds.value = allCurrentSelected.value ? new Set() : new Set(displayedWorks.value.map((work) => work.id));
 }
 
+function confirmBatchAction(options: { title: string; content: string; confirmText: string; confirmColor?: string }) {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: options.title,
+      content: options.content,
+      confirmText: options.confirmText,
+      confirmColor: options.confirmColor,
+      success(result) {
+        resolve(Boolean(result.confirm));
+      },
+      fail() {
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function refreshAfterBatchAction() {
+  selectedIds.value = new Set();
+  manageMode.value = false;
+  visibleCount.value = PAGE_SIZE;
+  if (!useMockData.value) {
+    await Promise.all([loadGalleryPage(1, false), fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))]);
+  }
+  renderKey.value += 1;
+}
+
+async function moveSelectedToDraft() {
+  if (selectedIds.value.size === 0) {
+    uni.showToast({ title: "请先选择要回草稿的作品", icon: "none" });
+    return;
+  }
+
+  const ids = selectedPublishedWorks.value.map((work) => work.id);
+  if (!ids.length) {
+    uni.showToast({ title: "所选作品没有已发布内容", icon: "none" });
+    return;
+  }
+
+  const confirmed = await confirmBatchAction({
+    title: "回到草稿",
+    content: `将 ${ids.length} 个已发布作品转回草稿箱，广场将不再展示，确定继续吗？`,
+    confirmText: "回草稿",
+    confirmColor: "#ff8a65"
+  });
+  if (!confirmed) return;
+
+  if (!useMockData.value) {
+    try {
+      await moveGalleryWorksToDraft(ids);
+    } catch {
+      uni.showToast({ title: "回草稿失败，请稍后重试", icon: "none" });
+      return;
+    }
+  } else {
+    works.value = works.value.map((work) => (ids.includes(work.id) ? { ...work, published: false, status: "draft" } : work));
+  }
+
+  await refreshAfterBatchAction();
+  uni.showToast({ title: `已转入草稿 ${ids.length} 个作品`, icon: "none" });
+}
+
 async function deleteSelected() {
   if (selectedIds.value.size === 0) {
     uni.showToast({ title: "请先选择要删除的作品", icon: "none" });
@@ -362,6 +428,14 @@ async function deleteSelected() {
 
   const count = selectedIds.value.size;
   const ids = Array.from(selectedIds.value);
+  const confirmed = await confirmBatchAction({
+    title: "删除作品",
+    content: `确定删除已选中的 ${count} 个作品吗？删除后不可恢复。`,
+    confirmText: "删除",
+    confirmColor: "#ff5c7a"
+  });
+  if (!confirmed) return;
+
   if (!useMockData.value) {
     try {
       await deleteGalleryWorks(ids);
@@ -372,9 +446,7 @@ async function deleteSelected() {
   }
 
   works.value = works.value.filter((work) => !ids.includes(work.id));
-  selectedIds.value = new Set();
-  manageMode.value = false;
-  renderKey.value += 1;
+  await refreshAfterBatchAction();
   uni.showToast({ title: `已删除 ${count} 个作品`, icon: "none" });
 }
 
@@ -573,6 +645,7 @@ function openWork(work: HomeWork) {
       <view v-if="isLoggedIn" :class="['manage-bar', { show: manageMode }]">
         <text class="selected-count">已选择 {{ selectedCount }} 项</text>
         <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
+        <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">回草稿</button>
         <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
       </view>
     </scroll-view>
@@ -694,6 +767,7 @@ function openWork(work: HomeWork) {
 .manage-btn,
 .edit-btn,
 .select-all-btn,
+.draft-btn,
 .delete-btn,
 .empty-btn {
   display: flex;
@@ -1310,6 +1384,16 @@ function openWork(work: HomeWork) {
 .select-all-btn {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.draft-btn {
+  color: #fff;
+  background: #ff8a65;
+  opacity: 0.5;
+}
+
+.draft-btn.enabled {
+  opacity: 1;
 }
 
 .delete-btn {
