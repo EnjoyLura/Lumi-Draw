@@ -157,6 +157,16 @@ async function main() {
     const { body: follow } = await request("POST", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
     assert(follow.data?.following === true, "follow did not toggle on");
 
+    const { body: publicProfile } = await request("GET", `/social/users/${owner.user.id}/profile`);
+    assert(publicProfile.data?.id === owner.user.id, "public user profile should be readable without login");
+    assert(publicProfile.data?.isFollowing === false, "public user profile should not imply following without login");
+
+    const { body: publicWorks } = await request("GET", `/social/users/${owner.user.id}/works?page=1&pageSize=10`);
+    assert((publicWorks.data?.items || []).some((item) => item.id === workId), "public user works should include approved work");
+
+    const { body: authedProfile } = await request("GET", `/social/users/${owner.user.id}/profile`, undefined, actor.accessToken);
+    assert(authedProfile.data?.isFollowing === true, "authed user profile should include follow state");
+
     const { body: summary } = await request("GET", "/notifications/summary", undefined, owner.accessToken);
     const rows = summary.data || [];
     const unreadByType = Object.fromEntries(rows.map((row) => [row.key, row.unread]));

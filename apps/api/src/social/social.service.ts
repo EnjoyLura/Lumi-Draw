@@ -209,11 +209,11 @@ export class SocialService {
     };
   }
 
-  async profile(currentUserId: number, targetUserId: number) {
+  async profile(currentUserId: number | undefined, targetUserId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!user) throw new NotFoundException("用户不存在");
     const follow =
-      currentUserId === targetUserId
+      !currentUserId || currentUserId === targetUserId
         ? null
         : await this.prisma.follow.findUnique({
             where: { followerId_followingId: { followerId: currentUserId, followingId: targetUserId } }

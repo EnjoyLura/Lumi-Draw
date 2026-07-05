@@ -24,7 +24,7 @@ const realProfile = ref<ProfileView | null>(null);
 const realWorks = ref<HomeWork[]>([]);
 const loading = ref(false);
 const { useMockData } = useDataMode();
-const { requireLogin } = useAuth();
+const { isLoggedIn, requireLogin } = useAuth();
 let lastMode: boolean | null = null;
 
 interface ProfileView {
@@ -85,10 +85,13 @@ async function loadProfile() {
     realWorks.value = [];
     return;
   }
-  if (!requireLogin()) return;
   loading.value = true;
   try {
-    const [profile, worksPage] = await Promise.all([fetchUserProfile(userId.value), fetchUserWorks(userId.value)]);
+    const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
+    const [profile, worksPage] = await Promise.all([
+      fetchUserProfile(userId.value, requestOptions),
+      fetchUserWorks(userId.value, 1, 20, { skipAuth: true })
+    ]);
     realProfile.value = toProfileView(profile);
     realWorks.value = worksPage.items.map(toHomeWork);
   } catch {

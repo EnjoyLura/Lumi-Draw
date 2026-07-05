@@ -123,12 +123,12 @@ export function recordWorkRemake(id: number) {
   return api.post<RemakeResult>(`/social/works/${id}/remake`);
 }
 
-export function fetchUserProfile(id: number) {
-  return api.get<BackendUserProfile>(`/social/users/${id}/profile`);
+export function fetchUserProfile(id: number, options?: { skipAuth?: boolean }) {
+  return api.get<BackendUserProfile>(`/social/users/${id}/profile`, options);
 }
 
-export function fetchUserWorks(id: number, page = 1, pageSize = 20) {
-  return api.get<PageResult<BackendWorkCard>>(`/social/users/${id}/works?page=${page}&pageSize=${pageSize}`);
+export function fetchUserWorks(id: number, page = 1, pageSize = 20, options?: { skipAuth?: boolean }) {
+  return api.get<PageResult<BackendWorkCard>>(`/social/users/${id}/works?page=${page}&pageSize=${pageSize}`, options);
 }
 
 export function followUser(id: number) {
