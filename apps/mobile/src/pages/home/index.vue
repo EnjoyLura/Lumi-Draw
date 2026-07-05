@@ -136,6 +136,31 @@ function showUnsupportedBanner(title: string) {
   uni.showToast({ title: `${title}暂不可用`, icon: "none" });
 }
 
+const bannerActionRoutes: Record<string, string> = {
+  checkin: "/pages/checkin/index",
+  签到页: "/pages/checkin/index",
+  create: "/pages/create/index",
+  创作页: "/pages/create/index",
+  membership: "/pages/membership/index",
+  会员页: "/pages/membership/index",
+  publish: "/pages/publish/index",
+  发布页: "/pages/publish/index",
+  recharge: "/pages/recharge/index",
+  充值页: "/pages/recharge/index",
+  invite: "/pages/invite/index",
+  邀请页: "/pages/invite/index",
+  plaza: "/pages/plaza/index",
+  广场页: "/pages/plaza/index",
+  gallery: "/pages/gallery/index",
+  画廊页: "/pages/gallery/index",
+  messages: "/pages/messages/index",
+  消息页: "/pages/messages/index",
+  "all-gameplays": "/pages/all-gameplays/index",
+  全部玩法: "/pages/all-gameplays/index",
+  "reverse-prompt": "/pages/reverse-prompt/index",
+  反推提示词: "/pages/reverse-prompt/index"
+};
+
 function selectGameplay(name: string) {
   uni.navigateTo({
     url: `/pages/create/index?gameplay=${encodeURIComponent(name)}`
@@ -185,23 +210,13 @@ function goAllGameplays() {
 }
 
 function handleBannerTap(action: string, title: string) {
-  if (action === "checkin") {
-    uni.navigateTo({ url: "/pages/checkin/index" });
+  const route = bannerActionRoutes[action.trim()];
+  if (route) {
+    uni.navigateTo({ url: route });
     return;
   }
 
-  if (action === "create") {
-    goCreate();
-    return;
-  }
-
-  if (action === "membership") {
-    uni.navigateTo({ url: "/pages/membership/index" });
-    return;
-  }
-
-  if (action === "publish") {
-    uni.navigateTo({ url: "/pages/publish/index" });
+  if (!action || action === "无" || action === "none") {
     return;
   }
 

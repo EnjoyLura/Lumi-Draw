@@ -85,6 +85,24 @@ function uniqueUsers(users: HomeUser[]) {
   return Array.from(map.values());
 }
 
+function normalizeBannerAction(action: string) {
+  const value = action.trim();
+  const map: Record<string, string> = {
+    签到页: "checkin",
+    创作页: "create",
+    会员页: "membership",
+    发布页: "publish",
+    充值页: "recharge",
+    邀请页: "invite",
+    广场页: "plaza",
+    画廊页: "gallery",
+    消息页: "messages",
+    全部玩法: "all-gameplays",
+    反推提示词: "reverse-prompt"
+  };
+  return map[value] || value;
+}
+
 function toHomeUser(author: BackendAuthor, index: number): HomeUser {
   const fallback = fallbackByIndex(mockUsers, index);
   return {
@@ -112,12 +130,13 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
   const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
   return {
     banners: data.banners.map((item, index) => {
-      const fallback = mockBanners.find((banner) => banner.action === item.action) ?? fallbackByIndex(mockBanners, index);
+      const action = normalizeBannerAction(item.action || "");
+      const fallback = mockBanners.find((banner) => banner.action === action) ?? fallbackByIndex(mockBanners, index);
       return {
         image: fallback.image,
         title: item.title || fallback.title,
         description: item.description || fallback.description,
-        action: item.action || fallback.action
+        action: action || fallback.action
       };
     }),
     gameplays: data.gameplays.map((item, index) => {
