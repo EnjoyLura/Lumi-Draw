@@ -90,6 +90,7 @@ export class WorksService {
       modelId: work.modelId,
       modelName: model?.name ?? work.modelId,
       style: work.style,
+      status: work.status,
       likes: work.likes,
       favorites: work.favorites,
       remakes: work.remakes,
