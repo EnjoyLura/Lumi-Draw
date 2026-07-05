@@ -134,9 +134,17 @@ async function main() {
     assert(workId, "social work id missing");
 
     if (created.data?.status !== "published") {
-      await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
-      console.log("skipped (manual review kept work unpublished)");
-      return;
+      if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+        await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
+        console.log("skipped (manual review kept work unpublished)");
+        return;
+      }
+      const { body: adminLogin } = await request("POST", "/admin/auth/login", {
+        username: ADMIN_USERNAME,
+        password: ADMIN_PASSWORD
+      });
+      assert(adminLogin.data?.accessToken, "admin token missing for social work approval");
+      await request("POST", `/admin/reviews/${workId}/approve`, {}, adminLogin.data.accessToken);
     }
 
     const { body: like } = await request("POST", `/social/works/${workId}/like`, undefined, actor.accessToken);
