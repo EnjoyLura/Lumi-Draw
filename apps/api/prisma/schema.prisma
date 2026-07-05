@@ -208,10 +208,43 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  works         Work[]
-  refreshTokens RefreshToken[]
+  works              Work[]
+  refreshTokens      RefreshToken[]
+  creditTransactions CreditTransaction[]
+  checkinRecords     CheckinRecord[]
 
   @@map("users")
+}
+
+// 积分流水 CreditTransaction
+model CreditTransaction {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id])
+  type         String   // recharge | consume | refund | checkin | invite | membership | adjust
+  amount       Int      // 正数入账，负数消费
+  balanceAfter Int
+  reason       String   @default("")
+  refId        String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("credit_transactions")
+}
+
+// 签到记录 CheckinRecord
+model CheckinRecord {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           User     @relation(fields: [userId], references: [id])
+  date           String   // YYYY-MM-DD
+  credits        Int
+  continuousDays Int
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("checkin_records")
 }
 
 // 刷新令牌 RefreshToken（存哈希）

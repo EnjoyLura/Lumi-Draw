@@ -4,7 +4,9 @@ import { appConfig } from "./config/app.config";
 import { validateEnvironment } from "./config/env.validation";
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
+import { CheckinModule } from "./checkin/checkin.module";
 import { ConfigCenterModule } from "./config-center/config-center.module";
+import { CreditsModule } from "./credits/credits.module";
 import { HealthModule } from "./health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { UploadsModule } from "./uploads/uploads.module";
@@ -25,6 +27,8 @@ import { WorksModule } from "./works/works.module";
     AuthModule,
     UsersModule,
     UploadsModule,
+    CreditsModule,
+    CheckinModule,
     WorksModule,
     AdminModule
   ]
