@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminReport, AdminUser, AdminWork } from "./mock";
+import type { AdminFeedback, AdminReport, AdminUser, AdminWork } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -68,6 +68,10 @@ export interface AdminWorkDetailData extends AdminWork {
 export interface AdminReportData extends AdminReport {
   workTitle: string;
   reporterName: string;
+}
+
+export interface AdminFeedbackData extends AdminFeedback {
+  imageUrls: string[];
 }
 
 function mapWork(w: ApiWork): AdminWorkDetailData {
@@ -231,6 +235,42 @@ export async function apiResolveReport(id: number, action: "offline" | "warn" | 
     action: action === "ignore" ? "ignore" : "resolve",
     offline: action === "offline"
   });
+}
+
+const FEEDBACK_STATUS_CN: Record<string, string> = { pending: "待处理", processing: "处理中", resolved: "已解决", ignored: "不采纳" };
+const FEEDBACK_STATUS_API: Record<string, string> = { 待处理: "pending", 处理中: "processing", 已解决: "resolved", 不采纳: "ignored" };
+
+interface ApiFeedback {
+  id: number; userId: number; type: string; content: string; imageUrls: string[];
+  wechat: string; status: string; reply?: string; createdAt: string;
+}
+
+function mapFeedback(f: ApiFeedback): AdminFeedbackData {
+  return {
+    id: f.id,
+    userId: f.userId,
+    content: f.content,
+    type: f.type,
+    status: FEEDBACK_STATUS_CN[f.status] ?? f.status,
+    time: (f.createdAt ?? "").slice(0, 10),
+    imgs: f.imageUrls?.length ?? 0,
+    imageUrls: f.imageUrls ?? [],
+    wechat: f.wechat,
+    reply: f.reply || undefined
+  };
+}
+
+export async function apiGetFeedbacks(): Promise<AdminFeedbackData[]> {
+  const page = await http.get<Paginated<ApiFeedback>>("/admin/feedback?page=1&pageSize=100");
+  return page.items.map(mapFeedback);
+}
+
+export async function apiUpdateFeedbackStatus(id: number, status: string) {
+  return mapFeedback(await http.patch<ApiFeedback>(`/admin/feedback/${id}`, { status: FEEDBACK_STATUS_API[status] ?? status }));
+}
+
+export async function apiReplyFeedback(id: number, reply: string) {
+  return mapFeedback(await http.post<ApiFeedback>(`/admin/feedback/${id}/reply`, { reply }));
 }
 
 interface ApiSummary {
