@@ -7,6 +7,7 @@ import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searc
 import { fetchHotSearches, searchWorks } from "./searchService";
 
 const PAGE_SIZE = 12;
+const SEARCH_HISTORY_KEY = "lumi-search-history";
 const { useMockData } = useDataMode();
 const keyword = ref("");
 const submittedKeyword = ref("");
@@ -38,11 +39,33 @@ const rightColumnWorks = computed(() => results.value.filter((_, index) => index
 const hasMore = computed(() => !useMockData.value && pageState.hasMore);
 
 onShow(() => {
+  loadSearchHistory();
   if (lastMockMode === useMockData.value) return;
   lastMockMode = useMockData.value;
   void loadHotSearches();
   if (!useMockData.value && submittedKeyword.value) void runBackendSearch(submittedKeyword.value, 1, false);
 });
+
+function loadSearchHistory() {
+  try {
+    const stored = uni.getStorageSync(SEARCH_HISTORY_KEY);
+    if (Array.isArray(stored)) {
+      searchHistory.value = stored
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .slice(0, 6);
+    }
+  } catch {
+    // Storage can be unavailable in preview environments.
+  }
+}
+
+function saveSearchHistory() {
+  try {
+    uni.setStorageSync(SEARCH_HISTORY_KEY, searchHistory.value);
+  } catch {
+    // Storage can be unavailable in preview environments.
+  }
+}
 
 function mergeUsers(nextUsers: HomeUser[]) {
   const map = new Map<number, HomeUser>();
@@ -103,6 +126,7 @@ async function doSearch(value = keyword.value) {
   }
 
   searchHistory.value = [query, ...searchHistory.value.filter((item) => item !== query)].slice(0, 6);
+  saveSearchHistory();
   if (!useMockData.value) {
     await runBackendSearch(query, 1, false);
   }
@@ -114,6 +138,7 @@ function handleTyping() {
 
 function clearSearchHistory() {
   searchHistory.value = [];
+  saveSearchHistory();
   uni.showToast({ title: "已清空搜索历史", icon: "none" });
 }
 

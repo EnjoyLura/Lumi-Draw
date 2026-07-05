@@ -149,6 +149,7 @@ function clearAppCache() {
   const cacheKeys = [
     "lumi-home-announcement-dismissed-week",
     "lumiReadMessageCategories",
+    "lumi-search-history",
     "lumiCreatePromptDraft",
     "lumi-draw:active-generate-jobs",
     "lumi-draw:notified-generate-jobs"
