@@ -10,6 +10,8 @@ import { AdminWorksController } from "./admin-works.controller";
 import { AdminService } from "./admin.service";
 import { DashboardController } from "./dashboard.controller";
 import { DashboardService } from "./dashboard.service";
+import { ModerationController } from "./moderation.controller";
+import { ModerationService } from "./moderation.service";
 
 @Module({
   imports: [AuthModule, CreditsModule],
@@ -18,8 +20,9 @@ import { DashboardService } from "./dashboard.service";
     DashboardController,
     AdminUsersController,
     AdminWorksController,
-    AdminConfigController
+    AdminConfigController,
+    ModerationController
   ],
-  providers: [AdminService, AdminAuthService, DashboardService, AdminConfigService]
+  providers: [AdminService, AdminAuthService, DashboardService, AdminConfigService, ModerationService]
 })
 export class AdminModule {}
