@@ -13,6 +13,7 @@ import { InviteModule } from "./invite/invite.module";
 import { MembershipModule } from "./membership/membership.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { PrismaModule } from "./prisma/prisma.module";
+import { SocialModule } from "./social/social.module";
 import { UploadsModule } from "./uploads/uploads.module";
 import { UsersModule } from "./users/users.module";
 import { WorksModule } from "./works/works.module";
@@ -37,6 +38,7 @@ import { WorksModule } from "./works/works.module";
     MembershipModule,
     FeedbackModule,
     NotificationsModule,
+    SocialModule,
     WorksModule,
     AdminModule
   ]

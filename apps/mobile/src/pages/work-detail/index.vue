@@ -3,11 +3,20 @@ import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import {
+  fetchWorkState,
+  followUser,
+  recordWorkRemake,
+  recordWorkView,
+  toggleWorkFavorite,
+  toggleWorkLike,
+  unfollowUser
+} from "../../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { fetchWorkDetail } from "./workDetailService";
 
 const workId = ref(1);
-const { currentUser } = useAuth();
+const { currentUser, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const work = ref<DetailWork | undefined>();
 const user = ref<ReturnType<typeof getWorkUser> | undefined>();
@@ -26,8 +35,8 @@ const isOwn = computed(() => {
   if (!work.value) return false;
   return useMockData.value ? work.value.userId === 1 : work.value.userId === currentUser.value?.id;
 });
-const likeCount = computed(() => (work.value?.likes || 0) + (liked.value ? 1 : 0));
-const favoriteCount = computed(() => (work.value?.favorites || 0) + (favorited.value ? 1 : 0));
+const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value && liked.value ? 1 : 0));
+const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
 const detailImageStyle = computed(() => {
   if (!work.value) return {};
   const [width, height] = work.value.ratio.split(":").map(Number);
@@ -58,6 +67,7 @@ function loadMockDetail() {
 async function loadDetail() {
   liked.value = false;
   favorited.value = false;
+  following.value = false;
   if (useMockData.value) {
     loadMockDetail();
     return;
@@ -67,6 +77,12 @@ async function loadDetail() {
     const detail = await fetchWorkDetail(workId.value);
     work.value = detail.work;
     user.value = detail.user;
+    const [stateResult] = await Promise.allSettled([fetchWorkState(workId.value), recordWorkView(workId.value)]);
+    if (stateResult.status === "fulfilled") {
+      liked.value = stateResult.value.liked;
+      favorited.value = stateResult.value.favorited;
+      following.value = stateResult.value.following;
+    }
   } catch {
     loadMockDetail();
     uni.showToast({ title: "作品详情加载失败，已使用本地数据", icon: "none" });
@@ -99,30 +115,69 @@ function playPulse(target: "like" | "favorite") {
   }, 220);
 }
 
-function toggleLike() {
-  liked.value = !liked.value;
-  playPulse("like");
+async function toggleLike() {
+  if (!work.value) return;
+  if (useMockData.value) {
+    liked.value = !liked.value;
+    playPulse("like");
+    return;
+  }
+  if (!requireLogin()) return;
+  try {
+    const result = await toggleWorkLike(work.value.id);
+    liked.value = Boolean(result.liked);
+    work.value.likes = result.likes;
+    playPulse("like");
+  } catch {
+    uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
+  }
 }
 
-function toggleFavorite() {
-  favorited.value = !favorited.value;
-  playPulse("favorite");
+async function toggleFavorite() {
+  if (!work.value) return;
+  if (useMockData.value) {
+    favorited.value = !favorited.value;
+    playPulse("favorite");
+    return;
+  }
+  if (!requireLogin()) return;
+  try {
+    const result = await toggleWorkFavorite(work.value.id);
+    favorited.value = Boolean(result.favorited);
+    work.value.favorites = result.favorites;
+    playPulse("favorite");
+  } catch {
+    uni.showToast({ title: "收藏失败，请稍后重试", icon: "none" });
+  }
 }
 
-function toggleFollow() {
+async function toggleFollow() {
+  if (!user.value) return;
   if (!following.value) {
-    following.value = true;
-    uni.showToast({ title: "关注成功", icon: "none" });
+    if (!useMockData.value && !requireLogin()) return;
+    try {
+      if (!useMockData.value) await followUser(user.value.id);
+      following.value = true;
+      uni.showToast({ title: "关注成功", icon: "none" });
+    } catch {
+      uni.showToast({ title: "关注失败，请稍后重试", icon: "none" });
+    }
     return;
   }
 
   confirmFollowOpen.value = true;
 }
 
-function cancelFollow() {
-  following.value = false;
-  confirmFollowOpen.value = false;
-  uni.showToast({ title: "已取消关注", icon: "none" });
+async function cancelFollow() {
+  if (!user.value) return;
+  try {
+    if (!useMockData.value) await unfollowUser(user.value.id);
+    following.value = false;
+    confirmFollowOpen.value = false;
+    uni.showToast({ title: "已取消关注", icon: "none" });
+  } catch {
+    uni.showToast({ title: "取消关注失败，请稍后重试", icon: "none" });
+  }
 }
 
 function closeConfirmFollow() {
@@ -177,7 +232,15 @@ function shareWork() {
   uni.showToast({ title: "分享", icon: "none" });
 }
 
-function remakeWork(current: DetailWork) {
+async function remakeWork(current: DetailWork) {
+  if (!useMockData.value) {
+    try {
+      const result = await recordWorkRemake(current.id);
+      current.remakes = result.remakes;
+    } catch {
+      // Counter update should not block users from starting a remake.
+    }
+  }
   uni.navigateTo({
     url: `/pages/create/index?prompt=${encodeURIComponent(current.prompt)}`
   });

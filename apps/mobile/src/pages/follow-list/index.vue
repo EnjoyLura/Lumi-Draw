@@ -1,14 +1,22 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
-import { isFollowing, profileUsers, setFollowing } from "../user-profile/userProfileData";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { fetchFollowList, followUser, formatCompactNumber, unfollowUser, type BackendUserProfile } from "../../services/social";
+import { isFollowing, profileUsers, setFollowing, type ProfileUser } from "../user-profile/userProfileData";
 
 const type = ref<"following" | "followers">("following");
 const followTick = ref(0);
+type FollowProfileUser = ProfileUser & { isFollowing?: boolean };
+const realUsers = ref<FollowProfileUser[]>([]);
+const { useMockData } = useDataMode();
+const { requireLogin } = useAuth();
 
 const others = computed(() => profileUsers.filter((user) => user.id !== 1));
 const list = computed(() => {
   followTick.value;
+  if (!useMockData.value) return realUsers.value;
   if (type.value === "following") return others.value.filter((user) => isFollowing(user.id));
   return others.value;
 });
@@ -16,10 +24,44 @@ const list = computed(() => {
 onLoad((query) => {
   type.value = query?.type === "followers" ? "followers" : "following";
   uni.setNavigationBarTitle({ title: type.value === "following" ? "我的关注" : "我的粉丝" });
+  void loadList();
 });
+
+function toProfileUser(user: BackendUserProfile): FollowProfileUser {
+  return {
+    id: user.id,
+    name: user.nickname,
+    avatar: user.avatarText || user.nickname.slice(0, 1) || "露",
+    color: user.avatarColor || "var(--accent)",
+    bio: user.bio || "用 AI 描绘心中的灵感。",
+    works: user.worksCount,
+    likes: formatCompactNumber(user.likesCount),
+    followers: formatCompactNumber(user.followers),
+    following: user.following,
+    gender: user.gender === "male" ? "male" : "female",
+    role: "AI 创作者",
+    isFollowing: user.isFollowing
+  };
+}
+
+async function loadList() {
+  if (useMockData.value) {
+    realUsers.value = [];
+    return;
+  }
+  if (!requireLogin()) return;
+  try {
+    const page = await fetchFollowList(type.value);
+    realUsers.value = page.items.map(toProfileUser);
+  } catch {
+    realUsers.value = [];
+    uni.showToast({ title: "关注列表加载失败", icon: "none" });
+  }
+}
 
 function rowFollowing(id: number) {
   followTick.value;
+  if (!useMockData.value) return Boolean(realUsers.value.find((user) => user.id === id)?.isFollowing);
   return isFollowing(id);
 }
 
@@ -27,9 +69,25 @@ function goProfile(id: number) {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${id}` });
 }
 
-function toggleFollow(id: number) {
-  const next = !isFollowing(id);
-  setFollowing(id, next);
+async function toggleFollow(id: number) {
+  const next = !rowFollowing(id);
+  if (!useMockData.value && !requireLogin()) return;
+  try {
+    if (!useMockData.value) {
+      if (next) await followUser(id);
+      else await unfollowUser(id);
+      if (!next && type.value === "following") {
+        realUsers.value = realUsers.value.filter((user) => user.id !== id);
+      } else {
+        realUsers.value = realUsers.value.map((user) => (user.id === id ? { ...user, isFollowing: next } : user));
+      }
+    } else {
+      setFollowing(id, next);
+    }
+  } catch {
+    uni.showToast({ title: next ? "关注失败，请稍后重试" : "取消关注失败，请稍后重试", icon: "none" });
+    return;
+  }
   followTick.value += 1;
   uni.showToast({ title: next ? "关注成功" : "已取消关注", icon: "none" });
 }

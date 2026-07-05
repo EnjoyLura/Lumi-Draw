@@ -292,6 +292,46 @@ model Notification {
 }
 
 // 敏感词 SensitiveWord
+// Work like / favorite state.
+model WorkInteraction {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  workId    Int
+  type      String   // like | favorite
+  createdAt DateTime @default(now())
+
+  @@unique([userId, workId, type])
+  @@index([userId, type])
+  @@index([workId, type])
+  @@map("work_interactions")
+}
+
+// User browsing history.
+model WorkView {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  workId    Int
+  viewedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([userId, workId])
+  @@index([userId, viewedAt])
+  @@map("work_views")
+}
+
+// User follow relationship.
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  Int
+  followingId Int
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
 model SensitiveWord {
   id        Int      @id @default(autoincrement())
   word      String   @unique

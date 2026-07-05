@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import {
+  fetchUserProfile,
+  fetchUserWorks,
+  followUser,
+  formatCompactNumber,
+  toggleWorkLike,
+  toHomeWork,
+  unfollowUser,
+  type BackendUserProfile
+} from "../../services/social";
 import type { HomeWork } from "../home/homeData";
 import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userProfileData";
 
@@ -8,10 +20,31 @@ const userId = ref(1);
 const confirmOpen = ref(false);
 const likedWorkIds = ref<Set<number>>(new Set());
 const pulseId = ref<number | null>(null);
+const realProfile = ref<ProfileView | null>(null);
+const realWorks = ref<HomeWork[]>([]);
+const loading = ref(false);
+const { useMockData } = useDataMode();
+const { requireLogin } = useAuth();
+let lastMode: boolean | null = null;
 
-const user = computed(() => getProfileUser(userId.value));
-const following = computed(() => isFollowing(userId.value));
-const allWorks = computed(() => getUserWorks(userId.value));
+interface ProfileView {
+  id: number;
+  name: string;
+  avatar: string;
+  color: string;
+  bio: string;
+  works: number;
+  likes: string;
+  followers: string;
+  following: number;
+  gender: "male" | "female";
+  role: string;
+  isFollowing: boolean;
+}
+
+const user = computed(() => realProfile.value || getProfileUser(userId.value));
+const following = computed(() => (useMockData.value ? isFollowing(userId.value) : Boolean(realProfile.value?.isFollowing)));
+const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) : realWorks.value));
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
 const genderIcon = computed(() => (user.value.gender === "female" ? "♀" : "♂"));
@@ -19,7 +52,53 @@ const genderIcon = computed(() => (user.value.gender === "female" ? "♀" : "♂
 onLoad((query) => {
   const id = Number(query?.id || 1);
   if (Number.isFinite(id) && id > 0) userId.value = id;
+  lastMode = useMockData.value;
+  void loadProfile();
 });
+
+onShow(() => {
+  if (lastMode === useMockData.value) return;
+  lastMode = useMockData.value;
+  void loadProfile();
+});
+
+function toProfileView(profile: BackendUserProfile): ProfileView {
+  return {
+    id: profile.id,
+    name: profile.nickname,
+    avatar: profile.avatarText || profile.nickname.slice(0, 1) || "露",
+    color: profile.avatarColor || "var(--accent)",
+    bio: profile.bio || "用 AI 描绘心中的灵感。",
+    works: profile.worksCount,
+    likes: formatCompactNumber(profile.likesCount),
+    followers: formatCompactNumber(profile.followers),
+    following: profile.following,
+    gender: profile.gender === "male" ? "male" : "female",
+    role: "AI 创作者",
+    isFollowing: profile.isFollowing
+  };
+}
+
+async function loadProfile() {
+  if (useMockData.value) {
+    realProfile.value = null;
+    realWorks.value = [];
+    return;
+  }
+  if (!requireLogin()) return;
+  loading.value = true;
+  try {
+    const [profile, worksPage] = await Promise.all([fetchUserProfile(userId.value), fetchUserWorks(userId.value)]);
+    realProfile.value = toProfileView(profile);
+    realWorks.value = worksPage.items.map(toHomeWork);
+  } catch {
+    realProfile.value = null;
+    realWorks.value = [];
+    uni.showToast({ title: "用户主页加载失败", icon: "none" });
+  } finally {
+    loading.value = false;
+  }
+}
 
 function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
@@ -35,8 +114,18 @@ function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
-function toggleLike(event: Event, workId: number) {
+async function toggleLike(event: Event, workId: number) {
   event.stopPropagation();
+  if (!useMockData.value) {
+    if (!requireLogin()) return;
+    try {
+      const result = await toggleWorkLike(workId);
+      realWorks.value = realWorks.value.map((work) => (work.id === workId ? { ...work, likes: result.likes } : work));
+    } catch {
+      uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
+      return;
+    }
+  }
   const next = new Set(likedWorkIds.value);
   if (next.has(workId)) {
     next.delete(workId);
@@ -54,19 +143,42 @@ function toggleLike(event: Event, workId: number) {
   }, 220);
 }
 
-function toggleFollow() {
+async function toggleFollow() {
   if (following.value) {
     confirmOpen.value = true;
     return;
   }
-  setFollowing(userId.value, true);
-  uni.showToast({ title: "关注成功", icon: "none" });
+  if (!useMockData.value && !requireLogin()) return;
+  try {
+    if (!useMockData.value) {
+      const result = await followUser(userId.value);
+      if (realProfile.value) {
+        realProfile.value = { ...realProfile.value, isFollowing: result.following, followers: formatCompactNumber(result.followers) };
+      }
+    } else {
+      setFollowing(userId.value, true);
+    }
+    uni.showToast({ title: "关注成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "关注失败，请稍后重试", icon: "none" });
+  }
 }
 
-function confirmUnfollow() {
-  setFollowing(userId.value, false);
-  confirmOpen.value = false;
-  uni.showToast({ title: "已取消关注", icon: "none" });
+async function confirmUnfollow() {
+  try {
+    if (!useMockData.value) {
+      const result = await unfollowUser(userId.value);
+      if (realProfile.value) {
+        realProfile.value = { ...realProfile.value, isFollowing: result.following, followers: formatCompactNumber(result.followers) };
+      }
+    } else {
+      setFollowing(userId.value, false);
+    }
+    confirmOpen.value = false;
+    uni.showToast({ title: "已取消关注", icon: "none" });
+  } catch {
+    uni.showToast({ title: "取消关注失败，请稍后重试", icon: "none" });
+  }
 }
 </script>
 

@@ -1,17 +1,63 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
+import { useDataMode } from "../../services/dataMode";
+import { clearHistory as clearRemoteHistory, fetchHistory, toHomeWork } from "../../services/social";
 import { homeWorks, type HomeWork } from "../home/homeData";
 
 const cleared = ref(false);
+const realWorks = ref<HomeWork[]>([]);
+const { useMockData } = useDataMode();
+const { requireLogin } = useAuth();
+let lastMode: boolean | null = null;
 
-const todayWorks = computed(() => homeWorks.slice(0, 6));
-const yesterdayWorks = computed(() => homeWorks.slice(6, 9));
+const sourceWorks = computed(() => (useMockData.value ? homeWorks : realWorks.value));
+const todayWorks = computed(() => sourceWorks.value.slice(0, 6));
+const yesterdayWorks = computed(() => sourceWorks.value.slice(6, 9));
+
+onLoad(() => {
+  lastMode = useMockData.value;
+  void loadHistory();
+});
+
+onShow(() => {
+  if (lastMode === useMockData.value) return;
+  lastMode = useMockData.value;
+  void loadHistory();
+});
+
+async function loadHistory() {
+  cleared.value = false;
+  if (useMockData.value) {
+    realWorks.value = [];
+    return;
+  }
+  if (!requireLogin()) return;
+  try {
+    const page = await fetchHistory();
+    realWorks.value = page.items.map(toHomeWork);
+    cleared.value = realWorks.value.length === 0;
+  } catch {
+    realWorks.value = [];
+    uni.showToast({ title: "浏览记录加载失败", icon: "none" });
+  }
+}
 
 function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
-function clearHistory() {
+async function clearHistory() {
+  if (!useMockData.value) {
+    try {
+      await clearRemoteHistory();
+      realWorks.value = [];
+    } catch {
+      uni.showToast({ title: "清空失败，请稍后重试", icon: "none" });
+      return;
+    }
+  }
   cleared.value = true;
   uni.showToast({ title: "已清空浏览记录", icon: "none" });
 }

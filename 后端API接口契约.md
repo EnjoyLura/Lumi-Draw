@@ -1260,3 +1260,34 @@ MVP 必需表：
 - KIE 回调、微信支付回调均可重复调用且幂等。
 - 所有敏感配置只存在服务器环境变量或本地 `agent.md`，不进入 Git。
 
+## 10. 当前实现补充：作品互动 / 社交闭环
+
+本轮真实实现统一放在 `/social` 模块下，均需要小程序用户 `Authorization: Bearer <accessToken>`。
+
+### 10.1 作品互动
+
+- `GET /social/works/:id/state`：返回当前用户对作品的互动状态。
+  - 响应：`{ liked: boolean, favorited: boolean, following: boolean }`
+- `POST /social/works/:id/view`：记录或刷新浏览记录。
+  - 响应：`{ viewed: true }`
+- `POST /social/works/:id/like`：点赞/取消点赞切换。
+  - 响应：`{ liked: boolean, likes: number, favorites: number }`
+- `POST /social/works/:id/favorite`：收藏/取消收藏切换。
+  - 响应：`{ favorited: boolean, likes: number, favorites: number }`
+- `POST /social/works/:id/remake`：记录一键同款次数。
+  - 响应：`{ remakes: number }`
+
+### 10.2 用户主页与关注
+
+- `GET /social/users/:id/profile`：用户主页资料，包含 `isFollowing`。
+- `GET /social/users/:id/works?page=1&pageSize=20`：用户公开作品列表。
+- `POST /social/users/:id/follow`：关注用户。
+  - 响应：`{ following: true, followers: number }`
+- `DELETE /social/users/:id/follow`：取消关注用户。
+  - 响应：`{ following: false, followers: number }`
+- `GET /social/follows?type=following|followers&page=1&pageSize=50`：关注/粉丝列表。粉丝列表中的 `isFollowing` 表示当前用户是否已关注该粉丝。
+
+### 10.3 浏览记录
+
+- `GET /social/history?page=1&pageSize=60`：当前用户浏览记录，按 `viewedAt` 倒序。
+- `DELETE /social/history`：清空当前用户浏览记录。
