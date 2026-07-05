@@ -118,6 +118,12 @@
       }
     },
     {
+      "path": "pages/agreement/index",
+      "style": {
+        "navigationBarTitleText": "协议详情"
+      }
+    },
+    {
       "path": "pages/edit-profile/index",
       "style": {
         "navigationBarTitleText": "编辑资料"

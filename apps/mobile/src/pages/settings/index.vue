@@ -40,6 +40,15 @@ function toggleMock() {
 }
 
 function handleAbout(item: SettingsLink) {
+  const agreementTypes: Record<string, string> = {
+    agreement: "user",
+    privacy: "privacy",
+    "recharge-agreement": "recharge"
+  };
+  if (agreementTypes[item.key]) {
+    uni.navigateTo({ url: `/pages/agreement/index?type=${agreementTypes[item.key]}` });
+    return;
+  }
   if (item.key === "version") {
     uni.navigateTo({ url: "/pages/changelog/index" });
     return;

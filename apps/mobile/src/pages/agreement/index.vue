@@ -1,0 +1,144 @@
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
+import { useDataMode } from "../../services/dataMode";
+import { fetchAgreement } from "../settings/settingsService";
+
+const mockAgreements: Record<string, { title: string; content: string }> = {
+  user: {
+    title: "用户协议",
+    content: "欢迎使用露米绘画。使用本服务即表示你同意遵守平台规则，不生成违法违规、侵权或伤害他人的内容。"
+  },
+  privacy: {
+    title: "隐私政策",
+    content: "我们仅在提供登录、创作、支付、审核和客服所必需的范围内处理你的信息，并按法律法规要求保护数据安全。"
+  },
+  recharge: {
+    title: "充值协议",
+    content: "积分属于平台虚拟权益，仅用于露米绘画内的 AI 生成等服务。充值前请确认方案内容，支付成功后积分实时入账。"
+  },
+  membership: {
+    title: "会员服务协议",
+    content: "会员权益包括积分赠送、签到加成和优先体验等，以页面展示和后台配置为准。"
+  }
+};
+
+const { useMockData } = useDataMode();
+const agreementType = ref("user");
+const title = ref("协议");
+const content = ref("");
+const updatedAt = ref("");
+const isLoading = ref(false);
+
+const updatedText = computed(() => (updatedAt.value ? `更新于 ${updatedAt.value.slice(0, 10)}` : ""));
+
+onLoad((query) => {
+  agreementType.value = String(query?.type || "user");
+  void loadAgreement();
+});
+
+async function loadAgreement() {
+  const mock = mockAgreements[agreementType.value] || mockAgreements.user;
+  title.value = mock.title;
+  content.value = mock.content;
+  updatedAt.value = "";
+  isLoading.value = true;
+  try {
+    if (useMockData.value) {
+      return;
+    }
+    const data = await fetchAgreement(agreementType.value);
+    title.value = data.title;
+    content.value = data.content;
+    updatedAt.value = data.updatedAt;
+  } catch {
+    uni.showToast({ title: "协议加载失败，已显示默认内容", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
+</script>
+
+<template>
+  <view class="agreement-page">
+    <scroll-view class="page-scroll" scroll-y>
+      <view class="agreement-content">
+        <view class="title-row">
+          <view>
+            <view class="page-title">{{ title }}</view>
+            <view v-if="updatedText" class="updated-text">{{ updatedText }}</view>
+          </view>
+          <view v-if="isLoading" class="spinner" />
+        </view>
+        <view class="content-card">
+          <text class="content-text">{{ content }}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<style scoped>
+.agreement-page {
+  height: calc(100vh - var(--window-top) - var(--window-bottom));
+  min-height: calc(100vh - var(--window-top) - var(--window-bottom));
+  overflow: hidden;
+  color: var(--fg-primary);
+  background: var(--page-bg);
+}
+
+.page-scroll {
+  height: 100%;
+}
+
+.agreement-content {
+  padding: 16px;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.updated-text {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.content-card {
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.content-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--fg-secondary);
+  white-space: pre-wrap;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>
