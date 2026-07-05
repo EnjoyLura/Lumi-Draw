@@ -28,6 +28,12 @@
       }
     },
     {
+      "path": "pages/generation-history/index",
+      "style": {
+        "navigationBarTitleText": "生成记录"
+      }
+    },
+    {
       "path": "pages/mine/index",
       "style": {
         "navigationBarTitleText": "我的"

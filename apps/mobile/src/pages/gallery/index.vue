@@ -66,6 +66,7 @@ const sideQuickActions: SideQuick[] = [
 ];
 const sideRows: SideRow[] = [
   { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
+  { icon: "◎", label: "生成记录", url: "/pages/generation-history/index", color: "var(--lavender)" },
   { icon: "◷", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
   { icon: "✉", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
   { icon: "♥", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },

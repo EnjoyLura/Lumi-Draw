@@ -39,6 +39,7 @@ export const accountItems: MineListItem[] = [
   { key: "messages", label: "消息中心", icon: "☷", color: "var(--rose)", badge: "5" },
   { key: "settings", label: "设置", icon: "⚙", color: "var(--accent)" },
   { key: "history", label: "浏览记录", icon: "◷", color: "var(--mint)" },
+  { key: "generationHistory", label: "生成记录", icon: "◎", color: "var(--lavender)" },
   { key: "drafts", label: "草稿箱", icon: "▤", color: "var(--lemon)", dot: true },
   { key: "following", label: "我的关注", icon: "♡", color: "var(--peach)" }
 ];
