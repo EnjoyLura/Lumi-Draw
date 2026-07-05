@@ -38,6 +38,7 @@ export interface BackendWorkCard {
   remakes: number;
   createdAt: string;
   viewedAt?: string;
+  favoritedAt?: string;
   author: BackendAuthor;
 }
 
@@ -145,6 +146,10 @@ export function fetchFollowList(type: "following" | "followers", page = 1, pageS
 
 export function fetchHistory(page = 1, pageSize = 60) {
   return api.get<PageResult<BackendWorkCard>>(`/social/history?page=${page}&pageSize=${pageSize}`);
+}
+
+export function fetchFavorites(page = 1, pageSize = 60) {
+  return api.get<PageResult<BackendWorkCard>>(`/social/favorites?page=${page}&pageSize=${pageSize}`);
 }
 
 export function clearHistory() {

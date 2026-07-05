@@ -56,6 +56,12 @@ export class SocialController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get("favorites")
+  favorites(@CurrentUser() user: { id: number }, @Query() query: SocialPageQueryDto) {
+    return this.social.favorites(user.id, query.page, query.pageSize);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Delete("history")
   clearHistory(@CurrentUser() user: { id: number }) {
     return this.social.clearHistory(user.id);

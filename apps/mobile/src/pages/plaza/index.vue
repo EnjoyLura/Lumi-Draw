@@ -6,7 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { toggleWorkLike } from "../../services/social";
+import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkFavorite, toggleWorkLike } from "../../services/social";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
@@ -84,7 +84,9 @@ const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) =>
 const userList = ref<HomeUser[]>(mockHomeUsers);
 const workList = ref<HomeWork[]>(mockHomeWorks);
 const likedWorkIds = ref<Set<number>>(new Set());
+const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
+const favoritePendingIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -119,7 +121,7 @@ const drawerUser = computed(() => userList.value[0] ?? mockHomeUsers[0]);
 
 const filteredWorks = computed(() => {
   if (renderedTab.value === "favorite") {
-    return workList.value.filter((work) => likedWorkIds.value.has(work.id));
+    return useMockData.value ? workList.value.filter((work) => favoritedWorkIds.value.has(work.id)) : workList.value;
   }
 
   if (!useMockData.value) return workList.value;
@@ -170,8 +172,30 @@ function getPlazaSort() {
   return renderedTab.value === "new" ? "latest" : "hot";
 }
 
+async function loadFavoritePage(page = 1, append = false) {
+  const result = await fetchFavorites(page, 10);
+  const works = result.items.map(toHomeWork);
+  const users = result.items.map((item) => toHomeUser(item.author));
+  workList.value = append ? [...workList.value, ...works] : works;
+  mergeUsers(users);
+  const nextFavorites = new Set(favoritedWorkIds.value);
+  works.forEach((work) => nextFavorites.add(work.id));
+  favoritedWorkIds.value = nextFavorites;
+  pageState.page = result.page;
+  pageState.hasMore = result.hasMore;
+}
+
 async function loadCurrentPlazaPage(page = 1, append = false) {
-  if (renderedTab.value === "favorite") return;
+  if (renderedTab.value === "favorite") {
+    if (!ensureLogin()) {
+      workList.value = [];
+      pageState.page = 1;
+      pageState.hasMore = false;
+      return;
+    }
+    await loadFavoritePage(page, append);
+    return;
+  }
 
   const categoryId = categoryOptions.value[activeCategoryIndex.value]?.id;
   const result = await fetchPlazaWorks({
@@ -309,6 +333,22 @@ function updateWorkLikeCount(workId: number, likes: number) {
   workList.value = workList.value.map((work) => (work.id === workId ? { ...work, likes } : work));
 }
 
+function displayLikeCount(work: HomeWork) {
+  return work.likes + (useMockData.value && likedWorkIds.value.has(work.id) ? 1 : 0);
+}
+
+function setPendingFavorite(workId: number, pending: boolean) {
+  const next = new Set(favoritePendingIds.value);
+  if (pending) next.add(workId);
+  else next.delete(workId);
+  favoritePendingIds.value = next;
+}
+
+function removeWorkFromFavoriteTab(workId: number) {
+  if (renderedTab.value !== "favorite") return;
+  workList.value = workList.value.filter((work) => work.id !== workId);
+}
+
 async function toggleLike(event: Event, workId: number) {
   event.stopPropagation();
   if (!useMockData.value && !ensureLogin()) return;
@@ -338,6 +378,36 @@ async function toggleLike(event: Event, workId: number) {
     next.add(workId);
   }
   likedWorkIds.value = next;
+}
+
+async function toggleFavorite(event: Event, workId: number) {
+  event.stopPropagation();
+  if (!useMockData.value && !ensureLogin()) return;
+  if (favoritePendingIds.value.has(workId)) return;
+
+  if (!useMockData.value) {
+    setPendingFavorite(workId, true);
+    try {
+      const result = await toggleWorkFavorite(workId);
+      const next = new Set(favoritedWorkIds.value);
+      if (result.favorited) next.add(workId);
+      else {
+        next.delete(workId);
+        removeWorkFromFavoriteTab(workId);
+      }
+      favoritedWorkIds.value = next;
+    } catch {
+      uni.showToast({ title: "收藏失败，请稍后重试", icon: "none" });
+    } finally {
+      setPendingFavorite(workId, false);
+    }
+    return;
+  }
+
+  const next = new Set(favoritedWorkIds.value);
+  if (next.has(workId)) next.delete(workId);
+  else next.add(workId);
+  favoritedWorkIds.value = next;
 }
 
 function openFilter() {
@@ -463,9 +533,12 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
+                  <view class="favorite" :class="{ active: favoritedWorkIds.has(work.id) }" @click="toggleFavorite($event, work.id)">
+                    <text>{{ favoritedWorkIds.has(work.id) ? "★" : "☆" }}</text>
+                  </view>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                    <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
               </view>
@@ -482,9 +555,12 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
+                  <view class="favorite" :class="{ active: favoritedWorkIds.has(work.id) }" @click="toggleFavorite($event, work.id)">
+                    <text>{{ favoritedWorkIds.has(work.id) ? "★" : "☆" }}</text>
+                  </view>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ work.likes + (likedWorkIds.has(work.id) ? 1 : 0) }}</text>
+                    <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
               </view>
@@ -872,6 +948,29 @@ function handleReachBottom() {
 
 .like.liked {
   color: var(--rose);
+  transform: scale(1.04);
+}
+
+.favorite {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-muted);
+  border-radius: 8px;
+  transition:
+    color 0.25s ease,
+    background 0.25s ease,
+    transform 0.25s ease;
+}
+
+.favorite.active {
+  color: #d99a00;
+  background: var(--lemon-soft);
   transform: scale(1.04);
 }
 

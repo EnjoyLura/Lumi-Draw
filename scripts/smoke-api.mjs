@@ -152,6 +152,8 @@ async function main() {
     assert(like.data?.liked === true, "like did not toggle on");
     const { body: favorite } = await request("POST", `/social/works/${workId}/favorite`, undefined, actor.accessToken);
     assert(favorite.data?.favorited === true, "favorite did not toggle on");
+    const { body: favorites } = await request("GET", "/social/favorites?page=1&pageSize=10", undefined, actor.accessToken);
+    assert((favorites.data?.items || []).some((item) => item.id === workId), "favorited work missing from favorites list");
     const { body: remake } = await request("POST", `/social/works/${workId}/remake`, undefined, actor.accessToken);
     assert(typeof remake.data?.remakes === "number", "remake count missing");
     const { body: follow } = await request("POST", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);

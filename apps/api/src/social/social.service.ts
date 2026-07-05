@@ -324,6 +324,30 @@ export class SocialService {
     return buildPage(items, total, page, pageSize);
   }
 
+  async favorites(userId: number, page: number, pageSize: number) {
+    const [favorites, total] = await Promise.all([
+      this.prisma.workInteraction.findMany({
+        where: { userId, type: "favorite" },
+        orderBy: { createdAt: "desc" },
+        ...skipTake(page, pageSize)
+      }),
+      this.prisma.workInteraction.count({ where: { userId, type: "favorite" } })
+    ]);
+    const workIds = favorites.map((favorite) => favorite.workId);
+    const works = await this.prisma.work.findMany({
+      where: { id: { in: workIds }, ...PUBLIC_WORK_WHERE },
+      include: { user: true }
+    });
+    const byId = new Map(works.map((work) => [work.id, work]));
+    const items = favorites
+      .map((favorite) => {
+        const work = byId.get(favorite.workId);
+        return work ? { ...toWorkCard(work), favoritedAt: favorite.createdAt.toISOString() } : null;
+      })
+      .filter((work): work is NonNullable<typeof work> => Boolean(work));
+    return buildPage(items, total, page, pageSize);
+  }
+
   async clearHistory(userId: number) {
     await this.prisma.workView.deleteMany({ where: { userId } });
     return { ok: true };
