@@ -4,10 +4,12 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import {
   gameplays as mockGameplays,
+  homeAnnouncements as mockHomeAnnouncements,
   homeBanners as mockHomeBanners,
   homeUsers as mockHomeUsers,
   homeWorks as mockHomeWorks,
   type Gameplay,
+  type HomeAnnouncement,
   type HomeBanner,
   type HomeUser,
   type HomeWork
@@ -22,6 +24,7 @@ const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
+const ANNOUNCEMENT_DISMISS_KEY = "lumi-home-announcement-dismissed-week";
 
 const statusBarHeight = ref(0);
 try {
@@ -34,6 +37,7 @@ const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
 const renderedHomeTab = ref<HomeTab>("recommend");
 const bannerList = ref<HomeBanner[]>(mockHomeBanners);
+const announcementList = ref<HomeAnnouncement[]>(mockHomeAnnouncements);
 const gameplayList = ref<Gameplay[]>(mockGameplays);
 const userList = ref<HomeUser[]>(mockHomeUsers);
 const recommendWorks = ref<HomeWork[]>(mockHomeWorks);
@@ -41,6 +45,7 @@ const latestWorks = ref<HomeWork[]>([...mockHomeWorks].reverse());
 const likedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const showLoginSheet = ref(false);
+const showAnnouncementPopup = ref(false);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -56,6 +61,7 @@ const feedState = reactive({
 
 let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = null;
 
 const currentTabWorks = computed(() => {
@@ -67,6 +73,7 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedState.new : feedState.recommend));
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
+const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
 
 onLoad((query) => {
   const inviteCode = typeof query?.inviteCode === "string" ? query.inviteCode : "";
@@ -84,10 +91,12 @@ onShow(() => {
 onBeforeUnmount(() => {
   if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  if (announcementTimer) clearTimeout(announcementTimer);
 });
 
 function resetMockHomeData() {
   bannerList.value = mockHomeBanners;
+  announcementList.value = mockHomeAnnouncements;
   gameplayList.value = mockGameplays;
   userList.value = mockHomeUsers;
   recommendWorks.value = mockHomeWorks;
@@ -96,6 +105,7 @@ function resetMockHomeData() {
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
   worksRenderKey.value += 1;
+  scheduleAnnouncementPopup();
 }
 
 function mergeUsers(nextUsers: HomeUser[]) {
@@ -120,6 +130,7 @@ async function loadHomeData() {
     ]);
 
     bannerList.value = bootstrap.banners.length ? bootstrap.banners : mockHomeBanners;
+    announcementList.value = bootstrap.announcements.length ? bootstrap.announcements : mockHomeAnnouncements;
     gameplayList.value = bootstrap.gameplays.length ? bootstrap.gameplays : mockGameplays;
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
@@ -129,6 +140,7 @@ async function loadHomeData() {
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
     visibleWorkCount.value = 8;
     worksRenderKey.value += 1;
+    scheduleAnnouncementPopup();
   } catch {
     uni.showToast({ title: "首页数据加载失败，已使用本地数据", icon: "none" });
     resetMockHomeData();
@@ -139,6 +151,59 @@ async function loadHomeData() {
 
 function showUnsupportedBanner(title: string) {
   uni.showToast({ title: `${title}暂不可用`, icon: "none" });
+}
+
+function currentWeekKey() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const day = Math.floor((now.getTime() - start.getTime()) / 86400000);
+  return `${now.getFullYear()}-${Math.ceil((day + start.getDay() + 1) / 7)}`;
+}
+
+function announcementDismissKey(id: number) {
+  return `${id}:${currentWeekKey()}`;
+}
+
+function isAnnouncementDismissed(id: number) {
+  try {
+    return uni.getStorageSync(ANNOUNCEMENT_DISMISS_KEY) === announcementDismissKey(id);
+  } catch {
+    return false;
+  }
+}
+
+function scheduleAnnouncementPopup() {
+  if (announcementTimer) clearTimeout(announcementTimer);
+  const announcement = popupAnnouncement.value;
+  showAnnouncementPopup.value = false;
+  if (!announcement || isAnnouncementDismissed(announcement.id)) return;
+  announcementTimer = setTimeout(() => {
+    showAnnouncementPopup.value = true;
+  }, 1200);
+}
+
+function closeAnnouncement() {
+  showAnnouncementPopup.value = false;
+}
+
+function dismissAnnouncementWeek() {
+  const announcement = popupAnnouncement.value;
+  if (announcement) {
+    try {
+      uni.setStorageSync(ANNOUNCEMENT_DISMISS_KEY, announcementDismissKey(announcement.id));
+    } catch {
+      // Storage can be unavailable in preview environments.
+    }
+  }
+  closeAnnouncement();
+  uni.showToast({ title: "本周将不再弹出此公告", icon: "none" });
+}
+
+function handleAnnouncementAction() {
+  const announcement = popupAnnouncement.value;
+  if (!announcement) return;
+  closeAnnouncement();
+  handleBannerTap(announcement.action, announcement.title);
 }
 
 const bannerActionRoutes: Record<string, string> = {
@@ -573,6 +638,22 @@ function getRatioClass(ratio: string) {
         <text class="tab-icon">☺</text>
         <text class="tab-label">我的</text>
       </view>
+    </view>
+    <view v-if="showAnnouncementPopup && popupAnnouncement" class="announcement-overlay" @click="closeAnnouncement" />
+    <view class="announcement-popup" :class="{ show: showAnnouncementPopup && popupAnnouncement }">
+      <view v-if="popupAnnouncement" class="announcement-card">
+        <view class="announcement-media">
+          <image class="announcement-img" :src="popupAnnouncement.image" mode="aspectFill" />
+          <view class="announcement-shade" />
+          <view class="announcement-title">{{ popupAnnouncement.title }}</view>
+        </view>
+        <view class="announcement-body">
+          <view class="announcement-summary">{{ popupAnnouncement.summary }}</view>
+          <button class="announcement-action" @click="handleAnnouncementAction">前往参与</button>
+          <view class="announcement-dismiss" @click="dismissAnnouncementWeek">本周不再弹出</view>
+        </view>
+      </view>
+      <view class="announcement-close" @click="closeAnnouncement">×</view>
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
@@ -1185,6 +1266,127 @@ function getRatioClass(ratio: string) {
 
 .tab-item.center .tab-label {
   margin-top: 2px;
+}
+
+.announcement-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0, 0, 0, 0.36);
+  animation: fade-in 0.28s ease;
+}
+
+.announcement-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 401;
+  width: calc(100% - 64px);
+  max-width: 300px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.85);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.announcement-popup.show {
+  pointer-events: auto;
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.announcement-card {
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.announcement-media {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+}
+
+.announcement-img {
+  display: block;
+  width: 100%;
+  height: 180px;
+}
+
+.announcement-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.5) 0%, transparent 60%);
+}
+
+.announcement-title {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  left: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.announcement-body {
+  padding: 16px;
+}
+
+.announcement-summary {
+  margin-bottom: 14px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.announcement-action {
+  width: 100%;
+  height: 42px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+}
+
+.announcement-action::after {
+  border: none;
+}
+
+.announcement-dismiss {
+  padding: 4px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+.announcement-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: 16px auto 0;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-left {

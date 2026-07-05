@@ -39,12 +39,15 @@ async function main() {
   });
 
   await step("public bootstrap/config", async () => {
-    const [{ body: bootstrap }, { body: hotSearches }] = await Promise.all([
+    const [{ body: bootstrap }, { body: hotSearches }, { body: announcements }] = await Promise.all([
       request("GET", "/app/bootstrap"),
-      request("GET", "/config/hot-searches")
+      request("GET", "/config/hot-searches"),
+      request("GET", "/config/announcements")
     ]);
     assert(Array.isArray(bootstrap.data?.gameplays), "bootstrap gameplays missing");
+    assert(Array.isArray(bootstrap.data?.announcements), "bootstrap announcements missing");
     assert(Array.isArray(hotSearches.data), "hot searches missing");
+    assert(Array.isArray(announcements.data), "announcements missing");
   });
 
   const user = await step("mock user login", async () => {
@@ -543,6 +546,26 @@ async function main() {
 
       const { body: revoked } = await request("POST", `/admin/pushes/${created.data.id}/revoke`, undefined, admin.accessToken);
       assert(revoked.data?.status === "revoked", "push revoke failed");
+    });
+
+    await step("admin announcement sync", async () => {
+      const title = `smoke announcement ${Date.now()}`;
+      const { body: created } = await request(
+        "POST",
+        "/admin/announcements",
+        { title, summary: "smoke public announcement", action: "create", popup: true, rangeText: "smoke", enabled: true },
+        admin.accessToken
+      );
+      assert(created.data?.id, "announcement id missing");
+
+      const [{ body: publicList }, { body: bootstrap }] = await Promise.all([
+        request("GET", "/config/announcements"),
+        request("GET", "/app/bootstrap")
+      ]);
+      assert((publicList.data || []).some((item) => item.id === created.data.id && item.title === title), "public announcement missing");
+      assert((bootstrap.data?.announcements || []).some((item) => item.id === created.data.id && item.popup === true), "bootstrap announcement missing");
+
+      await request("DELETE", `/admin/announcements/${created.data.id}`, undefined, admin.accessToken);
     });
   } else {
     console.log("- admin checks skipped (set ADMIN_USERNAME and ADMIN_PASSWORD to enable)");

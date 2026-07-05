@@ -116,6 +116,22 @@ export class ConfigService {
     }));
   }
 
+  async getAnnouncements() {
+    const rows = await this.prisma.announcement.findMany({
+      where: { enabled: true },
+      orderBy: [{ popup: "desc" }, { id: "desc" }]
+    });
+    return rows.map((a) => ({
+      id: a.id,
+      title: a.title,
+      summary: a.summary,
+      action: a.action,
+      popup: a.popup,
+      rangeText: a.rangeText,
+      createdAt: a.createdAt.toISOString()
+    }));
+  }
+
   async getChangelog() {
     const rows = await this.prisma.appVersion.findMany({
       orderBy: [{ sort: "asc" }, { id: "desc" }]
@@ -162,6 +178,7 @@ export class ConfigService {
       ratios,
       rechargeTiers,
       memberPlans,
+      announcements,
       settings
     ] = await Promise.all([
       this.getBanners(),
@@ -174,6 +191,7 @@ export class ConfigService {
       this.getRatios(),
       this.getRechargeTiers(),
       this.getMemberPlans(),
+      this.getAnnouncements(),
       this.getSettings()
     ]);
 
@@ -189,6 +207,7 @@ export class ConfigService {
       ratios,
       rechargeTiers,
       memberPlans,
+      announcements,
       settings
     };
   }

@@ -52,6 +52,11 @@ export class ConfigController {
     return this.config.getChangelog();
   }
 
+  @Get("announcements")
+  announcements() {
+    return this.config.getAnnouncements();
+  }
+
   @Get("agreements/:type")
   agreement(@Param("type") type: string) {
     return this.config.getAgreement(type);

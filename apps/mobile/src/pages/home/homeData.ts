@@ -5,6 +5,16 @@ export interface HomeBanner {
   action: string;
 }
 
+export interface HomeAnnouncement {
+  id: number;
+  image: string;
+  title: string;
+  summary: string;
+  action: string;
+  rangeText: string;
+  popup: boolean;
+}
+
 export interface Gameplay {
   name: string;
   image: string;
@@ -55,6 +65,18 @@ export const homeBanners: HomeBanner[] = [
     title: "会员限时5折",
     description: "年度会员立减50%，每日生成次数翻倍不限量",
     action: "membership"
+  }
+];
+
+export const homeAnnouncements: HomeAnnouncement[] = [
+  {
+    id: 1,
+    image: "https://picsum.photos/seed/announce1/600/280",
+    title: "夏日创作季活动",
+    summary: "活动期间创作作品即可参与抽奖，有机会获得1000积分大奖！活动时间：6月25日 - 7月10日",
+    action: "create",
+    rangeText: "06-25 ~ 07-10",
+    popup: true
   }
 ];
 

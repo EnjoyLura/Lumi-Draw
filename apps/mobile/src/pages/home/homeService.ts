@@ -1,9 +1,11 @@
 import { api } from "../../services/api";
 import {
   gameplays as mockGameplays,
+  homeAnnouncements as mockAnnouncements,
   homeBanners as mockBanners,
   homeUsers as mockUsers,
   type Gameplay,
+  type HomeAnnouncement,
   type HomeBanner,
   type HomeUser,
   type HomeWork
@@ -29,6 +31,16 @@ interface BackendGameplay {
 interface BackendBootstrap {
   banners: BackendBanner[];
   gameplays: BackendGameplay[];
+  announcements?: BackendAnnouncement[];
+}
+
+interface BackendAnnouncement {
+  id: number;
+  title: string;
+  summary: string;
+  action: string;
+  rangeText: string;
+  popup: boolean;
 }
 
 interface BackendAuthor {
@@ -59,6 +71,7 @@ interface PageResult<T> {
 export interface HomeBootstrapView {
   banners: HomeBanner[];
   gameplays: Gameplay[];
+  announcements: HomeAnnouncement[];
 }
 
 export interface HomeFeedView {
@@ -98,7 +111,9 @@ function normalizeBannerAction(action: string) {
     画廊页: "gallery",
     消息页: "messages",
     全部玩法: "all-gameplays",
-    反推提示词: "reverse-prompt"
+    反推提示词: "reverse-prompt",
+    活动页: "create",
+    无: "none"
   };
   return map[value] || value;
 }
@@ -146,6 +161,18 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
         image: fallback.image,
         uses: formatUses(item.uses, fallback.uses),
         hot: item.hot
+      };
+    }),
+    announcements: (data.announcements ?? []).map((item, index) => {
+      const fallback = fallbackByIndex(mockAnnouncements, index);
+      return {
+        id: item.id,
+        image: `https://picsum.photos/seed/announce${item.id}/600/280`,
+        title: item.title || fallback.title,
+        summary: item.summary || fallback.summary,
+        action: normalizeBannerAction(item.action || fallback.action),
+        rangeText: item.rangeText || fallback.rangeText,
+        popup: item.popup
       };
     })
   };
