@@ -9,7 +9,8 @@ import { ResponseEnvelopeInterceptor } from "./common/interceptors/response-enve
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true
+    bufferLogs: true,
+    rawBody: true
   });
   const config = app.get(ConfigService);
   const apiPrefix = config.getOrThrow<string>("app.apiPrefix");

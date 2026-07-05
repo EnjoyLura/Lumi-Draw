@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import type { RawBodyRequest } from "@nestjs/common";
+import type { Request } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CreateMembershipOrderDto, CreateRechargeOrderDto } from "./payments.dto";
 import { PaymentsService } from "./payments.service";
+import type { WechatNotifyHeaders } from "./wechat-pay.client";
 
 @ApiTags("payments")
 @Controller("payments")
@@ -39,7 +42,15 @@ export class PaymentsController {
   }
 
   @Post("wechat/notify")
-  wechatNotify(@Body() body: unknown) {
-    return this.payments.handleWechatNotify(body);
+  wechatNotify(
+    @Body() body: unknown,
+    @Headers("wechatpay-timestamp") timestamp: string | undefined,
+    @Headers("wechatpay-nonce") nonce: string | undefined,
+    @Headers("wechatpay-signature") signature: string | undefined,
+    @Headers("wechatpay-serial") serial: string | undefined,
+    @Req() req: RawBodyRequest<Request>
+  ) {
+    const headers: WechatNotifyHeaders = { timestamp, nonce, signature, serial };
+    return this.payments.handleWechatNotify(body, headers, req.rawBody?.toString("utf8") ?? "");
   }
 }

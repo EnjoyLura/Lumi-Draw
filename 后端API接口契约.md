@@ -740,37 +740,65 @@ https://ejoyflie.cloud/api/generate/callback
 
 ### 4.9 微信支付
 
-#### POST `/payments/wechat/orders`
+#### POST `/payments/recharge/orders`
 
-创建微信支付订单，支持积分充值和会员购买。
+创建积分充值订单。
 
 请求：
 
 ```json
 {
-  "type": "recharge",
-  "rechargeTierId": 4,
-  "memberPlanId": null,
-  "customAmount": null
+  "tierId": 4,
+  "amount": null
 }
 ```
 
-响应给小程序 `wx.requestPayment`：
+#### POST `/payments/membership/orders`
+
+创建会员购买订单。
+
+请求：
 
 ```json
 {
-  "paymentId": "pay_xxx",
-  "timeStamp": "1720000000",
-  "nonceStr": "xxx",
-  "package": "prepay_id=xxx",
-  "signType": "RSA",
-  "paySign": "xxx"
+  "planId": 2
 }
 ```
+
+订单响应：
+
+```json
+{
+  "id": "payment_order_id",
+  "orderNo": "R20260706123000ABCDEF",
+  "type": "recharge",
+  "status": "pending",
+  "amountFen": 6800,
+  "amountYuan": 68,
+  "subject": "积分充值",
+  "credits": 680,
+  "bonusCredits": 80,
+  "paymentParams": {
+    "provider": "wechat",
+    "configured": true,
+    "timeStamp": "1720000000",
+    "nonceStr": "xxx",
+    "package": "prepay_id=xxx",
+    "signType": "RSA",
+    "paySign": "xxx"
+  }
+}
+```
+
+说明：开发环境 `PAYMENT_ALLOW_MOCK=true` 时 `paymentParams.provider=mock`，前端可调用 `/payments/:id/mock-complete` 完成模拟支付；生产环境微信商户证书配置不完整时返回 `configured:false` 和提示信息。
 
 #### GET `/payments/:paymentId`
 
 查询支付状态。
+
+#### POST `/payments/:paymentId/mock-complete`
+
+仅开发/测试环境可用。完成模拟支付并发放积分或会员权益。
 
 #### POST `/payments/wechat/notify`
 
@@ -1235,10 +1263,11 @@ MVP 必需表：
 
 ### 第 5 阶段：支付与积分
 
-1. `/payments/wechat/orders`。
-2. `/payments/wechat/notify`。
-3. 积分流水。
-4. 会员订单。
+1. `/payments/recharge/orders`。
+2. `/payments/membership/orders`。
+3. `/payments/wechat/notify`。
+4. 积分流水。
+5. 会员订单。
 
 ### 第 6 阶段：审核与运营
 

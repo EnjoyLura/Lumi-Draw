@@ -4,6 +4,13 @@ import type { PaymentOrder, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateMembershipOrderDto, CreateRechargeOrderDto } from "./payments.dto";
+import {
+  isWechatPayConfigured,
+  loadPem,
+  WechatPayClient,
+  type WechatNotifyHeaders,
+  type WechatPayConfig
+} from "./wechat-pay.client";
 
 type OrderWithUser = PaymentOrder & { user?: { memberExpireAt: Date | null } };
 
@@ -31,7 +38,7 @@ export class PaymentsService {
         bonusCredits: spec.bonusCredits
       }
     });
-    return this.toOrderView(order);
+    return this.toOrderView(order, { preparePayment: true });
   }
 
   async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto) {
@@ -52,7 +59,7 @@ export class PaymentsService {
         memberDays: this.resolveMemberDays(plan.name)
       }
     });
-    return this.toOrderView(order);
+    return this.toOrderView(order, { preparePayment: true });
   }
 
   async getOrder(userId: number, id: string) {
@@ -70,10 +77,31 @@ export class PaymentsService {
     return this.toOrderView(paid);
   }
 
-  async handleWechatNotify(body: unknown) {
-    // Real WeChat Pay v3 notify verification needs merchant serial, private key and API v3 key.
-    // The endpoint is reserved so nginx/routes can be wired before certificates are configured.
-    return { received: true, ignored: true, reason: "wechat notify verification not configured", bodyType: typeof body };
+  async handleWechatNotify(body: unknown, headers: WechatNotifyHeaders, rawBody = "") {
+    const client = this.createWechatClient();
+    if (!client || !rawBody) {
+      return { received: true, ignored: true, reason: "wechat pay notify is not configured" };
+    }
+    if (!client.verifyNotify(headers, rawBody)) {
+      throw new ForbiddenException("invalid wechat pay notification signature");
+    }
+    const resource = (body as { resource?: { associated_data?: string; nonce: string; ciphertext: string } })?.resource;
+    if (!resource?.nonce || !resource.ciphertext) {
+      throw new BadRequestException("invalid wechat pay notification body");
+    }
+    const transaction = client.decryptNotifyResource(resource);
+    if (!transaction.out_trade_no) {
+      throw new BadRequestException("wechat pay notification missing out_trade_no");
+    }
+    if (transaction.trade_state !== "SUCCESS") {
+      return { received: true, ignored: true, tradeState: transaction.trade_state ?? "" };
+    }
+    const order = await this.prisma.paymentOrder.findUnique({ where: { orderNo: transaction.out_trade_no } });
+    if (!order) {
+      throw new NotFoundException("payment order not found");
+    }
+    await this.markOrderPaid(order, transaction.transaction_id || transaction.out_trade_no);
+    return { received: true };
   }
 
   private async rechargeTierSpec(tierId: number) {
@@ -192,21 +220,58 @@ export class PaymentsService {
     return this.config.get<string>("app.nodeEnv") !== "production";
   }
 
-  private paymentParams(order: PaymentOrder) {
+  private async paymentParams(order: PaymentOrder, preparePayment: boolean) {
     if (this.allowMockPayment()) {
       return {
         provider: "mock",
         mockCompleteUrl: `/payments/${order.id}/mock-complete`
       };
     }
+    const client = this.createWechatClient();
+    if (client && preparePayment) {
+      const user = await this.prisma.user.findUnique({ where: { id: order.userId }, select: { openId: true } });
+      if (!user?.openId) throw new BadRequestException("user is not bound to a wechat openid");
+      return client.createJsapiPayment({
+        description: order.subject,
+        outTradeNo: order.orderNo,
+        amountFen: order.amountFen,
+        openId: user.openId,
+        attach: order.id
+      });
+    }
     return {
       provider: "wechat",
-      configured: false,
-      message: "WeChat Pay signing is not configured"
+      configured: Boolean(client),
+      message: client ? "WeChat Pay order needs to be recreated" : "WeChat Pay signing is not configured"
     };
   }
 
-  private toOrderView(order: PaymentOrder) {
+  private createWechatClient() {
+    const config = this.wechatPayConfig();
+    if (!isWechatPayConfigured(config)) return null;
+    return new WechatPayClient(config);
+  }
+
+  private wechatPayConfig(): WechatPayConfig {
+    return {
+      appId: this.config.get<string>("app.wx.appId") ?? "",
+      mchId: this.config.get<string>("app.wx.mchId") ?? "",
+      apiBase: this.config.get<string>("app.wx.payApiBase") ?? "https://api.mch.weixin.qq.com",
+      apiV3Key: this.config.get<string>("app.wx.payApiV3Key") ?? "",
+      certSerialNo: this.config.get<string>("app.wx.payCertSerialNo") ?? "",
+      privateKey: loadPem(
+        this.config.get<string>("app.wx.payPrivateKey"),
+        this.config.get<string>("app.wx.payPrivateKeyPath")
+      ),
+      platformCertificate: loadPem(
+        this.config.get<string>("app.wx.payPlatformCertificate"),
+        this.config.get<string>("app.wx.payPlatformCertificatePath")
+      ),
+      notifyUrl: this.config.get<string>("app.wx.payNotifyUrl") ?? ""
+    };
+  }
+
+  private async toOrderView(order: PaymentOrder, options: { preparePayment?: boolean } = {}) {
     return {
       id: order.id,
       orderNo: order.orderNo,
@@ -222,7 +287,7 @@ export class PaymentsService {
       memberDays: order.memberDays,
       paidAt: order.paidAt?.toISOString() ?? null,
       createdAt: order.createdAt.toISOString(),
-      paymentParams: order.status === "pending" ? this.paymentParams(order) : null
+      paymentParams: order.status === "pending" ? await this.paymentParams(order, Boolean(options.preparePayment)) : null
     };
   }
 }

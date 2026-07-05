@@ -40,7 +40,15 @@ export const appConfig = registerAs("app", () => ({
     appId: process.env.WX_APPID ?? "",
     appSecret: process.env.WX_APPSECRET ?? "",
     mchId: process.env.WX_MCH_ID ?? "",
-    mchApiKey: process.env.WX_MCH_API_KEY ?? ""
+    mchApiKey: process.env.WX_MCH_API_KEY ?? "",
+    payApiBase: process.env.WX_PAY_API_BASE ?? "https://api.mch.weixin.qq.com",
+    payApiV3Key: process.env.WX_PAY_API_V3_KEY ?? "",
+    payCertSerialNo: process.env.WX_PAY_CERT_SERIAL_NO ?? "",
+    payPrivateKey: process.env.WX_PAY_PRIVATE_KEY ?? "",
+    payPrivateKeyPath: process.env.WX_PAY_PRIVATE_KEY_PATH ?? "",
+    payPlatformCertificate: process.env.WX_PAY_PLATFORM_CERTIFICATE ?? "",
+    payPlatformCertificatePath: process.env.WX_PAY_PLATFORM_CERTIFICATE_PATH ?? "",
+    payNotifyUrl: process.env.WX_PAY_NOTIFY_URL ?? ""
   },
   kie: {
     apiBase: process.env.KIE_API_BASE ?? "https://api.kie.ai",
