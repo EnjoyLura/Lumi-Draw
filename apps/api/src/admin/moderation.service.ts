@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
@@ -14,7 +15,10 @@ const PUSH_FIELDS = ["title", "content", "target", "status"];
 
 @Injectable()
 export class ModerationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService
+  ) {}
 
   // ---------- 内容审核（待审核作品）----------
   async reviews(status: string | undefined, page: number, pageSize: number) {
@@ -122,9 +126,12 @@ export class ModerationService {
   }
 
   async replyFeedback(id: number, reply: unknown) {
-    await this.feedbackDetail(id);
     if (typeof reply !== "string" || !reply.trim()) throw new BadRequestException("回复内容不能为空");
-    await this.prisma.feedback.update({ where: { id }, data: { reply, status: "resolved" } });
+    const feedback = await this.prisma.feedback.findUnique({ where: { id } });
+    if (!feedback) throw new NotFoundException("反馈不存在");
+    const content = reply.trim();
+    await this.prisma.feedback.update({ where: { id }, data: { reply: content, status: "resolved" } });
+    await this.notifications.createServiceNotification(feedback.userId, content);
     return this.feedbackDetail(id);
   }
 

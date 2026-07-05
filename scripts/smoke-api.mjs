@@ -71,6 +71,20 @@ async function main() {
       user.accessToken
     );
     assert(body.data?.id, "feedback id missing");
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD) return;
+
+    const { body: adminLogin } = await request("POST", "/admin/auth/login", {
+      username: ADMIN_USERNAME,
+      password: ADMIN_PASSWORD
+    });
+    assert(adminLogin.data?.accessToken, "admin token missing for feedback reply");
+    const reply = `smoke feedback reply ${Date.now()}`;
+    await request("POST", `/admin/feedback/${body.data.id}/reply`, { reply }, adminLogin.data.accessToken);
+    const { body: messages } = await request("GET", "/notifications/service", undefined, user.accessToken);
+    assert(
+      Array.isArray(messages.data) && messages.data.some((item) => item.content === reply && item.unread === true),
+      "feedback reply notification missing"
+    );
   });
 
   await step("work create/edit/detail/delete", async () => {

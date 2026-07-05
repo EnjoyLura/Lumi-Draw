@@ -29,6 +29,17 @@ function timeText(date: Date) {
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  createServiceNotification(userId: number, content: string) {
+    return this.prisma.notification.create({
+      data: {
+        userId,
+        type: "service",
+        title: CATEGORY_META.service.title,
+        content
+      }
+    });
+  }
+
   async createSocialNotification(params: {
     userId: number;
     actorName: string;
