@@ -34,6 +34,8 @@ export interface MemberPlan {
   price: number;
   unitPrice: string;
   totalCredits: number;
+  rights?: string[];
+  checkinBonus?: number;
   icon: string;
   accent: "accent" | "lavender" | "gold";
   badge?: string;
@@ -91,9 +93,9 @@ export const invitedUsers: InvitedUser[] = [
 ];
 
 export const memberPlans: MemberPlan[] = [
-  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, icon: "◆", accent: "accent" },
-  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, icon: "◆", accent: "lavender", badge: "省 10%", recommended: true },
-  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, icon: "♛", accent: "gold", badge: "省 18%" }
+  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, rights: ["每日20次", "1K无限"], checkinBonus: 5, icon: "◆", accent: "accent" },
+  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, rights: ["每日30次", "2K无限"], checkinBonus: 8, icon: "◆", accent: "lavender", badge: "省 10%", recommended: true },
+  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, rights: ["每日不限", "4K无限", "专属模型"], checkinBonus: 15, icon: "♛", accent: "gold", badge: "省 18%" }
 ];
 
 export const memberBenefits: MemberBenefit[] = [

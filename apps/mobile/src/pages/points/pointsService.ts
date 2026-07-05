@@ -47,7 +47,7 @@ interface MemberPlanRow {
   id: number;
   name: string;
   price: number;
-  rights: string[];
+  rights: string | string[];
   giftCredits: number;
   checkinBonus: number;
 }
@@ -134,12 +134,20 @@ function planAccent(index: number): MemberPlan["accent"] {
 function toMemberPlan(plan: MemberPlanRow, index: number): MemberPlan {
   const days = plan.name.includes("年") ? 365 : plan.name.includes("季") ? 90 : 30;
   const unit = plan.price > 0 ? `¥${(plan.price / days).toFixed(2)}/天` : "免费";
+  const rights = Array.isArray(plan.rights)
+    ? plan.rights
+    : String(plan.rights || "")
+        .split(/[·,，、\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
   return {
     id: plan.id,
     name: plan.name,
     price: plan.price,
     unitPrice: unit,
     totalCredits: plan.giftCredits,
+    rights,
+    checkinBonus: plan.checkinBonus,
     icon: index >= 2 ? "♛" : "◆",
     accent: planAccent(index),
     badge: index === 1 ? "推荐" : index >= 2 ? "超值" : undefined,

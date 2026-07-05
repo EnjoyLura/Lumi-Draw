@@ -4,7 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { memberBenefits, memberPlans, type MemberPlan } from "../points/pointsData";
+import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
 import { createMembershipOrder, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
 
 const { login: commitLogin, requireLogin } = useAuth();
@@ -21,6 +21,34 @@ const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
 const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
+const memberStats = computed(() => {
+  const plan = selectedPlan.value;
+  return [
+    { value: String(plan.totalCredits || 0), label: "开通赠送", className: "gold" },
+    { value: plan.checkinBonus ? `+${plan.checkinBonus}` : "标准", label: "签到加成", className: "lavender" },
+    { value: plan.rights?.[0] || "优先", label: "套餐权益", className: "mint" }
+  ];
+});
+const activeBenefits = computed<MemberBenefit[]>(() => {
+  const plan = selectedPlan.value;
+  if (!plan.rights?.length && !plan.checkinBonus && !plan.totalCredits) return memberBenefits;
+
+  const benefits: MemberBenefit[] = [
+    { title: "开通赠送", desc: `立即获得 ${plan.totalCredits || 0} 积分`, icon: "●", tone: "mint" },
+    { title: "签到加成", desc: plan.checkinBonus ? `每日签到额外 +${plan.checkinBonus} 积分` : "按基础签到规则获得积分", icon: "☀", tone: "accent" }
+  ];
+
+  plan.rights?.slice(0, 2).forEach((right, index) => {
+    benefits.push({
+      title: index === 0 ? "套餐权益" : "专属权益",
+      desc: right,
+      icon: index === 0 ? "♛" : "↗",
+      tone: index === 0 ? "lavender" : "peach"
+    });
+  });
+
+  return benefits;
+});
 const memberStatusText = computed(() => {
   if (!isMember.value) return "未开通会员";
   if (!memberExpireAt.value) return `${memberPlanName.value || "会员"} 生效中`;
@@ -136,17 +164,9 @@ function showAgreement() {
             </view>
           </view>
           <view class="member-stats">
-            <view class="stat-item">
-              <view class="stat-value gold">50</view>
-              <view class="stat-label">每日积分</view>
-            </view>
-            <view class="stat-item">
-              <view class="stat-value lavender">x2</view>
-              <view class="stat-label">签到加成</view>
-            </view>
-            <view class="stat-item">
-              <view class="stat-value mint">优先</view>
-              <view class="stat-label">生成队列</view>
+            <view v-for="stat in memberStats" :key="stat.label" class="stat-item">
+              <view class="stat-value" :class="stat.className">{{ stat.value }}</view>
+              <view class="stat-label">{{ stat.label }}</view>
             </view>
           </view>
         </view>
@@ -184,7 +204,7 @@ function showAgreement() {
 
         <view class="section-title">会员权益</view>
         <view class="benefit-grid">
-          <view v-for="benefit in memberBenefits" :key="benefit.title" class="benefit-card">
+          <view v-for="benefit in activeBenefits" :key="`${benefit.title}-${benefit.desc}`" class="benefit-card">
             <view class="benefit-icon" :class="benefit.tone">{{ benefit.icon }}</view>
             <view>
               <view class="benefit-title">{{ benefit.title }}</view>
