@@ -212,6 +212,7 @@ model User {
   updatedAt   DateTime @updatedAt
 
   works              Work[]
+  generateJobs       GenerateJob[]
   refreshTokens      RefreshToken[]
   creditTransactions CreditTransaction[]
   checkinRecords     CheckinRecord[]
@@ -437,4 +438,60 @@ model Work {
   @@index([status])
   @@index([userId])
   @@map("works")
+}
+
+// AI generation task.
+model GenerateJob {
+  id            String   @id @default(cuid())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  mode          String   // text-to-image | image-to-image
+  modelId       String
+  provider      String   @default("kie")
+  providerModel String   @default("")
+  prompt        String
+  inputImageUrl String   @default("")
+  gameplayId    Int?
+  style         String   @default("")
+  ratio         String
+  quality       String
+  count         Int
+  costCredits   Int
+  refundCredits Int      @default(0)
+  status        String   @default("queued") // queued | running | succeeded | partial_failed | failed | cancelled
+  progress      Int      @default(0)
+  stageText     String   @default("")
+  kieTaskId     String?  @unique
+  errorMessage  String   @default("")
+  retryOfJobId  String?
+  cancelledAt   DateTime?
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  results GenerateResult[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("generate_jobs")
+}
+
+// AI generation output.
+model GenerateResult {
+  id           String   @id @default(cuid())
+  jobId        String
+  job          GenerateJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status       String   @default("succeeded") // succeeded | failed
+  imageUrl     String   @default("")
+  width        Int?
+  height       Int?
+  sizeBytes    Int?
+  ossKey       String   @default("")
+  errorMessage String   @default("")
+  workId       Int?
+  createdAt    DateTime @default(now())
+
+  @@index([jobId])
+  @@map("generate_results")
 }

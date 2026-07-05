@@ -9,21 +9,31 @@ export type CreditType = "recharge" | "consume" | "refund" | "checkin" | "invite
 export class CreditsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // 事务内改余额 + 写流水。amount 正数入账、负数消费；余额不足抛 40020。
-  async addTransaction(userId: number, type: CreditType, amount: number, reason = "", refId = "") {
-    return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.findUnique({ where: { id: userId } });
-      if (!user) throw new NotFoundException("用户不存在");
-      const next = user.credits + amount;
-      if (next < 0) {
-        throw new HttpException({ code: 40020, message: "积分不足" }, 400);
-      }
-      await tx.user.update({ where: { id: userId }, data: { credits: next } });
-      const transaction = await tx.creditTransaction.create({
-        data: { userId, type, amount, balanceAfter: next, reason, refId }
-      });
-      return { balance: next, transaction };
+  async addTransactionInTx(
+    tx: Prisma.TransactionClient,
+    userId: number,
+    type: CreditType,
+    amount: number,
+    reason = "",
+    refId = ""
+  ) {
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException("用户不存在");
+
+    const next = user.credits + amount;
+    if (next < 0) {
+      throw new HttpException({ code: 40020, message: "积分不足" }, 400);
+    }
+
+    await tx.user.update({ where: { id: userId }, data: { credits: next } });
+    const transaction = await tx.creditTransaction.create({
+      data: { userId, type, amount, balanceAfter: next, reason, refId }
     });
+    return { balance: next, transaction };
+  }
+
+  async addTransaction(userId: number, type: CreditType, amount: number, reason = "", refId = "") {
+    return this.prisma.$transaction((tx) => this.addTransactionInTx(tx, userId, type, amount, reason, refId));
   }
 
   async getBalance(userId: number) {

@@ -1291,3 +1291,25 @@ MVP 必需表：
 
 - `GET /social/history?page=1&pageSize=60`：当前用户浏览记录，按 `viewedAt` 倒序。
 - `DELETE /social/history`：清空当前用户浏览记录。
+
+## 11. 当前实现补充：AI 生成任务第一阶段
+
+本轮先实现生成任务的数据库模型、基础接口、积分预扣、查询、取消和重试骨架。BullMQ、KIE 调用、KIE 回调、OSS 转存和生成结果入库属于下一阶段。
+
+### 11.1 已实现接口
+
+以下接口均需要小程序用户 `Authorization: Bearer <accessToken>`。
+
+- `POST /generate/jobs`：创建生成任务，校验模型/清晰度/比例并预扣积分。
+  - 请求字段：`mode`、`modelId`、`prompt`、`inputImageUrl?`、`gameplayId?`、`style?`、`ratio`、`quality`、`count`
+  - 响应字段：`jobId`、`status`、`costCredits`、`creditsAfter`、`job`
+- `GET /generate/jobs?page=1&pageSize=20&status=queued`：查询当前用户生成任务列表。
+- `GET /generate/jobs/:id`：查询单个生成任务详情。
+- `POST /generate/jobs/:id/cancel`：取消未结束任务，并退回未退过的预扣积分。
+- `POST /generate/jobs/:id/retry`：对 `failed`、`partial_failed`、`cancelled` 任务重新创建一条任务，并重新扣积分。
+
+### 11.2 状态约定
+
+- 当前阶段新任务状态固定从 `queued` 开始，`stageText` 为“任务已创建，等待进入生成队列”。
+- `cancelled` 会写入 `cancelledAt`、`finishedAt` 和 `refundCredits`。
+- 下一阶段接入队列后，由 Worker 推进 `running`、`succeeded`、`partial_failed`、`failed`，并写入 `generate_results`。
