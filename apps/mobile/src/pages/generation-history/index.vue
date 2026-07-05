@@ -4,6 +4,7 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { galleryGenTasks } from "../gallery/galleryData";
 import {
   cancelGenerateJob,
@@ -229,6 +230,7 @@ async function retryJob(event: Event, job: GenerateHistoryJob) {
   }
   try {
     const result = await retryGenerateJob(job.id);
+    addActiveGenerateJobId(result.jobId);
     uni.showToast({ title: "已重新提交生成", icon: "none" });
     uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(result.jobId)}` });
   } catch {
@@ -265,6 +267,7 @@ async function cancelJob(event: Event, job: GenerateHistoryJob) {
 
   try {
     await cancelGenerateJob(job.id);
+    removeActiveGenerateJobIds([job.id]);
     uni.showToast({ title: "任务已取消", icon: "none" });
     await reloadJobs();
   } catch {

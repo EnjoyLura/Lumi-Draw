@@ -479,6 +479,7 @@ async function resumeBackendJob(jobId: string) {
     promptText.value = job.prompt || promptText.value;
     applyBackendJob(job);
     if (!isTerminalJob(job.status)) {
+      addActiveGenerateJobId(jobId);
       pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
     }
   } catch {
