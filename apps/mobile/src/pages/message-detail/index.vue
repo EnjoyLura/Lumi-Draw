@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { getMessageCategory, getMessages, type MessageCategory, type MessageCategoryKey, type MessageItem } from "../messages/messagesData";
 import { fetchMessageList, markMessageCategoryRead } from "../messages/messagesService";
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const category = ref<MessageCategory>(getMessageCategory("like"));
 const readKeys = ref<Set<string>>(new Set());
 const backendMessages = ref<MessageItem[]>([]);
 const isLoading = ref(false);
+const showLoginSheet = ref(false);
 
 const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
@@ -32,7 +34,7 @@ onLoad((query) => {
 
 async function loadMessages(type: MessageCategoryKey) {
   if (useMockData.value) return;
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isLoading.value = true;
   try {
@@ -42,6 +44,25 @@ async function loadMessages(type: MessageCategoryKey) {
     uni.showToast({ title: "消息加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadMessages(category.value.key);
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 </script>
@@ -86,6 +107,7 @@ async function loadMessages(type: MessageCategoryKey) {
         </view>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

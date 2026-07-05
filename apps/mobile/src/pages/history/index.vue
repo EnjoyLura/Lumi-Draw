@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { clearHistory as clearRemoteHistory, fetchHistory, toHomeWork } from "../../services/social";
@@ -9,7 +10,8 @@ import { homeWorks, type HomeWork } from "../home/homeData";
 const cleared = ref(false);
 const realWorks = ref<HomeWork[]>([]);
 const { useMockData } = useDataMode();
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
+const showLoginSheet = ref(false);
 let lastMode: boolean | null = null;
 
 const sourceWorks = computed(() => (useMockData.value ? homeWorks : realWorks.value));
@@ -33,7 +35,7 @@ async function loadHistory() {
     realWorks.value = [];
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
   try {
     const page = await fetchHistory();
     realWorks.value = page.items.map(toHomeWork);
@@ -44,12 +46,32 @@ async function loadHistory() {
   }
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadHistory();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 function openWork(work: HomeWork) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 async function clearHistory() {
   if (!useMockData.value) {
+    if (!ensureLogin()) return;
     try {
       await clearRemoteHistory();
       realWorks.value = [];
@@ -98,6 +120,7 @@ function goHome() {
         <button class="empty-btn" @click="goHome">✦ 去逛逛</button>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

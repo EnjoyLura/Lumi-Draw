@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
@@ -12,7 +13,7 @@ interface FeedbackType {
   icon: string;
 }
 
-const { requireLogin } = useAuth();
+const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const feedbackTypes: FeedbackType[] = [
@@ -27,6 +28,7 @@ const wechat = ref("");
 const images = ref<string[]>([]);
 const isUploading = ref(false);
 const isSubmitting = ref(false);
+const showLoginSheet = ref(false);
 
 const descCount = computed(() => `${desc.value.length}/500`);
 
@@ -35,11 +37,14 @@ onLoad((query) => {
     activeType.value = "experience";
     desc.value = "我想咨询：";
   }
+  if (!useMockData.value) {
+    ensureLogin();
+  }
 });
 
 async function addImage() {
   if (images.value.length >= 2 || isUploading.value) return;
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   if (useMockData.value) {
     const seed = images.value.length === 0 ? "fb1" : "fb2";
@@ -55,6 +60,24 @@ async function addImage() {
     uni.showToast({ title: "图片上传失败", icon: "none" });
   } finally {
     isUploading.value = false;
+  }
+}
+
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
 }
 
@@ -74,7 +97,7 @@ async function submit() {
     setTimeout(() => uni.navigateBack(), 600);
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isSubmitting.value = true;
   try {
@@ -153,6 +176,7 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 
-const { currentUser, requireLogin } = useAuth();
+const { currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const nickname = ref("云端造梦师");
@@ -18,6 +19,7 @@ const avatarColor = ref("var(--accent)");
 const avatarUrl = ref("");
 const isSaving = ref(false);
 const isUploading = ref(false);
+const showLoginSheet = ref(false);
 
 const nickCount = computed(() => `${nickname.value.length}/20`);
 const signCount = computed(() => `${signature.value.length}/100`);
@@ -28,7 +30,7 @@ onShow(() => {
 
 async function loadProfile() {
   if (useMockData.value) return;
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   try {
     const profile = await fetchMyProfile();
@@ -44,8 +46,27 @@ async function loadProfile() {
   }
 }
 
+function openLoginSheet() {
+  showLoginSheet.value = true;
+}
+
+function ensureLogin() {
+  return requireLogin(openLoginSheet);
+}
+
+async function login() {
+  try {
+    await commitLogin();
+    showLoginSheet.value = false;
+    await loadProfile();
+    uni.showToast({ title: "登录成功", icon: "none" });
+  } catch {
+    uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
+  }
+}
+
 async function pickAvatar() {
-  if (!requireLogin() || isUploading.value) return;
+  if (!ensureLogin() || isUploading.value) return;
 
   if (useMockData.value) {
     uni.showToast({ title: "头像已更新", icon: "none" });
@@ -76,7 +97,7 @@ async function save() {
     setTimeout(() => uni.navigateBack(), 600);
     return;
   }
-  if (!requireLogin()) return;
+  if (!ensureLogin()) return;
 
   isSaving.value = true;
   try {
@@ -150,6 +171,7 @@ async function save() {
         <button class="save-btn" :disabled="isSaving" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
       </view>
     </scroll-view>
+    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
