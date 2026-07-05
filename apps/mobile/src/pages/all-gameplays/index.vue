@@ -1,5 +1,38 @@
 <script setup lang="ts">
+import { ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
+import { useDataMode } from "../../services/dataMode";
 import { gameplays, type Gameplay } from "../home/homeData";
+import { fetchHomeBootstrap } from "../home/homeService";
+
+const { useMockData } = useDataMode();
+const gameplayList = ref<Gameplay[]>(gameplays);
+const isLoading = ref(false);
+let lastMode: boolean | null = null;
+
+onShow(() => {
+  if (lastMode === useMockData.value) return;
+  lastMode = useMockData.value;
+  void loadGameplays();
+});
+
+async function loadGameplays() {
+  if (useMockData.value) {
+    gameplayList.value = gameplays;
+    return;
+  }
+
+  isLoading.value = true;
+  try {
+    const data = await fetchHomeBootstrap();
+    gameplayList.value = data.gameplays.length ? data.gameplays : gameplays;
+  } catch {
+    gameplayList.value = gameplays;
+    uni.showToast({ title: "玩法加载失败，已使用本地数据", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function applyGameplay(gameplay: Gameplay) {
   uni.navigateTo({
@@ -12,7 +45,7 @@ function applyGameplay(gameplay: Gameplay) {
   <view class="all-gameplays-page">
     <scroll-view class="page-scroll" scroll-y>
       <view class="grid">
-        <view v-for="gameplay in gameplays" :key="gameplay.name" class="gameplay-card" @click="applyGameplay(gameplay)">
+        <view v-for="gameplay in gameplayList" :key="gameplay.name" class="gameplay-card" @click="applyGameplay(gameplay)">
           <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
           <view class="gameplay-overlay" />
           <view v-if="gameplay.hot" class="hot-badge">HOT</view>
@@ -25,6 +58,7 @@ function applyGameplay(gameplay: Gameplay) {
           </view>
         </view>
       </view>
+      <view v-if="isLoading" class="loading-tip">正在加载玩法</view>
     </scroll-view>
   </view>
 </template>
@@ -118,5 +152,12 @@ function applyGameplay(gameplay: Gameplay) {
   justify-content: space-between;
   font-size: 11px;
   color: var(--fg-muted);
+}
+
+.loading-tip {
+  padding-bottom: 18px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-align: center;
 }
 </style>
