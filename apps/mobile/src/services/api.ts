@@ -38,7 +38,8 @@ let unauthorizedHandler: (() => void) | null = null;
 
 function getApiBase() {
   const envBase = import.meta.env.VITE_API_BASE;
-  return (envBase || DEFAULT_API_BASE).replace(/\/+$/, "");
+  const fallback = import.meta.env.MODE === "development" ? "/api" : DEFAULT_API_BASE;
+  return (envBase || fallback).replace(/\/+$/, "");
 }
 
 function joinUrl(path: string) {

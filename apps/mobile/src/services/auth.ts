@@ -27,7 +27,7 @@ interface LoginResponse {
   user: MobileUser;
 }
 
-const isLoggedIn = ref(true);
+const isLoggedIn = ref(false);
 const currentUser = ref<MobileUser | null>(null);
 let initialized = false;
 
@@ -35,17 +35,30 @@ export function initAuth() {
   if (initialized) return;
   initialized = true;
 
+  const mockMode = isMockMode();
+  let savedState: string | undefined;
   try {
     const saved = uni.getStorageSync(STORAGE_KEY);
+    savedState = typeof saved === "string" ? saved : undefined;
     if (saved === "0" || saved === "1") {
       isLoggedIn.value = saved === "1";
     }
   } catch {
-    isLoggedIn.value = true;
+    savedState = undefined;
   }
 
   currentUser.value = readStoredUser();
-  if (hasAccessToken()) {
+
+  if (!mockMode) {
+    if (hasSessionToken()) {
+      isLoggedIn.value = true;
+      return;
+    }
+    clearSession();
+    return;
+  }
+
+  if (savedState !== "0") {
     isLoggedIn.value = true;
   }
 }
@@ -84,6 +97,10 @@ function persistUser(user: MobileUser | null) {
 
 function isMockMode() {
   return useDataMode().useMockData.value;
+}
+
+function hasSessionToken() {
+  return hasAccessToken() || Boolean(getRefreshToken());
 }
 
 function getMockLoginCode() {
@@ -187,6 +204,16 @@ setUnauthorizedHandler(() => {
 export function useAuth() {
   initAuth();
 
+  function syncAuthState() {
+    if (!isMockMode() && !hasSessionToken()) {
+      clearSession();
+      return;
+    }
+    if (isMockMode()) {
+      persistLoginState(true);
+    }
+  }
+
   async function login() {
     if (!isMockMode()) {
       await loginWithBackend();
@@ -203,8 +230,8 @@ export function useAuth() {
   }
 
   function requireLogin(openLoginSheet?: () => void) {
-    if (!isMockMode() && !hasAccessToken()) {
-      isLoggedIn.value = false;
+    if (!isMockMode() && !hasSessionToken()) {
+      clearSession();
     }
     if (isLoggedIn.value) return true;
     openLoginSheet?.();
@@ -216,6 +243,7 @@ export function useAuth() {
     currentUser,
     login,
     logout,
-    requireLogin
+    requireLogin,
+    syncAuthState
   };
 }

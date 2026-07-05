@@ -10,7 +10,7 @@ import { fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
-const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const phone = ref(currentUser.value?.phone || "");
@@ -114,6 +114,8 @@ function toggleDark() {
 
 function toggleMock() {
   setUseMockData(!useMockData.value);
+  syncAuthState();
+  void loadSettingsProfile();
   uni.showToast({ title: useMockData.value ? "已切换为模拟数据" : "已切换为后端接口", icon: "none" });
 }
 
