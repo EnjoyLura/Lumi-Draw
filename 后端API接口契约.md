@@ -1345,3 +1345,50 @@ MVP 必需表：
 
 - BullMQ Worker 还未接入；当前创建接口直接提交 KIE。
 - 微信内容审核与作品自动入库仍属于后续任务。
+
+### 12.4 生成结果发布为作品
+
+`POST /generate/results/:id/publish`
+
+需要小程序用户 `Authorization: Bearer <accessToken>`。
+
+请求：
+
+```json
+{
+  "title": "作品标题",
+  "description": "可选作品描述",
+  "isPublic": true
+}
+```
+
+规则：
+
+- 只能发布当前用户自己的生成结果。
+- 生成结果必须是 `succeeded` 且有可访问的 `imageUrl`。
+- 同一个生成结果只能发布一次；发布后会回填 `generate_results.workId`。
+- 开启人工审核时公开作品进入 `pending`；关闭人工审核时进入 `published`。
+- `isPublic=false` 时保存为 `draft`。
+
+响应：
+
+```json
+{
+  "workId": 123,
+  "status": "pending",
+  "isPublic": true,
+  "work": {
+    "id": 123,
+    "imageUrl": "https://lumidraw.oss-cn-beijing.aliyuncs.com/...",
+    "title": "作品标题",
+    "prompt": "...",
+    "ratio": "1:1",
+    "quality": "全高清 1K",
+    "modelId": "gpt-image-2",
+    "style": "",
+    "status": "pending",
+    "isPublic": true,
+    "createdAt": "2026-07-06T00:00:00.000Z"
+  }
+}
+```

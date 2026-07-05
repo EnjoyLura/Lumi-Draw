@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/co
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
-import { CreateGenerateJobDto, GenerateJobListQueryDto } from "./generate.dto";
+import { CreateGenerateJobDto, GenerateJobListQueryDto, PublishGenerateResultDto } from "./generate.dto";
 import { GenerateService } from "./generate.service";
 
 @ApiTags("generate")
@@ -43,6 +43,13 @@ export class GenerateController {
   @Post("jobs/:id/retry")
   retryJob(@CurrentUser() user: { id: number }, @Param("id") id: string) {
     return this.generate.retryJob(user.id, id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("results/:id/publish")
+  publishResult(@CurrentUser() user: { id: number }, @Param("id") id: string, @Body() dto: PublishGenerateResultDto) {
+    return this.generate.publishResult(user.id, id, dto);
   }
 
   @Post("callback")

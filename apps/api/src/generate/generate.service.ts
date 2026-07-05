@@ -1,11 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerateJob, GenerateResult, Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
-import type { CreateGenerateJobDto } from "./generate.dto";
+import type { CreateGenerateJobDto, PublishGenerateResultDto } from "./generate.dto";
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
@@ -160,6 +160,60 @@ export class GenerateService {
     );
   }
 
+  async publishResult(userId: number, resultId: string, dto: PublishGenerateResultDto) {
+    const result = await this.prisma.generateResult.findUnique({ where: { id: resultId }, include: { job: true } });
+    if (!result) throw new NotFoundException("generate result not found");
+    if (result.job.userId !== userId) throw new ForbiddenException("no permission to publish this result");
+    if (result.status !== "succeeded" || !result.imageUrl) throw new BadRequestException("generate result is not publishable");
+    if (result.workId) throw new ConflictException("generate result has already been published");
+
+    const manualReview = await this.isManualReview();
+    const isPublic = dto.isPublic ?? true;
+    const status = !isPublic ? "draft" : manualReview ? "pending" : "published";
+
+    const published = await this.prisma.$transaction(async (tx) => {
+      const work = await tx.work.create({
+        data: {
+          userId,
+          title: dto.title.trim(),
+          description: dto.description?.trim() ?? "",
+          prompt: result.job.prompt,
+          imageUrl: result.imageUrl,
+          ratio: result.job.ratio,
+          quality: result.job.quality,
+          modelId: result.job.modelId,
+          style: result.job.style,
+          isPublic,
+          status
+        }
+      });
+      const linked = await tx.generateResult.updateMany({ where: { id: result.id, workId: null }, data: { workId: work.id } });
+      if (linked.count === 0) throw new ConflictException("generate result has already been published");
+      await tx.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
+      return work;
+    });
+
+    return {
+      workId: published.id,
+      status: published.status,
+      isPublic: published.isPublic,
+      work: {
+        id: published.id,
+        imageUrl: published.imageUrl,
+        title: published.title,
+        description: published.description,
+        prompt: published.prompt,
+        ratio: published.ratio,
+        quality: published.quality,
+        modelId: published.modelId,
+        style: published.style,
+        status: published.status,
+        isPublic: published.isPublic,
+        createdAt: published.createdAt.toISOString()
+      }
+    };
+  }
+
   async handleCallback(body: Record<string, unknown>, secret?: string) {
     const callbackSecret = this.config.get<string>("app.callbackSecret");
     if (callbackSecret && secret !== callbackSecret) throw new UnauthorizedException("invalid callback secret");
@@ -246,6 +300,11 @@ export class GenerateService {
       where: { enabled: true, OR: [{ label: { contains: shorthand } }, { pixel: { contains: shorthand.replace("K", "") } }] },
       orderBy: [{ sort: "asc" }, { id: "asc" }]
     });
+  }
+
+  private async isManualReview() {
+    const row = await this.prisma.appSetting.findUnique({ where: { key: "manualReviewEnabled" } });
+    return row ? row.value === "true" : true;
   }
 
   private async submitToProvider(jobId: string) {

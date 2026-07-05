@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 import { PageQueryDto } from "../common/dto/pagination";
 
 export class CreateGenerateJobDto {
@@ -50,4 +50,20 @@ export class GenerateJobListQueryDto extends PageQueryDto {
   @IsOptional()
   @IsIn(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"])
   status?: string;
+}
+
+export class PublishGenerateResultDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(60)
+  title!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
 }
