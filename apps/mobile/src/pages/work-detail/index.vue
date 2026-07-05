@@ -228,9 +228,25 @@ function closeLongPressSheet() {
   longPressOpen.value = false;
 }
 
+function getShareLink() {
+  const path = `/pages/work-detail/index?id=${workId.value}`;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/#${path}`;
+  }
+  return path;
+}
+
 function shareWork() {
   longPressOpen.value = false;
-  uni.showToast({ title: "分享", icon: "none" });
+  uni.setClipboardData({
+    data: getShareLink(),
+    success() {
+      uni.showToast({ title: "作品链接已复制", icon: "none" });
+    },
+    fail() {
+      uni.showToast({ title: "分享失败，请稍后重试", icon: "none" });
+    }
+  });
 }
 
 function saveImageInBrowser(url: string) {
