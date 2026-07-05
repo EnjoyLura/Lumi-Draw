@@ -100,8 +100,9 @@ async function loadDetail() {
       following.value = stateResult.value.following;
     }
   } catch {
-    loadMockDetail();
-    uni.showToast({ title: "作品详情加载失败，已使用本地数据", icon: "none" });
+    work.value = undefined;
+    user.value = undefined;
+    uni.showToast({ title: "作品详情加载失败", icon: "none" });
   }
 }
 
