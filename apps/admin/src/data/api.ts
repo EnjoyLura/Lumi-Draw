@@ -1,7 +1,7 @@
 // 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
 // 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
 import { http, type Paginated } from "./http";
-import type { AdminUser, AdminWork } from "./mock";
+import type { AdminReport, AdminUser, AdminWork } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -63,6 +63,11 @@ interface ApiWork {
 export interface AdminWorkDetailData extends AdminWork {
   imageUrl?: string;
   author?: { id: number; name: string; avatar: string; color: string } | null;
+}
+
+export interface AdminReportData extends AdminReport {
+  workTitle: string;
+  reporterName: string;
 }
 
 function mapWork(w: ApiWork): AdminWorkDetailData {
@@ -153,6 +158,79 @@ export async function apiOfflineWork(id: number) {
 
 export async function apiRestoreWork(id: number) {
   return mapWork(await http.post<ApiWork>(`/admin/works/${id}/restore`));
+}
+
+interface ApiReviewWork {
+  id: number; title: string; imageUrl?: string; prompt: string; style: string;
+  status: string; authorName: string; createdAt: string;
+}
+
+function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
+  return {
+    id: w.id,
+    userId: 0,
+    title: w.title,
+    desc: "",
+    prompt: w.prompt,
+    model: "",
+    ratio: "",
+    quality: "",
+    style: w.style,
+    likes: 0,
+    favorites: 0,
+    remakes: 0,
+    status: WORK_STATUS_CN[w.status] ?? w.status,
+    featured: false,
+    recommend: false,
+    time: (w.createdAt ?? "").slice(0, 10),
+    imageUrl: w.imageUrl,
+    author: { id: 0, name: w.authorName, avatar: w.authorName.slice(0, 1), color: "#5B9FE8" }
+  };
+}
+
+export async function apiGetReviews(status = "pending"): Promise<AdminWorkDetailData[]> {
+  const page = await http.get<Paginated<ApiReviewWork>>(`/admin/reviews?status=${encodeURIComponent(status)}&page=1&pageSize=100`);
+  return page.items.map(mapReviewWork);
+}
+
+export async function apiApproveReview(id: number) {
+  return http.post<{ ok: boolean; id: number; status: string }>(`/admin/reviews/${id}/approve`);
+}
+
+export async function apiRejectReview(id: number, reason: string) {
+  return http.post<{ ok: boolean; id: number; status: string; reason: string }>(`/admin/reviews/${id}/reject`, { reason });
+}
+
+const REPORT_STATUS_CN: Record<string, string> = { pending: "待处理", resolved: "已处理", ignored: "已忽略" };
+
+interface ApiReport {
+  id: number; workId: number; workTitle: string; reporterId: number; reporterName: string;
+  reason: string; description?: string; status: string; createdAt: string;
+}
+
+function mapReport(r: ApiReport): AdminReportData {
+  return {
+    id: r.id,
+    reporter: r.reporterId,
+    reporterName: r.reporterName,
+    workId: r.workId,
+    workTitle: r.workTitle,
+    reason: r.reason,
+    status: REPORT_STATUS_CN[r.status] ?? r.status,
+    time: (r.createdAt ?? "").slice(0, 10)
+  };
+}
+
+export async function apiGetReports(): Promise<AdminReportData[]> {
+  const page = await http.get<Paginated<ApiReport>>("/admin/reports?page=1&pageSize=100");
+  return page.items.map(mapReport);
+}
+
+export async function apiResolveReport(id: number, action: "offline" | "warn" | "ignore") {
+  return http.post<{ ok: boolean; id: number; status: string }>(`/admin/reports/${id}/resolve`, {
+    action: action === "ignore" ? "ignore" : "resolve",
+    offline: action === "offline"
+  });
 }
 
 interface ApiSummary {
