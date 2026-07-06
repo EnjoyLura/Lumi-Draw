@@ -42,7 +42,7 @@ const isLoadingMore = ref(false);
 const showLoginSheet = ref(false);
 const lastMode = ref<boolean | null>(null);
 const { useMockData } = useDataMode();
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 let skipNextShowReload = false;
 
@@ -244,6 +244,7 @@ async function retryJob(event: Event, job: GenerateHistoryJob) {
   try {
     const result = await retryGenerateJob(job.id);
     addActiveGenerateJobId(result.jobId);
+    if (typeof result.creditsAfter === "number") updateCurrentUser({ credits: result.creditsAfter });
     uni.showToast({ title: "已重新提交生成", icon: "none" });
     uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(result.jobId)}` });
   } catch {
@@ -279,8 +280,9 @@ async function cancelJob(event: Event, job: GenerateHistoryJob) {
   if (!confirmed) return;
 
   try {
-    await cancelGenerateJob(job.id);
+    const result = await cancelGenerateJob(job.id);
     removeActiveGenerateJobIds([job.id]);
+    if (typeof result.creditsAfter === "number") updateCurrentUser({ credits: result.creditsAfter });
     uni.showToast({ title: "任务已取消", icon: "none" });
     await reloadJobs();
   } catch {

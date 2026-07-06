@@ -32,6 +32,18 @@ export interface GenerateHistoryJob {
   finishedAt?: string;
 }
 
+export interface RetryGenerateJobResult {
+  jobId: string;
+  status: GenerateJobStatus;
+  costCredits: number;
+  creditsAfter?: number;
+  job: GenerateHistoryJob;
+}
+
+export type CancelGenerateJobResult = GenerateHistoryJob & {
+  creditsAfter?: number;
+};
+
 interface PageResult<T> {
   items: T[];
   page: number;
@@ -71,9 +83,9 @@ export async function fetchGenerateHistoryJobs(filter: GenerateHistoryFilter, pa
 }
 
 export function retryGenerateJob(jobId: string) {
-  return api.post<{ jobId: string; job: GenerateHistoryJob }>(`/generate/jobs/${jobId}/retry`);
+  return api.post<RetryGenerateJobResult>(`/generate/jobs/${jobId}/retry`);
 }
 
 export function cancelGenerateJob(jobId: string) {
-  return api.post<{ ok: boolean; job: GenerateHistoryJob }>(`/generate/jobs/${jobId}/cancel`);
+  return api.post<CancelGenerateJobResult>(`/generate/jobs/${jobId}/cancel`);
 }
