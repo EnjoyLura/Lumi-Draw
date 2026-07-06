@@ -4,6 +4,7 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { mockImage } from "../../services/mockImages";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { submitFeedback } from "./feedbackService";
@@ -94,7 +95,7 @@ async function addImage() {
 
   if (useMockData.value) {
     const seed = images.value.length === 0 ? "fb1" : "fb2";
-    images.value.push(`https://picsum.photos/seed/${seed}/200/200`);
+    images.value.push(mockImage(seed, 200, 200));
     return;
   }
 

@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { mockImage } from "../../services/mockImages";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockAnnouncements,
@@ -170,7 +171,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
       const fallback = fallbackByIndex(mockAnnouncements, index);
       return {
         id: item.id,
-        image: `https://picsum.photos/seed/announce${item.id}/600/280`,
+        image: mockImage(`announce${item.id}`, 600, 280),
         title: item.title || fallback.title,
         summary: item.summary || fallback.summary,
         action: normalizeBannerAction(item.action || fallback.action),

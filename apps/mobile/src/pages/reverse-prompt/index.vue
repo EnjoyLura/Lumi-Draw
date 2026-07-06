@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { mockImage } from "../../services/mockImages";
 import { uploadChosenImage } from "../../services/upload";
 import { reversePrompt } from "./reversePromptService";
 
@@ -23,7 +24,7 @@ async function uploadReverseImage() {
   if (busy.value) return;
 
   if (useMockData.value) {
-    const url = `https://picsum.photos/seed/reverse${Date.now()}/600/420`;
+    const url = mockImage(`reverse${Date.now()}`, 600, 420);
     imageUrl.value = url;
     localImageUrl.value = url;
     resultText.value = "";

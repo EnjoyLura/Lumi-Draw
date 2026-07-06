@@ -5,6 +5,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
+import { mockImage } from "../../services/mockImages";
 import { uploadChosenImage, uploadRemoteImage } from "../../services/upload";
 import {
   countOptions,
@@ -310,7 +311,7 @@ function showToast(title: string) {
 }
 
 function generatedImageUrl(seed: string, size = 800) {
-  return `https://picsum.photos/seed/${seed}/${size}/${size}`;
+  return mockImage(seed, size, size);
 }
 
 function resultImageSrc(item: GenResult, size = 800) {
@@ -459,7 +460,7 @@ async function uploadPromptImage() {
   if (isUploadingPromptImage.value) return;
 
   if (useMockData.value) {
-    promptImage.value = `https://picsum.photos/seed/upload${Date.now()}/200/200`;
+    promptImage.value = mockImage(`upload${Date.now()}`, 200, 200);
     showToast("图片已上传");
     return;
   }

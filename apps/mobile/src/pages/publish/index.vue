@@ -5,6 +5,7 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { mockImage } from "../../services/mockImages";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publishData";
@@ -190,7 +191,7 @@ async function uploadLocalImage() {
     const mockRatio = "1:1";
     selectDraft({
       id: Date.now(),
-      image: `https://picsum.photos/seed/local${Date.now()}/800/800`,
+      image: mockImage(`local${Date.now()}`, 800, 800),
       title: "本地上传作品",
       ratio: mockRatio,
       resolution: ratioToResolution(mockRatio),
