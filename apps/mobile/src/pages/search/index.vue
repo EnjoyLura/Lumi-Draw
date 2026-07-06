@@ -107,7 +107,13 @@ async function runBackendSearch(query: string, page = 1, append = false) {
 }
 
 function getUser(work: HomeWork) {
-  return userList.value.find((user) => user.id === work.userId) || userList.value[0] || mockHomeUsers[0];
+  const fallbackName = work.userId ? `用户${work.userId}` : "未知用户";
+  return userList.value.find((user) => user.id === work.userId) || {
+    id: work.userId,
+    name: fallbackName,
+    avatar: "U",
+    color: "var(--accent)"
+  };
 }
 
 function getAspectRatio(ratio: string) {
@@ -144,6 +150,10 @@ function clearSearchHistory() {
 
 function openWorkDetail(workId: number) {
   uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
+}
+
+function goUserProfile(userId: number) {
+  uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
 function handleReachBottom() {
@@ -209,7 +219,7 @@ function handleReachBottom() {
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
-                  <view class="author">
+                  <view class="author" @click.stop="goUserProfile(work.userId)">
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
@@ -225,7 +235,7 @@ function handleReachBottom() {
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
-                  <view class="author">
+                  <view class="author" @click.stop="goUserProfile(work.userId)">
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>

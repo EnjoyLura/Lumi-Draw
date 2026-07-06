@@ -1,5 +1,5 @@
 import { api } from "../../services/api";
-import { homeUsers as mockUsers, type HomeUser, type HomeWork } from "../home/homeData";
+import type { HomeUser, HomeWork } from "../home/homeData";
 
 interface BackendHotSearch {
   id: number;
@@ -38,17 +38,13 @@ export interface SearchResultPage {
   hasMore: boolean;
 }
 
-function fallbackUser(index: number) {
-  return mockUsers[index % mockUsers.length];
-}
-
-function toUser(author: BackendAuthor, index: number): HomeUser {
-  const fallback = fallbackUser(index);
+function toUser(author: BackendAuthor): HomeUser {
+  const fallbackName = author.id ? `用户${author.id}` : "未知用户";
   return {
     id: author.id,
-    name: author.nickname || fallback.name,
-    avatar: author.avatarText || author.nickname?.slice(0, 1) || fallback.avatar,
-    color: author.avatarColor || fallback.color
+    name: author.nickname || fallbackName,
+    avatar: author.avatarText || author.nickname?.slice(0, 1) || "U",
+    color: author.avatarColor || "var(--accent)"
   };
 }
 
@@ -83,7 +79,7 @@ export async function searchWorks(keyword: string, page: number, pageSize: numbe
     `pageSize=${pageSize}`
   ].join("&");
   const result = await api.get<PageResult<BackendWork>>(`/works/search?${query}`, { skipAuth: true });
-  const users = result.items.map((item, index) => toUser(item.author, index));
+  const users = result.items.map((item) => toUser(item.author));
   return {
     works: result.items.map(toWork),
     users: uniqueUsers(users),
