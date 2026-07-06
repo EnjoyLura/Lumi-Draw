@@ -202,7 +202,9 @@ test("mobile h5 publish form accepts draft, text and tags", async ({ page }) => 
   await expect(page.locator(".picker-sheet.show")).toHaveCount(0);
   await expect(page.locator(".draft-selected-title")).toBeVisible();
 
-  await page.locator(".publish-page .text-input input").fill("Playwright publish");
+  const publishTitle = page.locator(".publish-page .text-input input");
+  await publishTitle.fill("Playwright publish");
+  await expect(publishTitle).toHaveValue("Playwright publish");
   await page.locator(".publish-page .text-area textarea").fill("Playwright publish description");
   await expect(page.locator(".publish-page .counter").first()).toContainText("18/30");
   await expect(page.locator(".publish-page .counter").nth(1)).toContainText("30/200");
@@ -311,6 +313,61 @@ test("mobile h5 exercises feedback, report and social follow flows", async ({ pa
   await expect(page.locator(".dialog-overlay")).toBeVisible();
   await page.locator(".dialog-btn.danger").click();
   await expect(followButton).not.toHaveClass(/following/);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 runs mock create generation flow", async ({ page }) => {
+  await page.addInitScript(() => {
+    Math.random = () => 0.5;
+  });
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/create/index");
+  await expect(page.locator(".create-page")).toBeVisible();
+  await page.locator(".prompt-input textarea").fill("Playwright mock generation prompt");
+  await expect(page.locator(".prompt-count")).toContainText("33/500");
+  await page.locator(".style-card").first().click();
+  await expect(page.locator(".style-card").first()).toHaveClass(/selected/);
+  await page.locator(".option-card").first().click();
+  await expect(page.locator(".option-card").first()).toHaveClass(/selected/);
+  await page.locator(".ratio-card").first().click();
+  await expect(page.locator(".ratio-card").first()).toHaveClass(/selected/);
+
+  await page.locator(".create-btn").click({ force: true });
+  await expect(page.locator(".generating-card")).toBeVisible();
+  await expect(page.locator(".result-wrap")).toBeVisible({ timeout: 6000 });
+  await expect(page.locator(".result-img").first()).toBeVisible();
+  await page.locator(".result-img").first().click();
+  await expect(page.locator(".preview-sheet.show")).toBeVisible();
+  await page.locator(".preview-ghost-btn.icon").click();
+  await expect(page.locator(".preview-sheet.show")).toHaveCount(0);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 manages gallery selections and generation history filters", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/gallery/index");
+  await expect(page.locator(".gallery-page")).toBeVisible();
+  await page.locator(".manage-btn").click();
+  await expect(page.locator(".manage-btn")).toHaveClass(/active/);
+  await expect(page.locator(".manage-bar.show")).toBeVisible();
+  await page.locator(".select-dot").first().click();
+  await expect(page.locator(".select-dot").first()).toHaveClass(/selected/);
+  await expect(page.locator(".delete-btn")).toHaveClass(/enabled/);
+  await page.locator(".select-all-btn").click();
+  await expect(page.locator(".selected-count")).toBeVisible();
+
+  await page.goto("/#/pages/generation-history/index");
+  await expect(page.locator(".generation-history-page")).toBeVisible();
+  await page.locator(".filter-item").nth(1).click();
+  await expect(page.locator(".filter-item").nth(1)).toHaveClass(/active/);
+  await expect(page.locator(".job-card").first()).toBeVisible();
+  await page.locator(".filter-item").nth(2).click();
+  await expect(page.locator(".filter-item").nth(2)).toHaveClass(/active/);
+  await expect(page.locator(".empty-state")).toBeVisible();
 
   expect(runtimeErrors).toEqual([]);
 });

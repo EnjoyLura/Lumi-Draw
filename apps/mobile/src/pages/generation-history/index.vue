@@ -66,7 +66,7 @@ const mockJobs = computed<GenerateHistoryJob[]>(() =>
   }))
 );
 
-const visibleJobs = computed(() => (useMockData.value ? mockJobs.value : jobs.value));
+const visibleJobs = computed(() => (useMockData.value ? filterJobs(mockJobs.value, activeFilter.value) : jobs.value));
 const hasActiveJob = computed(() => !useMockData.value && jobs.value.some((job) => !isTerminal(job.status)));
 const emptyTitle = computed(() => {
   if (activeFilter.value === "running") return "暂无进行中的生成任务";
@@ -102,6 +102,13 @@ function isTerminal(status: GenerateJobStatus) {
 
 function isSuccess(status: GenerateJobStatus) {
   return status === "succeeded" || status === "partial_failed";
+}
+
+function filterJobs(items: GenerateHistoryJob[], filter: GenerateHistoryFilter) {
+  if (filter === "all") return items;
+  if (filter === "running") return items.filter((job) => !isTerminal(job.status));
+  if (filter === "succeeded") return items.filter((job) => isSuccess(job.status));
+  return items.filter((job) => job.status === "failed" || job.status === "cancelled");
 }
 
 function canCancel(status: GenerateJobStatus) {
