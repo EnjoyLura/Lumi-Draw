@@ -20,6 +20,12 @@ const isPaying = ref(false);
 const showLoginSheet = ref(false);
 let lastMockMode: boolean | null = null;
 
+function resetMemberStatus() {
+  isMember.value = false;
+  memberPlanName.value = "";
+  memberExpireAt.value = "";
+}
+
 const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
 const memberStats = computed(() => {
   const plan = selectedPlan.value;
@@ -66,9 +72,7 @@ onShow(() => {
 async function loadMembership() {
   if (useMockData.value) {
     plans.value = memberPlans;
-    isMember.value = false;
-    memberPlanName.value = "";
-    memberExpireAt.value = "";
+    resetMemberStatus();
     return;
   }
 
@@ -78,12 +82,14 @@ async function loadMembership() {
     plans.value = nextPlans.length ? nextPlans : memberPlans;
     selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
 
+    resetMemberStatus();
     if (!ensureLogin()) return;
     const status = await fetchMemberStatus();
     isMember.value = status.isMember;
     memberPlanName.value = status.memberPlan;
     memberExpireAt.value = status.memberExpireAt || "";
   } catch {
+    resetMemberStatus();
     uni.showToast({ title: "会员数据加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
