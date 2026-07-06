@@ -27,6 +27,7 @@ const realProfile = ref<ProfileView | null>(null);
 const realWorks = ref<HomeWork[]>([]);
 const loading = ref(false);
 const isLoadingMore = ref(false);
+const loadFailed = ref(false);
 const pageState = ref({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -47,7 +48,25 @@ interface ProfileView {
   isFollowing: boolean;
 }
 
-const user = computed(() => realProfile.value || getProfileUser(userId.value));
+const emptyProfile = computed<ProfileView>(() => ({
+  id: userId.value,
+  name: "",
+  avatar: "",
+  color: "var(--accent)",
+  bio: "",
+  works: 0,
+  likes: "0",
+  followers: "0",
+  following: 0,
+  gender: "female",
+  role: "AI 创作者",
+  isFollowing: false
+}));
+const user = computed(() => {
+  if (useMockData.value) return getProfileUser(userId.value);
+  return realProfile.value || emptyProfile.value;
+});
+const hasProfile = computed(() => useMockData.value || Boolean(realProfile.value));
 const following = computed(() => (useMockData.value ? isFollowing(userId.value) : Boolean(realProfile.value?.isFollowing)));
 const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) : realWorks.value));
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
@@ -85,6 +104,7 @@ function toProfileView(profile: BackendUserProfile): ProfileView {
 }
 
 async function loadProfile() {
+  loadFailed.value = false;
   if (useMockData.value) {
     realProfile.value = null;
     realWorks.value = [];
@@ -104,6 +124,7 @@ async function loadProfile() {
     realProfile.value = null;
     realWorks.value = [];
     pageState.value = { page: 1, hasMore: false };
+    loadFailed.value = true;
     uni.showToast({ title: "用户主页加载失败", icon: "none" });
   } finally {
     loading.value = false;
@@ -234,6 +255,19 @@ async function confirmUnfollow() {
 <template>
   <view class="profile-page">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
+      <view v-if="loading" class="profile-empty">
+        <view class="empty-icon">◎</view>
+        <view class="empty-title">正在加载用户主页</view>
+      </view>
+
+      <view v-else-if="!hasProfile || loadFailed" class="profile-empty">
+        <view class="empty-icon">□</view>
+        <view class="empty-title">用户主页加载失败</view>
+        <view class="empty-sub">请确认用户存在，或稍后重试。</view>
+        <button class="empty-btn" @click="loadProfile">重新加载</button>
+      </view>
+
+      <template v-else>
       <view class="profile-header">
         <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
         <view class="header-main">
@@ -310,6 +344,7 @@ async function confirmUnfollow() {
           {{ isLoadingMore ? "正在加载更多作品" : useMockData || pageState.hasMore ? "继续往下滑获取更多作品" : "没有更多作品了" }}
         </view>
       </view>
+      </template>
     </scroll-view>
 
     <view v-if="confirmOpen" class="dialog-overlay" @click="confirmOpen = false">
@@ -339,6 +374,59 @@ async function confirmUnfollow() {
 
 .page-scroll {
   height: 100%;
+}
+
+.profile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 56vh;
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 14px;
+  font-size: 42px;
+  color: var(--fg-muted);
+}
+
+.empty-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.empty-sub {
+  max-width: 260px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(255, 92, 122, 0.24);
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .profile-header {
