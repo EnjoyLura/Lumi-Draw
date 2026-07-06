@@ -54,7 +54,24 @@ async function main() {
     const code = `mock-smoke-${Date.now()}`;
     const { body } = await request("POST", "/auth/wechat/login", { code });
     assert(body.data?.accessToken, "access token missing");
+    assert(body.data?.refreshToken, "refresh token missing");
     return body.data;
+  });
+
+  await step("auth refresh and logout", async () => {
+    const { body: refreshed } = await request("POST", "/auth/refresh", { refreshToken: user.refreshToken });
+    assert(refreshed.data?.accessToken, "refreshed access token missing");
+    assert(refreshed.data?.refreshToken, "rotated refresh token missing");
+    assert(refreshed.data.refreshToken !== user.refreshToken, "refresh token was not rotated");
+
+    const oldRefresh = await request("POST", "/auth/refresh", { refreshToken: user.refreshToken }, undefined, true);
+    assert(oldRefresh.status === 401 || oldRefresh.body?.code !== 0, "old refresh token should be revoked");
+
+    const { body: loggedOut } = await request("POST", "/auth/logout", { refreshToken: refreshed.data.refreshToken });
+    assert(loggedOut.data?.ok === true, "logout did not succeed");
+
+    const afterLogout = await request("POST", "/auth/refresh", { refreshToken: refreshed.data.refreshToken }, undefined, true);
+    assert(afterLogout.status === 401 || afterLogout.body?.code !== 0, "logged out refresh token should be revoked");
   });
 
   await step("profile and credits", async () => {
@@ -137,6 +154,12 @@ async function main() {
       Array.isArray(messages.data) && messages.data.some((item) => item.content === reply && item.unread === true),
       "feedback reply notification missing"
     );
+
+    const { body: marked } = await request("PATCH", "/notifications/service/read", undefined, user.accessToken);
+    assert(marked.data?.ok === true, "service notification mark-read failed");
+    const { body: summary } = await request("GET", "/notifications/summary", undefined, user.accessToken);
+    const serviceRow = (summary.data || []).find((item) => item.key === "service");
+    assert(serviceRow?.unread === 0, "service notification unread count did not clear");
   });
 
   await step("work create/edit/detail/delete", async () => {
@@ -248,6 +271,12 @@ async function main() {
 
     const { body: likeMessages } = await request("GET", "/notifications/like", undefined, owner.accessToken);
     assert((likeMessages.data || []).some((item) => item.content.includes("smoke-social-work")), "like message content missing");
+
+    const { body: markedLike } = await request("PATCH", "/notifications/like/read", undefined, owner.accessToken);
+    assert(markedLike.data?.ok === true, "like notification mark-read failed");
+    const { body: afterReadSummary } = await request("GET", "/notifications/summary", undefined, owner.accessToken);
+    const likeRow = (afterReadSummary.data || []).find((item) => item.key === "like");
+    assert(likeRow?.unread === 0, "like notification unread count did not clear");
 
     await request("DELETE", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
     await request("DELETE", `/works/${workId}?action=delete`, undefined, owner.accessToken);
