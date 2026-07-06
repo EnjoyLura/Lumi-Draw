@@ -9,7 +9,7 @@ import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { getMessageCategory, getMessages, type MessageCategory, type MessageCategoryKey, type MessageItem } from "../messages/messagesData";
 import { fetchMessageList, markMessageCategoryRead } from "../messages/messagesService";
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const category = ref<MessageCategory>(getMessageCategory("like"));
@@ -93,7 +93,7 @@ async function loadMessages(type: MessageCategoryKey) {
   }
   backendMessages.value = [];
   loadFailed.value = false;
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     loginRequired.value = true;
     return;
   }

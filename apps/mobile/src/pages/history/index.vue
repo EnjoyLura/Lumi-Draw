@@ -11,7 +11,7 @@ import { homeWorks, type HomeWork } from "../home/homeData";
 const cleared = ref(false);
 const realWorks = ref<HomeWork[]>([]);
 const { useMockData } = useDataMode();
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 let lastMode: boolean | null = null;
@@ -39,7 +39,7 @@ async function loadHistory() {
     loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     realWorks.value = [];
     loginRequired.value = true;
     return;

@@ -17,7 +17,7 @@ const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const pageState = reactive({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 
@@ -36,12 +36,14 @@ onLoad((query) => {
 });
 
 function toProfileUser(user: BackendUserProfile): FollowProfileUser {
+  const fallbackName = `用户${user.id}`;
+  const name = user.nickname || fallbackName;
   return {
     id: user.id,
-    name: user.nickname,
-    avatar: user.avatarText || user.nickname.slice(0, 1) || "露",
+    name,
+    avatar: user.avatarText || name.slice(0, 1) || "U",
     color: user.avatarColor || "var(--accent)",
-    bio: user.bio || "用 AI 描绘心中的灵感。",
+    bio: user.bio || "这个用户还没有填写简介",
     works: user.worksCount,
     likes: formatCompactNumber(user.likesCount),
     followers: formatCompactNumber(user.followers),
@@ -60,7 +62,7 @@ async function loadList() {
     loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     realUsers.value = [];
     pageState.page = 1;
     pageState.hasMore = false;
