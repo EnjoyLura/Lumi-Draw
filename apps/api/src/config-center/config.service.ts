@@ -2,6 +2,24 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
 const enabledOrder = { where: { enabled: true }, orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
+const defaultAgreements: Record<string, { title: string; content: string }> = {
+  user: {
+    title: "用户协议",
+    content: "欢迎使用露米绘画。使用本服务即表示您同意遵守平台规则，不生成违法违规、侵权或伤害他人的内容。"
+  },
+  privacy: {
+    title: "隐私政策",
+    content: "我们仅在提供登录、创作、支付、审核和客服所必需的范围内处理您的信息，并按法律法规要求保护数据安全。"
+  },
+  recharge: {
+    title: "充值协议",
+    content: "积分属于平台虚拟权益，仅用于露米绘画内的 AI 生成等服务。充值前请确认方案内容，支付成功后积分实时入账。"
+  },
+  membership: {
+    title: "会员服务协议",
+    content: "会员权益包括积分赠送、签到加成和优先体验等，以页面展示和后台配置为准。"
+  }
+};
 
 @Injectable()
 export class ConfigService {
@@ -147,7 +165,14 @@ export class ConfigService {
   async getAgreement(type: string) {
     const row = await this.prisma.agreement.findUnique({ where: { type } });
     if (!row) {
-      throw new NotFoundException(`协议不存在: ${type}`);
+      const fallback = defaultAgreements[type];
+      if (!fallback) throw new NotFoundException(`协议不存在: ${type}`);
+      return {
+        type,
+        title: fallback.title,
+        content: fallback.content,
+        updatedAt: new Date(0).toISOString()
+      };
     }
     return {
       type: row.type,

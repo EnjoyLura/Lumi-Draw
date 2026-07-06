@@ -93,8 +93,8 @@ async function clearHistory() {
   uni.showToast({ title: "已清空浏览记录", icon: "none" });
 }
 
-function goHome() {
-  uni.reLaunch({ url: "/pages/home/index" });
+function goPlaza() {
+  uni.reLaunch({ url: "/pages/plaza/index" });
 }
 </script>
 
@@ -142,7 +142,7 @@ function goHome() {
         <view class="empty-icon">◷</view>
         <view class="empty-title">暂无浏览记录</view>
         <view class="empty-sub">去广场逛逛，发现更多精彩作品</view>
-        <button class="empty-btn" @click="goHome">✦ 去逛逛</button>
+        <button class="empty-btn" @click="goPlaza">✦ 去逛逛</button>
       </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
