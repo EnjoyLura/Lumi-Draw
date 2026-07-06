@@ -28,6 +28,19 @@ const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
 const REVERSE_PROMPT_COST = 2;
 
+function mockGeneratedImageUrl(seed: string) {
+  const colors = [
+    ["#5b9fe8", "#62c9b7", "#f6b28f"],
+    ["#8b7cf6", "#63c6f2", "#ffe083"],
+    ["#ff7f73", "#ffc766", "#74d4b3"],
+    ["#6f8ff2", "#b797f4", "#f8a6c2"]
+  ];
+  const hash = Array.from(seed).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 0);
+  const [a, b, c] = colors[hash % colors.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".58" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></linearGradient><radialGradient id="r" cx="32%" cy="26%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".78"/><stop offset=".45" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="1024" height="1024" fill="url(#g)"/><circle cx="${220 + (hash % 420)}" cy="260" r="310" fill="url(#r)"/><path d="M0 742 C250 576 430 930 1024 635 L1024 1024 L0 1024 Z" fill="#0f1f3a" opacity=".2"/><path d="M0 842 C260 716 560 1005 1024 778 L1024 1024 L0 1024 Z" fill="#fff" opacity=".2"/></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 @Injectable()
 export class GenerateService {
   constructor(
@@ -421,7 +434,7 @@ export class GenerateService {
     const images: GeneratedImage[] = Array.from({ length: job.count }, (_, index) => {
       const seed = `${job.id}-${index + 1}`;
       return {
-        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(seed)}/1024/1024`,
+        imageUrl: mockGeneratedImageUrl(seed),
         ossKey: `mock/generate/${seed}.jpg`,
         sizeBytes: 512 * 1024
       };

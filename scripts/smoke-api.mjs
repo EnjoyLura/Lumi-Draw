@@ -7,6 +7,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function smokeImage(seed, width = 800, height = 800) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#5b9fe8"/><stop offset=".55" stop-color="#62c9b7"/><stop offset="1" stop-color="#f6b28f"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="${width * 0.34}" cy="${height * 0.28}" r="${Math.max(width, height) * 0.22}" fill="#fff" opacity=".35"/><path d="M0 ${height * 0.74} C ${width * 0.25} ${height * 0.56}, ${width * 0.5} ${height * 0.92}, ${width} ${height * 0.66} L ${width} ${height} L 0 ${height} Z" fill="#0f1f3a" opacity=".22"/><text x="50%" y="52%" text-anchor="middle" font-family="Arial" font-size="${Math.max(24, width / 20)}" fill="#fff" opacity=".76">${seed}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 async function request(method, path, body, token, allowError = false) {
   const response = await fetch(`${API_BASE}${path}`, {
     method,
@@ -108,7 +113,7 @@ async function main() {
       bio: "profile smoke test",
       gender: "female",
       phone: `139${suffix}`,
-      avatarUrl: `https://example.com/avatar-${suffix}.png`
+      avatarUrl: smokeImage(`avatar-${suffix}`, 200, 200)
     };
     const { body: updated } = await request("PATCH", "/users/me", nextProfile, user.accessToken);
     assert(updated.data?.nickname === nextProfile.nickname, "profile nickname did not update");
@@ -188,7 +193,7 @@ async function main() {
         title: "smoke-work-before",
         description: "before",
         prompt: "smoke prompt",
-        imageUrl: "https://example.com/smoke-work.png",
+        imageUrl: smokeImage("smoke-work"),
         ratio: "1:1",
         quality: "1K",
         modelId: "smoke-model",
@@ -235,7 +240,7 @@ async function main() {
         title: "smoke-social-work",
         description: "social smoke",
         prompt: "social smoke prompt",
-        imageUrl: "https://example.com/smoke-social-work.png",
+        imageUrl: smokeImage("smoke-social-work"),
         ratio: "1:1",
         quality: "1K",
         modelId: "smoke-model",
@@ -460,7 +465,7 @@ async function main() {
         title: "smoke-history-report-work",
         description: "history report smoke",
         prompt: "history report prompt",
-        imageUrl: "https://example.com/smoke-history-report-work.png",
+        imageUrl: smokeImage("smoke-history-report-work"),
         ratio: "1:1",
         quality: "1K",
         modelId: "smoke-model",
@@ -526,7 +531,7 @@ async function main() {
       "POST",
       "/generate/reverse-prompt",
       {
-        imageUrl: "https://example.com/anime-portrait-smoke.png",
+        imageUrl: "https://ejoyflie.cloud/smoke/anime-portrait-smoke.png",
         hint: "anime portrait"
       },
       user.accessToken
@@ -786,7 +791,7 @@ async function main() {
           title: `admin smoke work ${suffix}`,
           description: "admin work management smoke",
           prompt: "admin work prompt",
-          imageUrl: "https://example.com/admin-smoke-work.png",
+          imageUrl: smokeImage("admin-smoke-work"),
           ratio: "1:1",
           quality: "1K",
           modelId: "smoke-model",

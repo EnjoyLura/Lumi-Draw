@@ -34,6 +34,11 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function smokeImage(seed, width = 800, height = 800) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#5b9fe8"/><stop offset=".55" stop-color="#62c9b7"/><stop offset="1" stop-color="#f6b28f"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/><circle cx="${width * 0.34}" cy="${height * 0.28}" r="${Math.max(width, height) * 0.22}" fill="#fff" opacity=".35"/><path d="M0 ${height * 0.74} C ${width * 0.25} ${height * 0.56}, ${width * 0.5} ${height * 0.92}, ${width} ${height * 0.66} L ${width} ${height} L 0 ${height} Z" fill="#0f1f3a" opacity=".22"/><text x="50%" y="52%" text-anchor="middle" font-family="Arial" font-size="${Math.max(24, width / 20)}" fill="#fff" opacity=".76">${seed}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -165,7 +170,7 @@ async function seedSmokeWork(ownerToken) {
       title,
       description: "Created for mobile H5 real API smoke test",
       prompt: "mobile h5 real api smoke prompt",
-      imageUrl: "https://example.com/mobile-h5-real-smoke.png",
+      imageUrl: smokeImage("mobile-h5-real-smoke"),
       ratio: "1:1",
       quality: "1K",
       modelId: "smoke-model",
