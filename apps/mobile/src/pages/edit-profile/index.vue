@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -10,16 +11,18 @@ import { fetchMyProfile, updateMyProfile } from "./profileService";
 const { currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
-const nickname = ref("云端造梦师");
-const gender = ref<"male" | "female" | "unknown">("male");
-const signature = ref("用 AI 描绘心中的梦境，每一笔都是想象力的延伸");
-const accountId = ref("LUMI8829");
-const avatarText = ref("梦");
+const nickname = ref("");
+const gender = ref<"male" | "female" | "unknown">("unknown");
+const signature = ref("");
+const accountId = ref("");
+const avatarText = ref("露");
 const avatarColor = ref("var(--accent)");
 const avatarUrl = ref("");
 const isSaving = ref(false);
 const isUploading = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
+const loadFailed = ref(false);
 
 const nickCount = computed(() => `${nickname.value.length}/20`);
 const signCount = computed(() => `${signature.value.length}/100`);
@@ -28,9 +31,41 @@ onShow(() => {
   void loadProfile();
 });
 
+function clearProfile() {
+  nickname.value = "";
+  gender.value = "unknown";
+  signature.value = "";
+  accountId.value = "";
+  avatarText.value = "露";
+  avatarColor.value = "var(--accent)";
+  avatarUrl.value = "";
+}
+
+function resetMockProfile() {
+  nickname.value = "云端造梦师";
+  gender.value = "male";
+  signature.value = "用 AI 描绘心中的梦境，每一笔都是想象力的延伸";
+  accountId.value = "LUMI8829";
+  avatarText.value = "梦";
+  avatarColor.value = "var(--accent)";
+  avatarUrl.value = "";
+  loginRequired.value = false;
+  loadFailed.value = false;
+}
+
 async function loadProfile() {
-  if (useMockData.value) return;
-  if (!ensureLogin()) return;
+  loadFailed.value = false;
+  if (useMockData.value) {
+    resetMockProfile();
+    return;
+  }
+  if (!ensureLogin()) {
+    clearProfile();
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  clearProfile();
 
   try {
     const profile = await fetchMyProfile();
@@ -42,6 +77,8 @@ async function loadProfile() {
     avatarColor.value = profile.avatarColor || "var(--accent)";
     avatarUrl.value = profile.avatarUrl || "";
   } catch {
+    clearProfile();
+    loadFailed.value = true;
     uni.showToast({ title: "资料加载失败", icon: "none" });
   }
 }
@@ -87,6 +124,10 @@ async function pickAvatar() {
 
 async function save() {
   if (isSaving.value) return;
+  if (loadFailed.value) {
+    uni.showToast({ title: "资料未加载，请重试", icon: "none" });
+    return;
+  }
   if (!nickname.value.trim()) {
     uni.showToast({ title: "请输入昵称", icon: "none" });
     return;
@@ -128,7 +169,21 @@ async function save() {
 <template>
   <view class="edit-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="edit-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后编辑资料"
+        subtitle="登录后才能读取并修改你的真实账号资料。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else-if="loadFailed" class="edit-empty">
+        <view class="empty-icon">□</view>
+        <view class="empty-title">资料加载失败</view>
+        <view class="empty-sub">请检查登录状态或稍后重试。</view>
+        <button class="empty-btn" @click="loadProfile">重新加载</button>
+      </view>
+
+      <view v-else class="edit-content">
         <view class="avatar-block">
           <view class="avatar-wrap" @click="pickAvatar">
             <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
@@ -168,7 +223,7 @@ async function save() {
           <view class="lock-tip">账号ID不可修改</view>
         </view>
 
-        <button class="save-btn" :disabled="isSaving" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
+        <button class="save-btn" :disabled="isSaving || loadFailed" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
       </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
@@ -190,6 +245,59 @@ async function save() {
 
 .edit-content {
   padding: 24px 16px 32px;
+}
+
+.edit-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52vh;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 14px;
+  font-size: 42px;
+  color: var(--fg-muted);
+}
+
+.empty-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.empty-sub {
+  max-width: 260px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(255, 92, 122, 0.24);
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .avatar-block {
