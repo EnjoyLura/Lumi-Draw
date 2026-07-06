@@ -148,7 +148,7 @@ const filteredWorks = computed(() => {
 });
 
 onShow(() => {
-  if (lastMockMode === useMockData.value) return;
+  if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) return;
   lastMockMode = useMockData.value;
   void reloadPlazaData();
 });
@@ -240,7 +240,9 @@ async function reloadPlazaData() {
   loadFailed.value = false;
   try {
     categoryOptions.value = await fetchPlazaCategories();
-    activeCategoryIndex.value = Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1);
+    activeCategoryIndex.value = categoryOptions.value.length
+      ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
+      : 0;
     userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
@@ -477,6 +479,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
+    await reloadPlazaData();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
