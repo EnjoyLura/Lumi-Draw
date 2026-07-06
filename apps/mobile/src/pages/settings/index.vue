@@ -11,7 +11,7 @@ import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./set
 
 const { useMockData } = useDataMode();
 const { theme, toggleTheme } = useTheme();
-const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState, updateCurrentUser } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const phone = ref(currentUser.value?.phone || "");
@@ -116,7 +116,7 @@ async function tapPhone() {
 
   if (useMockData.value) {
     phone.value = nextPhone;
-    if (currentUser.value) currentUser.value.phone = nextPhone;
+    updateCurrentUser({ phone: nextPhone });
     uni.showToast({ title: "手机号已保存", icon: "none" });
     return;
   }
@@ -125,7 +125,7 @@ async function tapPhone() {
   try {
     const profile = await updateSettingsPhone(nextPhone);
     phone.value = profile.phone || nextPhone;
-    if (currentUser.value) currentUser.value.phone = phone.value;
+    updateCurrentUser({ phone: phone.value });
     uni.showToast({ title: "手机号已保存", icon: "none" });
   } catch {
     uni.showToast({ title: "手机号保存失败", icon: "none" });

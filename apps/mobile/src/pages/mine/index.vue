@@ -8,7 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
-const { isLoggedIn, currentUser, login: commitLogin } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const EMPTY_MINE_USER = {
@@ -64,12 +64,12 @@ async function loadProfile() {
     const [profile, unread] = await Promise.all([fetchMineProfile(), fetchUnreadMessageCount()]);
     displayUser.value = toMineUser(profile);
     unreadMessageCount.value = unread;
-    if (currentUser.value) {
-      currentUser.value.nickname = profile.nickname;
-      currentUser.value.avatarText = profile.avatarText;
-      currentUser.value.avatarColor = profile.avatarColor;
-      currentUser.value.credits = profile.credits;
-    }
+    updateCurrentUser({
+      nickname: profile.nickname,
+      avatarText: profile.avatarText,
+      avatarColor: profile.avatarColor,
+      credits: profile.credits
+    });
   } catch {
     resetRealMineUser();
     uni.showToast({ title: "用户资料加载失败", icon: "none" });

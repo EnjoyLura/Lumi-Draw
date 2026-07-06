@@ -9,7 +9,7 @@ import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 
-const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 
 const nickname = ref("");
@@ -153,14 +153,14 @@ async function save() {
       bio: signature.value.trim(),
       gender: gender.value
     });
-    if (currentUser.value) {
-      currentUser.value.nickname = profile.nickname;
-      currentUser.value.avatarText = profile.avatarText;
-      currentUser.value.avatarColor = profile.avatarColor;
-      currentUser.value.avatarUrl = profile.avatarUrl;
-      currentUser.value.bio = profile.bio;
-      currentUser.value.gender = profile.gender;
-    }
+    updateCurrentUser({
+      nickname: profile.nickname,
+      avatarText: profile.avatarText,
+      avatarColor: profile.avatarColor,
+      avatarUrl: profile.avatarUrl,
+      bio: profile.bio,
+      gender: profile.gender
+    });
     uni.showToast({ title: "资料已保存", icon: "none" });
     setTimeout(leaveEditProfilePage, 600);
   } catch {

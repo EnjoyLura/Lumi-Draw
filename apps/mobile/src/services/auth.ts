@@ -95,6 +95,11 @@ function persistUser(user: MobileUser | null) {
   }
 }
 
+function updateStoredUser(patch: Partial<MobileUser>) {
+  if (!currentUser.value) return;
+  persistUser({ ...currentUser.value, ...patch });
+}
+
 function isMockMode() {
   return useDataMode().useMockData.value;
 }
@@ -244,6 +249,7 @@ export function useAuth() {
     login,
     logout,
     requireLogin,
-    syncAuthState
+    syncAuthState,
+    updateCurrentUser: updateStoredUser
   };
 }
