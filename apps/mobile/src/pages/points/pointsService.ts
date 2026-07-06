@@ -41,6 +41,15 @@ interface InviteSummary {
   invitedCount: number;
   totalReward: number;
   rewardPerInvite: number;
+  invitedUsers?: Array<{
+    id: number;
+    name: string;
+    avatar: string;
+    color: string;
+    avatarUrl?: string | null;
+    date: string;
+    reward: number;
+  }>;
 }
 
 interface MemberPlanRow {
@@ -194,12 +203,12 @@ export async function submitCheckin() {
 
 export async function fetchInviteSummary() {
   const data = await api.get<InviteSummary>("/invite/summary");
-  const invitedUsers: InvitedUser[] = Array.from({ length: data.invitedCount }, (_, index) => ({
-    name: `已邀请用户 ${index + 1}`,
-    avatar: `${index + 1}`,
-    color: ["var(--mint)", "var(--peach)", "var(--lavender)", "var(--accent)"][index % 4],
-    date: "",
-    reward: data.rewardPerInvite
+  const invitedUsers: InvitedUser[] = (data.invitedUsers || []).map((user, index) => ({
+    name: user.name,
+    avatar: user.avatar,
+    color: user.color || ["var(--mint)", "var(--peach)", "var(--lavender)", "var(--accent)"][index % 4],
+    date: formatDate(user.date),
+    reward: user.reward
   }));
   return { ...data, invitedUsers };
 }

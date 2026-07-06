@@ -32,12 +32,32 @@ export class InviteService {
     if (!user) throw new NotFoundException("用户不存在");
     const code = await this.ensureCode(userId, user.inviteCode);
     const records = await this.prisma.inviteRecord.findMany({ where: { inviterId: userId }, orderBy: { createdAt: "desc" } });
+    const inviteeIds = records.map((record) => record.inviteeId);
+    const invitees = inviteeIds.length
+      ? await this.prisma.user.findMany({
+          where: { id: { in: inviteeIds } },
+          select: { id: true, nickname: true, avatarText: true, avatarColor: true, avatarUrl: true }
+        })
+      : [];
+    const inviteeById = new Map(invitees.map((invitee) => [invitee.id, invitee]));
     const totalReward = records.reduce((sum, r) => sum + r.rewardInviter, 0);
     return {
       inviteCode: code,
       invitedCount: records.length,
       totalReward,
-      rewardPerInvite: INVITER_REWARD
+      rewardPerInvite: INVITER_REWARD,
+      invitedUsers: records.map((record) => {
+        const invitee = inviteeById.get(record.inviteeId);
+        return {
+          id: record.inviteeId,
+          name: invitee?.nickname ?? `用户${record.inviteeId}`,
+          avatar: invitee?.avatarText || invitee?.nickname?.slice(0, 1) || "米",
+          color: invitee?.avatarColor || "#5B9FE8",
+          avatarUrl: invitee?.avatarUrl ?? null,
+          date: record.createdAt.toISOString(),
+          reward: record.rewardInviter
+        };
+      })
     };
   }
 
