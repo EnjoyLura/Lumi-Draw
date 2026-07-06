@@ -72,6 +72,18 @@ export class AdminService {
     return buildPage(rows.map(userRow), total, page, pageSize);
   }
 
+  async usersSummary() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [total, todayNew, members, banned] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({ where: { createdAt: { gte: today } } }),
+      this.prisma.user.count({ where: { memberPlan: { not: "" } } }),
+      this.prisma.user.count({ where: { status: "banned" } })
+    ]);
+    return { total, todayNew, members, banned };
+  }
+
   async userDetail(id: number) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException("用户不存在");

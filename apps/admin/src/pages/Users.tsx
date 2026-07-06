@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getUsers } from "../data/service";
-import { apiGetUsers } from "../data/api";
+import { apiGetUsers, apiGetUsersSummary, type AdminUsersSummary } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
@@ -8,13 +8,32 @@ import { Avatar, Chips, SearchBar, StatCard, StatusBadge } from "../ui";
 
 const FILTERS = ["全部", "会员", "活跃", "封禁"];
 
+function isToday(dateText: string) {
+  const date = new Date(dateText);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+}
+
+function formatCount(value: number) {
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
 export function Users() {
   const { go } = useNav();
   const { useMock } = useAdminSession();
   const { data } = useAsyncData(useMock ? null : apiGetUsers, [useMock]);
+  const summaryState = useAsyncData(useMock ? null : apiGetUsersSummary, [useMock]);
   const users = useMock ? getUsers() : data ?? [];
   const [filter, setFilter] = useState("全部");
   const [query, setQuery] = useState("");
+  const localSummary: AdminUsersSummary = {
+    total: users.length,
+    todayNew: users.filter((u) => isToday(u.reg)).length,
+    members: users.filter((u) => u.member !== "无").length,
+    banned: users.filter((u) => u.status === "封禁").length
+  };
+  const summary = useMock ? localSummary : summaryState.data ?? localSummary;
 
   const q = query.toLowerCase();
   const list = users.filter((u) => {
@@ -28,10 +47,10 @@ export function Users() {
   return (
     <>
       <div className="stat-grid" style={{ marginBottom: 4 }}>
-        <StatCard label="总用户" val="12,486" delta={6} icon="ri-group-line" color="#5B9FE8" soft="var(--info-soft)" />
-        <StatCard label="今日新增" val="245" delta={12} icon="ri-user-add-line" color="#6FD4B0" soft="var(--success-soft)" />
-        <StatCard label="会员用户" val="3,120" delta={4} icon="ri-vip-crown-line" color="#F59E0B" soft="var(--warning-soft)" />
-        <StatCard label="封禁用户" val="86" delta={1} icon="ri-forbid-line" color="#EF4444" soft="var(--danger-soft)" />
+        <StatCard label="总用户" val={formatCount(summary.total)} icon="ri-group-line" color="#5B9FE8" soft="var(--info-soft)" />
+        <StatCard label="今日新增" val={formatCount(summary.todayNew)} icon="ri-user-add-line" color="#6FD4B0" soft="var(--success-soft)" />
+        <StatCard label="会员用户" val={formatCount(summary.members)} icon="ri-vip-crown-line" color="#F59E0B" soft="var(--warning-soft)" />
+        <StatCard label="封禁用户" val={formatCount(summary.banned)} icon="ri-forbid-line" color="#EF4444" soft="var(--danger-soft)" />
       </div>
       <div style={{ height: 14 }} />
       <SearchBar value={query} onChange={setQuery} placeholder="搜索昵称 / 手机号 / ID" />

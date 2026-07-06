@@ -3,6 +3,7 @@ import {
   apiAdjustUserCredits,
   apiBanUser,
   apiGetMemberPlans,
+  apiGetTransactions,
   apiGetUserDetail,
   apiGiftUserMember,
   apiUnbanUser,
@@ -10,8 +11,8 @@ import {
   type AdminUserDetailData
 } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { MEMBER_PLANS, USERS, type AdminUser } from "../data/mock";
-import { getUser, getUserWorks } from "../data/service";
+import { MEMBER_PLANS, USERS, type AdminTxn, type AdminUser } from "../data/mock";
+import { getTransactions, getUser, getUserWorks } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Avatar, Badge, Seg, StatCard, StatusBadge, WorkCard } from "../ui";
@@ -22,23 +23,6 @@ const TABS: Array<[string, string]> = [
   ["recharge", "充值"],
   ["spend", "消费"],
   ["works", "作品"]
-];
-
-const CREDIT_LOG: Array<[string, string, string]> = [
-  ["每日签到", "+10", "今天"],
-  ["生成消费", "-15", "昨天"],
-  ["充值到账", "+680", "06-18"],
-  ["邀请奖励", "+50", "06-15"]
-];
-const RECHARGE_LOG: Array<[string, string]> = [
-  ["¥68 → 680积分", "06-18 成功"],
-  ["¥18 → 180积分", "06-15 成功"],
-  ["¥168 年卡", "06-11 成功"]
-];
-const SPEND_LOG: Array<[string, string, string]> = [
-  ["生成「霓虹都市」", "-15", "06-18"],
-  ["生成「山水之间」", "-8", "06-17"],
-  ["生成「古风少女」", "-20", "06-14"]
 ];
 
 const FOOT_STYLE: React.CSSProperties = {
@@ -52,6 +36,14 @@ const FOOT_STYLE: React.CSSProperties = {
 function mockUserDetail(id: number): AdminUserDetailData {
   const user = getUser(id);
   return { ...user, recentWorks: getUserWorks(user.id) };
+}
+
+function isRechargeTxn(txn: AdminTxn) {
+  return txn.type === "充值" || txn.type === "会员" || txn.type === "退款";
+}
+
+function isSpendTxn(txn: AdminTxn) {
+  return txn.type === "消费";
 }
 
 function EditUserForm({ user, useMock, onDone }: { user: AdminUser; useMock: boolean; onDone: () => void }) {
@@ -257,10 +249,17 @@ export function UserDetail({ param }: { param?: string }) {
   const [tab, setTab] = useState("info");
   const userId = Number(param ?? 0);
   const { data, loading, error, reload } = useAsyncData(useMock ? null : () => apiGetUserDetail(userId), [useMock, userId]);
+  const txnState = useAsyncData<AdminTxn[]>(useMock ? null : () => apiGetTransactions({ userId }), [useMock, userId]);
   const u = useMock ? mockUserDetail(userId) : data;
   const works = useMock ? getUserWorks(u?.id ?? 0) : u?.recentWorks ?? [];
+  const transactions = useMock ? getTransactions().filter((item) => item.userId === userId) : txnState.data ?? [];
+  const rechargeTransactions = transactions.filter(isRechargeTxn);
+  const spendTransactions = transactions.filter(isSpendTxn);
   const onDone = () => {
-    if (!useMock) reload();
+    if (!useMock) {
+      reload();
+      txnState.reload();
+    }
   };
 
   if (loading) return <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载用户中</div></div>;
@@ -331,14 +330,26 @@ export function UserDetail({ param }: { param?: string }) {
               <div className="kv"><span className="k">最近活跃</span><span className="v">{u.active ? "今天" : "7天前"}</span></div>
             </>
           )}
-          {tab === "credit" && CREDIT_LOG.map((r, i) => (
-            <div key={i} className="kv"><span className="k">{r[0]} · {r[2]}</span><span className="v" style={{ color: r[1][0] === "+" ? "var(--success)" : "var(--danger)" }}>{r[1]}</span></div>
+          {tab === "credit" && (txnState.loading ? (
+            <div className="kv"><span className="k">加载流水中...</span><span className="v">—</span></div>
+          ) : transactions.length ? transactions.map((r) => (
+            <div key={r.id} className="kv"><span className="k">{r.type} · {r.time}</span><span className="v" style={{ color: r.amount.startsWith("+") ? "var(--success)" : "var(--danger)" }}>{r.amount}</span></div>
+          )) : (
+            <div className="kv"><span className="k">暂无积分流水</span><span className="v">—</span></div>
           ))}
-          {tab === "recharge" && RECHARGE_LOG.map((r, i) => (
-            <div key={i} className="kv"><span className="k">{r[1]}</span><span className="v">{r[0]}</span></div>
+          {tab === "recharge" && (txnState.loading ? (
+            <div className="kv"><span className="k">加载充值记录中...</span><span className="v">—</span></div>
+          ) : rechargeTransactions.length ? rechargeTransactions.map((r) => (
+            <div key={r.id} className="kv"><span className="k">{r.time} · {r.status}</span><span className="v">{r.type} {r.amount}</span></div>
+          )) : (
+            <div className="kv"><span className="k">暂无充值记录</span><span className="v">—</span></div>
           ))}
-          {tab === "spend" && SPEND_LOG.map((r, i) => (
-            <div key={i} className="kv"><span className="k">{r[0]} · {r[2]}</span><span className="v" style={{ color: "var(--danger)" }}>{r[1]}积分</span></div>
+          {tab === "spend" && (txnState.loading ? (
+            <div className="kv"><span className="k">加载消费记录中...</span><span className="v">—</span></div>
+          ) : spendTransactions.length ? spendTransactions.map((r) => (
+            <div key={r.id} className="kv"><span className="k">{r.type} · {r.time}</span><span className="v" style={{ color: "var(--danger)" }}>{r.amount}</span></div>
+          )) : (
+            <div className="kv"><span className="k">暂无消费记录</span><span className="v">—</span></div>
           ))}
         </div>
       )}

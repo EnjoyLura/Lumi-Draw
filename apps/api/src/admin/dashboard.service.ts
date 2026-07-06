@@ -93,6 +93,23 @@ export class DashboardService {
     };
   }
 
+  async generationStats() {
+    const [modelRows, qualityRows, ratioRows, paidOrders, totalUsers] = await Promise.all([
+      this.prisma.generateJob.groupBy({ by: ["modelId"], _count: { _all: true } }),
+      this.prisma.work.groupBy({ by: ["quality"], _count: { _all: true } }),
+      this.prisma.work.groupBy({ by: ["ratio"], _count: { _all: true } }),
+      this.prisma.paymentOrder.count({ where: { status: "paid" } }),
+      this.prisma.user.count()
+    ]);
+    const byCountDesc = <T extends { count: number }>(rows: T[]) => rows.sort((a, b) => b.count - a.count);
+    return {
+      models: byCountDesc(modelRows.map((row) => ({ id: row.modelId, count: row._count._all }))),
+      qualities: byCountDesc(qualityRows.map((row) => ({ name: row.quality || "未设置", count: row._count._all }))),
+      ratios: byCountDesc(ratioRows.map((row) => ({ name: row.ratio || "未设置", count: row._count._all }))),
+      conversionRate: totalUsers > 0 ? Math.round((paidOrders / totalUsers) * 1000) / 10 : 0
+    };
+  }
+
   private daysOf(range?: string) {
     return range === "30d" ? 30 : 7;
   }

@@ -18,6 +18,11 @@ export class AdminUsersController {
     return this.admin.users(query);
   }
 
+  @Get("summary")
+  summary() {
+    return this.admin.usersSummary();
+  }
+
   @Get(":id")
   detail(@Param("id", ParseIntPipe) id: number) {
     return this.admin.userDetail(id);

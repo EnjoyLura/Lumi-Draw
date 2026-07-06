@@ -106,6 +106,17 @@ export async function apiGetUsers(): Promise<AdminUser[]> {
   return page.items.map(mapUser);
 }
 
+export interface AdminUsersSummary {
+  total: number;
+  todayNew: number;
+  members: number;
+  banned: number;
+}
+
+export async function apiGetUsersSummary(): Promise<AdminUsersSummary> {
+  return http.get<AdminUsersSummary>("/admin/users/summary");
+}
+
 export async function apiGetUserDetail(id: number): Promise<AdminUserDetailData> {
   const data = await http.get<ApiUser & { recentWorks: ApiWork[] }>(`/admin/users/${id}`);
   return { ...mapUser(data), recentWorks: (data.recentWorks ?? []).map(mapWork) };
@@ -643,8 +654,11 @@ function mapTransaction(t: ApiTransaction): AdminTxn {
   };
 }
 
-export async function apiGetTransactions() {
-  const page = await http.get<Paginated<ApiTransaction>>("/admin/transactions?page=1&pageSize=100");
+export async function apiGetTransactions(options: { userId?: number; type?: string } = {}) {
+  const params = new URLSearchParams({ page: "1", pageSize: "100" });
+  if (options.userId) params.set("userId", String(options.userId));
+  if (options.type) params.set("type", options.type);
+  const page = await http.get<Paginated<ApiTransaction>>(`/admin/transactions?${params.toString()}`);
   return page.items.map(mapTransaction);
 }
 
@@ -903,4 +917,15 @@ export interface AdminFinanceSummary {
 
 export async function apiGetFinanceSummary(): Promise<AdminFinanceSummary> {
   return http.get<AdminFinanceSummary>("/admin/dashboard/finance-summary");
+}
+
+export interface AdminGenerationStats {
+  models: Array<{ id: string; count: number }>;
+  qualities: Array<{ name: string; count: number }>;
+  ratios: Array<{ name: string; count: number }>;
+  conversionRate: number;
+}
+
+export async function apiGetGenerationStats(): Promise<AdminGenerationStats> {
+  return http.get<AdminGenerationStats>("/admin/dashboard/generation-stats");
 }

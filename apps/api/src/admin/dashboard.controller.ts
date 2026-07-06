@@ -20,6 +20,11 @@ export class DashboardController {
     return this.dashboard.financeSummary();
   }
 
+  @Get("generation-stats")
+  generationStats() {
+    return this.dashboard.generationStats();
+  }
+
   @Get("trends")
   trends(@Query("range") range?: string) {
     return this.dashboard.trends(range);
