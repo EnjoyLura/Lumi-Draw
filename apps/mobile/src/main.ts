@@ -1,5 +1,6 @@
 import { createSSRApp } from "vue";
 import App from "./App.vue";
+import { syncCurrentPageNavigationTitle } from "./services/navigationTitle";
 import { applyNavigationBar } from "./services/theme";
 
 export function createApp() {
@@ -7,6 +8,7 @@ export function createApp() {
   app.mixin({
     onShow() {
       applyNavigationBar();
+      syncCurrentPageNavigationTitle();
     }
   });
   return {

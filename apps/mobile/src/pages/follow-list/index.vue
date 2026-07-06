@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { fetchFollowList, followUser, formatCompactNumber, unfollowUser, type BackendUserProfile } from "../../services/social";
 import { isFollowing, profileUsers, setFollowing, type ProfileUser } from "../user-profile/userProfileData";
 
@@ -31,15 +32,60 @@ const list = computed(() => {
 });
 
 onLoad((query) => {
-  type.value = query?.type === "followers" ? "followers" : "following";
-  uni.setNavigationBarTitle({ title: type.value === "following" ? "我的关注" : "我的粉丝" });
+  type.value = resolveRouteType(query);
+  refreshFollowTitle();
 });
 
 onShow(() => {
-  if (useMockData.value && lastMode === useMockData.value) return;
+  const previousType = type.value;
+  type.value = resolveRouteType();
+  refreshFollowTitle();
+  if (useMockData.value && lastMode === useMockData.value && previousType === type.value) return;
   lastMode = useMockData.value;
   void loadList();
 });
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextType = resolveRouteType();
+  if (nextType === type.value) return;
+  type.value = nextType;
+  refreshFollowTitle();
+  void loadList();
+}
+
+function resolveRouteType(query?: Record<string, unknown>) {
+  const queryType = typeof query?.type === "string" ? query.type : undefined;
+  if (queryType) return queryType === "followers" ? "followers" : "following";
+
+  if (typeof window !== "undefined") {
+    const hashType = window.location.hash.match(/[?&]type=([^&]+)/)?.[1];
+    if (hashType) return decodeURIComponent(hashType) === "followers" ? "followers" : "following";
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageType = current?.options?.type || current?.$page?.options?.type;
+  return pageType === "followers" ? "followers" : "following";
+}
+
+function refreshFollowTitle() {
+  refreshNavigationTitle(type.value === "following" ? "我的关注" : "我的粉丝");
+}
 
 function toProfileUser(user: BackendUserProfile): FollowProfileUser {
   const fallbackName = `用户${user.id}`;
