@@ -39,15 +39,19 @@ async function main() {
   });
 
   await step("public bootstrap/config", async () => {
-    const [{ body: bootstrap }, { body: hotSearches }, { body: announcements }] = await Promise.all([
+    const [{ body: bootstrap }, { body: hotSearches }, { body: announcements }, { body: changelog }, { body: agreement }] = await Promise.all([
       request("GET", "/app/bootstrap"),
       request("GET", "/config/hot-searches"),
-      request("GET", "/config/announcements")
+      request("GET", "/config/announcements"),
+      request("GET", "/config/changelog"),
+      request("GET", "/config/agreements/user")
     ]);
     assert(Array.isArray(bootstrap.data?.gameplays), "bootstrap gameplays missing");
     assert(Array.isArray(bootstrap.data?.announcements), "bootstrap announcements missing");
     assert(Array.isArray(hotSearches.data), "hot searches missing");
     assert(Array.isArray(announcements.data), "announcements missing");
+    assert(Array.isArray(changelog.data), "changelog missing");
+    assert(agreement.data?.title && agreement.data?.content, "user agreement missing");
   });
 
   const user = await step("mock user login", async () => {
@@ -196,6 +200,9 @@ async function main() {
     const { body: detail } = await request("GET", `/works/${workId}`, undefined, user.accessToken);
     assert(detail.data?.title === "smoke-work-after", "work detail did not persist");
 
+    const { body: gallery } = await request("GET", "/works/me/gallery?page=1&pageSize=10", undefined, user.accessToken);
+    assert((gallery.data?.items || []).some((item) => item.id === workId), "own draft missing from gallery");
+
     const { body: deleted } = await request("DELETE", `/works/${workId}?action=delete`, undefined, user.accessToken);
     assert(deleted.data?.ok, "work delete failed");
   });
@@ -250,6 +257,15 @@ async function main() {
     const { body: filteredOutPlaza } = await request("GET", "/works/plaza?modelIds=missing-smoke-model&page=1&pageSize=20");
     assert(!(filteredOutPlaza.data?.items || []).some((item) => item.id === workId), "filtered plaza should exclude non-matching work");
 
+    const [{ body: recommendFeed }, { body: latestFeed }, { body: searchResult }] = await Promise.all([
+      request("GET", "/works/feed?tab=recommend&page=1&pageSize=20", undefined, actor.accessToken),
+      request("GET", "/works/feed?tab=latest&page=1&pageSize=20", undefined, actor.accessToken),
+      request("GET", "/works/search?keyword=smoke-social-work&page=1&pageSize=20", undefined, actor.accessToken)
+    ]);
+    assert(Array.isArray(recommendFeed.data?.items), "recommend feed items missing");
+    assert((latestFeed.data?.items || []).some((item) => item.id === workId), "latest feed should include published work");
+    assert((searchResult.data?.items || []).some((item) => item.id === workId), "search should find published work");
+
     const { body: like } = await request("POST", `/social/works/${workId}/like`, undefined, actor.accessToken);
     assert(like.data?.liked === true, "like did not toggle on");
     const { body: favorite } = await request("POST", `/social/works/${workId}/favorite`, undefined, actor.accessToken);
@@ -260,6 +276,10 @@ async function main() {
     assert(typeof remake.data?.remakes === "number", "remake count missing");
     const { body: follow } = await request("POST", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
     assert(follow.data?.following === true, "follow did not toggle on");
+    const { body: followingList } = await request("GET", "/social/follows?type=following&page=1&pageSize=10", undefined, actor.accessToken);
+    assert((followingList.data?.items || []).some((item) => item.id === owner.user.id), "following list missing followed user");
+    const { body: followerList } = await request("GET", "/social/follows?type=followers&page=1&pageSize=10", undefined, owner.accessToken);
+    assert((followerList.data?.items || []).some((item) => item.id === actor.user.id), "followers list missing actor");
     const { body: detailAfterFollow } = await request("GET", `/works/${workId}`);
     assert(
       detailAfterFollow.data?.author?.followers === follow.data.followers,
@@ -307,10 +327,12 @@ async function main() {
     assert(typeof initialCredits === "number", "initial credits missing");
 
     const { body: bootstrap } = await request("GET", "/app/bootstrap");
+    const { body: publicPlans } = await request("GET", "/membership/plans");
     const tier = (bootstrap.data?.rechargeTiers || []).find((item) => item.enabled !== false) || bootstrap.data?.rechargeTiers?.[0];
-    const plan = (bootstrap.data?.memberPlans || []).find((item) => item.enabled !== false) || bootstrap.data?.memberPlans?.[0];
+    const plan = (publicPlans.data || []).find((item) => item.enabled !== false) || publicPlans.data?.[0];
     assert(tier?.id, "recharge tier missing");
     assert(plan?.id, "member plan missing");
+    assert((bootstrap.data?.memberPlans || []).some((item) => item.id === plan.id), "bootstrap member plans mismatch");
 
     const { body: rechargeOrder } = await request(
       "POST",
