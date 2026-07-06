@@ -19,6 +19,7 @@ const isLoading = ref(false);
 const showLoginSheet = ref(false);
 const hasLoaded = ref(false);
 const loginRequired = ref(false);
+const loadFailed = ref(false);
 
 const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
@@ -87,9 +88,11 @@ async function syncCategory(type: MessageCategoryKey, force: boolean) {
 async function loadMessages(type: MessageCategoryKey) {
   if (useMockData.value) {
     loginRequired.value = false;
+    loadFailed.value = false;
     return;
   }
   backendMessages.value = [];
+  loadFailed.value = false;
   if (!ensureLogin()) {
     loginRequired.value = true;
     return;
@@ -101,6 +104,8 @@ async function loadMessages(type: MessageCategoryKey) {
     backendMessages.value = await fetchMessageList(type);
     await markMessageCategoryRead(type);
   } catch {
+    backendMessages.value = [];
+    loadFailed.value = true;
     uni.showToast({ title: "消息加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -141,6 +146,13 @@ async function login() {
         <view v-else-if="isLoading" class="empty-state">
           <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
           <view class="empty-title">消息加载中</view>
+        </view>
+
+        <view v-else-if="loadFailed" class="empty-state">
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
+          <view class="empty-title">消息加载失败</view>
+          <view class="empty-sub">请稍后重试，或检查当前登录状态。</view>
+          <button class="retry-btn" @click="loadMessages(category.key)">重新加载</button>
         </view>
 
         <view v-else-if="messages.length === 0" class="empty-state">
@@ -298,5 +310,26 @@ async function login() {
 .empty-sub {
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  height: 36px;
+  padding: 0 18px;
+  margin: 16px auto 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--rose);
+  border: none;
+  border-radius: 999px;
+}
+
+.retry-btn::after {
+  border: none;
 }
 </style>

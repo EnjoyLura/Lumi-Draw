@@ -17,6 +17,7 @@ const backendRows = ref<MessageCategoryRow[]>([]);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+const loadFailed = ref(false);
 
 const categoryRows = computed(() => {
   if (!useMockData.value) return backendRows.value;
@@ -37,20 +38,25 @@ onShow(() => {
 async function loadMessages() {
   if (useMockData.value) {
     loginRequired.value = false;
+    loadFailed.value = false;
     return;
   }
   if (!ensureLogin()) {
     backendRows.value = [];
     loginRequired.value = true;
+    loadFailed.value = false;
     return;
   }
   loginRequired.value = false;
   backendRows.value = [];
+  loadFailed.value = false;
 
   isLoading.value = true;
   try {
     backendRows.value = await fetchMessageSummary();
   } catch {
+    backendRows.value = [];
+    loadFailed.value = true;
     uni.showToast({ title: "消息加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -92,6 +98,10 @@ function openCategory(key: MessageCategoryKey) {
           @login="showLoginSheet = true"
         />
         <view v-else-if="isLoading" class="empty-row">消息同步中...</view>
+        <view v-else-if="loadFailed" class="empty-row retry-row">
+          <text>消息加载失败</text>
+          <button class="retry-btn" @click.stop="loadMessages">重新加载</button>
+        </view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
           <view class="category-icon" :style="{ background: category.gradient }">{{ category.icon }}</view>
           <view class="category-main">
@@ -146,6 +156,32 @@ function openCategory(key: MessageCategoryKey) {
 .empty-row {
   justify-content: center;
   color: var(--fg-muted);
+}
+
+.retry-row {
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 108px;
+  height: 36px;
+  padding: 0 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--rose);
+  border: none;
+  border-radius: 999px;
+}
+
+.retry-btn::after {
+  border: none;
 }
 
 .category-card:active {
