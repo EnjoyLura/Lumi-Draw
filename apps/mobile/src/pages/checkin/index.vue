@@ -8,7 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { milestones, type Milestone } from "../points/pointsData";
 import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
 
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const currentDate = new Date();
 const currentYear = currentDate.getFullYear();
@@ -160,6 +160,7 @@ async function doCheckin() {
     checkinStreak.value = result.continuousDays;
     signedDays.value = buildVisibleSignedDays(result.continuousDays, true);
     milestoneStates.value = buildMilestoneStates(result.continuousDays);
+    updateCurrentUser({ credits: result.balance });
     pulseToday();
     uni.showToast({ title: result.checked ? `签到成功，+${result.credits}积分` : "今日已签到", icon: "none" });
   } catch {

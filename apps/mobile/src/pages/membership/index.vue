@@ -5,9 +5,9 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
-import { createMembershipOrder, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
+import { createMembershipOrder, fetchCreditsBalance, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
 
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 
 const selectedPlanIdx = ref(1);
@@ -166,7 +166,8 @@ async function openMember() {
     const paid = await requestOrderPayment(order);
     if (paid.status === "paid") {
       uni.showToast({ title: "会员开通成功", icon: "none" });
-      await loadMembership();
+      const [nextBalance] = await Promise.all([fetchCreditsBalance(), loadMembership()]);
+      updateCurrentUser({ credits: nextBalance });
     } else {
       uni.showToast({ title: "支付已提交，请稍后刷新查看", icon: "none" });
     }

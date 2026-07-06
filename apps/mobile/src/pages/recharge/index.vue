@@ -11,7 +11,7 @@ import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchR
 type RecordTab = "earn" | "spend";
 const RECORD_PAGE_SIZE = 20;
 
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 
 const balance = ref(0);
@@ -96,6 +96,7 @@ async function loadPageData() {
       fetchCreditRecordPage("spend", 1, RECORD_PAGE_SIZE)
     ]);
     balance.value = nextBalance;
+    updateCurrentUser({ credits: nextBalance });
     tiers.value = nextTiers;
     earnList.value = nextEarn.items;
     spendList.value = nextSpend.items;
@@ -177,6 +178,7 @@ async function startRecharge(amount?: number) {
     if (useMockData.value) {
       const added = amount ? customCredits.value + customBonus.value : (tier?.credits || 0) + (tier?.bonus || 0);
       balance.value += added;
+      updateCurrentUser({ credits: balance.value });
       uni.showToast({ title: "模拟支付成功", icon: "none" });
       return;
     }
