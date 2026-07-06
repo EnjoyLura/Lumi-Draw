@@ -226,3 +226,91 @@ test("mobile h5 edit work form accepts text and tags", async ({ page }) => {
   await expect(page.locator(".edit-work-page .tag-chip").nth(1)).toHaveCSS("font-weight", "600");
   expect(runtimeErrors).toEqual([]);
 });
+
+test("mobile h5 exercises points, checkin and membership states", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/recharge/index");
+  await expect(page.locator(".recharge-page")).toBeVisible();
+  await expect(page.locator(".tier-card").first()).toBeVisible();
+  await page.locator(".sub-tab").nth(1).click();
+  await expect(page.locator(".sub-tab").nth(1)).toHaveClass(/active/);
+  await page.locator(".custom-card").click();
+  await expect(page.locator(".custom-sheet.show")).toBeVisible();
+  await page.locator(".amount-input input").fill("3");
+  await expect(page.locator(".preview-credits")).toContainText("30");
+  await page.locator(".custom-sheet.show .btn.secondary").click();
+  await expect(page.locator(".custom-sheet.show")).toHaveCount(0);
+
+  await page.goto("/#/pages/checkin/index");
+  await expect(page.locator(".checkin-page")).toBeVisible();
+  const checkinButton = page.locator(".checkin-btn");
+  await checkinButton.click();
+  await expect(checkinButton).toHaveClass(/done/);
+
+  await page.goto("/#/pages/membership/index");
+  await expect(page.locator(".membership-page")).toBeVisible();
+  await page.locator(".plan-card").first().click();
+  await expect(page.locator(".plan-card").first()).toHaveClass(/selected/);
+  await page.locator(".open-btn").click();
+  await expect(page.locator(".member-card")).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 exercises messages, profile editing and invite pages", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/messages/index");
+  await expect(page.locator(".messages-page")).toBeVisible();
+  await page.locator(".category-card").first().click();
+  await expect(page.locator(".message-detail-page")).toBeVisible();
+  await expect(page.locator(".message-card").first()).toBeVisible();
+
+  await page.goto("/#/pages/edit-profile/index");
+  await expect(page.locator(".edit-page")).toBeVisible();
+  await page.locator(".field .input input").first().fill("Playwright User");
+  await expect(page.locator(".counter").first()).toContainText("15/20");
+  await page.locator(".gender-option").nth(1).click();
+  await expect(page.locator(".gender-option").nth(1)).toHaveClass(/active/);
+  await page.locator(".textarea textarea").fill("Playwright profile signature");
+  await expect(page.locator(".counter").nth(1)).toContainText("28/100");
+
+  await page.goto("/#/pages/invite/index");
+  await expect(page.locator(".invite-page")).toBeVisible();
+  await expect(page.locator(".invite-code")).toBeVisible();
+  await expect(page.locator(".summary-card")).toHaveCount(2);
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 exercises feedback, report and social follow flows", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/feedback/index");
+  await expect(page.locator(".feedback-page")).toBeVisible();
+  await page.locator(".type-option").nth(1).click();
+  await expect(page.locator(".type-option").nth(1)).toHaveClass(/active/);
+  await page.locator(".desc-textarea textarea").fill("Playwright feedback");
+  await expect(page.locator(".counter")).toContainText("19/500");
+  await page.locator(".wechat-input input").fill("playwright-wechat");
+
+  await page.goto("/#/pages/report/index?workId=1");
+  await expect(page.locator(".report-page")).toBeVisible();
+  await page.locator(".reason-row").nth(1).click();
+  await expect(page.locator(".reason-row").nth(1)).toHaveClass(/selected/);
+  await page.locator(".desc-input textarea").fill("Playwright report detail");
+  await expect(page.locator(".submit-btn")).toBeEnabled();
+
+  await page.goto("/#/pages/user-profile/index?id=5");
+  await expect(page.locator(".profile-page")).toBeVisible();
+  const followButton = page.locator(".follow-btn");
+  await followButton.click();
+  await expect(followButton).toHaveClass(/following/);
+  await followButton.click();
+  await expect(page.locator(".dialog-overlay")).toBeVisible();
+  await page.locator(".dialog-btn.danger").click();
+  await expect(followButton).not.toHaveClass(/following/);
+
+  expect(runtimeErrors).toEqual([]);
+});
