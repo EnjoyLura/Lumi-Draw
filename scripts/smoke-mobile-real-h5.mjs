@@ -69,6 +69,14 @@ async function apiRequest(method, pathName, body, token) {
   return json.data;
 }
 
+async function responseData(response) {
+  const json = await response.json().catch(() => null);
+  if (!response.ok() || json?.code !== 0) {
+    throw new Error(`${response.request().method()} ${response.url()} failed: HTTP ${response.status()} ${json?.message || ""}`);
+  }
+  return json.data;
+}
+
 function resolveFile(url = "/") {
   const pathname = decodeURIComponent(url.split("?")[0] || "/");
   const requested = path.resolve(H5_ROOT, `.${pathname}`);
@@ -176,6 +184,16 @@ async function maybeApproveWork(workId) {
     await apiRequest("POST", `/admin/reviews/${workId}/approve`, {}, admin.accessToken);
   } catch {
     // Some environments publish immediately or may not expose admin credentials.
+  }
+}
+
+async function maybeAdminLogin() {
+  const username = process.env.ADMIN_USERNAME || "admin";
+  const password = process.env.ADMIN_PASSWORD || "admin123";
+  try {
+    return await apiRequest("POST", "/admin/auth/login", { username, password });
+  } catch {
+    return null;
   }
 }
 
@@ -289,6 +307,126 @@ async function main() {
       const drafts = await apiRequest("GET", "/works/me/drafts?page=1&pageSize=20", undefined, actorLogin.accessToken);
       return (drafts.items || []).some((item) => item.id === generatedWorkId);
     }, "generated draft was not persisted through real API");
+
+    await page.goto(`${BASE_URL}/#/pages/recharge/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".recharge-page").waitFor({ state: "visible", timeout: 10_000 });
+    const [creditBalance, bootstrap] = await Promise.all([
+      apiRequest("GET", "/credits/balance", undefined, actorLogin.accessToken),
+      apiRequest("GET", "/app/bootstrap")
+    ]);
+    assert(typeof creditBalance.credits === "number", "real credit balance missing");
+    assert((bootstrap.rechargeTiers || []).length > 0, "real recharge tiers missing");
+    await page.locator(".tier-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".sub-tab").nth(1).click();
+    await page.locator(".sub-tab").nth(1).waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".custom-card").click();
+    await page.locator(".custom-sheet.show").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".amount-input input").fill("3");
+    await page.locator(".custom-sheet.show .btn.secondary").click();
+
+    await page.goto(`${BASE_URL}/#/pages/checkin/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".checkin-page").waitFor({ state: "visible", timeout: 10_000 });
+    const beforeCheckin = await apiRequest("GET", "/checkin/status", undefined, actorLogin.accessToken);
+    if (!beforeCheckin.checkedToday) {
+      const checkinResponse = page.waitForResponse((response) => response.url().includes("/api/checkin") && response.request().method() === "POST");
+      await page.locator(".checkin-btn").click();
+      const checkinResult = await responseData(await checkinResponse);
+      assert(checkinResult.checked === true, "checkin UI request did not return checked=true");
+    }
+    await waitFor(async () => {
+      const status = await apiRequest("GET", "/checkin/status", undefined, actorLogin.accessToken);
+      return status.checkedToday === true;
+    }, "checkin status did not persist through real API");
+
+    await page.goto(`${BASE_URL}/#/pages/invite/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".invite-page").waitFor({ state: "visible", timeout: 10_000 });
+    const inviteSummary = await apiRequest("GET", "/invite/summary", undefined, actorLogin.accessToken);
+    assert(inviteSummary.inviteCode, "invite code missing from real API");
+    await page.locator(".invite-code").waitFor({ state: "visible", timeout: 10_000 });
+    assert((await page.locator(".invite-code").innerText()).includes(inviteSummary.inviteCode), "invite page did not render real invite code");
+
+    await page.goto(`${BASE_URL}/#/pages/membership/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".membership-page").waitFor({ state: "visible", timeout: 10_000 });
+    const memberPlans = await apiRequest("GET", "/membership/plans");
+    assert((memberPlans || []).length > 0, "real member plans missing");
+    await page.locator(".plan-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".plan-card").first().click();
+    await page.locator(".plan-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    const memberStatus = await apiRequest("GET", "/membership/status", undefined, actorLogin.accessToken);
+    assert(typeof memberStatus.isMember === "boolean", "real member status missing");
+
+    await page.goto(`${BASE_URL}/#/pages/edit-profile/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".edit-page").waitFor({ state: "visible", timeout: 10_000 });
+    const nextNickname = `H5 Real ${Date.now().toString().slice(-6)}`;
+    const nextBio = `H5 real profile smoke ${Date.now()}`;
+    await page.locator(".field .input input").first().fill(nextNickname);
+    await page.locator(".gender-option").nth(1).click();
+    await page.locator(".textarea textarea").fill(nextBio);
+    const profileResponse = page.waitForResponse((response) => response.url().includes("/api/users/me") && response.request().method() === "PATCH");
+    await page.locator(".save-btn").click();
+    const updatedProfile = await responseData(await profileResponse);
+    assert(updatedProfile.nickname === nextNickname, "profile UI save response nickname mismatch");
+    await waitFor(async () => {
+      const profile = await apiRequest("GET", "/users/me", undefined, actorLogin.accessToken);
+      return profile.nickname === nextNickname && profile.bio === nextBio && profile.gender === "female";
+    }, "profile update did not persist through real API");
+
+    const feedbackContent = `H5 real feedback ${Date.now()}`;
+    await page.goto(`${BASE_URL}/#/pages/feedback/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".feedback-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".type-option").nth(1).click();
+    await page.locator(".desc-textarea textarea").fill(feedbackContent);
+    await page.locator(".wechat-input input").fill("h5-real-smoke");
+    const feedbackResponse = page.waitForResponse((response) => response.url().includes("/api/feedback") && response.request().method() === "POST");
+    await page.locator(".submit-btn").click();
+    const feedback = await responseData(await feedbackResponse);
+    assert(feedback.id && feedback.status, "feedback UI submit did not return persisted row");
+
+    const adminLogin = await maybeAdminLogin();
+    if (adminLogin?.accessToken) {
+      const feedbackList = await apiRequest("GET", "/admin/feedback?page=1&pageSize=20", undefined, adminLogin.accessToken);
+      assert((feedbackList.items || []).some((item) => item.id === feedback.id), "admin feedback list did not include H5 submitted feedback");
+    }
+
+    const reportContent = `H5 real report ${Date.now()}`;
+    await page.goto(`${BASE_URL}/#/pages/report/index?workId=${workId}`, { waitUntil: "domcontentloaded" });
+    await page.locator(".report-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".reason-row").nth(1).click();
+    await page.locator(".desc-input textarea").fill(reportContent);
+    const reportResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/social/works/${workId}/report`) && response.request().method() === "POST"
+    );
+    await page.locator(".submit-btn").click();
+    const report = await responseData(await reportResponse);
+    assert(report.id && report.status, "report UI submit did not return persisted row");
+
+    if (adminLogin?.accessToken) {
+      const reportList = await apiRequest("GET", "/admin/reports?page=1&pageSize=20", undefined, adminLogin.accessToken);
+      assert((reportList.items || []).some((item) => item.id === report.id), "admin report list did not include H5 submitted report");
+    }
+
+    if (adminLogin?.accessToken) {
+      const replyContent = `H5 real feedback reply ${Date.now()}`;
+      await apiRequest("POST", `/admin/feedback/${feedback.id}/reply`, { reply: replyContent }, adminLogin.accessToken);
+      await page.goto(`${BASE_URL}/#/pages/messages/index`, { waitUntil: "domcontentloaded" });
+      await page.locator(".messages-page").waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator(".category-card").first().waitFor({ state: "visible", timeout: 10_000 });
+      const serviceMessages = await apiRequest("GET", "/notifications/service", undefined, actorLogin.accessToken);
+      assert((serviceMessages || []).some((item) => item.content === replyContent), "feedback reply notification did not persist");
+      await page.goto(`${BASE_URL}/#/pages/message-detail/index?type=service`, { waitUntil: "domcontentloaded" });
+      await page.locator(".message-detail-page").waitFor({ state: "visible", timeout: 10_000 });
+      await waitFor(async () => {
+        const summary = await apiRequest("GET", "/notifications/summary", undefined, actorLogin.accessToken);
+        const serviceRow = (summary || []).find((item) => item.key === "service");
+        return serviceRow?.unread === 0;
+      }, "service notifications were not marked read through real UI");
+    } else {
+      await page.goto(`${BASE_URL}/#/pages/messages/index`, { waitUntil: "domcontentloaded" });
+      await page.locator(".messages-page").waitFor({ state: "visible", timeout: 10_000 });
+      await page.locator(".category-card").first().waitFor({ state: "visible", timeout: 10_000 });
+      const summary = await apiRequest("GET", "/notifications/summary", undefined, actorLogin.accessToken);
+      assert(Array.isArray(summary), "notification summary missing from real API");
+    }
 
     assert(runtimeErrors.length === 0, `browser runtime errors: ${runtimeErrors.join("; ")}`);
     console.log("Mobile real H5 smoke passed.");

@@ -54,8 +54,14 @@ const interactionCases = [
     action: async (page) => {
       await page.locator(".prompt-input textarea").fill("Visual audit mock generation prompt");
       await page.locator(".style-card").first().click();
-      await page.locator(".create-btn").click({ force: true });
-      await page.locator(".result-wrap").waitFor({ state: "visible", timeout: 8_000 });
+      const createButton = page.locator(".create-btn");
+      await createButton.scrollIntoViewIfNeeded();
+      await createButton.evaluate((element) => element.click());
+      await page
+        .locator(".generating-card, .result-wrap")
+        .first()
+        .waitFor({ state: "visible", timeout: 15_000 });
+      await page.locator(".result-img").first().waitFor({ state: "visible", timeout: 15_000 });
       await page.locator(".result-img").first().click();
       await page.locator(".preview-sheet.show").waitFor({ state: "visible", timeout: 8_000 });
     }
