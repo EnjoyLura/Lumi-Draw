@@ -147,9 +147,9 @@ async function loadHomeData() {
       fetchHomeFeed("latest", 1, FEED_PAGE_SIZE)
     ]);
 
-    bannerList.value = bootstrap.banners.length ? bootstrap.banners : mockHomeBanners;
-    announcementList.value = bootstrap.announcements.length ? bootstrap.announcements : mockHomeAnnouncements;
-    gameplayList.value = bootstrap.gameplays.length ? bootstrap.gameplays : mockGameplays;
+    bannerList.value = bootstrap.banners;
+    announcementList.value = bootstrap.announcements;
+    gameplayList.value = bootstrap.gameplays;
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
     userList.value = mockHomeUsers;
@@ -494,7 +494,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <template v-else>
-        <view class="banner-card">
+        <view v-if="bannerList.length" class="banner-card">
           <swiper
             class="banner-swiper"
             circular
@@ -524,6 +524,10 @@ function getRatioClass(ratio: string) {
             />
           </view>
         </view>
+        <view v-else class="home-empty-card">
+          <view class="home-empty-title">暂无走马灯</view>
+          <view class="home-empty-sub">后台配置走马灯后会显示在这里。</view>
+        </view>
 
         <view class="section-title">
           <text>热门玩法</text>
@@ -533,7 +537,7 @@ function getRatioClass(ratio: string) {
           </view>
         </view>
 
-        <scroll-view class="gameplay-scroll" scroll-x>
+        <scroll-view v-if="gameplayList.length" class="gameplay-scroll" scroll-x>
           <view class="gameplay-list">
             <view
               v-for="gameplay in gameplayList"
@@ -551,6 +555,10 @@ function getRatioClass(ratio: string) {
             </view>
           </view>
         </scroll-view>
+        <view v-else class="home-empty-card compact">
+          <view class="home-empty-title">暂无玩法模板</view>
+          <view class="home-empty-sub">后台配置玩法后会显示在这里。</view>
+        </view>
 
         <view class="section-title works-title">
           <text>精选作品</text>
@@ -864,6 +872,31 @@ function getRatioClass(ratio: string) {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 10px;
+}
+
+.home-empty-card {
+  padding: 26px 18px;
+  margin: 0 12px 16px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.home-empty-card.compact {
+  margin: 0 16px 16px;
+}
+
+.home-empty-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.home-empty-sub {
+  font-size: 12px;
+  color: var(--fg-secondary);
 }
 
 .banner-swiper,
