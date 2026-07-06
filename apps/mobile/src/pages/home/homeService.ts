@@ -3,7 +3,6 @@ import {
   gameplays as mockGameplays,
   homeAnnouncements as mockAnnouncements,
   homeBanners as mockBanners,
-  homeUsers as mockUsers,
   type Gameplay,
   type HomeAnnouncement,
   type HomeBanner,
@@ -118,13 +117,13 @@ function normalizeBannerAction(action: string) {
   return map[value] || value;
 }
 
-function toHomeUser(author: BackendAuthor, index: number): HomeUser {
-  const fallback = fallbackByIndex(mockUsers, index);
+function toHomeUser(author: BackendAuthor): HomeUser {
+  const fallbackName = author.id ? `用户${author.id}` : "未知用户";
   return {
     id: author.id,
-    name: author.nickname || fallback.name,
-    avatar: author.avatarText || author.nickname?.slice(0, 1) || fallback.avatar,
-    color: author.avatarColor || fallback.color
+    name: author.nickname || fallbackName,
+    avatar: author.avatarText || author.nickname?.slice(0, 1) || "U",
+    color: author.avatarColor || "var(--accent)"
   };
 }
 
@@ -180,7 +179,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
 
 export async function fetchHomeFeed(tab: FeedTab, page: number, pageSize: number): Promise<HomeFeedView> {
   const result = await api.get<PageResult<BackendWork>>(`/works/feed?tab=${tab}&page=${page}&pageSize=${pageSize}`, { skipAuth: true });
-  const users = result.items.map((item, index) => toHomeUser(item.author, index));
+  const users = result.items.map((item) => toHomeUser(item.author));
   return {
     works: result.items.map(toHomeWork),
     users: uniqueUsers(users),

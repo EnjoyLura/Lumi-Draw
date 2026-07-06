@@ -334,7 +334,13 @@ function filterByCategory(works: HomeWork[], category: string) {
 }
 
 function getUser(work: HomeWork) {
-  return userList.value.find((user) => user.id === work.userId) || userList.value[0] || mockHomeUsers[0];
+  const fallbackName = work.userId ? `用户${work.userId}` : "未知用户";
+  return userList.value.find((user) => user.id === work.userId) || {
+    id: work.userId,
+    name: fallbackName,
+    avatar: "U",
+    color: "var(--accent)"
+  };
 }
 
 function getAspectRatio(ratio: string) {

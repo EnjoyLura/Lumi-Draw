@@ -152,7 +152,7 @@ async function loadHomeData() {
     gameplayList.value = bootstrap.gameplays;
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
-    userList.value = mockHomeUsers;
+    userList.value = [];
     mergeUsers([...recommendFeed.users, ...latestFeed.users]);
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
@@ -451,7 +451,13 @@ async function toggleLike(work: HomeWork) {
 }
 
 function getUser(userId: number) {
-  return userList.value.find((user) => user.id === userId) ?? userList.value[0] ?? mockHomeUsers[0];
+  const fallbackName = userId ? `用户${userId}` : "未知用户";
+  return userList.value.find((user) => user.id === userId) ?? {
+    id: userId,
+    name: fallbackName,
+    avatar: "U",
+    color: "var(--accent)"
+  };
 }
 
 function getWorkTitle(work: HomeWork) {
