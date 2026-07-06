@@ -19,6 +19,7 @@ import { useDataMode } from "../../services/dataMode";
 import { resolveTabEnterClass } from "../../services/pageTransition";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
+import { fetchUnreadMessageCount } from "../mine/mineService";
 
 const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
@@ -46,6 +47,7 @@ const likedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const showLoginSheet = ref(false);
 const showAnnouncementPopup = ref(false);
+const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -54,7 +56,7 @@ const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
 const { useMockData } = useDataMode();
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
   recommend: { page: 1, hasMore: false },
   new: { page: 1, hasMore: false }
@@ -75,6 +77,7 @@ const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) =
 const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedState.new : feedState.recommend));
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
 const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
+const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
 
 onLoad((query) => {
   const inviteCode = typeof query?.inviteCode === "string" ? query.inviteCode : "";
@@ -84,6 +87,7 @@ onLoad((query) => {
 });
 
 onShow(() => {
+  void loadUnreadMessages();
   if (lastMockMode === useMockData.value) return;
   lastMockMode = useMockData.value;
   void loadHomeData();
@@ -123,6 +127,18 @@ function clearRealHomeData() {
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
   worksRenderKey.value += 1;
+}
+
+async function loadUnreadMessages() {
+  if (useMockData.value || !isLoggedIn.value) {
+    unreadMessageCount.value = 0;
+    return;
+  }
+  try {
+    unreadMessageCount.value = await fetchUnreadMessageCount();
+  } catch {
+    unreadMessageCount.value = 0;
+  }
 }
 
 function mergeUsers(nextUsers: HomeUser[]) {
@@ -397,6 +413,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
+    void loadUnreadMessages();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -485,7 +502,7 @@ function getRatioClass(ratio: string) {
         <view class="nav-row">
           <view class="nav-notify" @click="goMessages">
             <view class="nav-notify-icon" />
-            <view class="nav-notify-dot" />
+            <view v-if="showUnreadDot" class="nav-notify-dot" />
           </view>
           <text class="nav-title">露米绘画</text>
         </view>
