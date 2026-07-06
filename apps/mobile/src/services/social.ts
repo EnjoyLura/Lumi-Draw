@@ -108,6 +108,8 @@ export function toHomeWork(item: BackendWorkCard): HomeWork {
     ratio: item.ratio || "1:1",
     likes: item.likes,
     published: true,
+    createdAt: item.createdAt,
+    viewedAt: item.viewedAt,
     liked: item.liked,
     favorited: item.favorited
   };

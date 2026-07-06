@@ -5,10 +5,8 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { mockImage } from "../../services/mockImages";
 import { navigateBackOrRedirect } from "../../services/navigation";
-import { uploadChosenImage } from "../../services/upload";
-import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publishData";
+import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
 
 const { useMockData } = useDataMode();
@@ -22,7 +20,6 @@ const pickerOpen = ref(false);
 const backendDrafts = ref<DraftWork[]>([]);
 const isLoadingDrafts = ref(false);
 const isSubmitting = ref(false);
-const isUploadingLocalImage = ref(false);
 const pendingDraftId = ref<number | null>(null);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
@@ -183,43 +180,6 @@ function publishSuccessMessage(result?: { status?: string; isPublic?: boolean })
   return "作品已保存";
 }
 
-async function uploadLocalImage() {
-  if (isUploadingLocalImage.value) return;
-  if (!ensureLogin()) return;
-
-  if (useMockData.value) {
-    const mockRatio = "1:1";
-    selectDraft({
-      id: Date.now(),
-      image: mockImage(`local${Date.now()}`, 800, 800),
-      title: "本地上传作品",
-      ratio: mockRatio,
-      resolution: ratioToResolution(mockRatio),
-      source: "uploaded"
-    });
-    return;
-  }
-
-  isUploadingLocalImage.value = true;
-  try {
-    const uploaded = await uploadChosenImage("work");
-    const uploadRatio = uploaded.ratio || "1:1";
-    selectDraft({
-      id: Date.now(),
-      image: uploaded.publicUrl,
-      title: "本地上传作品",
-      ratio: uploadRatio,
-      resolution: ratioToResolution(uploadRatio),
-      source: "uploaded"
-    });
-    uni.showToast({ title: "图片已上传", icon: "none" });
-  } catch {
-    uni.showToast({ title: "图片上传失败，请稍后重试", icon: "none" });
-  } finally {
-    isUploadingLocalImage.value = false;
-  }
-}
-
 function isTagSelected(name: string) {
   return selectedTags.value.includes(name);
 }
@@ -363,9 +323,6 @@ async function submit() {
       <view class="sheet-handle" />
       <view class="picker-head">
         <view class="picker-title">选择草稿作品</view>
-        <button class="picker-upload-btn" :disabled="isUploadingLocalImage" @click="uploadLocalImage">
-          {{ isUploadingLocalImage ? "上传中..." : "上传图片" }}
-        </button>
       </view>
       <scroll-view class="picker-scroll" scroll-y>
         <view v-if="isLoadingDrafts" class="picker-state">草稿加载中...</view>
@@ -636,26 +593,6 @@ async function submit() {
 .picker-title {
   font-size: 16px;
   font-weight: 600;
-}
-
-.picker-upload-btn {
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 32px;
-  color: var(--accent);
-  background: var(--accent-soft);
-  border: none;
-  border-radius: 8px;
-}
-
-.picker-upload-btn[disabled] {
-  opacity: 0.65;
-}
-
-.picker-upload-btn::after {
-  border: none;
 }
 
 .picker-scroll {

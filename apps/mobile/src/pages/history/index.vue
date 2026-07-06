@@ -8,6 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { clearHistory as clearRemoteHistory, fetchHistory, toHomeWork } from "../../services/social";
 import { homeWorks, type HomeWork } from "../home/homeData";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
 const cleared = ref(false);
 const realWorks = ref<HomeWork[]>([]);
 const { useMockData } = useDataMode();
@@ -16,10 +17,24 @@ const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 let lastMode: boolean | null = null;
 
-const sourceWorks = computed(() => (useMockData.value ? homeWorks : realWorks.value));
-const todayWorks = computed(() => sourceWorks.value.slice(0, 6));
-const yesterdayWorks = computed(() => sourceWorks.value.slice(6, 9));
-const earlierWorks = computed(() => sourceWorks.value.slice(9));
+const sourceWorks = computed(() => (cleared.value ? [] : useMockData.value ? homeWorks : realWorks.value));
+const historySections = computed(() => {
+  const sections = [
+    { key: "today", label: "今天", works: [] as HomeWork[] },
+    { key: "yesterday", label: "昨天", works: [] as HomeWork[] },
+    { key: "week", label: "一周内", works: [] as HomeWork[] }
+  ];
+
+  sourceWorks.value.forEach((work, index) => {
+    const ageDays = getHistoryAgeDays(work, index);
+    if (ageDays < 0 || ageDays >= 7) return;
+    if (ageDays === 0) sections[0].works.push(work);
+    else if (ageDays === 1) sections[1].works.push(work);
+    else sections[2].works.push(work);
+  });
+
+  return sections.filter((section) => section.works.length);
+});
 
 onLoad(() => {
   lastMode = null;
@@ -53,6 +68,25 @@ async function loadHistory() {
     cleared.value = true;
     uni.showToast({ title: "浏览记录加载失败", icon: "none" });
   }
+}
+
+function startOfDay(time: number) {
+  const date = new Date(time);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+function getHistoryAgeDays(work: HomeWork, index: number) {
+  if (useMockData.value) {
+    if (index < 6) return 0;
+    if (index < 9) return 1;
+    if (index < 15) return 3;
+    return 7;
+  }
+
+  const value = work.viewedAt || work.createdAt;
+  const time = value ? new Date(value).getTime() : NaN;
+  if (!Number.isFinite(time)) return 7;
+  return Math.floor((startOfDay(Date.now()) - startOfDay(time)) / DAY_MS);
 }
 
 function openLoginSheet() {
@@ -108,29 +142,15 @@ function goPlaza() {
         @login="showLoginSheet = true"
       />
 
-      <template v-else-if="!cleared">
+      <template v-else-if="historySections.length">
         <view class="toolbar">
           <button class="clear-btn" @click="clearHistory">清空记录</button>
         </view>
         <view class="history-content">
-          <view class="section-title">今天</view>
-          <view class="grid">
-            <view v-for="work in todayWorks" :key="work.id" class="grid-item" @click="openWork(work)">
-              <image class="grid-img" :src="work.image" mode="aspectFill" />
-            </view>
-          </view>
-
-          <view class="section-title">昨天</view>
-          <view class="grid">
-            <view v-for="work in yesterdayWorks" :key="work.id" class="grid-item" @click="openWork(work)">
-              <image class="grid-img" :src="work.image" mode="aspectFill" />
-            </view>
-          </view>
-
-          <template v-if="earlierWorks.length">
-            <view class="section-title">更早</view>
+          <template v-for="section in historySections" :key="section.key">
+            <view class="section-title">{{ section.label }}</view>
             <view class="grid">
-              <view v-for="work in earlierWorks" :key="work.id" class="grid-item" @click="openWork(work)">
+              <view v-for="work in section.works" :key="work.id" class="grid-item" @click="openWork(work)">
                 <image class="grid-img" :src="work.image" mode="aspectFill" />
               </view>
             </view>

@@ -41,6 +41,8 @@ export interface HomeWork {
   likes: number;
   published: boolean;
   status?: string;
+  createdAt?: string;
+  viewedAt?: string;
   liked?: boolean;
   favorited?: boolean;
 }

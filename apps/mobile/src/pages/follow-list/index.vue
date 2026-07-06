@@ -183,9 +183,26 @@ function goProfile(id: number) {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${id}` });
 }
 
+function confirmCancelFollow() {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title: "取消关注",
+      content: "确定要取消关注该用户吗？",
+      confirmText: "取消关注",
+      confirmColor: "#ff5c7a",
+      success: (result) => resolve(Boolean(result.confirm)),
+      fail: () => resolve(false)
+    });
+  });
+}
+
 async function toggleFollow(id: number) {
   const next = !rowFollowing(id);
   if (!useMockData.value && !ensureLogin()) return;
+  if (!next) {
+    const confirmed = await confirmCancelFollow();
+    if (!confirmed) return;
+  }
   try {
     if (!useMockData.value) {
       if (next) await followUser(id);

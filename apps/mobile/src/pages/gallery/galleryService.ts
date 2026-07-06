@@ -10,6 +10,7 @@ interface BackendUser {
   bio?: string | null;
   credits: number;
   memberPlan?: string | null;
+  gender?: string | null;
   worksCount: number;
   likesCount?: number;
   followers: number;
@@ -73,7 +74,8 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     role: user.memberPlan || "创作者",
     works: user.worksCount,
     followers: `${user.followers}`,
-    likes: `${user.likesCount ?? 0}`
+    likes: `${user.likesCount ?? 0}`,
+    gender: user.gender === "male" || user.gender === "female" ? user.gender : "unknown"
   };
 }
 

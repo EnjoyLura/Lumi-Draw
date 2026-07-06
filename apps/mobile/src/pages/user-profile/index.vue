@@ -72,10 +72,11 @@ const following = computed(() => (useMockData.value ? isFollowing(userId.value) 
 const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) : realWorks.value));
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
+const hasGenderIcon = computed(() => user.value.gender === "female" || user.value.gender === "male");
 const genderIcon = computed(() => {
   if (user.value.gender === "female") return "♀";
   if (user.value.gender === "male") return "♂";
-  return "•";
+  return "";
 });
 
 onLoad((query) => {
@@ -334,7 +335,7 @@ async function confirmUnfollow() {
           <view class="user-name">{{ user.name }}</view>
           <view class="id-row">
             <text class="user-id">ID: LUMI{{ user.id }}</text>
-            <view class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
+            <view v-if="hasGenderIcon" class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
           </view>
           <view class="role-tag">✦ {{ user.role }}</view>
         </view>

@@ -25,7 +25,8 @@ const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
-const ANNOUNCEMENT_DISMISS_KEY = "lumi-home-announcement-dismissed-week";
+const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
+const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 
 const statusBarHeight = ref(0);
 try {
@@ -235,22 +236,21 @@ function showUnsupportedBanner(title: string) {
   uni.showToast({ title: `${title}入口未配置`, icon: "none" });
 }
 
-function currentWeekKey() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const day = Math.floor((now.getTime() - start.getTime()) / 86400000);
-  return `${now.getFullYear()}-${Math.ceil((day + start.getDay() + 1) / 7)}`;
-}
-
-function announcementDismissKey(id: number) {
-  return `${id}:${currentWeekKey()}`;
-}
-
-function isAnnouncementDismissed(id: number) {
+function hasShownHomeAnnouncementThisSession() {
+  if (lumiRuntime.__lumiHomeAnnouncementShown) return true;
   try {
-    return uni.getStorageSync(ANNOUNCEMENT_DISMISS_KEY) === announcementDismissKey(id);
+    return typeof sessionStorage !== "undefined" && sessionStorage.getItem(ANNOUNCEMENT_SESSION_KEY) === "1";
   } catch {
     return false;
+  }
+}
+
+function markHomeAnnouncementShown() {
+  lumiRuntime.__lumiHomeAnnouncementShown = true;
+  try {
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem(ANNOUNCEMENT_SESSION_KEY, "1");
+  } catch {
+    // Some mini-program preview environments do not expose sessionStorage.
   }
 }
 
@@ -258,8 +258,9 @@ function scheduleAnnouncementPopup() {
   if (announcementTimer) clearTimeout(announcementTimer);
   const announcement = popupAnnouncement.value;
   showAnnouncementPopup.value = false;
-  if (!announcement || isAnnouncementDismissed(announcement.id)) return;
+  if (!announcement || hasShownHomeAnnouncementThisSession()) return;
   announcementTimer = setTimeout(() => {
+    markHomeAnnouncementShown();
     showAnnouncementPopup.value = true;
   }, 1200);
 }
@@ -269,16 +270,7 @@ function closeAnnouncement() {
 }
 
 function dismissAnnouncementWeek() {
-  const announcement = popupAnnouncement.value;
-  if (announcement) {
-    try {
-      uni.setStorageSync(ANNOUNCEMENT_DISMISS_KEY, announcementDismissKey(announcement.id));
-    } catch {
-      // Storage can be unavailable in preview environments.
-    }
-  }
   closeAnnouncement();
-  uni.showToast({ title: "本周将不再弹出此公告", icon: "none" });
 }
 
 function handleAnnouncementAction() {
@@ -809,7 +801,7 @@ function getRatioClass(ratio: string) {
         <view class="announcement-body">
           <view class="announcement-summary">{{ popupAnnouncement.summary }}</view>
           <button class="announcement-action" @click="handleAnnouncementAction">前往参与</button>
-          <view class="announcement-dismiss" @click="dismissAnnouncementWeek">本周不再弹出</view>
+          <view class="announcement-dismiss" @click="dismissAnnouncementWeek">知道了</view>
         </view>
       </view>
       <view class="announcement-close" @click="closeAnnouncement">×</view>

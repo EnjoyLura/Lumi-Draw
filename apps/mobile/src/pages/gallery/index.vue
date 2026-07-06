@@ -40,7 +40,8 @@ const EMPTY_PROFILE: GalleryUser = {
   role: "创作者",
   works: 0,
   followers: "0",
-  likes: "0"
+  likes: "0",
+  gender: "unknown"
 };
 
 type SideQuick = {
@@ -119,6 +120,12 @@ const selectedWorks = computed(() => works.value.filter((work) => selectedIds.va
 const selectedPublishedWorks = computed(() => selectedWorks.value.filter((work) => work.published));
 const canMoveSelectedToDraft = computed(() => selectedPublishedWorks.value.length > 0);
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
+const hasGenderIcon = computed(() => profile.value.gender === "female" || profile.value.gender === "male");
+const genderIcon = computed(() => {
+  if (profile.value.gender === "female") return "♀";
+  if (profile.value.gender === "male") return "♂";
+  return "";
+});
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
@@ -587,7 +594,7 @@ function openWork(work: HomeWork) {
               <view class="profile-name">{{ profile.name }}</view>
               <view class="id-row">
                 <text class="profile-id">ID: {{ profile.userNo }}</text>
-                <view class="gender-tag">♀</view>
+                <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender">{{ genderIcon }}</view>
               </view>
               <view class="role-tag">✦ {{ profile.role }}</view>
             </view>
@@ -915,9 +922,17 @@ function openWork(work: HomeWork) {
   justify-content: center;
   padding: 2px 8px;
   font-size: 12px;
+  border-radius: 999px;
+}
+
+.gender-tag.female {
   color: var(--rose);
   background: var(--rose-soft);
-  border-radius: 999px;
+}
+
+.gender-tag.male {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .bio {

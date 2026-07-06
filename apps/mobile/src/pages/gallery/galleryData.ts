@@ -21,6 +21,7 @@ export interface GalleryUser {
   works: number;
   followers: string;
   likes: string;
+  gender?: "male" | "female" | "unknown";
 }
 
 export const galleryUser: GalleryUser = {
@@ -34,7 +35,8 @@ export const galleryUser: GalleryUser = {
   role: "AI创作者",
   works: 48,
   followers: "326",
-  likes: "1.2k"
+  likes: "1.2k",
+  gender: "female"
 };
 
 export interface GalleryGenTask {

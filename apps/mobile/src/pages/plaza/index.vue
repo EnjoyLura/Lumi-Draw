@@ -6,7 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkFavorite, toggleWorkLike } from "../../services/social";
+import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
@@ -114,7 +114,6 @@ const workList = ref<HomeWork[]>([]);
 const likedWorkIds = ref<Set<number>>(new Set());
 const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
-const favoritePendingIds = ref<Set<number>>(new Set());
 const drawerProfile = ref<MineUser | null>(null);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
@@ -515,18 +514,6 @@ function displayLikeCount(work: HomeWork) {
   return work.likes + (useMockData.value && likedWorkIds.value.has(work.id) ? 1 : 0);
 }
 
-function setPendingFavorite(workId: number, pending: boolean) {
-  const next = new Set(favoritePendingIds.value);
-  if (pending) next.add(workId);
-  else next.delete(workId);
-  favoritePendingIds.value = next;
-}
-
-function removeWorkFromFavoriteTab(workId: number) {
-  if (renderedTab.value !== "favorite") return;
-  workList.value = workList.value.filter((work) => work.id !== workId);
-}
-
 async function toggleLike(event: Event, workId: number) {
   event.stopPropagation();
   if (!useMockData.value && !ensureLogin()) return;
@@ -556,36 +543,6 @@ async function toggleLike(event: Event, workId: number) {
     next.add(workId);
   }
   likedWorkIds.value = next;
-}
-
-async function toggleFavorite(event: Event, workId: number) {
-  event.stopPropagation();
-  if (!useMockData.value && !ensureLogin()) return;
-  if (favoritePendingIds.value.has(workId)) return;
-
-  if (!useMockData.value) {
-    setPendingFavorite(workId, true);
-    try {
-      const result = await toggleWorkFavorite(workId);
-      const next = new Set(favoritedWorkIds.value);
-      if (result.favorited) next.add(workId);
-      else {
-        next.delete(workId);
-        removeWorkFromFavoriteTab(workId);
-      }
-      favoritedWorkIds.value = next;
-    } catch {
-      uni.showToast({ title: "收藏失败，请稍后重试", icon: "none" });
-    } finally {
-      setPendingFavorite(workId, false);
-    }
-    return;
-  }
-
-  const next = new Set(favoritedWorkIds.value);
-  if (next.has(workId)) next.delete(workId);
-  else next.add(workId);
-  favoritedWorkIds.value = next;
 }
 
 function openFilter() {
@@ -712,9 +669,6 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="favorite" :class="{ active: favoritedWorkIds.has(work.id) }" @click="toggleFavorite($event, work.id)">
-                    <text>{{ favoritedWorkIds.has(work.id) ? "★" : "☆" }}</text>
-                  </view>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
                     <text>{{ displayLikeCount(work) }}</text>
@@ -733,9 +687,6 @@ function handleReachBottom() {
                   <view class="author" @click.stop="goUserProfile(work.userId)">
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
-                  </view>
-                  <view class="favorite" :class="{ active: favoritedWorkIds.has(work.id) }" @click="toggleFavorite($event, work.id)">
-                    <text>{{ favoritedWorkIds.has(work.id) ? "★" : "☆" }}</text>
                   </view>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
@@ -757,7 +708,7 @@ function handleReachBottom() {
         <view v-else class="empty-state">
           <view class="empty-icon">{{ renderedTab === "favorite" ? "♡" : "⌕" }}</view>
           <view class="empty-title">{{ renderedTab === "favorite" ? "暂无收藏" : "暂无作品" }}</view>
-          <view class="empty-sub">{{ renderedTab === "favorite" ? "点击作品上的收藏按钮，收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
+          <view class="empty-sub">{{ renderedTab === "favorite" ? "在作品详情页收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
         </view>
 
         <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
@@ -1134,29 +1085,6 @@ function handleReachBottom() {
 
 .like.liked {
   color: var(--rose);
-  transform: scale(1.04);
-}
-
-.favorite {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--fg-muted);
-  border-radius: 8px;
-  transition:
-    color 0.25s ease,
-    background 0.25s ease,
-    transform 0.25s ease;
-}
-
-.favorite.active {
-  color: #d99a00;
-  background: var(--lemon-soft);
   transform: scale(1.04);
 }
 
