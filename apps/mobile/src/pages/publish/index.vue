@@ -187,12 +187,13 @@ async function uploadLocalImage() {
   if (!ensureLogin()) return;
 
   if (useMockData.value) {
+    const mockRatio = "1:1";
     selectDraft({
       id: Date.now(),
       image: `https://picsum.photos/seed/local${Date.now()}/800/800`,
       title: "本地上传作品",
-      ratio: "1:1",
-      resolution: ratioToResolution("1:1"),
+      ratio: mockRatio,
+      resolution: ratioToResolution(mockRatio),
       source: "uploaded"
     });
     return;
@@ -201,12 +202,13 @@ async function uploadLocalImage() {
   isUploadingLocalImage.value = true;
   try {
     const uploaded = await uploadChosenImage("work");
+    const uploadRatio = uploaded.ratio || "1:1";
     selectDraft({
       id: Date.now(),
       image: uploaded.publicUrl,
       title: "本地上传作品",
-      ratio: "1:1",
-      resolution: ratioToResolution("1:1"),
+      ratio: uploadRatio,
+      resolution: ratioToResolution(uploadRatio),
       source: "uploaded"
     });
     uni.showToast({ title: "图片已上传", icon: "none" });

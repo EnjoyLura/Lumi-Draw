@@ -185,7 +185,7 @@ const pageContracts = [
   },
   {
     route: "pages/publish/index",
-    tokens: ["useDataMode", "fetchPublishDrafts", "publishWork", "uploadChosenImage", "resolveRouteDraftId"]
+    tokens: ["useDataMode", "fetchPublishDrafts", "publishWork", "uploadChosenImage", "uploaded.ratio", "resolveRouteDraftId"]
   },
   {
     route: "pages/edit-work/index",
