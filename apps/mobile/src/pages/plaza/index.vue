@@ -90,6 +90,7 @@ const favoritePendingIds = ref<Set<number>>(new Set());
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
+const loadFailed = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
@@ -152,9 +153,22 @@ onBeforeUnmount(() => {
 });
 
 function resetMockPlazaData() {
+  loadFailed.value = false;
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   userList.value = mockHomeUsers;
   workList.value = mockHomeWorks;
+  pageState.page = 1;
+  pageState.hasMore = false;
+  visibleWorkCount.value = 10;
+  renderKey.value += 1;
+}
+
+function clearRealPlazaData() {
+  categoryOptions.value = plazaCategories.map((name) => ({ name }));
+  userList.value = [];
+  workList.value = [];
+  likedWorkIds.value = new Set();
+  favoritedWorkIds.value = new Set();
   pageState.page = 1;
   pageState.hasMore = false;
   visibleWorkCount.value = 10;
@@ -217,16 +231,18 @@ async function reloadPlazaData() {
   }
 
   isLoading.value = true;
+  loadFailed.value = false;
   try {
     categoryOptions.value = await fetchPlazaCategories();
     activeCategoryIndex.value = Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1);
-    userList.value = mockHomeUsers;
+    userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
     renderKey.value += 1;
   } catch {
-    uni.showToast({ title: "广场数据加载失败，已使用本地数据", icon: "none" });
-    resetMockPlazaData();
+    clearRealPlazaData();
+    loadFailed.value = true;
+    uni.showToast({ title: "广场数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
   }
@@ -285,8 +301,13 @@ function queueRefresh(after?: () => void) {
     after?.();
     if (!useMockData.value) {
       try {
+        loadFailed.value = false;
         await loadCurrentPlazaPage(1, false);
       } catch {
+        workList.value = [];
+        pageState.page = 1;
+        pageState.hasMore = false;
+        loadFailed.value = true;
         uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
       }
     }
@@ -566,6 +587,13 @@ function handleReachBottom() {
               </view>
             </view>
           </view>
+        </view>
+
+        <view v-else-if="!useMockData && loadFailed" class="empty-state">
+          <view class="empty-icon">!</view>
+          <view class="empty-title">广场数据加载失败</view>
+          <view class="empty-sub">请检查网络或稍后重试，当前不会显示模拟作品。</view>
+          <button class="empty-action" @click="reloadPlazaData">重新加载</button>
         </view>
 
         <view v-else class="empty-state">
@@ -1025,6 +1053,28 @@ function handleReachBottom() {
 .empty-sub {
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+.empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  height: 38px;
+  padding: 0 18px;
+  margin: 16px auto 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 22px rgba(91, 159, 232, 0.2);
+}
+
+.empty-action::after {
+  border: none;
 }
 
 .load-more-hint {
