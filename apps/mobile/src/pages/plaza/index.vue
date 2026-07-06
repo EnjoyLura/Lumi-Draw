@@ -7,7 +7,8 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkFavorite, toggleWorkLike } from "../../services/social";
-import { fetchUnreadMessageCount } from "../mine/mineService";
+import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
+import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
@@ -32,12 +33,13 @@ type SideRow = {
 const filterOpen = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
-const EMPTY_DRAWER_USER: HomeUser = {
-  id: 0,
+const { isLoggedIn, currentUser, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
+const EMPTY_DRAWER_PROFILE: MineUser = {
   name: "未同步用户",
   avatar: "U",
-  color: "var(--accent)"
+  color: "var(--accent)",
+  userNo: "-",
+  credits: 0
 };
 const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
 const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
@@ -94,6 +96,7 @@ const likedWorkIds = ref<Set<number>>(new Set());
 const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const favoritePendingIds = ref<Set<number>>(new Set());
+const drawerProfile = ref<MineUser | null>(null);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
@@ -126,7 +129,12 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
-const drawerUser = computed(() => userList.value[0] ?? (useMockData.value ? mockHomeUsers[0] : EMPTY_DRAWER_USER));
+const drawerDisplay = computed(() => {
+  if (!isLoggedIn.value) return EMPTY_DRAWER_PROFILE;
+  if (useMockData.value) return mineUser;
+  if (drawerProfile.value) return drawerProfile.value;
+  return currentUser.value ? toMineUser(currentUser.value) : EMPTY_DRAWER_PROFILE;
+});
 
 const filteredWorks = computed(() => {
   if (renderedTab.value === "favorite") {
@@ -151,6 +159,7 @@ const filteredWorks = computed(() => {
 
 onShow(() => {
   void loadUnreadMessages();
+  void loadDrawerProfile();
   if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) return;
   lastMockMode = useMockData.value;
   void reloadPlazaData();
@@ -163,6 +172,7 @@ onBeforeUnmount(() => {
 
 function resetMockPlazaData() {
   loadFailed.value = false;
+  drawerProfile.value = null;
   syncSideMessageBadge();
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   userList.value = mockHomeUsers;
@@ -174,6 +184,7 @@ function resetMockPlazaData() {
 }
 
 function clearRealPlazaData() {
+  drawerProfile.value = null;
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   userList.value = [];
   workList.value = [];
@@ -257,6 +268,21 @@ async function loadUnreadMessages() {
   }
 }
 
+async function loadDrawerProfile() {
+  if (useMockData.value || !isLoggedIn.value) {
+    drawerProfile.value = null;
+    return;
+  }
+
+  try {
+    const profile = await fetchMineProfile();
+    drawerProfile.value = toMineUser(profile);
+    updateCurrentUser({ credits: profile.credits });
+  } catch {
+    drawerProfile.value = null;
+  }
+}
+
 async function reloadPlazaData() {
   if (useMockData.value) {
     resetMockPlazaData();
@@ -266,7 +292,8 @@ async function reloadPlazaData() {
   isLoading.value = true;
   loadFailed.value = false;
   try {
-    categoryOptions.value = await fetchPlazaCategories();
+    const [categories] = await Promise.all([fetchPlazaCategories(), loadDrawerProfile()]);
+    categoryOptions.value = categories;
     activeCategoryIndex.value = categoryOptions.value.length
       ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
       : 0;
@@ -506,7 +533,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await reloadPlazaData();
+    await Promise.all([reloadPlazaData(), loadUnreadMessages()]);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -676,10 +703,10 @@ function handleReachBottom() {
 
     <LumiSideDrawer
       :open="sideOpen"
-      :user-name="isLoggedIn ? drawerUser.name : '点击登录'"
-      :user-avatar="isLoggedIn ? drawerUser.avatar : '♙'"
-      :user-color="isLoggedIn ? drawerUser.color : 'var(--bg-soft)'"
-      :user-points="isLoggedIn ? '2860' : '0'"
+      :user-name="isLoggedIn ? drawerDisplay.name : '点击登录'"
+      :user-avatar="isLoggedIn ? drawerDisplay.avatar : '♙'"
+      :user-color="isLoggedIn ? drawerDisplay.color : 'var(--bg-soft)'"
+      :user-points="String(drawerDisplay.credits)"
       :quick-actions="sideQuickActions"
       :rows="sideRows"
       @close="closeSideMenu"
