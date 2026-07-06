@@ -30,6 +30,20 @@ async function step(name, fn) {
   return result;
 }
 
+async function smokeNumericConfigCrud(token, resource, createBody, patchBody, assertPatched) {
+  const { body: created } = await request("POST", `/admin/${resource}`, createBody, token);
+  assert(created.data?.id, `${resource} create id missing`);
+
+  const { body: patched } = await request("PATCH", `/admin/${resource}/${created.data.id}`, patchBody, token);
+  assertPatched(patched.data);
+
+  const { body: list } = await request("GET", `/admin/${resource}`, undefined, token);
+  assert((list.data || []).some((item) => item.id === created.data.id), `${resource} list missing created row`);
+
+  const { body: deleted } = await request("DELETE", `/admin/${resource}/${created.data.id}`, undefined, token);
+  assert(deleted.data?.id === created.data.id, `${resource} delete id mismatch`);
+}
+
 async function main() {
   console.log(`Lumi API smoke test: ${API_BASE}`);
 
@@ -637,6 +651,174 @@ async function main() {
       assert(body.data, "admin dashboard summary missing");
       assert(typeof body.data.todos?.pendingReports === "number", "admin pending reports missing");
       assert(typeof body.data.todos?.pendingFeedback === "number", "admin pending feedback missing");
+    });
+
+    await step("admin config CRUD", async () => {
+      const suffix = Date.now();
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "banners",
+        { title: `smoke banner ${suffix}`, description: "smoke banner", action: "smoke", sort: 999, enabled: false },
+        { title: `smoke banner patched ${suffix}` },
+        (row) => assert(row?.title === `smoke banner patched ${suffix}`, "banner title did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "gameplays",
+        { name: `smoke gameplay ${suffix}`, description: "smoke gameplay", uses: "0", hot: false, enabled: false, sort: 999 },
+        { name: `smoke gameplay patched ${suffix}` },
+        (row) => assert(row?.name === `smoke gameplay patched ${suffix}`, "gameplay name did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "styles",
+        { name: `smoke style ${suffix}`, prompt: "smoke style prompt", uses: 0, enabled: false, sort: 999 },
+        { prompt: "smoke style patched prompt" },
+        (row) => assert(row?.prompt === "smoke style patched prompt", "style prompt did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "categories",
+        { name: `smoke category ${suffix}`, count: 0, enabled: false, sort: 999 },
+        { name: `smoke category patched ${suffix}` },
+        (row) => assert(row?.name === `smoke category patched ${suffix}`, "category name did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "hot-searches",
+        { keyword: `smoke hot ${suffix}`, hot: 1, top: false, enabled: false },
+        { hot: 2 },
+        (row) => assert(row?.hot === 2, "hot search hot value did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "qualities",
+        { label: `smoke quality ${suffix}`, pixel: "64x64", multiplier: 1, enabled: false, sort: 999 },
+        { pixel: "128x128" },
+        (row) => assert(row?.pixel === "128x128", "quality pixel did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "ratios",
+        { label: `smoke ratio ${suffix}`, description: "1:1 smoke", enabled: false, sort: 999 },
+        { description: "patched smoke ratio" },
+        (row) => assert(row?.description === "patched smoke ratio", "ratio description did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "recharge-tiers",
+        { price: 1, credits: 1, bonus: 0, enabled: false, sort: 999 },
+        { bonus: 1 },
+        (row) => assert(row?.bonus === 1, "recharge bonus did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "member-plans",
+        { name: `smoke plan ${suffix}`, price: 1, rights: "smoke rights", giftCredits: 1, checkinBonus: 1, enabled: false, sort: 999 },
+        { rights: "patched smoke rights" },
+        (row) => assert(row?.rights === "patched smoke rights", "member plan rights did not patch")
+      );
+      await smokeNumericConfigCrud(
+        admin.accessToken,
+        "versions",
+        { version: `0.0.${String(suffix).slice(-4)}`, releasedAt: "2026-07-06", items: ["smoke"], sort: 999 },
+        { items: ["smoke patched"] },
+        (row) => assert(Array.isArray(row?.items) && row.items[0] === "smoke patched", "version items did not patch")
+      );
+
+      const modelId = `smoke-model-${suffix}`;
+      const { body: createdModel } = await request(
+        "POST",
+        "/admin/models",
+        {
+          id: modelId,
+          provider: "kie",
+          providerModel: "smoke-provider-model",
+          name: "smoke model",
+          description: "smoke model",
+          tags: ["smoke"],
+          costCredits: 1,
+          badge: "SMOKE",
+          supportsTextToImage: true,
+          supportsImageToImage: false,
+          enabled: false,
+          sort: 999
+        },
+        admin.accessToken
+      );
+      assert(createdModel.data?.id === modelId, "model create id mismatch");
+      const { body: patchedModel } = await request("PATCH", `/admin/models/${modelId}`, { name: "smoke model patched" }, admin.accessToken);
+      assert(patchedModel.data?.name === "smoke model patched", "model name did not patch");
+      const { body: deletedModel } = await request("DELETE", `/admin/models/${modelId}`, undefined, admin.accessToken);
+      assert(deletedModel.data?.id === modelId, "model delete id mismatch");
+    });
+
+    await step("admin user and work management", async () => {
+      const suffix = Date.now();
+      const { body: listedUser } = await request("GET", `/admin/users?keyword=${user.user.id}&page=1&pageSize=10`, undefined, admin.accessToken);
+      assert((listedUser.data?.items || []).some((item) => item.id === user.user.id), "admin users list missing smoke user");
+
+      const { body: patchedUser } = await request(
+        "PATCH",
+        `/admin/users/${user.user.id}`,
+        { nickname: `admin-smoke-user-${suffix}`, bio: "admin smoke user" },
+        admin.accessToken
+      );
+      assert(patchedUser.data?.nickname === `admin-smoke-user-${suffix}`, "admin user nickname did not patch");
+
+      const { body: bannedUser } = await request("POST", `/admin/users/${user.user.id}/ban`, undefined, admin.accessToken);
+      assert(bannedUser.data?.status === "banned", "admin user ban failed");
+      const { body: unbannedUser } = await request("POST", `/admin/users/${user.user.id}/unban`, undefined, admin.accessToken);
+      assert(unbannedUser.data?.status === "normal", "admin user unban failed");
+
+      const { body: adjusted } = await request(
+        "POST",
+        `/admin/users/${user.user.id}/credits/adjust`,
+        { amount: 3, reason: "admin smoke adjust" },
+        admin.accessToken
+      );
+      assert(adjusted.data?.amount === 3, "admin credit adjust amount mismatch");
+
+      const { body: createdWork } = await request(
+        "POST",
+        "/works",
+        {
+          title: `admin smoke work ${suffix}`,
+          description: "admin work management smoke",
+          prompt: "admin work prompt",
+          imageUrl: "https://example.com/admin-smoke-work.png",
+          ratio: "1:1",
+          quality: "1K",
+          modelId: "smoke-model",
+          style: "smoke-style",
+          isPublic: true
+        },
+        user.accessToken
+      );
+      const workId = createdWork.data?.id;
+      assert(workId, "admin smoke work id missing");
+      if (createdWork.data?.status === "pending") {
+        await request("POST", `/admin/reviews/${workId}/approve`, {}, admin.accessToken);
+      }
+
+      const { body: patchedWork } = await request(
+        "PATCH",
+        `/admin/works/${workId}`,
+        { title: `admin smoke work patched ${suffix}`, style: "admin-smoke-style" },
+        admin.accessToken
+      );
+      assert(patchedWork.data?.title === `admin smoke work patched ${suffix}`, "admin work title did not patch");
+
+      const { body: featuredWork } = await request("POST", `/admin/works/${workId}/feature`, { featured: true }, admin.accessToken);
+      assert(featuredWork.data?.featured === true, "admin work feature failed");
+      const { body: recommendedWork } = await request("POST", `/admin/works/${workId}/recommend`, { recommend: true }, admin.accessToken);
+      assert(recommendedWork.data?.recommend === true, "admin work recommend failed");
+      const { body: offlineWork } = await request("POST", `/admin/works/${workId}/offline`, undefined, admin.accessToken);
+      assert(offlineWork.data?.status === "offline" && offlineWork.data?.isPublic === false, "admin work offline failed");
+      const { body: restoredWork } = await request("POST", `/admin/works/${workId}/restore`, undefined, admin.accessToken);
+      assert(restoredWork.data?.status === "published" && restoredWork.data?.isPublic === true, "admin work restore failed");
+      const { body: deletedWork } = await request("DELETE", `/admin/works/${workId}`, undefined, admin.accessToken);
+      assert(deletedWork.data?.ok === true, "admin work delete failed");
     });
 
     await step("admin system settings", async () => {
