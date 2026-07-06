@@ -7,6 +7,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { milestones, type Milestone } from "../points/pointsData";
 import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
@@ -177,7 +180,7 @@ function claimMilestone(item: Milestone) {
 </script>
 
 <template>
-  <view class="checkin-page">
+  <view class="checkin-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

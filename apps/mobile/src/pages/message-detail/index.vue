@@ -8,6 +8,9 @@ import { useDataMode } from "../../services/dataMode";
 import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { getMessageCategory, getMessages, type MessageCategory, type MessageCategoryKey, type MessageItem } from "../messages/messagesData";
 import { fetchMessageList, markMessageCategoryRead } from "../messages/messagesService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -150,7 +153,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="message-detail-page">
+  <view class="message-detail-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
         <LumiLoginRequired

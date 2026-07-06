@@ -17,6 +17,9 @@ import {
 } from "../../services/social";
 import type { HomeWork } from "../home/homeData";
 import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userProfileData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const PAGE_SIZE = 20;
 const userId = ref(1);
@@ -314,7 +317,7 @@ async function confirmUnfollow() {
 </script>
 
 <template>
-  <view class="profile-page">
+  <view class="profile-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view v-if="loading" class="profile-empty">
         <view class="empty-icon">◎</view>

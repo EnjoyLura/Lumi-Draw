@@ -6,6 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { useTheme } from "../../services/theme";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -82,6 +83,7 @@ const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
+const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
   { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
@@ -573,7 +575,7 @@ function openWork(work: HomeWork) {
 </script>
 
 <template>
-  <view class="gallery-page" :class="tabEnterClass">
+  <view class="gallery-page" :class="[tabEnterClass, themeClass]">
     <scroll-view class="gallery-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="header-bg">
         <view class="nav-header">
@@ -1225,11 +1227,11 @@ function openWork(work: HomeWork) {
 }
 
 .waterfall.slide-left {
-  animation: wf-left 0.42s ease;
+  animation: wf-left 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall.slide-right {
-  animation: wf-right 0.42s ease;
+  animation: wf-right 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-column {
@@ -1593,7 +1595,7 @@ function openWork(work: HomeWork) {
 @keyframes wf-left {
   from {
     opacity: 0;
-    transform: translateX(18px);
+    transform: translateX(-30px);
   }
 
   to {
@@ -1605,7 +1607,7 @@ function openWork(work: HomeWork) {
 @keyframes wf-right {
   from {
     opacity: 0;
-    transform: translateX(-18px);
+    transform: translateX(30px);
   }
 
   to {

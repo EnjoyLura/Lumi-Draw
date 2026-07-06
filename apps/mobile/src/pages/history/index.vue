@@ -7,6 +7,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { clearHistory as clearRemoteHistory, fetchHistory, toHomeWork } from "../../services/social";
 import { homeWorks, type HomeWork } from "../home/homeData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const cleared = ref(false);
@@ -133,7 +136,7 @@ function goPlaza() {
 </script>
 
 <template>
-  <view class="history-page">
+  <view class="history-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

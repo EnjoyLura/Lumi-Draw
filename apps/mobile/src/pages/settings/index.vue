@@ -10,7 +10,7 @@ import { aboutItems, type SettingsLink } from "./settingsData";
 import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
 
 const { useMockData } = useDataMode();
-const { theme, toggleTheme } = useTheme();
+const { theme, themeClass, toggleTheme } = useTheme();
 const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState, updateCurrentUser } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
@@ -212,7 +212,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="settings-page">
+  <view class="settings-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="settings-content">
         <view class="section-title">账号</view>

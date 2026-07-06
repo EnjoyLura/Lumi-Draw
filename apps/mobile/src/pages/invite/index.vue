@@ -7,6 +7,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type InvitedUser } from "../points/pointsData";
 import { fetchInviteSummary } from "../points/pointsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -101,7 +104,7 @@ function shareInvite() {
 </script>
 
 <template>
-  <view class="invite-page">
+  <view class="invite-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

@@ -7,6 +7,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
 import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchRechargeTiers, requestOrderPayment } from "../points/pointsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 type RecordTab = "earn" | "spend";
 const RECORD_PAGE_SIZE = 20;
@@ -209,7 +212,7 @@ function confirmCustomRecharge() {
 </script>
 
 <template>
-  <view class="recharge-page">
+  <view class="recharge-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

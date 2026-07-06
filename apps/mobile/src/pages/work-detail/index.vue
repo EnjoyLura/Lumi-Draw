@@ -16,6 +16,9 @@ import {
 } from "../../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "./workDetailService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const workId = ref(1);
 const { currentUser, login: commitLogin, requireLogin } = useAuth();
@@ -568,7 +571,7 @@ function showToast(title: string) {
 </script>
 
 <template>
-  <view class="detail-page">
+  <view class="detail-page" :class="themeClass">
     <template v-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <image

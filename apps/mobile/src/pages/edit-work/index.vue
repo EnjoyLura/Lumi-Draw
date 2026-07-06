@@ -9,6 +9,9 @@ import { navigateBackOrRedirect } from "../../services/navigation";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -229,7 +232,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="edit-work-page">
+  <view class="edit-work-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

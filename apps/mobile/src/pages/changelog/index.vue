@@ -4,6 +4,9 @@ import { onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
 import { fetchChangelog } from "../settings/settingsService";
 import { currentVersion, versionLogs, type ChangeKind, type VersionLog } from "./changelogData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { useMockData } = useDataMode();
 const logs = ref<VersionLog[]>([]);
@@ -61,7 +64,7 @@ async function loadChangelog() {
 </script>
 
 <template>
-  <view class="changelog-page">
+  <view class="changelog-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="changelog-content">
         <view class="app-head">

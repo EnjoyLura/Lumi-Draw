@@ -1,9 +1,10 @@
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 export type ThemeMode = "light" | "dark";
 
 const THEME_STORAGE_KEY = "lumi-theme";
 const theme = ref<ThemeMode>("light");
+const themeClass = computed(() => `theme-${theme.value}`);
 
 function applyTheme(mode: ThemeMode) {
   // #ifdef H5
@@ -35,6 +36,7 @@ export function setTheme(mode: ThemeMode) {
 export function useTheme() {
   return {
     theme,
+    themeClass,
     setTheme,
     toggleTheme: () => setTheme(theme.value === "dark" ? "light" : "dark")
   };

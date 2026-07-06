@@ -6,6 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { useTheme } from "../../services/theme";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -123,6 +124,7 @@ const loadFailed = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
+const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((item) => item.label)]);
 const filterSizes = computed(() => ["全部", ...sizeFilterOptions.value.map((item) => item.label)]);
@@ -605,7 +607,7 @@ function handleReachBottom() {
 </script>
 
 <template>
-  <view class="plaza-page" :class="tabEnterClass">
+  <view class="plaza-page" :class="[tabEnterClass, themeClass]">
     <scroll-view class="plaza-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="plaza-content">
         <view class="nav-header">
@@ -1363,6 +1365,7 @@ function handleReachBottom() {
   border-color: var(--accent);
 }
 
+.plaza-page.theme-dark .chip-outline.active,
 :root[data-theme="dark"] .chip-outline.active {
   color: var(--tab-active-fg);
   background: var(--tab-active);

@@ -176,6 +176,10 @@
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "露米绘画",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#ffffff"
+    "backgroundColor": "#ffffff",
+    "navigationBarShadow": {
+      "colorType": "custom",
+      "color": "transparent"
+    }
   }
 }

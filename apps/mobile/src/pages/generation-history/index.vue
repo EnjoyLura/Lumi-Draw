@@ -6,6 +6,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { galleryGenTasks } from "../gallery/galleryData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 import {
   cancelGenerateJob,
   fetchGenerateHistoryJobs,
@@ -314,7 +317,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="generation-history-page">
+  <view class="generation-history-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="filter-bar">
         <view

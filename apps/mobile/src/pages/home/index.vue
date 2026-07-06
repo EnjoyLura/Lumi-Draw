@@ -17,6 +17,7 @@ import {
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { resolveTabEnterClass } from "../../services/pageTransition";
+import { useTheme } from "../../services/theme";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
@@ -52,18 +53,17 @@ const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
-const isSwitchingWorks = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
 const { useMockData } = useDataMode();
+const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
   recommend: { page: 1, hasMore: false },
   new: { page: 1, hasMore: false }
 });
 
-let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = null;
@@ -107,7 +107,6 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
 });
@@ -416,21 +415,15 @@ function openWorkDetail(workId: number) {
 }
 
 function switchHomeTab(tab: HomeTab) {
-  if (tab === selectedHomeTab.value || isSwitchingWorks.value) return;
+  if (tab === selectedHomeTab.value || isPageLoading.value) return;
 
   const direction = tab === "new" && selectedHomeTab.value === "recommend" ? "left" : "right";
   selectedHomeTab.value = tab;
   visibleWorkCount.value = 8;
-  isSwitchingWorks.value = true;
-  worksSlideClass.value = "";
 
-  if (slideTimer) clearTimeout(slideTimer);
-  slideTimer = setTimeout(() => {
-    renderedHomeTab.value = tab;
-    worksRenderKey.value += 1;
-    worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
-    isSwitchingWorks.value = false;
-  }, 280);
+  renderedHomeTab.value = tab;
+  worksRenderKey.value += 1;
+  worksSlideClass.value = direction === "left" ? "slide-left" : "slide-right";
 }
 
 async function loadMoreFeed() {
@@ -459,7 +452,7 @@ async function loadMoreFeed() {
 }
 
 function handleReachBottom() {
-  if (isSwitchingWorks.value || isLoadingMore.value) return;
+  if (isLoadingMore.value) return;
 
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
@@ -582,7 +575,7 @@ function getRatioClass(ratio: string) {
 </script>
 
 <template>
-  <view class="home-page" :class="tabEnterClass">
+  <view class="home-page" :class="[tabEnterClass, themeClass]">
     <scroll-view
       class="content-area"
       scroll-y
@@ -697,7 +690,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <view class="works-stage">
-          <view v-if="isPageLoading || isSwitchingWorks" class="works-loading">
+          <view v-if="isPageLoading" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
@@ -878,6 +871,7 @@ function getRatioClass(ratio: string) {
     radial-gradient(ellipse 100% 30% at 10% 100%, rgba(111, 212, 176, 0.04), transparent 50%);
 }
 
+.home-page.theme-dark::after,
 :root[data-theme="dark"] .home-page::after {
   background: none;
 }
@@ -1117,6 +1111,7 @@ function getRatioClass(ratio: string) {
   color: var(--accent);
 }
 
+.home-page.theme-dark .more-link,
 :root[data-theme="dark"] .more-link {
   color: #fff;
 }
@@ -1250,12 +1245,12 @@ function getRatioClass(ratio: string) {
   padding: 0 8px;
 }
 
-.wf-slide-left {
-  animation: slide-in-left 0.44s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.slide-left {
+  animation: wf-left 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.wf-slide-right {
-  animation: slide-in-right 0.44s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.slide-right {
+  animation: wf-right 0.42s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-col {
@@ -1626,27 +1621,27 @@ function getRatioClass(ratio: string) {
   }
 }
 
-@keyframes slide-in-left {
+@keyframes wf-left {
   from {
     opacity: 0;
-    transform: translateX(22px) scale(0.992);
+    transform: translateX(-30px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
 }
 
-@keyframes slide-in-right {
+@keyframes wf-right {
   from {
     opacity: 0;
-    transform: translateX(-22px) scale(0.992);
+    transform: translateX(30px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(0);
   }
 }
 

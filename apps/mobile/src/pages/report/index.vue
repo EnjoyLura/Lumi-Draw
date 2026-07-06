@@ -7,6 +7,9 @@ import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { reportReasons } from "../work-detail/workDetailData";
 import { submitWorkReport } from "./reportService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const selectedReasonIndex = ref(-1);
 const description = ref("");
@@ -113,7 +116,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="report-page">
+  <view class="report-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="section-title">请选择举报原因</view>

@@ -27,6 +27,9 @@ import {
   type BackendGenerateJob
 } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const EMPTY_MODEL: CreateModel = {
   id: "",
@@ -874,7 +877,7 @@ async function goPublish() {
 </script>
 
 <template>
-  <view class="create-page">
+  <view class="create-page" :class="themeClass">
     <scroll-view class="create-scroll" scroll-y>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">

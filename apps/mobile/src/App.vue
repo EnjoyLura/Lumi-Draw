@@ -95,36 +95,103 @@ uni-page-body {
 }
 
 .tab-in-right {
-  animation: tabInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tabInRight 0.42s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
 }
 
 .tab-in-left {
-  animation: tabInLeft 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: tabInLeft 0.42s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
 }
 
 @keyframes tabInRight {
   from {
     opacity: 0;
-    transform: translateX(36px);
+    transform: translate3d(34px, 8px, 0) scale(0.985);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 @keyframes tabInLeft {
   from {
     opacity: 0;
-    transform: translateX(-36px);
+    transform: translate3d(-34px, 8px, 0) scale(0.985);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.waterfall.slide-left {
+  animation: waterfallSlideLeft 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.waterfall.slide-right {
+  animation: waterfallSlideRight 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.waterfall.slide-left .work-card,
+.waterfall.slide-right .work-card {
+  animation: workCardRise 0.46s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+.waterfall.slide-left .work-card:nth-child(2),
+.waterfall.slide-right .work-card:nth-child(2) {
+  animation-delay: 0.035s;
+}
+
+.waterfall.slide-left .work-card:nth-child(3),
+.waterfall.slide-right .work-card:nth-child(3) {
+  animation-delay: 0.07s;
+}
+
+.waterfall.slide-left .work-card:nth-child(n + 4),
+.waterfall.slide-right .work-card:nth-child(n + 4) {
+  animation-delay: 0.1s;
+}
+
+@keyframes waterfallSlideLeft {
+  from {
+    opacity: 0;
+    transform: translate3d(-30px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes waterfallSlideRight {
+  from {
+    opacity: 0;
+    transform: translate3d(30px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes workCardRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
@@ -136,6 +203,7 @@ uni-page-body {
   transform: scale(0.96);
 }
 
+.theme-dark,
 :root[data-theme="dark"] {
   --bg-base: #141416;
   --bg-soft: #2c2c2e;

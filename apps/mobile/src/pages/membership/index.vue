@@ -6,6 +6,9 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
 import { createMembershipOrder, fetchCreditsBalance, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
@@ -184,7 +187,7 @@ function showAgreement() {
 </script>
 
 <template>
-  <view class="membership-page">
+  <view class="membership-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="member-card">

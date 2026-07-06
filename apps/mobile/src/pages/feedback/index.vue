@@ -8,6 +8,9 @@ import { mockImage } from "../../services/mockImages";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { chooseLocalImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
 import { submitFeedback } from "./feedbackService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 interface FeedbackType {
   key: string;
@@ -195,7 +198,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="feedback-page">
+  <view class="feedback-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="feedback-content">
         <view class="field">

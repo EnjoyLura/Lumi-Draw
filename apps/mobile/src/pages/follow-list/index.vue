@@ -8,6 +8,9 @@ import { useDataMode } from "../../services/dataMode";
 import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { fetchFollowList, followUser, formatCompactNumber, unfollowUser, type BackendUserProfile } from "../../services/social";
 import { isFollowing, profileUsers, setFollowing, type ProfileUser } from "../user-profile/userProfileData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const PAGE_SIZE = 30;
 const type = ref<"following" | "followers">("following");
@@ -229,7 +232,7 @@ function goPlaza() {
 </script>
 
 <template>
-  <view class="follow-page">
+  <view class="follow-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

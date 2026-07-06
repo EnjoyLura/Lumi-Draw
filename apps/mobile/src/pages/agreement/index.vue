@@ -4,6 +4,9 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
 import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { fetchAgreement } from "../settings/settingsService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const mockAgreements: Record<string, { title: string; content: string }> = {
   user: {
@@ -114,7 +117,7 @@ async function loadAgreement() {
 </script>
 
 <template>
-  <view class="agreement-page">
+  <view class="agreement-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="agreement-content">
         <view class="title-row">

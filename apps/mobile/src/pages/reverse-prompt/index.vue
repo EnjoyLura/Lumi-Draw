@@ -6,6 +6,9 @@ import { useDataMode } from "../../services/dataMode";
 import { mockImage } from "../../services/mockImages";
 import { uploadChosenImage } from "../../services/upload";
 import { reversePrompt } from "./reversePromptService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const imageUrl = ref("");
 const localImageUrl = ref("");
@@ -108,7 +111,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="reverse-page">
+  <view class="reverse-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="card upload-card">

@@ -4,6 +4,9 @@ import { onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
 import { gameplays, type Gameplay } from "../home/homeData";
 import { fetchHomeBootstrap } from "../home/homeService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { useMockData } = useDataMode();
 const gameplayList = ref<Gameplay[]>(gameplays);
@@ -46,7 +49,7 @@ function applyGameplay(gameplay: Gameplay) {
 </script>
 
 <template>
-  <view class="all-gameplays-page">
+  <view class="all-gameplays-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view v-if="!useMockData && loadFailed" class="empty-state">
         <view class="empty-icon">!</view>

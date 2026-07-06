@@ -6,6 +6,9 @@ import { useDataMode } from "../../services/dataMode";
 import { homeUsers as mockHomeUsers, homeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searchData";
 import { fetchHotSearches, searchWorks } from "./searchService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const PAGE_SIZE = 12;
 const SEARCH_HISTORY_KEY = "lumi-search-history";
@@ -180,7 +183,7 @@ function handleReachBottom() {
 </script>
 
 <template>
-  <view class="search-page">
+  <view class="search-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">

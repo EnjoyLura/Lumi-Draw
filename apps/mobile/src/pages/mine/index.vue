@@ -5,11 +5,13 @@ import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { useTheme } from "../../services/theme";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
 const { isLoggedIn, currentUser, login: commitLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
+const { themeClass } = useTheme();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const EMPTY_MINE_USER = {
   ...mineUser,
@@ -186,7 +188,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="mine-page" :class="tabEnterClass">
+  <view class="mine-page" :class="[tabEnterClass, themeClass]">
     <scroll-view class="mine-scroll" scroll-y>
       <view class="mine-content">
         <view class="profile-card">

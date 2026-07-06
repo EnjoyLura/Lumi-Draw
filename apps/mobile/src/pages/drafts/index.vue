@@ -7,6 +7,9 @@ import { useDataMode } from "../../services/dataMode";
 import { galleryUser, galleryWorks, type GalleryUser } from "../gallery/galleryData";
 import { fetchGalleryUser, fetchGalleryWorks } from "../gallery/galleryService";
 import type { HomeWork } from "../home/homeData";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const PAGE_SIZE = 12;
 
@@ -132,7 +135,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="drafts-page">
+  <view class="drafts-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">

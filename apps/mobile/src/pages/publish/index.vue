@@ -8,6 +8,9 @@ import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -243,7 +246,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="publish-page">
+  <view class="publish-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

@@ -8,6 +8,9 @@ import { useDataMode } from "../../services/dataMode";
 import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { getLatestMessage, getUnreadCount, messageCategories, type MessageCategoryKey } from "./messagesData";
 import { fetchMessageSummary, type MessageCategoryRow } from "./messagesService";
+import { useTheme } from "../../services/theme";
+
+const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -88,7 +91,7 @@ function openCategory(key: MessageCategoryKey) {
 </script>
 
 <template>
-  <view class="messages-page">
+  <view class="messages-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
         <LumiLoginRequired
