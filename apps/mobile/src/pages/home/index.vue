@@ -88,7 +88,10 @@ onLoad((query) => {
 
 onShow(() => {
   void loadUnreadMessages();
-  if (lastMockMode === useMockData.value) return;
+  if (lastMockMode === useMockData.value) {
+    if (!useMockData.value && isLoggedIn.value) void loadHomeData();
+    return;
+  }
   lastMockMode = useMockData.value;
   void loadHomeData();
 });
@@ -123,6 +126,7 @@ function clearRealHomeData() {
   userList.value = [];
   recommendWorks.value = [];
   latestWorks.value = [];
+  likedWorkIds.value = new Set();
   feedState.recommend = { page: 1, hasMore: false };
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
@@ -157,10 +161,11 @@ async function loadHomeData() {
   isPageLoading.value = true;
   loadFailed.value = false;
   try {
+    const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
     const [bootstrap, recommendFeed, latestFeed] = await Promise.all([
       fetchHomeBootstrap(),
-      fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE),
-      fetchHomeFeed("latest", 1, FEED_PAGE_SIZE)
+      fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE, requestOptions),
+      fetchHomeFeed("latest", 1, FEED_PAGE_SIZE, requestOptions)
     ]);
 
     bannerList.value = bootstrap.banners;
@@ -168,6 +173,7 @@ async function loadHomeData() {
     gameplayList.value = bootstrap.gameplays;
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
+    syncLikedWorkIds([...recommendFeed.works, ...latestFeed.works]);
     userList.value = [];
     mergeUsers([...recommendFeed.users, ...latestFeed.users]);
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
@@ -359,7 +365,8 @@ async function loadMoreFeed() {
 
   try {
     const nextPage = state.page + 1;
-    const feed = await fetchHomeFeed(tab === "new" ? "latest" : "recommend", nextPage, FEED_PAGE_SIZE);
+    const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
+    const feed = await fetchHomeFeed(tab === "new" ? "latest" : "recommend", nextPage, FEED_PAGE_SIZE, requestOptions);
     if (tab === "new") {
       latestWorks.value = [...latestWorks.value, ...feed.works];
       feedState.new = { page: feed.page, hasMore: feed.hasMore };
@@ -367,6 +374,7 @@ async function loadMoreFeed() {
       recommendWorks.value = [...recommendWorks.value, ...feed.works];
       feedState.recommend = { page: feed.page, hasMore: feed.hasMore };
     }
+    syncLikedWorkIds(feed.works, likedWorkIds.value);
     mergeUsers(feed.users);
     return feed.works.length > 0;
   } catch {
@@ -413,11 +421,20 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    void loadUnreadMessages();
+    await Promise.all([loadHomeData(), loadUnreadMessages()]);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
   }
+}
+
+function syncLikedWorkIds(works: HomeWork[], base?: Set<number>) {
+  const next = new Set(base);
+  works.forEach((work) => {
+    if (work.liked) next.add(work.id);
+    else next.delete(work.id);
+  });
+  likedWorkIds.value = next;
 }
 
 function setPendingLike(workId: number, pending: boolean) {

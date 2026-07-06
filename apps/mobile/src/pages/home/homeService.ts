@@ -56,6 +56,8 @@ interface BackendWork {
   prompt: string;
   ratio: string;
   likes: number;
+  liked?: boolean;
+  favorited?: boolean;
   author: BackendAuthor;
 }
 
@@ -136,7 +138,9 @@ function toHomeWork(item: BackendWork): HomeWork {
     prompt: item.prompt,
     ratio: item.ratio || "1:1",
     likes: item.likes,
-    published: true
+    published: true,
+    liked: item.liked,
+    favorited: item.favorited
   };
 }
 
@@ -177,8 +181,8 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
   };
 }
 
-export async function fetchHomeFeed(tab: FeedTab, page: number, pageSize: number): Promise<HomeFeedView> {
-  const result = await api.get<PageResult<BackendWork>>(`/works/feed?tab=${tab}&page=${page}&pageSize=${pageSize}`, { skipAuth: true });
+export async function fetchHomeFeed(tab: FeedTab, page: number, pageSize: number, options?: { skipAuth?: boolean }): Promise<HomeFeedView> {
+  const result = await api.get<PageResult<BackendWork>>(`/works/feed?tab=${tab}&page=${page}&pageSize=${pageSize}`, options);
   const users = result.items.map((item) => toHomeUser(item.author));
   return {
     works: result.items.map(toHomeWork),

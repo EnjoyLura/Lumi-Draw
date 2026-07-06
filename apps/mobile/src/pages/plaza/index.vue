@@ -160,7 +160,10 @@ const filteredWorks = computed(() => {
 onShow(() => {
   void loadUnreadMessages();
   void loadDrawerProfile();
-  if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) return;
+  if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) {
+    if (!useMockData.value && isLoggedIn.value) void reloadPlazaData();
+    return;
+  }
   lastMockMode = useMockData.value;
   void reloadPlazaData();
 });
@@ -239,12 +242,27 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     categoryId,
     sort: getPlazaSort(),
     page,
-    pageSize: 10
+    pageSize: 10,
+    skipAuth: !isLoggedIn.value
   });
   workList.value = append ? [...workList.value, ...result.works] : result.works;
+  syncInteractionIds(result.works, append);
   mergeUsers(result.users);
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
+}
+
+function syncInteractionIds(works: HomeWork[], append: boolean) {
+  const nextLikes = append ? new Set(likedWorkIds.value) : new Set<number>();
+  const nextFavorites = append ? new Set(favoritedWorkIds.value) : new Set<number>();
+  works.forEach((work) => {
+    if (work.liked) nextLikes.add(work.id);
+    else nextLikes.delete(work.id);
+    if (work.favorited) nextFavorites.add(work.id);
+    else nextFavorites.delete(work.id);
+  });
+  likedWorkIds.value = nextLikes;
+  favoritedWorkIds.value = nextFavorites;
 }
 
 function syncSideMessageBadge() {

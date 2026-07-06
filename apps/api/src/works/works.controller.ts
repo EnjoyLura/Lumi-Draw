@@ -12,19 +12,22 @@ import { WorksService } from "./works.service";
 export class WorksController {
   constructor(private readonly works: WorksService) {}
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get("feed")
-  feed(@Query() query: FeedQueryDto) {
-    return this.works.feed(query.tab, query.page, query.pageSize);
+  feed(@CurrentUser() user: { id: number } | undefined, @Query() query: FeedQueryDto) {
+    return this.works.feed(query.tab, query.page, query.pageSize, user?.id);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get("plaza")
-  plaza(@Query() query: PlazaQueryDto) {
-    return this.works.plaza(query.categoryId, query.sort, query.page, query.pageSize);
+  plaza(@CurrentUser() user: { id: number } | undefined, @Query() query: PlazaQueryDto) {
+    return this.works.plaza(query.categoryId, query.sort, query.page, query.pageSize, user?.id);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get("search")
-  search(@Query() query: SearchQueryDto) {
-    return this.works.search(query.keyword, query.page, query.pageSize);
+  search(@CurrentUser() user: { id: number } | undefined, @Query() query: SearchQueryDto) {
+    return this.works.search(query.keyword, query.page, query.pageSize, user?.id);
   }
 
   @ApiBearerAuth()

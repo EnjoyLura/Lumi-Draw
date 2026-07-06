@@ -39,6 +39,8 @@ export interface HomeWork {
   likes: number;
   published: boolean;
   status?: string;
+  liked?: boolean;
+  favorited?: boolean;
 }
 
 export const homeBanners: HomeBanner[] = [

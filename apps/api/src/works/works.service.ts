@@ -26,30 +26,59 @@ function toCard(work: WorkWithAuthor) {
     prompt: work.prompt,
     ratio: work.ratio,
     likes: work.likes,
+    favorites: work.favorites,
+    remakes: work.remakes,
     author: author(work.user)
   };
+}
+
+async function withInteractionState(prisma: PrismaService, userId: number | undefined, cards: ReturnType<typeof toCard>[]) {
+  if (!userId || cards.length === 0) return cards;
+
+  const interactions = await prisma.workInteraction.findMany({
+    where: {
+      userId,
+      workId: { in: cards.map((card) => card.id) },
+      type: { in: ["like", "favorite"] }
+    },
+    select: { workId: true, type: true }
+  });
+  const likedIds = new Set(interactions.filter((item) => item.type === "like").map((item) => item.workId));
+  const favoritedIds = new Set(interactions.filter((item) => item.type === "favorite").map((item) => item.workId));
+  return cards.map((card) => ({
+    ...card,
+    liked: likedIds.has(card.id),
+    favorited: favoritedIds.has(card.id)
+  }));
 }
 
 @Injectable()
 export class WorksService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async listCards(where: Prisma.WorkWhereInput, orderBy: Prisma.WorkOrderByWithRelationInput[], page: number, pageSize: number) {
+  private async listCards(
+    where: Prisma.WorkWhereInput,
+    orderBy: Prisma.WorkOrderByWithRelationInput[],
+    page: number,
+    pageSize: number,
+    currentUserId?: number
+  ) {
     const [rows, total] = await Promise.all([
       this.prisma.work.findMany({ where, orderBy, include: { user: true }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    return buildPage(rows.map(toCard), total, page, pageSize);
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map(toCard));
+    return buildPage(items, total, page, pageSize);
   }
 
-  feed(tab: "recommend" | "latest", page: number, pageSize: number) {
+  feed(tab: "recommend" | "latest", page: number, pageSize: number, currentUserId?: number) {
     if (tab === "latest") {
-      return this.listCards(PUBLIC_WHERE, [{ createdAt: "desc" }], page, pageSize);
+      return this.listCards(PUBLIC_WHERE, [{ createdAt: "desc" }], page, pageSize, currentUserId);
     }
-    return this.listCards({ ...PUBLIC_WHERE, recommend: true }, [{ likes: "desc" }, { id: "desc" }], page, pageSize);
+    return this.listCards({ ...PUBLIC_WHERE, recommend: true }, [{ likes: "desc" }, { id: "desc" }], page, pageSize, currentUserId);
   }
 
-  async plaza(categoryId: number | undefined, sort: "hot" | "latest", page: number, pageSize: number) {
+  async plaza(categoryId: number | undefined, sort: "hot" | "latest", page: number, pageSize: number, currentUserId?: number) {
     const where: Prisma.WorkWhereInput = { ...PUBLIC_WHERE };
     if (categoryId) {
       const category = await this.prisma.category.findUnique({ where: { id: categoryId } });
@@ -59,16 +88,16 @@ export class WorksService {
     }
     const orderBy: Prisma.WorkOrderByWithRelationInput[] =
       sort === "hot" ? [{ likes: "desc" }, { id: "desc" }] : [{ createdAt: "desc" }];
-    return this.listCards(where, orderBy, page, pageSize);
+    return this.listCards(where, orderBy, page, pageSize, currentUserId);
   }
 
-  search(keyword: string | undefined, page: number, pageSize: number) {
+  search(keyword: string | undefined, page: number, pageSize: number, currentUserId?: number) {
     const kw = (keyword ?? "").trim();
     const where: Prisma.WorkWhereInput = { ...PUBLIC_WHERE };
     if (kw) {
       where.OR = [{ title: { contains: kw } }, { prompt: { contains: kw } }];
     }
-    return this.listCards(where, [{ likes: "desc" }, { id: "desc" }], page, pageSize);
+    return this.listCards(where, [{ likes: "desc" }, { id: "desc" }], page, pageSize, currentUserId);
   }
 
   async detail(id: number, currentUserId?: number) {

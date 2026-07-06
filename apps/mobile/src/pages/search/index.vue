@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { homeUsers as mockHomeUsers, homeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searchData";
@@ -9,6 +10,7 @@ import { fetchHotSearches, searchWorks } from "./searchService";
 const PAGE_SIZE = 12;
 const SEARCH_HISTORY_KEY = "lumi-search-history";
 const { useMockData } = useDataMode();
+const { isLoggedIn } = useAuth();
 const keyword = ref("");
 const submittedKeyword = ref("");
 const searchHistory = ref([...initialSearchHistory]);
@@ -41,7 +43,10 @@ const hasMore = computed(() => !useMockData.value && pageState.hasMore);
 
 onShow(() => {
   loadSearchHistory();
-  if (lastMockMode === useMockData.value) return;
+  if (lastMockMode === useMockData.value) {
+    if (!useMockData.value && submittedKeyword.value) void runBackendSearch(submittedKeyword.value, 1, false);
+    return;
+  }
   lastMockMode = useMockData.value;
   if (useMockData.value) {
     userList.value = mockHomeUsers;
@@ -104,7 +109,7 @@ async function runBackendSearch(query: string, page = 1, append = false) {
   isLoading.value = !append;
   isLoadingMore.value = append;
   try {
-    const result = await searchWorks(query, page, PAGE_SIZE);
+    const result = await searchWorks(query, page, PAGE_SIZE, { skipAuth: !isLoggedIn.value });
     backendResults.value = append ? [...backendResults.value, ...result.works] : result.works;
     mergeUsers(result.users);
     pageState.page = result.page;
@@ -239,7 +244,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="likes">♡ {{ work.likes }}</view>
+                  <view class="likes" :class="{ liked: work.liked }">{{ work.liked ? "♥" : "♡" }} {{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -255,7 +260,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="likes">♡ {{ work.likes }}</view>
+                  <view class="likes" :class="{ liked: work.liked }">{{ work.liked ? "♥" : "♡" }} {{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -577,6 +582,10 @@ function handleReachBottom() {
   font-size: 13px;
   font-weight: 600;
   color: var(--fg-muted);
+}
+
+.likes.liked {
+  color: var(--rose);
 }
 
 .loading-state,

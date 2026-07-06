@@ -29,6 +29,8 @@ interface BackendWork {
   prompt: string;
   ratio: string;
   likes: number;
+  liked?: boolean;
+  favorited?: boolean;
   author: BackendAuthor;
 }
 
@@ -66,7 +68,9 @@ function toWork(item: BackendWork): HomeWork {
     prompt: item.prompt,
     ratio: item.ratio || "1:1",
     likes: item.likes,
-    published: true
+    published: true,
+    liked: item.liked,
+    favorited: item.favorited
   };
 }
 
@@ -86,6 +90,7 @@ export async function fetchPlazaWorks(params: {
   sort: "hot" | "latest";
   page: number;
   pageSize: number;
+  skipAuth?: boolean;
 }): Promise<PlazaWorkPage> {
   const query = [
     `sort=${encodeURIComponent(params.sort)}`,
@@ -96,7 +101,7 @@ export async function fetchPlazaWorks(params: {
     .filter(Boolean)
     .join("&");
 
-  const result = await api.get<PageResult<BackendWork>>(`/works/plaza?${query}`, { skipAuth: true });
+  const result = await api.get<PageResult<BackendWork>>(`/works/plaza?${query}`, { skipAuth: params.skipAuth });
   const users = result.items.map((item) => toUser(item.author));
   return {
     works: result.items.map(toWork),
