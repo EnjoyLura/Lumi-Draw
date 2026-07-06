@@ -76,12 +76,11 @@ const genderIcon = computed(() => (user.value.gender === "female" ? "♀" : "♂
 onLoad((query) => {
   const id = Number(query?.id || 1);
   if (Number.isFinite(id) && id > 0) userId.value = id;
-  lastMode = useMockData.value;
-  void loadProfile();
+  lastMode = null;
 });
 
 onShow(() => {
-  if (lastMode === useMockData.value) return;
+  if (useMockData.value && lastMode === useMockData.value) return;
   lastMode = useMockData.value;
   void loadProfile();
 });

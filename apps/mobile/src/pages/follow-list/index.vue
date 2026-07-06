@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -20,6 +20,7 @@ const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+let lastMode: boolean | null = null;
 
 const others = computed(() => profileUsers.filter((user) => user.id !== 1));
 const list = computed(() => {
@@ -32,6 +33,11 @@ const list = computed(() => {
 onLoad((query) => {
   type.value = query?.type === "followers" ? "followers" : "following";
   uni.setNavigationBarTitle({ title: type.value === "following" ? "我的关注" : "我的粉丝" });
+});
+
+onShow(() => {
+  if (useMockData.value && lastMode === useMockData.value) return;
+  lastMode = useMockData.value;
   void loadList();
 });
 
