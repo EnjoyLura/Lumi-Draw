@@ -28,6 +28,7 @@ const phoneTagText = computed(() => {
   if (!isLoggedIn.value) return "未登录";
   return phone.value ? "已绑定" : "未绑定";
 });
+const phoneTagClass = computed(() => (isLoggedIn.value && phone.value ? "tag-mint" : "tag-muted"));
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
     if (item.key === "version") return { ...item, meta: versionMeta.value };
@@ -194,6 +195,7 @@ async function handleLoginAction() {
   }
 
   await logout();
+  phone.value = "";
   uni.showToast({ title: "已退出登录", icon: "none" });
 }
 
@@ -201,6 +203,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
+    await loadSettingsProfile();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -222,7 +225,7 @@ async function login() {
           <view class="list-row" @click="tapPhone">
             <view class="lr-icon mint">●</view>
             <view class="lr-text">{{ phoneText }}</view>
-            <view class="tag" :class="phone ? 'tag-mint' : 'tag-muted'">{{ isSavingPhone ? "保存中" : phoneTagText }}</view>
+            <view class="tag" :class="phoneTagClass">{{ isSavingPhone ? "保存中" : phoneTagText }}</view>
           </view>
         </view>
 
