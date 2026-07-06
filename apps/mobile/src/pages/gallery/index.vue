@@ -679,7 +679,7 @@ function openWork(work: HomeWork) {
           <view class="spinner" />
         </view>
 
-        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="slideDirection === 'left' ? 'slide-left' : 'slide-right'">
+        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="slideDirection === 'left' ? 'wf-slide-left' : 'wf-slide-right'">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
@@ -1226,12 +1226,12 @@ function openWork(work: HomeWork) {
   gap: 8px;
 }
 
-.waterfall.slide-left {
-  animation: wf-left 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.wf-slide-left {
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.waterfall.slide-right {
-  animation: wf-right 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.wf-slide-right {
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-column {
@@ -1248,7 +1248,6 @@ function openWork(work: HomeWork) {
   border: 1px solid var(--card-border);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
-  animation: work-in 0.42s ease both;
 }
 
 .work-img {
@@ -1592,7 +1591,7 @@ function openWork(work: HomeWork) {
   margin-top: 2px;
 }
 
-@keyframes wf-left {
+@keyframes slideInLeft {
   from {
     opacity: 0;
     transform: translateX(-30px);
@@ -1604,7 +1603,7 @@ function openWork(work: HomeWork) {
   }
 }
 
-@keyframes wf-right {
+@keyframes slideInRight {
   from {
     opacity: 0;
     transform: translateX(30px);
@@ -1613,18 +1612,6 @@ function openWork(work: HomeWork) {
   to {
     opacity: 1;
     transform: translateX(0);
-  }
-}
-
-@keyframes work-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

@@ -52,6 +52,7 @@ const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
+const isSwitchingWorks = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
@@ -64,6 +65,7 @@ const feedState = reactive({
   new: { page: 1, hasMore: false }
 });
 
+let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = null;
@@ -107,6 +109,7 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
 });
@@ -415,15 +418,21 @@ function openWorkDetail(workId: number) {
 }
 
 function switchHomeTab(tab: HomeTab) {
-  if (tab === selectedHomeTab.value || isPageLoading.value) return;
+  if (tab === selectedHomeTab.value || isPageLoading.value || isSwitchingWorks.value) return;
 
   const direction = tab === "new" && selectedHomeTab.value === "recommend" ? "left" : "right";
   selectedHomeTab.value = tab;
   visibleWorkCount.value = 8;
+  isSwitchingWorks.value = true;
+  worksSlideClass.value = "";
 
-  renderedHomeTab.value = tab;
-  worksRenderKey.value += 1;
-  worksSlideClass.value = direction === "left" ? "slide-left" : "slide-right";
+  if (slideTimer) clearTimeout(slideTimer);
+  slideTimer = setTimeout(() => {
+    renderedHomeTab.value = tab;
+    worksRenderKey.value += 1;
+    worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
+    isSwitchingWorks.value = false;
+  }, 300);
 }
 
 async function loadMoreFeed() {
@@ -452,7 +461,7 @@ async function loadMoreFeed() {
 }
 
 function handleReachBottom() {
-  if (isLoadingMore.value) return;
+  if (isSwitchingWorks.value || isLoadingMore.value) return;
 
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
@@ -690,7 +699,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <view class="works-stage">
-          <view v-if="isPageLoading" class="works-loading">
+          <view v-if="isPageLoading || isSwitchingWorks" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
@@ -1245,12 +1254,12 @@ function getRatioClass(ratio: string) {
   padding: 0 8px;
 }
 
-.waterfall.slide-left {
-  animation: wf-left 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.wf-slide-left {
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.waterfall.slide-right {
-  animation: wf-right 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+.waterfall.wf-slide-right {
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .waterfall-col {
@@ -1621,7 +1630,7 @@ function getRatioClass(ratio: string) {
   }
 }
 
-@keyframes wf-left {
+@keyframes slideInLeft {
   from {
     opacity: 0;
     transform: translateX(-30px);
@@ -1633,7 +1642,7 @@ function getRatioClass(ratio: string) {
   }
 }
 
-@keyframes wf-right {
+@keyframes slideInRight {
   from {
     opacity: 0;
     transform: translateX(30px);
