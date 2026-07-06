@@ -16,8 +16,7 @@ const emit = defineEmits<{
     <view class="login-logo">✎</view>
     <view class="login-title">登录露米绘画</view>
     <view class="login-sub">登录后即可体验AI创作、收藏作品等功能</view>
-    <button class="login-primary" @click="emit('login')">▣ 手机号一键登录</button>
-    <button class="login-wechat" @click="emit('login')">微信登录</button>
+    <button class="login-primary" @click="emit('login')">▣ 微信一键登录</button>
     <view class="login-agree">
       登录即代表同意 <text>用户协议</text> 和 <text>隐私政策</text>
     </view>
@@ -87,8 +86,7 @@ const emit = defineEmits<{
   color: var(--fg-muted);
 }
 
-.login-primary,
-.login-wechat {
+.login-primary {
   width: 100%;
   height: 44px;
   margin-bottom: 12px;
@@ -101,12 +99,6 @@ const emit = defineEmits<{
 .login-primary {
   color: #fff;
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
-}
-
-.login-wechat {
-  color: #07c160;
-  background: var(--bg-soft);
-  border: 1px solid var(--card-border);
 }
 
 .login-agree {
