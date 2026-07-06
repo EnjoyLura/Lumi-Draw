@@ -70,6 +70,10 @@ const memberStatusText = computed(() => {
   return `${memberPlanName.value || "会员"} · 有效期至 ${memberExpireAt.value.slice(0, 10)}`;
 });
 
+function clampPlanIndex() {
+  selectedPlanIdx.value = plans.value.length ? Math.max(0, Math.min(selectedPlanIdx.value, plans.value.length - 1)) : 0;
+}
+
 onShow(() => {
   if (lastMockMode !== useMockData.value) {
     lastMockMode = useMockData.value;
@@ -91,7 +95,7 @@ async function loadMembership() {
   try {
     const nextPlans = await fetchMemberPlans();
     plans.value = nextPlans;
-    selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
+    clampPlanIndex();
 
     resetMemberStatus();
     if (!isLoggedIn.value) return;

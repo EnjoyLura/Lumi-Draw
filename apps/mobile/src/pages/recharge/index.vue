@@ -40,6 +40,10 @@ const customValue = computed(() => Number.parseFloat(customAmount.value));
 const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 1 ? 0 : Math.floor(customValue.value * 10)));
 const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
 
+function clampTierIndex() {
+  selectedTierIdx.value = tiers.value.length ? Math.max(0, Math.min(selectedTierIdx.value, tiers.value.length - 1)) : 0;
+}
+
 onShow(() => {
   if (lastMockMode !== useMockData.value) {
     lastMockMode = useMockData.value;
@@ -97,7 +101,7 @@ async function loadPageData() {
     spendList.value = nextSpend.items;
     recordState.earn = { page: nextEarn.page, hasMore: nextEarn.hasMore };
     recordState.spend = { page: nextSpend.page, hasMore: nextSpend.hasMore };
-    selectedTierIdx.value = Math.min(selectedTierIdx.value, tiers.value.length - 1);
+    clampTierIndex();
   } catch {
     loadFailed.value = true;
     uni.showToast({ title: "积分数据加载失败", icon: "none" });
