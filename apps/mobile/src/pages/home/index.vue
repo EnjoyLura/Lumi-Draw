@@ -191,7 +191,7 @@ async function loadHomeData() {
 }
 
 function showUnsupportedBanner(title: string) {
-  uni.showToast({ title: `${title}暂不可用`, icon: "none" });
+  uni.showToast({ title: `${title}入口未配置`, icon: "none" });
 }
 
 function currentWeekKey() {
@@ -272,6 +272,48 @@ const bannerActionRoutes: Record<string, string> = {
   反推提示词: "/pages/reverse-prompt/index"
 };
 
+const registeredPageRoutes = new Set([
+  "/pages/home/index",
+  "/pages/create/index",
+  "/pages/plaza/index",
+  "/pages/gallery/index",
+  "/pages/generation-history/index",
+  "/pages/mine/index",
+  "/pages/all-gameplays/index",
+  "/pages/search/index",
+  "/pages/reverse-prompt/index",
+  "/pages/work-detail/index",
+  "/pages/report/index",
+  "/pages/user-profile/index",
+  "/pages/recharge/index",
+  "/pages/checkin/index",
+  "/pages/invite/index",
+  "/pages/membership/index",
+  "/pages/messages/index",
+  "/pages/message-detail/index",
+  "/pages/settings/index",
+  "/pages/agreement/index",
+  "/pages/edit-profile/index",
+  "/pages/feedback/index",
+  "/pages/changelog/index",
+  "/pages/publish/index",
+  "/pages/edit-work/index",
+  "/pages/drafts/index",
+  "/pages/history/index",
+  "/pages/follow-list/index"
+]);
+
+function resolvePageAction(action: string) {
+  const value = action.trim();
+  if (!value) return "";
+  const route = bannerActionRoutes[value];
+  if (route) return route;
+  if (!value.startsWith("/pages/")) return "";
+
+  const [path] = value.split("?");
+  return registeredPageRoutes.has(path) ? value : "";
+}
+
 function selectGameplay(name: string) {
   uni.navigateTo({
     url: `/pages/create/index?gameplay=${encodeURIComponent(name)}`
@@ -321,7 +363,7 @@ function goAllGameplays() {
 }
 
 function handleBannerTap(action: string, title: string) {
-  const route = bannerActionRoutes[action.trim()];
+  const route = resolvePageAction(action);
   if (route) {
     uni.navigateTo({ url: route });
     return;
