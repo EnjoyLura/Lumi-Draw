@@ -1,6 +1,12 @@
 // 管理后台 API 客户端：统一 base、管理员 token、响应封装与 401 处理。
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "https://ejoyflie.cloud/api";
+const DEFAULT_API_BASE = "https://ejoyflie.cloud/api";
 const TOKEN_KEY = "lumi-admin-token";
+
+function getApiBase() {
+  const envBase = import.meta.env.VITE_API_BASE as string | undefined;
+  const fallback = import.meta.env.MODE === "development" ? "/api" : DEFAULT_API_BASE;
+  return (envBase || fallback).replace(/\/+$/, "");
+}
 
 export function getAdminToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
@@ -26,7 +32,7 @@ interface Envelope<T> {
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = getAdminToken();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${getApiBase()}${path}`, {
     method,
     headers: {
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
