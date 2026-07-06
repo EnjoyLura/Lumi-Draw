@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -24,6 +24,7 @@ const isSaving = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 const loadFailed = ref(false);
+let lastLoadKey = "";
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
@@ -33,10 +34,54 @@ function leaveEditWorkPage() {
 }
 
 onLoad((query) => {
-  const id = Number(query?.id || 0);
-  if (Number.isFinite(id) && id > 0) workId.value = id;
+  workId.value = resolveRouteId(query);
   void loadWork();
 });
+
+onShow(() => {
+  const nextId = resolveRouteId();
+  const nextLoadKey = `${nextId}-${useMockData.value}-${isLoggedIn.value}`;
+  if (nextId !== workId.value) workId.value = nextId;
+  if (nextLoadKey === lastLoadKey) return;
+  void loadWork();
+});
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextId = resolveRouteId();
+  if (nextId === workId.value) return;
+  workId.value = nextId;
+  void loadWork();
+}
+
+function resolveRouteId(query?: Record<string, unknown>) {
+  const queryId = Number(query?.id || 0);
+  if (Number.isFinite(queryId) && queryId > 0) return queryId;
+
+  if (typeof window !== "undefined") {
+    const hashId = Number(window.location.hash.match(/[?&]id=([^&]+)/)?.[1] || 0);
+    if (Number.isFinite(hashId) && hashId > 0) return hashId;
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageId = Number(current?.options?.id || current?.$page?.options?.id || 0);
+  return Number.isFinite(pageId) && pageId > 0 ? pageId : 0;
+}
 
 function clearWork() {
   image.value = "";
@@ -66,6 +111,7 @@ function applyWork(work: {
 }
 
 async function loadWork() {
+  lastLoadKey = `${workId.value}-${useMockData.value}-${isLoggedIn.value}`;
   loadFailed.value = false;
   if (!workId.value) {
     clearWork();

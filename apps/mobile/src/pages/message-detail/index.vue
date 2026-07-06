@@ -76,7 +76,12 @@ function resolveRouteType(query?: Record<string, unknown>) {
 async function syncCategory(type: MessageCategoryKey, force: boolean) {
   const nextCategory = getMessageCategory(type);
   const changed = nextCategory.key !== category.value.key;
-  if (!force && !changed && hasLoaded.value && useMockData.value) return;
+  if (!force && !changed && hasLoaded.value && useMockData.value) {
+    loginRequired.value = false;
+    loadFailed.value = false;
+    isLoading.value = false;
+    return;
+  }
 
   category.value = nextCategory;
   refreshNavigationTitle(nextCategory.title);
