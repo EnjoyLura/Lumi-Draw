@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { goRootTab } from "../../services/tabNavigation";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
-
-const tabEnterClass = resolveTabEnterClass("pages/plaza/index");
 
 type SideQuick = {
   icon: string;
@@ -35,6 +33,7 @@ const filterOpen = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
 const { isLoggedIn, currentUser, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
+const { useMockData } = useDataMode();
 const EMPTY_DRAWER_PROFILE: MineUser = {
   name: "未同步用户",
   avatar: "U",
@@ -111,21 +110,20 @@ const renderedTab = ref<PlazaTab>("recommend");
 const activeCategoryIndex = ref(0);
 const lastCategoryIndex = ref(0);
 const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) => ({ name })));
-const userList = ref<HomeUser[]>([]);
-const workList = ref<HomeWork[]>([]);
+const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : []);
+const workList = ref<HomeWork[]>(useMockData.value ? mockHomeWorks : []);
 const likedWorkIds = ref<Set<number>>(new Set());
 const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const drawerProfile = ref<MineUser | null>(null);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
-const isLoading = ref(false);
+const isLoading = ref(!useMockData.value);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const slideDirection = ref<"left" | "right">("left");
 const contentSlideClass = ref("");
 const renderKey = ref(0);
-const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((item) => item.label)]);
@@ -147,7 +145,7 @@ const sideRows = ref<SideRow[]>([
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
-let lastMockMode: boolean | null = null;
+let lastMockMode: boolean | null = useMockData.value ? true : null;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
@@ -198,6 +196,10 @@ onBeforeUnmount(() => {
 });
 
 function resetMockPlazaData() {
+  if (loadingTimer) clearTimeout(loadingTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isLoading.value = false;
+  isLoadingMore.value = false;
   loadFailed.value = false;
   drawerProfile.value = null;
   syncSideMessageBadge();
@@ -367,7 +369,7 @@ async function reloadPlazaData() {
 }
 
 function goHome() {
-  uni.redirectTo({ url: "/pages/home/index" });
+  goRootTab("/pages/home/index");
 }
 
 function goCreate() {
@@ -375,11 +377,11 @@ function goCreate() {
 }
 
 function goGallery() {
-  uni.redirectTo({ url: "/pages/gallery/index" });
+  goRootTab("/pages/gallery/index");
 }
 
 function goMine() {
-  uni.redirectTo({ url: "/pages/mine/index" });
+  goRootTab("/pages/mine/index");
 }
 
 function goSearch() {
@@ -621,7 +623,7 @@ function handleReachBottom() {
 </script>
 
 <template>
-  <view class="plaza-page" :class="[tabEnterClass, themeClass]">
+  <view class="plaza-page" :class="themeClass">
     <scroll-view class="plaza-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="plaza-content">
         <view class="nav-header">

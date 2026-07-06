@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { goRootTab } from "../../services/tabNavigation";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
 const { isLoggedIn, currentUser, login: commitLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
-const tabEnterClass = resolveTabEnterClass("pages/mine/index");
 const EMPTY_MINE_USER = {
   ...mineUser,
   name: "",
@@ -21,10 +20,10 @@ const EMPTY_MINE_USER = {
   credits: 0
 };
 const showLoginSheet = ref(false);
-const displayUser = ref(EMPTY_MINE_USER);
+const displayUser = ref(useMockData.value ? mineUser : EMPTY_MINE_USER);
 const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
-let lastLoadKey = "";
+let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}` : "";
 
 function resetRealMineUser() {
   displayUser.value = EMPTY_MINE_USER;
@@ -52,6 +51,7 @@ onShow(() => {
 
 async function loadProfile() {
   if (useMockData.value) {
+    isLoadingProfile.value = false;
     displayUser.value = mineUser;
     unreadMessageCount.value = 0;
     return;
@@ -81,11 +81,11 @@ async function loadProfile() {
 }
 
 function goHome() {
-  uni.redirectTo({ url: "/pages/home/index" });
+  goRootTab("/pages/home/index");
 }
 
 function goPlaza() {
-  uni.redirectTo({ url: "/pages/plaza/index" });
+  goRootTab("/pages/plaza/index");
 }
 
 function goCreate() {
@@ -93,7 +93,7 @@ function goCreate() {
 }
 
 function goGallery() {
-  uni.redirectTo({ url: "/pages/gallery/index" });
+  goRootTab("/pages/gallery/index");
 }
 
 function handleProfileTap() {
@@ -188,7 +188,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="mine-page" :class="[tabEnterClass, themeClass]">
+  <view class="mine-page" :class="themeClass">
     <scroll-view class="mine-scroll" scroll-y>
       <view class="mine-content">
         <view class="profile-card">

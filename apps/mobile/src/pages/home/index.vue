@@ -16,18 +16,17 @@ import {
 } from "./homeData";
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
-import { resolveTabEnterClass } from "../../services/pageTransition";
 import { useTheme } from "../../services/theme";
+import { goRootTab } from "../../services/tabNavigation";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-
-const tabEnterClass = resolveTabEnterClass("pages/home/index");
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
 const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
+const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
 try {
@@ -39,24 +38,23 @@ try {
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
 const renderedHomeTab = ref<HomeTab>("recommend");
-const bannerList = ref<HomeBanner[]>([]);
-const announcementList = ref<HomeAnnouncement[]>([]);
-const gameplayList = ref<Gameplay[]>([]);
-const userList = ref<HomeUser[]>([]);
-const recommendWorks = ref<HomeWork[]>([]);
-const latestWorks = ref<HomeWork[]>([]);
+const bannerList = ref<HomeBanner[]>(useMockData.value ? mockHomeBanners : []);
+const announcementList = ref<HomeAnnouncement[]>(useMockData.value ? mockHomeAnnouncements : []);
+const gameplayList = ref<Gameplay[]>(useMockData.value ? mockGameplays : []);
+const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : []);
+const recommendWorks = ref<HomeWork[]>(useMockData.value ? mockHomeWorks : []);
+const latestWorks = ref<HomeWork[]>(useMockData.value ? [...mockHomeWorks].reverse() : []);
 const likedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const showLoginSheet = ref(false);
 const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
-const isPageLoading = ref(false);
+const isPageLoading = ref(!useMockData.value);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
-const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -66,7 +64,7 @@ const feedState = reactive({
 
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
-let lastMockMode: boolean | null = null;
+let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastInviteCode = "";
 
 const currentTabWorks = computed(() => {
@@ -144,6 +142,9 @@ function applyInviteCode(query?: Record<string, unknown>) {
 }
 
 function resetMockHomeData() {
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isPageLoading.value = false;
+  isLoadingMore.value = false;
   loadFailed.value = false;
   bannerList.value = mockHomeBanners;
   announcementList.value = mockHomeAnnouncements;
@@ -362,9 +363,7 @@ function goCreate() {
 }
 
 function goPlaza() {
-  uni.redirectTo({
-    url: "/pages/plaza/index"
-  });
+  goRootTab("/pages/plaza/index");
 }
 
 function goMessages() {
@@ -380,15 +379,11 @@ function goUserProfile(userId: number) {
 }
 
 function goGallery() {
-  uni.redirectTo({
-    url: "/pages/gallery/index"
-  });
+  goRootTab("/pages/gallery/index");
 }
 
 function goMine() {
-  uni.redirectTo({
-    url: "/pages/mine/index"
-  });
+  goRootTab("/pages/mine/index");
 }
 
 function goAllGameplays() {
@@ -577,7 +572,7 @@ function getRatioClass(ratio: string) {
 </script>
 
 <template>
-  <view class="home-page" :class="[tabEnterClass, themeClass]">
+  <view class="home-page" :class="themeClass">
     <scroll-view
       class="content-area"
       scroll-y

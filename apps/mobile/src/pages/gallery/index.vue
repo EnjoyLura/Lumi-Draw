@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
-import { resolveTabEnterClass } from "../../services/pageTransition";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { goRootTab } from "../../services/tabNavigation";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -27,8 +27,8 @@ import {
 } from "./galleryService";
 
 const PAGE_SIZE = 10;
-const tabEnterClass = resolveTabEnterClass("pages/gallery/index");
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { useMockData } = useDataMode();
 
 const EMPTY_PROFILE: GalleryUser = {
   id: 0,
@@ -69,12 +69,12 @@ try {
 
 const activeTab = ref<GalleryTab>("all");
 const renderedTab = ref<GalleryTab>("all");
-const works = ref<HomeWork[]>([]);
-const profile = ref(EMPTY_PROFILE);
-const genTasks = ref<GalleryGenTask[]>([]);
+const works = ref<HomeWork[]>(useMockData.value ? galleryWorks : []);
+const profile = ref(useMockData.value ? galleryUser : EMPTY_PROFILE);
+const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : []);
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
-const isLoading = ref(false);
+const isLoading = ref(!useMockData.value && isLoggedIn.value);
 const isLoadingMore = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
@@ -83,7 +83,6 @@ const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
 const contentSlideClass = ref("");
 const renderKey = ref(0);
-const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
@@ -104,7 +103,7 @@ const sideRows = ref<SideRow[]>([
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
-let lastLoadKey = "";
+let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
 const filteredWorks = computed(() => {
@@ -155,6 +154,10 @@ function getStatusForTab(tab = renderedTab.value) {
 }
 
 function resetMockGalleryData() {
+  if (loadingTimer) clearTimeout(loadingTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isLoading.value = false;
+  isLoadingMore.value = false;
   profile.value = galleryUser;
   works.value = galleryWorks;
   genTasks.value = galleryGenTasks;
@@ -315,11 +318,11 @@ async function reloadGalleryData() {
 }
 
 function goHome() {
-  uni.redirectTo({ url: "/pages/home/index" });
+  goRootTab("/pages/home/index");
 }
 
 function goPlaza() {
-  uni.redirectTo({ url: "/pages/plaza/index" });
+  goRootTab("/pages/plaza/index");
 }
 
 function goCreate() {
@@ -327,7 +330,7 @@ function goCreate() {
 }
 
 function goMine() {
-  uni.redirectTo({ url: "/pages/mine/index" });
+  goRootTab("/pages/mine/index");
 }
 
 function goSearch() {
@@ -589,7 +592,7 @@ function openWork(work: HomeWork) {
 </script>
 
 <template>
-  <view class="gallery-page" :class="[tabEnterClass, themeClass]">
+  <view class="gallery-page" :class="themeClass">
     <scroll-view class="gallery-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="header-bg">
         <view class="nav-header">

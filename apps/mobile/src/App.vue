@@ -94,38 +94,6 @@ uni-page-body {
   overflow-x: hidden;
 }
 
-.tab-in-right {
-  animation: tabInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-
-.tab-in-left {
-  animation: tabInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
-  backface-visibility: hidden;
-  will-change: transform;
-}
-
-@keyframes tabInRight {
-  from {
-    transform: translate3d(36px, 0, 0);
-  }
-
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes tabInLeft {
-  from {
-    transform: translate3d(-36px, 0, 0);
-  }
-
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
 .page-enter {
   animation: pageEnter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
   backface-visibility: hidden;
@@ -184,6 +152,20 @@ uni-page-body {
 
 .tab-item:active {
   transform: scale(0.96);
+}
+
+.tab-item.active .tab-icon {
+  animation: tabIconSettle 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes tabIconSettle {
+  from {
+    transform: translate3d(0, 2px, 0) scale(0.94);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 .theme-dark,
