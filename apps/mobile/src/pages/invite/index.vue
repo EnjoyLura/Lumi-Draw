@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -16,6 +17,7 @@ const rewardPerInvite = ref(50);
 const totalReward = ref(mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0));
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 let lastMockMode: boolean | null = null;
 
 onShow(() => {
@@ -31,9 +33,22 @@ async function loadInvite() {
     invitedUsers.value = mockInvitedUsers;
     rewardPerInvite.value = 50;
     totalReward.value = mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0);
+    loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    inviteCode.value = "";
+    invitedUsers.value = [];
+    rewardPerInvite.value = 0;
+    totalReward.value = 0;
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  inviteCode.value = "";
+  invitedUsers.value = [];
+  rewardPerInvite.value = 0;
+  totalReward.value = 0;
 
   isLoading.value = true;
   try {
@@ -92,7 +107,14 @@ function shareInvite() {
 <template>
   <view class="invite-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="page-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后查看邀请"
+        subtitle="登录后可以获取专属邀请码，并查看邀请奖励到账记录。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else class="page-content">
         <view class="hero-card">
           <view class="hero-icon">◆</view>
           <view class="hero-title">邀请好友，双方得积分</view>

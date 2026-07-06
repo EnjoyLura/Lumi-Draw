@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -26,6 +27,7 @@ const todayPulse = ref(false);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 let lastMockMode: boolean | null = null;
 
 function buildMilestoneStates(streak: number) {
@@ -70,9 +72,22 @@ async function loadStatus() {
     nextCredits.value = 10;
     signedDays.value = buildVisibleSignedDays(checkinStreak.value, false);
     milestoneStates.value = buildMilestoneStates(checkinStreak.value);
+    loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    checkinDone.value = false;
+    checkinStreak.value = 0;
+    signedDays.value = [];
+    milestoneStates.value = buildMilestoneStates(0);
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  checkinDone.value = false;
+  checkinStreak.value = 0;
+  signedDays.value = [];
+  milestoneStates.value = buildMilestoneStates(0);
 
   isLoading.value = true;
   try {
@@ -162,7 +177,14 @@ function claimMilestone(item: Milestone) {
 <template>
   <view class="checkin-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="page-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后参与每日签到"
+        subtitle="登录后可以同步连续签到天数，并领取真实积分奖励。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else class="page-content">
         <view class="streak-card">
           <view class="streak-label">{{ isLoading ? "同步签到状态中" : "已连续签到" }}</view>
           <view class="streak-num" :class="{ pulse: streakPulse }">

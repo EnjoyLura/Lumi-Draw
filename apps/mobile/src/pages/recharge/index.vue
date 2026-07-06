@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -25,6 +26,7 @@ const isLoading = ref(false);
 const isLoadingMoreRecords = ref(false);
 const isPaying = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 const recordState = reactive({
   earn: { page: 1, hasMore: false },
   spend: { page: 1, hasMore: false }
@@ -53,9 +55,26 @@ async function loadPageData() {
     spendList.value = spendRecords;
     recordState.earn = { page: 1, hasMore: false };
     recordState.spend = { page: 1, hasMore: false };
+    loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    balance.value = 0;
+    tiers.value = [];
+    earnList.value = [];
+    spendList.value = [];
+    recordState.earn = { page: 1, hasMore: false };
+    recordState.spend = { page: 1, hasMore: false };
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  balance.value = 0;
+  tiers.value = [];
+  earnList.value = [];
+  spendList.value = [];
+  recordState.earn = { page: 1, hasMore: false };
+  recordState.spend = { page: 1, hasMore: false };
 
   isLoading.value = true;
   try {
@@ -174,7 +193,14 @@ function confirmCustomRecharge() {
 <template>
   <view class="recharge-page">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
-      <view class="page-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后查看积分账户"
+        subtitle="登录后可以查看真实余额、交易记录并进行充值。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else class="page-content">
         <view class="balance-card">
           <view class="balance-label">当前积分余额</view>
           <view class="balance-num">{{ balance }}</view>

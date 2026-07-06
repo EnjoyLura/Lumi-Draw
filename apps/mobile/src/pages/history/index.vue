@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -12,6 +13,7 @@ const realWorks = ref<HomeWork[]>([]);
 const { useMockData } = useDataMode();
 const { login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 let lastMode: boolean | null = null;
 
 const sourceWorks = computed(() => (useMockData.value ? homeWorks : realWorks.value));
@@ -34,15 +36,22 @@ async function loadHistory() {
   cleared.value = false;
   if (useMockData.value) {
     realWorks.value = [];
+    loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    realWorks.value = [];
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
   try {
     const page = await fetchHistory();
     realWorks.value = page.items.map(toHomeWork);
     cleared.value = realWorks.value.length === 0;
   } catch {
     realWorks.value = [];
+    cleared.value = true;
     uni.showToast({ title: "浏览记录加载失败", icon: "none" });
   }
 }
@@ -93,7 +102,14 @@ function goHome() {
 <template>
   <view class="history-page">
     <scroll-view class="page-scroll" scroll-y>
-      <template v-if="!cleared">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后查看浏览记录"
+        subtitle="这里会保存你看过的作品，方便回到喜欢的灵感。"
+        @login="showLoginSheet = true"
+      />
+
+      <template v-else-if="!cleared">
         <view class="toolbar">
           <button class="clear-btn" @click="clearHistory">清空记录</button>
         </view>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -17,6 +18,7 @@ const backendMessages = ref<MessageItem[]>([]);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
 const hasLoaded = ref(false);
+const loginRequired = ref(false);
 
 const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
@@ -83,9 +85,16 @@ async function syncCategory(type: MessageCategoryKey, force: boolean) {
 }
 
 async function loadMessages(type: MessageCategoryKey) {
-  if (useMockData.value) return;
+  if (useMockData.value) {
+    loginRequired.value = false;
+    return;
+  }
   backendMessages.value = [];
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
 
   isLoading.value = true;
   try {
@@ -122,7 +131,14 @@ async function login() {
   <view class="message-detail-page">
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
-        <view v-if="isLoading" class="empty-state">
+        <LumiLoginRequired
+          v-if="!useMockData && loginRequired"
+          title="登录后查看消息详情"
+          subtitle="登录后即可查看并同步当前消息分类。"
+          @login="showLoginSheet = true"
+        />
+
+        <view v-else-if="isLoading" class="empty-state">
           <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
           <view class="empty-title">消息加载中</view>
         </view>

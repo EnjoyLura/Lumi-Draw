@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -15,6 +16,7 @@ const readKeys = ref<Set<string>>(new Set());
 const backendRows = ref<MessageCategoryRow[]>([]);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 
 const categoryRows = computed(() => {
   if (!useMockData.value) return backendRows.value;
@@ -33,8 +35,17 @@ onShow(() => {
 });
 
 async function loadMessages() {
-  if (useMockData.value) return;
-  if (!ensureLogin()) return;
+  if (useMockData.value) {
+    loginRequired.value = false;
+    return;
+  }
+  if (!ensureLogin()) {
+    backendRows.value = [];
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  backendRows.value = [];
 
   isLoading.value = true;
   try {
@@ -74,7 +85,13 @@ function openCategory(key: MessageCategoryKey) {
   <view class="messages-page">
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
-        <view v-if="isLoading" class="empty-row">消息同步中...</view>
+        <LumiLoginRequired
+          v-if="!useMockData && loginRequired"
+          title="登录后查看消息"
+          subtitle="点赞、评论、系统通知和审核结果都会同步到这里。"
+          @login="showLoginSheet = true"
+        />
+        <view v-else-if="isLoading" class="empty-row">消息同步中...</view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
           <view class="category-icon" :style="{ background: category.gradient }">{{ category.icon }}</view>
           <view class="category-main">

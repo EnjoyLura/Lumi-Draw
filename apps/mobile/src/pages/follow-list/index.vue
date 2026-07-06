@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -18,6 +19,7 @@ const pageState = reactive({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
 const { login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 
 const others = computed(() => profileUsers.filter((user) => user.id !== 1));
 const list = computed(() => {
@@ -55,9 +57,17 @@ async function loadList() {
     realUsers.value = [];
     pageState.page = 1;
     pageState.hasMore = false;
+    loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    realUsers.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
   isLoading.value = true;
   try {
     const page = await fetchFollowList(type.value, 1, PAGE_SIZE);
@@ -150,7 +160,14 @@ function goHome() {
 <template>
   <view class="follow-page">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
-      <view v-if="isLoading" class="empty-state">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        :title="type === 'following' ? '登录后查看我的关注' : '登录后查看我的粉丝'"
+        subtitle="登录后即可同步关注关系和创作者动态。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else-if="isLoading" class="empty-state">
         <view class="empty-icon">♡</view>
         <view class="empty-title">正在加载</view>
       </view>
