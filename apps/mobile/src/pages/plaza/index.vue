@@ -32,6 +32,12 @@ const filterOpen = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const EMPTY_DRAWER_USER: HomeUser = {
+  id: 0,
+  name: "未同步用户",
+  avatar: "U",
+  color: "var(--accent)"
+};
 const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
 const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
 const filterQualities = ["全部", "标清", "高清", "超清"];
@@ -81,8 +87,8 @@ const renderedTab = ref<PlazaTab>("recommend");
 const activeCategoryIndex = ref(0);
 const lastCategoryIndex = ref(0);
 const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) => ({ name })));
-const userList = ref<HomeUser[]>(mockHomeUsers);
-const workList = ref<HomeWork[]>(mockHomeWorks);
+const userList = ref<HomeUser[]>([]);
+const workList = ref<HomeWork[]>([]);
 const likedWorkIds = ref<Set<number>>(new Set());
 const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
@@ -118,7 +124,7 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
-const drawerUser = computed(() => userList.value[0] ?? mockHomeUsers[0]);
+const drawerUser = computed(() => userList.value[0] ?? (useMockData.value ? mockHomeUsers[0] : EMPTY_DRAWER_USER));
 
 const filteredWorks = computed(() => {
   if (renderedTab.value === "favorite") {

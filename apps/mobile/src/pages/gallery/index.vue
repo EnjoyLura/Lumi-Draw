@@ -66,9 +66,9 @@ try {
 
 const activeTab = ref<GalleryTab>("all");
 const renderedTab = ref<GalleryTab>("all");
-const works = ref<HomeWork[]>(galleryWorks);
-const profile = ref(galleryUser);
-const genTasks = ref(galleryGenTasks);
+const works = ref<HomeWork[]>([]);
+const profile = ref(EMPTY_PROFILE);
+const genTasks = ref<GalleryGenTask[]>([]);
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(false);
