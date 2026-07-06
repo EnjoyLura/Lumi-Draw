@@ -7,6 +7,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkFavorite, toggleWorkLike } from "../../services/social";
+import { fetchUnreadMessageCount } from "../mine/mineService";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
@@ -93,6 +94,7 @@ const likedWorkIds = ref<Set<number>>(new Set());
 const favoritedWorkIds = ref<Set<number>>(new Set());
 const likePendingIds = ref<Set<number>>(new Set());
 const favoritePendingIds = ref<Set<number>>(new Set());
+const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
@@ -107,13 +109,13 @@ const sideQuickActions: SideQuick[] = [
   { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
   { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
 ];
-const sideRows: SideRow[] = [
+const sideRows = ref<SideRow[]>([
   { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
   { icon: "◷", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
   { icon: "✉", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
   { icon: "♥", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
   { icon: "☺", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
-];
+]);
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
@@ -148,6 +150,7 @@ const filteredWorks = computed(() => {
 });
 
 onShow(() => {
+  void loadUnreadMessages();
   if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) return;
   lastMockMode = useMockData.value;
   void reloadPlazaData();
@@ -160,6 +163,7 @@ onBeforeUnmount(() => {
 
 function resetMockPlazaData() {
   loadFailed.value = false;
+  syncSideMessageBadge();
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   userList.value = mockHomeUsers;
   workList.value = mockHomeWorks;
@@ -173,6 +177,8 @@ function clearRealPlazaData() {
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   userList.value = [];
   workList.value = [];
+  unreadMessageCount.value = 0;
+  syncSideMessageBadge();
   likedWorkIds.value = new Set();
   favoritedWorkIds.value = new Set();
   pageState.page = 1;
@@ -228,6 +234,27 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   mergeUsers(result.users);
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
+}
+
+function syncSideMessageBadge() {
+  const messageRow = sideRows.value.find((item) => item.url === "/pages/messages/index");
+  if (!messageRow) return;
+  messageRow.badge = useMockData.value ? "5" : unreadMessageCount.value > 0 ? String(unreadMessageCount.value) : undefined;
+}
+
+async function loadUnreadMessages() {
+  if (useMockData.value || !isLoggedIn.value) {
+    unreadMessageCount.value = 0;
+    syncSideMessageBadge();
+    return;
+  }
+  try {
+    unreadMessageCount.value = await fetchUnreadMessageCount();
+    syncSideMessageBadge();
+  } catch {
+    unreadMessageCount.value = 0;
+    syncSideMessageBadge();
+  }
 }
 
 async function reloadPlazaData() {
