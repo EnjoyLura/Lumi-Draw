@@ -15,6 +15,11 @@ export class DashboardController {
     return this.dashboard.summary();
   }
 
+  @Get("finance-summary")
+  financeSummary() {
+    return this.dashboard.financeSummary();
+  }
+
   @Get("trends")
   trends(@Query("range") range?: string) {
     return this.dashboard.trends(range);

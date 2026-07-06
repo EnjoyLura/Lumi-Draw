@@ -849,3 +849,16 @@ export async function apiGetDashboardDetail(metric: string): Promise<AdminDashbo
   const d = await http.get<{ labels: string[]; series: number[]; total: number }>(`/admin/dashboard/detail?metric=${actualMetric}&range=7d`);
   return { labels: shortDateLabels(d.labels), series: d.series, total: d.total };
 }
+
+export interface AdminFinanceSummary {
+  todayIncomeFen: number;
+  monthIncomeFen: number;
+  totalIncomeFen: number;
+  monthRefundFen: number;
+  paidOrders: number;
+  pendingOrders: number;
+}
+
+export async function apiGetFinanceSummary(): Promise<AdminFinanceSummary> {
+  return http.get<AdminFinanceSummary>("/admin/dashboard/finance-summary");
+}

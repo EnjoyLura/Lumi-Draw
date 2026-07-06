@@ -26,6 +26,10 @@ function bucketByDay(dates: Date[], keys: string[]): number[] {
   return keys.map((k) => counts.get(k) ?? 0);
 }
 
+function sumFen(result: { _sum: { amountFen: number | null } }) {
+  return result._sum.amountFen ?? 0;
+}
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
@@ -47,6 +51,31 @@ export class DashboardService {
       metrics: { totalUsers, totalWorks, publishedWorks, pendingWorks, todayNewUsers, todayNewWorks },
       // 待办：举报/反馈模型后续增量补充，暂只给待审核作品数
       todos: { pendingWorks, pendingReports, pendingFeedback }
+    };
+  }
+
+  async financeSummary() {
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
+    const startMonth = new Date(startToday);
+    startMonth.setDate(1);
+
+    const paidWhere = { status: "paid" };
+    const [todayIncome, monthIncome, totalIncome, paidOrders, pendingOrders] = await Promise.all([
+      this.prisma.paymentOrder.aggregate({ where: { ...paidWhere, paidAt: { gte: startToday } }, _sum: { amountFen: true } }),
+      this.prisma.paymentOrder.aggregate({ where: { ...paidWhere, paidAt: { gte: startMonth } }, _sum: { amountFen: true } }),
+      this.prisma.paymentOrder.aggregate({ where: paidWhere, _sum: { amountFen: true } }),
+      this.prisma.paymentOrder.count({ where: paidWhere }),
+      this.prisma.paymentOrder.count({ where: { status: "pending" } })
+    ]);
+
+    return {
+      todayIncomeFen: sumFen(todayIncome),
+      monthIncomeFen: sumFen(monthIncome),
+      totalIncomeFen: sumFen(totalIncome),
+      monthRefundFen: 0,
+      paidOrders,
+      pendingOrders
     };
   }
 
