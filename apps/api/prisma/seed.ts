@@ -45,12 +45,12 @@ const categories = [
 ];
 
 const hotSearches = [
-  { id: 1, keyword: "赛博朋克", hot: 9800, top: true },
-  { id: 2, keyword: "古风少女", hot: 8600, top: false },
-  { id: 3, keyword: "证件照", hot: 7200, top: false },
-  { id: 4, keyword: "宠物头像", hot: 5400, top: false },
-  { id: 5, keyword: "二次元", hot: 12400, top: true },
-  { id: 6, keyword: "Logo设计", hot: 3900, top: false }
+  { id: 1, keyword: "赛博朋克", hot: 9800, top: true, sort: 1 },
+  { id: 2, keyword: "古风少女", hot: 8600, top: false, sort: 2 },
+  { id: 3, keyword: "证件照", hot: 7200, top: false, sort: 3 },
+  { id: 4, keyword: "宠物头像", hot: 5400, top: false, sort: 4 },
+  { id: 5, keyword: "二次元", hot: 12400, top: true, sort: 5 },
+  { id: 6, keyword: "Logo设计", hot: 3900, top: false, sort: 6 }
 ];
 
 // 真实接入的 KIE 模型（见 agent.md 接入模型）

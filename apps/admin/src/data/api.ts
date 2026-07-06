@@ -396,19 +396,19 @@ export async function apiDeleteCategory(id: number) {
 }
 
 interface ApiHotSearch {
-  id: number; keyword: string; hot: number; top: boolean; enabled: boolean;
+  id: number; keyword: string; hot: number; top: boolean; enabled: boolean; sort: number;
 }
 
 function mapHotSearch(h: ApiHotSearch): AdminHotSearch {
-  return { id: h.id, k: h.keyword, hot: h.hot, top: h.top };
+  return { id: h.id, k: h.keyword, hot: h.hot, top: h.top, sort: h.sort };
 }
 
 export async function apiGetHotSearches() {
   return (await http.get<ApiHotSearch[]>("/admin/hot-searches")).map(mapHotSearch);
 }
 
-export async function apiSaveHotSearch(id: number, values: { k: string; hot?: number; top: boolean }) {
-  const body = { keyword: values.k, hot: values.hot, top: values.top, enabled: true };
+export async function apiSaveHotSearch(id: number, values: { k: string; hot?: number; top: boolean; sort?: number }) {
+  const body = { keyword: values.k, hot: values.hot, top: values.top, enabled: true, sort: values.sort };
   return mapHotSearch(id ? await http.patch<ApiHotSearch>(`/admin/hot-searches/${id}`, body) : await http.post<ApiHotSearch>("/admin/hot-searches", body));
 }
 

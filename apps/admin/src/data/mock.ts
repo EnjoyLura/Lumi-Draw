@@ -167,6 +167,7 @@ export interface AdminHotSearch {
   k: string;
   hot: number;
   top: boolean;
+  sort?: number;
 }
 
 export interface AdminQuality {
@@ -203,12 +204,12 @@ export const GAMEPLAYS: AdminGameplay[] = [
 ];
 
 export const HOT_SEARCHES: AdminHotSearch[] = [
-  { id: 1, k: "赛博朋克", hot: 9800, top: true },
-  { id: 2, k: "古风少女", hot: 8600, top: false },
-  { id: 3, k: "证件照", hot: 7200, top: false },
-  { id: 4, k: "宠物头像", hot: 5400, top: false },
-  { id: 5, k: "二次元", hot: 12400, top: true },
-  { id: 6, k: "Logo设计", hot: 3900, top: false }
+  { id: 1, k: "赛博朋克", hot: 9800, top: true, sort: 1 },
+  { id: 2, k: "古风少女", hot: 8600, top: false, sort: 2 },
+  { id: 3, k: "证件照", hot: 7200, top: false, sort: 3 },
+  { id: 4, k: "宠物头像", hot: 5400, top: false, sort: 4 },
+  { id: 5, k: "二次元", hot: 12400, top: true, sort: 5 },
+  { id: 6, k: "Logo设计", hot: 3900, top: false, sort: 6 }
 ];
 
 export const CATEGORIES: AdminCategory[] = [

@@ -23,7 +23,7 @@ const FIELDS = {
   gameplay: ["name", "description", "uses", "hot", "enabled", "sort"],
   style: ["name", "prompt", "uses", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
-  hotSearch: ["keyword", "hot", "top", "enabled"],
+  hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
   modelConfig: ["id", "provider", "providerModel", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
   qualityConfig: ["label", "pixel", "multiplier", "enabled", "sort"],
   ratioConfig: ["label", "description", "enabled", "sort"],
@@ -50,7 +50,7 @@ export class AdminConfigService {
     return this.prisma.category.findMany(bySort);
   }
   hotSearches() {
-    return this.prisma.hotSearch.findMany({ orderBy: [{ top: "desc" }, { hot: "desc" }, { id: "asc" }] });
+    return this.prisma.hotSearch.findMany(bySort);
   }
   models() {
     return this.prisma.modelConfig.findMany(bySort);

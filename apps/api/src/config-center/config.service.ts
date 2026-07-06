@@ -69,7 +69,7 @@ export class ConfigService {
   async getHotSearches() {
     const rows = await this.prisma.hotSearch.findMany({
       where: { enabled: true },
-      orderBy: [{ top: "desc" }, { hot: "desc" }, { id: "asc" }]
+      orderBy: [{ sort: "asc" }, { id: "asc" }]
     });
     return rows.map((h) => ({
       id: h.id,

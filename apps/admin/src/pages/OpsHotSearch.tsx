@@ -10,7 +10,7 @@ import { moveItem, useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
-function HotForm({ id, item, useMock, onSaved }: { id: number; item?: AdminHotSearch; useMock: boolean; onSaved: () => void }) {
+function HotForm({ id, item, useMock, onSaved, nextSort }: { id: number; item?: AdminHotSearch; useMock: boolean; onSaved: () => void; nextSort: number }) {
   const { closeSheet, toast } = useNav();
   const s = item ?? (id ? HOT_SEARCHES.find((x) => x.id === id) : undefined);
   const [k, setK] = useState(s?.k ?? "");
@@ -23,9 +23,9 @@ function HotForm({ id, item, useMock, onSaved }: { id: number; item?: AdminHotSe
     try {
       if (useMock) {
         if (s) { s.k = k.trim(); s.top = top; }
-        else HOT_SEARCHES.push({ id: nextId(HOT_SEARCHES), k: k.trim(), top, hot: 0 });
+        else HOT_SEARCHES.push({ id: nextId(HOT_SEARCHES), k: k.trim(), top, hot: 0, sort: HOT_SEARCHES.length + 1 });
       } else {
-        await apiSaveHotSearch(id, { k: k.trim(), top, hot: s?.hot ?? 0 });
+        await apiSaveHotSearch(id, { k: k.trim(), top, hot: s?.hot ?? 0, sort: s?.sort ?? nextSort });
       }
       closeSheet();
       onSaved();
@@ -60,9 +60,33 @@ export function OpsHotSearch() {
   const refresh = useRefresh();
   const { data, loading, error, reload } = useAsyncData<AdminHotSearch[]>(useMock ? null : () => apiGetHotSearches(), [useMock]);
   const hots = useMock ? getHotSearches() : data ?? [];
+  const [sorting, setSorting] = useState(false);
   const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: number) => openSheet(id ? "编辑热搜" : "新增热搜", <HotForm id={id} item={hots.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
+  const openForm = (id: number) => openSheet(id ? "编辑热搜" : "新增热搜", <HotForm id={id} item={hots.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} nextSort={hots.length + 1} />);
+  const moveHotSearch = async (index: number, dir: number) => {
+    if (sorting) return;
+    const next = [...hots];
+    moveItem(next, index, dir);
+    next.forEach((item, idx) => {
+      item.sort = idx + 1;
+    });
+    if (useMock) {
+      hots.splice(0, hots.length, ...next);
+      refresh();
+      return;
+    }
+    setSorting(true);
+    try {
+      await Promise.all(next.map((item) => apiSaveHotSearch(item.id, { k: item.k, hot: item.hot, top: item.top, sort: item.sort })));
+      reload();
+      toast("顺序已保存");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "顺序保存失败");
+    } finally {
+      setSorting(false);
+    }
+  };
   const del = (s: AdminHotSearch) => confirmDlg("删除热搜词", "确定删除该热搜词吗？", () => {
     void (async () => {
       try {
@@ -93,7 +117,7 @@ export function OpsHotSearch() {
             <div className="lr-main">
               <div className="lr-t">{s.k}{s.top ? <>&nbsp;<Badge text="置顶" type="danger" /></> : null}</div>
             </div>
-            <SortCtrl index={i} len={hots.length} onMove={(d) => { moveItem(hots, i, d); refresh(); }} />
+            <SortCtrl index={i} len={hots.length} onMove={(d) => { void moveHotSearch(i, d); }} />
             <CtrlIcons onEdit={() => openForm(s.id)} onDelete={() => del(s)} />
           </div>
         ))}
