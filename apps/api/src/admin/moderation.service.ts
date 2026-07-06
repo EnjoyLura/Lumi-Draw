@@ -57,7 +57,7 @@ export class ModerationService {
   // ---------- 举报 ----------
   async reports(status: string | undefined, page: number, pageSize: number) {
     const where: Prisma.ReportWhereInput = {};
-    if (status) where.status = status;
+    where.status = status ?? "pending";
     const [rows, total] = await Promise.all([
       this.prisma.report.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.report.count({ where })
@@ -88,11 +88,11 @@ export class ModerationService {
     const report = await this.prisma.report.findUnique({ where: { id } });
     if (!report) throw new NotFoundException("举报不存在");
     const status = body.action === "ignore" ? "ignored" : "resolved";
-    await this.prisma.report.update({ where: { id }, data: { status, handledAt: new Date() } });
     if (body.offline === true) {
       await this.prisma.work.update({ where: { id: report.workId }, data: { status: "offline", isPublic: false } }).catch(() => undefined);
     }
-    return { ok: true, id, status };
+    await this.prisma.report.delete({ where: { id } });
+    return { ok: true, id, status, deleted: true };
   }
 
   // ---------- 反馈 ----------

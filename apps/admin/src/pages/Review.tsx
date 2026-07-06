@@ -73,11 +73,12 @@ function HandleReportForm({ report, useMock, onDone }: { report: AdminReport | A
     setSaving(true);
     try {
       if (useMock) {
-        report.status = action === "ignore" ? "已忽略" : "已处理";
         if (action === "offline") {
           const w = WORKS.find((x) => x.id === report.workId);
           if (w) w.status = "已下架";
         }
+        const index = REPORTS.findIndex((item) => item.id === report.id);
+        if (index >= 0) REPORTS.splice(index, 1);
       } else {
         await apiResolveReport(report.id, action);
       }

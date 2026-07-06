@@ -234,12 +234,12 @@ function mapReport(r: ApiReport): AdminReportData {
 }
 
 export async function apiGetReports(): Promise<AdminReportData[]> {
-  const page = await http.get<Paginated<ApiReport>>("/admin/reports?page=1&pageSize=100");
+  const page = await http.get<Paginated<ApiReport>>("/admin/reports?status=pending&page=1&pageSize=100");
   return page.items.map(mapReport);
 }
 
 export async function apiResolveReport(id: number, action: "offline" | "warn" | "ignore") {
-  return http.post<{ ok: boolean; id: number; status: string }>(`/admin/reports/${id}/resolve`, {
+  return http.post<{ ok: boolean; id: number; status: string; deleted?: boolean }>(`/admin/reports/${id}/resolve`, {
     action: action === "ignore" ? "ignore" : "resolve",
     offline: action === "offline"
   });
