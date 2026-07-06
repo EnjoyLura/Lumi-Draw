@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
+import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { fetchAgreement } from "../settings/settingsService";
 
 const mockAgreements: Record<string, { title: string; content: string }> = {
@@ -30,17 +31,64 @@ const content = ref("");
 const updatedAt = ref("");
 const isLoading = ref(false);
 const loadFailed = ref(false);
+let lastLoadKey = "";
 
 const updatedText = computed(() => (updatedAt.value ? `更新于 ${updatedAt.value.slice(0, 10)}` : ""));
 
 onLoad((query) => {
-  agreementType.value = String(query?.type || "user");
+  agreementType.value = resolveRouteType(query);
   void loadAgreement();
 });
 
+onShow(() => {
+  const nextType = resolveRouteType();
+  const nextLoadKey = `${nextType}-${useMockData.value}`;
+  if (nextType !== agreementType.value) agreementType.value = nextType;
+  if (nextLoadKey === lastLoadKey) return;
+  void loadAgreement();
+});
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextType = resolveRouteType();
+  if (nextType === agreementType.value) return;
+  agreementType.value = nextType;
+  void loadAgreement();
+}
+
+function resolveRouteType(query?: Record<string, unknown>) {
+  const queryType = typeof query?.type === "string" ? query.type : "";
+  if (queryType) return queryType;
+
+  if (typeof window !== "undefined") {
+    const hashType = window.location.hash.match(/[?&]type=([^&]+)/)?.[1];
+    if (hashType) return decodeURIComponent(hashType);
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  return current?.options?.type || current?.$page?.options?.type || "user";
+}
+
 async function loadAgreement() {
+  lastLoadKey = `${agreementType.value}-${useMockData.value}`;
   const mock = mockAgreements[agreementType.value] || mockAgreements.user;
   title.value = mock.title;
+  refreshNavigationTitle(mock.title);
   content.value = "";
   updatedAt.value = "";
   loadFailed.value = false;
@@ -52,6 +100,7 @@ async function loadAgreement() {
     }
     const data = await fetchAgreement(agreementType.value);
     title.value = data.title;
+    refreshNavigationTitle(data.title);
     content.value = data.content;
     updatedAt.value = data.updatedAt;
   } catch {
