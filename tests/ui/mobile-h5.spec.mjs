@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const MOCK_KEY = "lumi-draw:use-mock-data";
+const LOGIN_KEY = "lumi-logged-in";
 
 const routes = [
   ["home", "/#/pages/home/index", ".home-page"],
@@ -46,32 +47,41 @@ test("mobile h5 smoke routes cover pages.json", () => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((key) => {
-    window.localStorage.setItem(key, "1");
-  }, MOCK_KEY);
+  await page.addInitScript(
+    ({ mockKey, loginKey }) => {
+      window.localStorage.setItem(mockKey, "1");
+      window.localStorage.setItem(loginKey, "1");
+    },
+    { mockKey: MOCK_KEY, loginKey: LOGIN_KEY }
+  );
 });
+
+function collectRuntimeErrors(page) {
+  const runtimeErrors = [];
+  page.on("pageerror", (error) => {
+    if (error.message === "Object" && !error.stack) return;
+    runtimeErrors.push(error.message);
+  });
+  page.on("console", async (message) => {
+    if (message.type() !== "error") return;
+    const args = await Promise.all(
+      message.args().map(async (arg) => {
+        try {
+          return await arg.jsonValue();
+        } catch {
+          return String(arg);
+        }
+      })
+    );
+    if (message.text() === "Object") return;
+    runtimeErrors.push(`${message.text()} ${JSON.stringify(args)}`);
+  });
+  return runtimeErrors;
+}
 
 for (const [name, url, selector] of routes) {
   test(`mobile h5 renders ${name}`, async ({ page }) => {
-    const runtimeErrors = [];
-    page.on("pageerror", (error) => {
-      if (error.message === "Object" && !error.stack) return;
-      runtimeErrors.push(error.message);
-    });
-    page.on("console", async (message) => {
-      if (message.type() !== "error") return;
-      const args = await Promise.all(
-        message.args().map(async (arg) => {
-          try {
-            return await arg.jsonValue();
-          } catch {
-            return String(arg);
-          }
-        })
-      );
-      if (message.text() === "Object") return;
-      runtimeErrors.push(`${message.text()} ${JSON.stringify(args)}`);
-    });
+    const runtimeErrors = collectRuntimeErrors(page);
 
     await page.goto(url);
     await expect(page.locator(selector).first()).toBeVisible();
@@ -83,3 +93,52 @@ for (const [name, url, selector] of routes) {
     expect(runtimeErrors).toEqual([]);
   });
 }
+
+test("mobile h5 tabbar navigates primary pages", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  for (const [index, selector] of [
+    [1, ".plaza-page"],
+    [2, ".create-page"],
+    [3, ".gallery-page"],
+    [4, ".mine-page"]
+  ]) {
+    await page.goto("/#/pages/home/index");
+    await expect(page.locator(".home-page")).toBeVisible();
+    await page.locator(".tab-item").nth(index).click({ force: true });
+    await expect(page.locator(selector)).toBeVisible();
+  }
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 opens create model drawer", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/create/index");
+  await expect(page.locator(".create-page")).toBeVisible();
+  await page.locator(".model-card").click();
+  await expect(page.locator(".model-sheet.show").first()).toBeVisible();
+  await expect(page.locator(".model-drawer-card").first()).toBeVisible();
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 opens plaza side drawer", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/plaza/index");
+  await expect(page.locator(".plaza-page")).toBeVisible();
+
+  await page.locator(".menu-btn").click();
+  await expect(page.locator(".side-drawer.show")).toBeVisible();
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 opens plaza filter drawer", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/plaza/index");
+  await expect(page.locator(".plaza-page")).toBeVisible();
+
+  await page.locator(".filter-btn").click();
+  await expect(page.locator(".filter-sheet.show")).toBeVisible();
+  await page.locator(".filter-sheet.show .btn-gradient").click();
+  await expect(page.locator(".filter-sheet.show")).toHaveCount(0);
+  expect(runtimeErrors).toEqual([]);
+});
