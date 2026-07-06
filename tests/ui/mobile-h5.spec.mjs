@@ -371,3 +371,70 @@ test("mobile h5 manages gallery selections and generation history filters", asyn
 
   expect(runtimeErrors).toEqual([]);
 });
+
+test("mobile h5 applies gameplay and reverse prompt into create", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/all-gameplays/index");
+  await expect(page.locator(".all-gameplays-page")).toBeVisible();
+  await page.locator(".gameplay-card").first().click();
+  await expect(page.locator(".create-page")).toBeVisible();
+  await expect(page).toHaveURL(/gameplay=/);
+
+  await page.goto("/#/pages/reverse-prompt/index");
+  await expect(page.locator(".reverse-page")).toBeVisible();
+  await page.locator(".upload-area").click();
+  await expect(page.locator(".preview-wrap")).toBeVisible();
+  await page.locator(".hint-input textarea").fill("Playwright reverse hint");
+  await page.locator(".analyze-btn").click();
+  await expect(page.locator(".result-block")).toBeVisible({ timeout: 3000 });
+  await expect(page.locator(".result-textarea textarea")).not.toHaveValue("");
+  await page.locator(".action-row .action-btn").nth(1).click();
+  await expect(page.locator(".create-page")).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 exercises drafts and history pages", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/drafts/index");
+  await expect(page.locator(".drafts-page")).toBeVisible();
+  await expect(page.locator(".drafts-page .work-card").first()).toBeVisible();
+  await page.locator(".drafts-page .work-card").first().click();
+  await expect(page.locator(".detail-page")).toBeVisible();
+
+  await page.goto("/#/pages/history/index");
+  await expect(page.locator(".history-page")).toBeVisible();
+  await expect(page.locator(".grid-item").first()).toBeVisible();
+  await page.locator(".clear-btn").click();
+  await expect(page.locator(".empty-state")).toBeVisible();
+  await page.locator(".empty-btn").click();
+  await expect(page.locator(".plaza-page")).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 exercises follow list and logout state", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+
+  await page.goto("/#/pages/follow-list/index?type=followers&id=1");
+  await expect(page.locator(".follow-page")).toBeVisible();
+  await expect(page.locator(".follow-row").first()).toBeVisible();
+  const followButton = page.locator(".follow-row .follow-btn").first();
+  await followButton.click();
+  await expect(followButton).toHaveClass(/following/);
+  await followButton.click();
+  await expect(followButton).not.toHaveClass(/following/);
+
+  await page.goto("/#/pages/settings/index");
+  await expect(page.locator(".settings-page")).toBeVisible();
+  await page.locator(".logout-btn").click();
+  await expect(page.locator(".logout-btn")).toHaveClass(/login/);
+  await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), LOGIN_KEY)).toBe("0");
+
+  await page.goto("/#/pages/gallery/index");
+  await expect(page.locator(".gallery-login-prompt")).toBeVisible();
+
+  expect(runtimeErrors).toEqual([]);
+});
