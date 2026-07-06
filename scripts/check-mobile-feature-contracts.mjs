@@ -51,7 +51,12 @@ const pageContracts = [
       "uploadChosenImage",
       "uploadRemoteImage",
       "resumeBackendJob",
-      "jobId"
+      "jobId",
+      "hasAutoSavedDrafts",
+      "savedDraftCount",
+      "生成作品已自动保存为草稿",
+      "已存草稿",
+      "goPublish"
     ]
   },
   {
@@ -75,7 +80,11 @@ const pageContracts = [
       "fetchGalleryTerminalGenerateJobs",
       "deleteGalleryWorks",
       "moveGalleryWorksToDraft",
-      "LumiSideDrawer"
+      "LumiSideDrawer",
+      "生成完成",
+      "生成的作品已自动保存到草稿箱",
+      "去创作页",
+      "goCreate"
     ]
   },
   {
@@ -177,7 +186,7 @@ const pageContracts = [
   },
   {
     route: "pages/drafts/index",
-    tokens: ["useDataMode", "fetchGalleryWorks", "fetchGalleryUser", "loginRequired"]
+    tokens: ["useDataMode", "fetchGalleryWorks", "fetchGalleryUser", "loginRequired", "生成完成的作品会自动保存为草稿", "goCreate"]
   },
   {
     route: "pages/history/index",
