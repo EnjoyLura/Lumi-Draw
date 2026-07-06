@@ -8,6 +8,7 @@ import { currentVersion, versionLogs, type ChangeKind, type VersionLog } from ".
 const { useMockData } = useDataMode();
 const logs = ref<VersionLog[]>(versionLogs);
 const isLoading = ref(false);
+const loadFailed = ref(false);
 let lastMode: boolean | null = null;
 
 const latestVersion = computed(() => logs.value[0]?.version || currentVersion);
@@ -32,10 +33,12 @@ function normalizeKind(value: string): ChangeKind {
 async function loadChangelog() {
   if (useMockData.value) {
     logs.value = versionLogs;
+    loadFailed.value = false;
     return;
   }
 
   isLoading.value = true;
+  loadFailed.value = false;
   try {
     const rows = await fetchChangelog();
     logs.value = rows.map((row, index) => ({
@@ -48,8 +51,9 @@ async function loadChangelog() {
       }))
     }));
   } catch {
-    logs.value = versionLogs;
-    uni.showToast({ title: "更新日志加载失败，已显示默认内容", icon: "none" });
+    logs.value = [];
+    loadFailed.value = true;
+    uni.showToast({ title: "更新日志加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
   }
@@ -67,6 +71,17 @@ async function loadChangelog() {
             <view class="app-version">当前版本 {{ latestVersion }}</view>
           </view>
           <view v-if="isLoading" class="spinner" />
+        </view>
+
+        <view v-if="!useMockData && loadFailed" class="empty-card">
+          <view class="empty-title">更新日志加载失败</view>
+          <view class="empty-sub">当前不会显示本地模拟日志，请重新加载后查看后端配置。</view>
+          <button class="empty-btn" @click="loadChangelog">重新加载</button>
+        </view>
+
+        <view v-else-if="!logs.length && !isLoading" class="empty-card">
+          <view class="empty-title">暂无更新日志</view>
+          <view class="empty-sub">后端版本记录配置后会显示在这里。</view>
         </view>
 
         <view v-for="log in logs" :key="log.version" class="version-card">
@@ -146,6 +161,47 @@ async function loadChangelog() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+}
+
+.empty-card {
+  padding: 22px 16px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.empty-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.empty-sub {
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .version-head {
