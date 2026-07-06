@@ -79,6 +79,13 @@ function collectRuntimeErrors(page) {
   return runtimeErrors;
 }
 
+async function replaceInputValue(page, locator, value) {
+  await locator.click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.press("Backspace");
+  await locator.fill(value);
+}
+
 for (const [name, url, selector] of routes) {
   test(`mobile h5 renders ${name}`, async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);
@@ -203,7 +210,7 @@ test("mobile h5 publish form accepts draft, text and tags", async ({ page }) => 
   await expect(page.locator(".draft-selected-title")).toBeVisible();
 
   const publishTitle = page.locator(".publish-page .text-input input");
-  await publishTitle.fill("Playwright publish");
+  await replaceInputValue(page, publishTitle, "Playwright publish");
   await expect(publishTitle).toHaveValue("Playwright publish");
   await page.locator(".publish-page .text-area textarea").fill("Playwright publish description");
   await expect(page.locator(".publish-page .counter").first()).toContainText("18/30");

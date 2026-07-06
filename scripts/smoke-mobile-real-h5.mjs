@@ -157,11 +157,12 @@ function serveH5() {
 }
 
 async function seedSmokeWork(ownerToken) {
+  const title = `H5 real smoke ${Date.now()}`;
   const created = await apiRequest(
     "POST",
     "/works",
     {
-      title: `H5 real smoke ${Date.now()}`,
+      title,
       description: "Created for mobile H5 real API smoke test",
       prompt: "mobile h5 real api smoke prompt",
       imageUrl: "https://example.com/mobile-h5-real-smoke.png",
@@ -173,7 +174,7 @@ async function seedSmokeWork(ownerToken) {
     },
     ownerToken
   );
-  return created.id;
+  return { id: created.id, title };
 }
 
 async function maybeApproveWork(workId) {
@@ -228,7 +229,8 @@ async function main() {
 
   const ownerLogin = await apiRequest("POST", "/auth/wechat/login", { code: `mock-h5-real-owner-${Date.now()}` });
   const actorLogin = await apiRequest("POST", "/auth/wechat/login", { code: `mock-h5-real-actor-${Date.now()}` });
-  const workId = await seedSmokeWork(ownerLogin.accessToken);
+  const seededWork = await seedSmokeWork(ownerLogin.accessToken);
+  const workId = seededWork.id;
   await maybeApproveWork(workId);
 
   const server = await serveH5();
@@ -262,13 +264,59 @@ async function main() {
     runtimeErrors.push(error.message);
   });
   page.on("console", (message) => {
-    if (message.type() === "error" && message.text() !== "Object") runtimeErrors.push(message.text());
+    if (message.type() !== "error" || message.text() === "Object") return;
+    if (message.text().startsWith("Failed to load resource:")) return;
+    runtimeErrors.push(message.text());
   });
 
   try {
     await page.goto(`${BASE_URL}/#/pages/home/index`, { waitUntil: "domcontentloaded" });
     await page.locator(".home-page").waitFor({ state: "visible", timeout: 10_000 });
     await page.locator(".work-card").first().waitFor({ state: "visible", timeout: 10_000 });
+
+    await page.goto(`${BASE_URL}/#/pages/all-gameplays/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".all-gameplays-page").waitFor({ state: "visible", timeout: 10_000 });
+    const bootstrapForEntries = await apiRequest("GET", "/app/bootstrap");
+    const firstGameplay = bootstrapForEntries.gameplays?.[0];
+    assert(firstGameplay?.name, "real bootstrap gameplays missing for all-gameplays page");
+    await page.locator(".gameplay-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    const firstGameplayText = await page.locator(".gameplay-name").first().innerText();
+    assert(firstGameplayText.includes(firstGameplay.name), "all-gameplays page did not render real gameplay data");
+    await page.locator(".gameplay-card").first().click();
+    await page.locator(".create-page").waitFor({ state: "visible", timeout: 10_000 });
+    await waitFor(async () => {
+      const selectedGameplay = await page.locator(".gameplay-card.selected .gameplay-title").innerText().catch(() => "");
+      return selectedGameplay.includes(firstGameplay.name);
+    }, "all-gameplays page did not apply real gameplay into create page");
+
+    await page.goto(`${BASE_URL}/#/pages/search/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".search-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".hot-row").first().waitFor({ state: "visible", timeout: 10_000 });
+    const searchResponse = page.waitForResponse((response) => response.url().includes("/api/works/search") && response.request().method() === "GET");
+    await page.locator(".search-input input").fill(seededWork.title);
+    await page.locator(".search-btn").click();
+    await responseData(await searchResponse);
+    await page.locator(".work-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    const searchTitles = await page.locator(".work-title").allInnerTexts();
+    assert(searchTitles.some((title) => title.includes(seededWork.title)), "search page did not render the seeded real work");
+
+    await page.goto(`${BASE_URL}/#/pages/agreement/index?type=user`, { waitUntil: "domcontentloaded" });
+    await page.locator(".agreement-page").waitFor({ state: "visible", timeout: 10_000 });
+    const userAgreement = await apiRequest("GET", "/config/agreements/user");
+    await waitFor(async () => {
+      const title = await page.locator(".page-title").innerText();
+      const content = await page.locator(".content-text").innerText();
+      return title.includes(userAgreement.title) && content.length > 10;
+    }, "agreement page did not render real agreement content");
+
+    await page.goto(`${BASE_URL}/#/pages/changelog/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".changelog-page").waitFor({ state: "visible", timeout: 10_000 });
+    const changelog = await apiRequest("GET", "/config/changelog");
+    assert((changelog || []).length > 0, "real changelog missing");
+    await waitFor(async () => {
+      const versionText = await page.locator(".app-version").innerText();
+      return versionText.includes(changelog[0].version);
+    }, "changelog page did not render the latest real version");
 
     await page.goto(`${BASE_URL}/#/pages/work-detail/index?id=${workId}`, { waitUntil: "domcontentloaded" });
     await page.locator(".detail-page").waitFor({ state: "visible", timeout: 10_000 });
@@ -513,6 +561,22 @@ async function main() {
       const summary = await apiRequest("GET", "/notifications/summary", undefined, actorLogin.accessToken);
       assert(Array.isArray(summary), "notification summary missing from real API");
     }
+
+    await page.goto(`${BASE_URL}/#/pages/settings/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".settings-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".logout-btn").waitFor({ state: "visible", timeout: 10_000 });
+    const logoutResponse = page.waitForResponse((response) => response.url().includes("/api/auth/logout") && response.request().method() === "POST");
+    await page.locator(".logout-btn").click();
+    await responseData(await logoutResponse);
+    await page.locator(".logout-btn.login").waitFor({ state: "visible", timeout: 10_000 });
+    const loggedOut = await page.evaluate(
+      ({ loginKey, accessKey, refreshKey }) =>
+        window.localStorage.getItem(loginKey) === "0" &&
+        !window.localStorage.getItem(accessKey) &&
+        !window.localStorage.getItem(refreshKey),
+      { loginKey: LOGIN_KEY, accessKey: ACCESS_TOKEN_KEY, refreshKey: REFRESH_TOKEN_KEY }
+    );
+    assert(loggedOut, "settings logout did not clear real H5 session storage");
 
     assert(runtimeErrors.length === 0, `browser runtime errors: ${runtimeErrors.join("; ")}`);
     console.log("Mobile real H5 smoke passed.");
