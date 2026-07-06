@@ -10,7 +10,7 @@ import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publi
 import { fetchPublishDrafts, publishWork } from "./publishService";
 
 const { useMockData } = useDataMode();
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 
 const selectedDraft = ref<DraftWork | null>(null);
 const title = ref("");
@@ -61,7 +61,7 @@ async function loadDrafts() {
     applyPendingDraft();
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     backendDrafts.value = [];
     clearPublishForm();
     loginRequired.value = true;

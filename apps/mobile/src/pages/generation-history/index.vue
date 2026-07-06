@@ -165,7 +165,13 @@ async function loadJobs(nextPage = 1, append = false, pageSize = PAGE_SIZE) {
     clearRefreshTimer();
     return;
   }
-  if (!ensureLogin()) return;
+  if (!isLoggedIn.value) {
+    jobs.value = [];
+    page.value = 1;
+    hasMore.value = false;
+    clearRefreshTimer();
+    return;
+  }
 
   const result = await fetchGenerateHistoryJobs(activeFilter.value, nextPage, pageSize);
   jobs.value = append ? [...jobs.value, ...result.items] : result.items;

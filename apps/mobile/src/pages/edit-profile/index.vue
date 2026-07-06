@@ -8,7 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 
-const { currentUser, login: commitLogin, requireLogin } = useAuth();
+const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const nickname = ref("");
@@ -59,7 +59,7 @@ async function loadProfile() {
     resetMockProfile();
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     clearProfile();
     loginRequired.value = true;
     return;

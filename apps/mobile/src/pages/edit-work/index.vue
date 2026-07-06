@@ -9,7 +9,7 @@ import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const workId = ref(0);
 const image = ref("");
@@ -72,7 +72,7 @@ async function loadWork() {
     loadMockWork();
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     clearWork();
     loginRequired.value = true;
     return;

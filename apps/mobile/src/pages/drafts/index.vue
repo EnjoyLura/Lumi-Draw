@@ -24,7 +24,7 @@ const EMPTY_PROFILE: GalleryUser = {
   likes: "0"
 };
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const realDrafts = ref<HomeWork[]>([]);
 const profile = ref(EMPTY_PROFILE);
@@ -79,7 +79,7 @@ async function loadDrafts(page = 1, append = false) {
     loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     resetRealDrafts();
     loginRequired.value = true;
     return;
