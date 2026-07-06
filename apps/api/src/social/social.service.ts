@@ -336,12 +336,13 @@ export class SocialService {
       include: { user: true }
     });
     const byId = new Map(works.map((work) => [work.id, work]));
-    const items = views
+    const cards = views
       .map((view) => {
         const work = byId.get(view.workId);
         return work ? { ...toWorkCard(work), viewedAt: view.viewedAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
+    const items = await withInteractionState(this.prisma, userId, cards);
     return buildPage(items, total, page, pageSize);
   }
 
@@ -360,12 +361,13 @@ export class SocialService {
       include: { user: true }
     });
     const byId = new Map(works.map((work) => [work.id, work]));
-    const items = favorites
+    const cards = favorites
       .map((favorite) => {
         const work = byId.get(favorite.workId);
         return work ? { ...toWorkCard(work), favoritedAt: favorite.createdAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
+    const items = await withInteractionState(this.prisma, userId, cards);
     return buildPage(items, total, page, pageSize);
   }
 

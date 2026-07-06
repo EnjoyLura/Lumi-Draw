@@ -217,10 +217,8 @@ async function loadFavoritePage(page = 1, append = false) {
   const works = result.items.map(toHomeWork);
   const users = result.items.map((item) => toHomeUser(item.author));
   workList.value = append ? [...workList.value, ...works] : works;
+  syncInteractionIds(works, append);
   mergeUsers(users);
-  const nextFavorites = new Set(favoritedWorkIds.value);
-  works.forEach((work) => nextFavorites.add(work.id));
-  favoritedWorkIds.value = nextFavorites;
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
 }

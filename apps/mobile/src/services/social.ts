@@ -103,7 +103,9 @@ export function toHomeWork(item: BackendWorkCard): HomeWork {
     prompt: item.prompt,
     ratio: item.ratio || "1:1",
     likes: item.likes,
-    published: true
+    published: true,
+    liked: item.liked,
+    favorited: item.favorited
   };
 }
 
