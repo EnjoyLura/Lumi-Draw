@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -86,6 +86,7 @@ let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
+let lastRouteSignature = "";
 const syncedTerminalJobIds = new Set<string>();
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
@@ -193,35 +194,12 @@ async function loadCreateConfig() {
 }
 
 onLoad((query) => {
-  const gameplay = typeof query?.gameplay === "string" ? decodeURIComponent(query.gameplay) : "";
-  if (gameplay) {
-    selectedGameplayName.value = gameplay;
-  }
-
-  const model = typeof query?.model === "string" ? decodeURIComponent(query.model) : "";
-  pendingRouteOptions.value.model = model;
-  applySelectedModel(model);
-
-  const ratio = typeof query?.ratio === "string" ? decodeURIComponent(query.ratio) : "";
-  pendingRouteOptions.value.ratio = ratio;
-  applySelectedRatio(ratio);
-
-  const quality = typeof query?.quality === "string" ? decodeURIComponent(query.quality) : "";
-  pendingRouteOptions.value.quality = quality;
-  applySelectedQuality(quality);
-
-  const style = typeof query?.style === "string" ? decodeURIComponent(query.style) : "";
-  pendingRouteOptions.value.style = style;
-  applySelectedStyle(style);
-
-  const prompt = typeof query?.prompt === "string" ? decodeURIComponent(query.prompt) : "";
-  if (prompt) promptText.value = prompt.slice(0, 500);
-
-  const jobId = typeof query?.jobId === "string" ? decodeURIComponent(query.jobId) : "";
-  if (jobId) void resumeBackendJob(jobId);
+  applyRouteQuery(query, true);
 });
 
 onShow(() => {
+  applyRouteQuery();
+
   if (lastConfigMode !== useMockData.value) {
     lastConfigMode = useMockData.value;
     void loadCreateConfig();
@@ -235,11 +213,97 @@ onShow(() => {
 
 });
 
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
 onBeforeUnmount(() => {
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
 });
+
+function handleHashChange() {
+  applyRouteQuery();
+}
+
+function decodeRouteValue(value: unknown) {
+  return typeof value === "string" ? decodeURIComponent(value) : "";
+}
+
+function readRouteQuery(query?: Record<string, unknown>) {
+  const routeQuery: Record<string, string> = {};
+  Object.entries(query || {}).forEach(([key, value]) => {
+    const decoded = decodeRouteValue(value);
+    if (decoded) routeQuery[key] = decoded;
+  });
+
+  if (typeof window !== "undefined") {
+    const queryString = window.location.hash.split("?")[1] || "";
+    new URLSearchParams(queryString).forEach((value, key) => {
+      if (value) routeQuery[key] = decodeURIComponent(value);
+    });
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  Object.entries({ ...(current?.options || {}), ...(current?.$page?.options || {}) }).forEach(([key, value]) => {
+    if (!routeQuery[key] && value) routeQuery[key] = decodeURIComponent(value);
+  });
+
+  return routeQuery;
+}
+
+function routeSignature(query: Record<string, string>) {
+  return ["gameplay", "model", "ratio", "quality", "style", "prompt", "jobId"]
+    .map((key) => `${key}=${query[key] || ""}`)
+    .join("&");
+}
+
+function applyRouteQuery(query?: Record<string, unknown>, force = false) {
+  const routeQuery = readRouteQuery(query);
+  const signature = routeSignature(routeQuery);
+  if (!force && signature === lastRouteSignature) return;
+  lastRouteSignature = signature;
+
+  const hasCreationParams = Object.values(routeQuery).some(Boolean);
+  if (routeQuery.gameplay) selectedGameplayName.value = routeQuery.gameplay;
+  else if (hasCreationParams) selectedGameplayName.value = "";
+
+  if (routeQuery.model) {
+    pendingRouteOptions.value.model = routeQuery.model;
+    applySelectedModel(routeQuery.model);
+  }
+
+  if (routeQuery.ratio) {
+    pendingRouteOptions.value.ratio = routeQuery.ratio;
+    applySelectedRatio(routeQuery.ratio);
+  }
+
+  if (routeQuery.quality) {
+    pendingRouteOptions.value.quality = routeQuery.quality;
+    applySelectedQuality(routeQuery.quality);
+  }
+
+  if (routeQuery.style) {
+    pendingRouteOptions.value.style = routeQuery.style;
+    applySelectedStyle(routeQuery.style);
+  }
+
+  if (routeQuery.prompt) promptText.value = routeQuery.prompt.slice(0, 500);
+  if (routeQuery.jobId) void resumeBackendJob(routeQuery.jobId);
+}
 
 function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
