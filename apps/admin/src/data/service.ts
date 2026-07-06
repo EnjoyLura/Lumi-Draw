@@ -1,5 +1,5 @@
-// 统一数据服务层：readUseMockData() 为真时返回静态 mock，
-// 否则预留后端接口调用（本次尚未接入，非 mock 分支抛出未实现）。
+// 统一 mock 数据服务层：readUseMockData() 为真时返回静态 mock。
+// 真实后端数据统一走 data/api.ts 适配层，保留非 mock 保护避免旧页面误用。
 import { readUseMockData } from "../dataMode";
 import { ANNOUNCEMENTS, BANNERS, CATEGORIES, CHECKIN, FEEDBACKS, GAMEPLAYS, HOT_SEARCHES, MEMBER_PLANS, MODELS, PUSHES, QUALITIES, RATIOS, RECHARGE_TIERS, REPORTS, SENSITIVE, STYLES, TRANSACTIONS, TREND, USERS, VERSIONS, WORKS, type AdminAnnounce, type AdminBanner, type AdminCategory, type AdminFeedback, type AdminGameplay, type AdminHotSearch, type AdminModel, type AdminPush, type AdminQuality, type AdminRatio, type AdminRecharge, type AdminReport, type AdminStyle, type AdminTxn, type AdminUser, type AdminVersion, type AdminWork, type CheckinTier, type MemberPlan } from "./mock";
 
@@ -20,7 +20,7 @@ export interface TodayMetric {
 }
 
 function notImplemented(name: string): never {
-  throw new Error(`[admin] ${name} 后端接口尚未接入，请开启模拟数据开关`);
+  throw new Error(`[admin] ${name} 是 mock service，请改用 data/api.ts 真实接口适配层`);
 }
 
 export function getDashboardTodos(): DashboardTodos {
