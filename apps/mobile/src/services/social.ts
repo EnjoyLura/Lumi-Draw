@@ -39,6 +39,8 @@ export interface BackendWorkCard {
   createdAt: string;
   viewedAt?: string;
   favoritedAt?: string;
+  liked?: boolean;
+  favorited?: boolean;
   author: BackendAuthor;
 }
 

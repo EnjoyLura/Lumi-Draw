@@ -12,6 +12,7 @@ import {
   toggleWorkLike,
   toHomeWork,
   unfollowUser,
+  type BackendWorkCard,
   type BackendUserProfile
 } from "../../services/social";
 import type { HomeWork } from "../home/homeData";
@@ -116,10 +117,11 @@ async function loadProfile() {
     const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
     const [profile, worksPage] = await Promise.all([
       fetchUserProfile(userId.value, requestOptions),
-      fetchUserWorks(userId.value, 1, PAGE_SIZE, { skipAuth: true })
+      fetchUserWorks(userId.value, 1, PAGE_SIZE, requestOptions)
     ]);
     realProfile.value = toProfileView(profile);
     realWorks.value = worksPage.items.map(toHomeWork);
+    likedWorkIds.value = buildLikedWorkIds(worksPage.items);
     pageState.value = { page: worksPage.page, hasMore: worksPage.hasMore };
   } catch {
     realProfile.value = null;
@@ -138,14 +140,25 @@ async function loadMoreWorks() {
   isLoadingMore.value = true;
   try {
     const nextPage = pageState.value.page + 1;
-    const worksPage = await fetchUserWorks(userId.value, nextPage, PAGE_SIZE, { skipAuth: true });
+    const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
+    const worksPage = await fetchUserWorks(userId.value, nextPage, PAGE_SIZE, requestOptions);
     realWorks.value = [...realWorks.value, ...worksPage.items.map(toHomeWork)];
+    likedWorkIds.value = buildLikedWorkIds(worksPage.items, likedWorkIds.value);
     pageState.value = { page: worksPage.page, hasMore: worksPage.hasMore };
   } catch {
     uni.showToast({ title: "作品加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoadingMore.value = false;
   }
+}
+
+function buildLikedWorkIds(items: BackendWorkCard[], base?: Set<number>) {
+  const next = new Set(base);
+  items.forEach((item) => {
+    if (item.liked) next.add(item.id);
+    else next.delete(item.id);
+  });
+  return next;
 }
 
 function displayTitle(work: HomeWork) {

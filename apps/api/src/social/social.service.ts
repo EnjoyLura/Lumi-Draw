@@ -34,6 +34,26 @@ function toWorkCard(work: WorkWithAuthor) {
   };
 }
 
+async function withInteractionState(prisma: PrismaService, userId: number | undefined, cards: ReturnType<typeof toWorkCard>[]) {
+  if (!userId || cards.length === 0) return cards;
+
+  const interactions = await prisma.workInteraction.findMany({
+    where: {
+      userId,
+      workId: { in: cards.map((card) => card.id) },
+      type: { in: ["like", "favorite"] }
+    },
+    select: { workId: true, type: true }
+  });
+  const likedIds = new Set(interactions.filter((item) => item.type === "like").map((item) => item.workId));
+  const favoritedIds = new Set(interactions.filter((item) => item.type === "favorite").map((item) => item.workId));
+  return cards.map((card) => ({
+    ...card,
+    liked: likedIds.has(card.id),
+    favorited: favoritedIds.has(card.id)
+  }));
+}
+
 function toUserCard(user: User, following = false) {
   return {
     id: user.id,
@@ -221,13 +241,14 @@ export class SocialService {
     return toUserCard(user, Boolean(follow));
   }
 
-  async userWorks(targetUserId: number, page: number, pageSize: number) {
+  async userWorks(targetUserId: number, page: number, pageSize: number, currentUserId?: number) {
     const where: Prisma.WorkWhereInput = { userId: targetUserId, ...PUBLIC_WORK_WHERE };
     const [rows, total] = await Promise.all([
       this.prisma.work.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    return buildPage(rows.map(toWorkCard), total, page, pageSize);
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map(toWorkCard));
+    return buildPage(items, total, page, pageSize);
   }
 
   follow(currentUserId: number, targetUserId: number) {

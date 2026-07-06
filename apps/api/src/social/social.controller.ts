@@ -73,9 +73,14 @@ export class SocialController {
     return this.social.profile(user?.id, id);
   }
 
+  @UseGuards(OptionalJwtAuthGuard)
   @Get("users/:id/works")
-  userWorks(@Param("id", ParseIntPipe) id: number, @Query() query: SocialPageQueryDto) {
-    return this.social.userWorks(id, query.page, query.pageSize);
+  userWorks(
+    @CurrentUser() user: { id: number } | undefined,
+    @Param("id", ParseIntPipe) id: number,
+    @Query() query: SocialPageQueryDto
+  ) {
+    return this.social.userWorks(id, query.page, query.pageSize, user?.id);
   }
 
   @UseGuards(JwtAuthGuard)
