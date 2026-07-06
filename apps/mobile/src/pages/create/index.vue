@@ -25,6 +25,7 @@ import {
   publishGenerateResult,
   type BackendGenerateJob
 } from "./createService";
+import { fetchCreditsBalance } from "../points/pointsService";
 
 const EMPTY_MODEL: CreateModel = {
   id: "",
@@ -39,7 +40,7 @@ const EMPTY_MODEL: CreateModel = {
 const EMPTY_QUALITY: QualityOption = { label: "未同步", description: "待配置", icon: "--" };
 const EMPTY_RATIO: RatioOption = { label: "1:1", width: 1, height: 1 };
 
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const modelOptions = ref(createModels);
 const styleOptions = ref(createStyles);
@@ -85,6 +86,7 @@ let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
+const syncedTerminalJobIds = new Set<string>();
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? (useMockData.value ? createModels[0] : EMPTY_MODEL));
@@ -432,6 +434,17 @@ function isTerminalJob(status: BackendGenerateJob["status"]) {
   return ["succeeded", "partial_failed", "failed", "cancelled"].includes(status);
 }
 
+async function syncCreditsAfterTerminalJob(job: BackendGenerateJob) {
+  if (useMockData.value || !isTerminalJob(job.status) || job.refundCredits <= 0 || syncedTerminalJobIds.has(job.id)) return;
+  syncedTerminalJobIds.add(job.id);
+  try {
+    const credits = await fetchCreditsBalance();
+    updateCurrentUser({ credits });
+  } catch {
+    // Balance will refresh the next time the user opens an account-related page.
+  }
+}
+
 function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
   if (!job.results.length && (job.status === "failed" || job.status === "cancelled")) {
     return [
@@ -462,6 +475,7 @@ function applyBackendJob(job: BackendGenerateJob) {
   if (!isTerminalJob(job.status)) return;
 
   if (pollTimer) clearTimeout(pollTimer);
+  void syncCreditsAfterTerminalJob(job);
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
   generatedResults.value = toGeneratedResults(job);
@@ -538,6 +552,7 @@ async function startBackendGenerate(prompt: string) {
       count: selectedCount.value
     });
     addActiveGenerateJobId(created.jobId);
+    if (typeof created.creditsAfter === "number") updateCurrentUser({ credits: created.creditsAfter });
     applyBackendJob(created.job);
     if (!isTerminalJob(created.job.status)) {
       pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
