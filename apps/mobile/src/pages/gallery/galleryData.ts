@@ -1,3 +1,5 @@
+import { mockImage } from "../../services/mockImages";
+
 import type { HomeWork } from "../home/homeData";
 
 export type GalleryTab = "all" | "published" | "draft";
@@ -70,7 +72,7 @@ export const galleryTabs: GalleryTabOption[] = [
 export const galleryWorks: HomeWork[] = [
   {
     id: 3,
-    image: "https://picsum.photos/seed/w3/300/450",
+    image: mockImage("w3", 300, 450),
     userId: 1,
     title: "少女与猫",
     prompt: "anime girl with cat, soft colors, studio ghibli style, warm lighting",
@@ -80,7 +82,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 5,
-    image: "https://picsum.photos/seed/w5/300/530",
+    image: mockImage("w5", 300, 530),
     userId: 1,
     title: "古风少女",
     prompt: "ancient chinese girl, hanfu, peach blossom, spring, elegant",
@@ -90,7 +92,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 11,
-    image: "https://picsum.photos/seed/w11/300/400",
+    image: mockImage("w11", 300, 400),
     userId: 1,
     title: "油画风景",
     prompt: "oil painting landscape, golden field, sunset, impressionist",
@@ -100,7 +102,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 13,
-    image: "https://picsum.photos/seed/w13a/300/400",
+    image: mockImage("w13a", 300, 400),
     userId: 1,
     title: "",
     prompt: "花园里的可爱机器人，鲜花蝴蝶环绕，柔和阳光，梦幻氛围",
@@ -110,7 +112,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 14,
-    image: "https://picsum.photos/seed/w14a/300/300",
+    image: mockImage("w14a", 300, 300),
     userId: 1,
     title: "",
     prompt: "发光蘑菇的魔法森林，仙灯闪烁，奇幻魔法世界",
@@ -120,7 +122,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 15,
-    image: "https://picsum.photos/seed/w15/300/530",
+    image: mockImage("w15", 300, 530),
     userId: 1,
     title: "",
     prompt: "星空下的灯塔，海浪拍打礁石，宁静夜晚",
@@ -130,7 +132,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 16,
-    image: "https://picsum.photos/seed/w16/300/225",
+    image: mockImage("w16", 300, 225),
     userId: 1,
     title: "",
     prompt: "竹林深处的古寺，薄雾缭绕，禅意盎然",
@@ -140,7 +142,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 17,
-    image: "https://picsum.photos/seed/w17/300/400",
+    image: mockImage("w17", 300, 400),
     userId: 1,
     title: "",
     prompt: "赛博朋克风格的猫咪，机械眼睛，霓虹光芒",
@@ -150,7 +152,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 18,
-    image: "https://picsum.photos/seed/w18/300/300",
+    image: mockImage("w18", 300, 300),
     userId: 1,
     title: "",
     prompt: "水墨风格的鲤鱼跃龙门，祥云环绕",
@@ -160,7 +162,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 19,
-    image: "https://picsum.photos/seed/w19/300/400",
+    image: mockImage("w19", 300, 400),
     userId: 1,
     title: "",
     prompt: "午后阳光下的咖啡馆，暖色调，治愈系",
@@ -170,7 +172,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 20,
-    image: "https://picsum.photos/seed/w20/300/530",
+    image: mockImage("w20", 300, 530),
     userId: 1,
     title: "",
     prompt: "二次元少女骑在巨龙上翱翔天空",
@@ -180,7 +182,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 21,
-    image: "https://picsum.photos/seed/w21/300/225",
+    image: mockImage("w21", 300, 225),
     userId: 1,
     title: "",
     prompt: "极光之下的雪山湖泊，倒影如镜",
@@ -190,7 +192,7 @@ export const galleryWorks: HomeWork[] = [
   },
   {
     id: 22,
-    image: "https://picsum.photos/seed/w22/300/300",
+    image: mockImage("w22", 300, 300),
     userId: 1,
     title: "",
     prompt: "像素风格的太空探险，宇航员与外星生物",

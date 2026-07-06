@@ -1,3 +1,5 @@
+import { mockImage } from "../../services/mockImages";
+
 export interface CreateModel {
   id: string;
   name: string;
@@ -39,7 +41,7 @@ export const createModels: CreateModel[] = [
     description: "画质细腻·理解力强",
     tags: ["写实", "高清"],
     cost: 15,
-    image: "https://picsum.photos/seed/gpt2/200/120",
+    image: mockImage("gpt2", 200, 120),
     badge: "推荐",
     badgeColor: "var(--accent)"
   },
@@ -49,7 +51,7 @@ export const createModels: CreateModel[] = [
     description: "速度极快·性价比高",
     tags: ["快速", "全能"],
     cost: 8,
-    image: "https://picsum.photos/seed/nano/200/120",
+    image: mockImage("nano", 200, 120),
     badge: "性价比",
     badgeColor: "var(--mint)"
   },
@@ -59,7 +61,7 @@ export const createModels: CreateModel[] = [
     description: "艺术感强·细节丰富",
     tags: ["艺术", "创意"],
     cost: 12,
-    image: "https://picsum.photos/seed/flux/200/120",
+    image: mockImage("flux", 200, 120),
     badge: "NEW",
     badgeColor: "var(--rose)"
   },
@@ -69,7 +71,7 @@ export const createModels: CreateModel[] = [
     description: "开源之王·风格多样",
     tags: ["多样", "自定义"],
     cost: 6,
-    image: "https://picsum.photos/seed/sdxl/200/120",
+    image: mockImage("sdxl", 200, 120),
     badge: "性价比",
     badgeColor: "var(--mint)"
   },
@@ -79,7 +81,7 @@ export const createModels: CreateModel[] = [
     description: "语义理解·精准还原",
     tags: ["精准", "还原"],
     cost: 14,
-    image: "https://picsum.photos/seed/dalle/200/120"
+    image: mockImage("dalle", 200, 120)
   },
   {
     id: "mj",
@@ -87,7 +89,7 @@ export const createModels: CreateModel[] = [
     description: "艺术天花板·极致美学",
     tags: ["美学", "艺术"],
     cost: 20,
-    image: "https://picsum.photos/seed/mj/200/120",
+    image: mockImage("mj", 200, 120),
     badge: "推荐",
     badgeColor: "var(--accent)"
   }
@@ -112,7 +114,7 @@ export const createStyles: CreateStyle[] = [
   "更多"
 ].map((name) => ({
   name,
-  image: `https://picsum.photos/seed/${encodeURIComponent(name)}/100/100`
+  image: mockImage(name, 100, 100)
 }));
 
 export const qualityOptions: QualityOption[] = [
@@ -132,12 +134,12 @@ export const ratioOptions: RatioOption[] = [
 export const countOptions = [1, 2, 3, 4];
 
 export const gameplayTemplates: GameplayTemplate[] = [
-  { name: "人物美颜", image: "https://picsum.photos/seed/gp1/300/400", uses: "12.6w" },
-  { name: "证件照", image: "https://picsum.photos/seed/gp2/300/400", uses: "8.3w" },
-  { name: "宠物头像", image: "https://picsum.photos/seed/gp3/300/400", uses: "5.1w" },
-  { name: "古风国潮", image: "https://picsum.photos/seed/gp4/300/400", uses: "4.8w" },
-  { name: "Q版头像", image: "https://picsum.photos/seed/gp5/300/400", uses: "6.2w" },
-  { name: "Logo设计", image: "https://picsum.photos/seed/gp6/300/400", uses: "3.9w" },
-  { name: "壁纸", image: "https://picsum.photos/seed/gp7/300/400", uses: "7.5w" },
-  { name: "表情包", image: "https://picsum.photos/seed/gp8/300/400", uses: "9.0w" }
+  { name: "人物美颜", image: mockImage("gp1", 300, 400), uses: "12.6w" },
+  { name: "证件照", image: mockImage("gp2", 300, 400), uses: "8.3w" },
+  { name: "宠物头像", image: mockImage("gp3", 300, 400), uses: "5.1w" },
+  { name: "古风国潮", image: mockImage("gp4", 300, 400), uses: "4.8w" },
+  { name: "Q版头像", image: mockImage("gp5", 300, 400), uses: "6.2w" },
+  { name: "Logo设计", image: mockImage("gp6", 300, 400), uses: "3.9w" },
+  { name: "壁纸", image: mockImage("gp7", 300, 400), uses: "7.5w" },
+  { name: "表情包", image: mockImage("gp8", 300, 400), uses: "9.0w" }
 ];
