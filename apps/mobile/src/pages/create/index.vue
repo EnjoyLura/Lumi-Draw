@@ -6,7 +6,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { mockImage } from "../../services/mockImages";
-import { uploadChosenImage, uploadRemoteImage } from "../../services/upload";
+import { chooseLocalImage, uploadRemoteImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
 import {
   countOptions,
   createModels,
@@ -56,6 +56,8 @@ const selectedRatioIndex = ref(0);
 const selectedCountIndex = ref(0);
 const promptText = ref("");
 const promptImage = ref("");
+const promptLocalImage = ref<ChosenImage | null>(null);
+const promptUploadedImageUrl = ref("");
 const isGenerating = ref(false);
 const modelDrawerOpen = ref(false);
 const ratioSheetOpen = ref(false);
@@ -461,17 +463,19 @@ async function uploadPromptImage() {
 
   if (useMockData.value) {
     promptImage.value = mockImage(`upload${Date.now()}`, 200, 200);
-    showToast("图片已上传");
+    promptLocalImage.value = null;
+    promptUploadedImageUrl.value = promptImage.value;
     return;
   }
 
   isUploadingPromptImage.value = true;
   try {
-    const uploaded = await uploadChosenImage("prompt-image");
-    promptImage.value = uploaded.publicUrl;
-    showToast("图片已上传");
+    const image = await chooseLocalImage();
+    promptImage.value = image.path;
+    promptLocalImage.value = image;
+    promptUploadedImageUrl.value = "";
   } catch {
-    showToast("图片上传失败，请稍后重试");
+    // User cancelled image selection.
   } finally {
     isUploadingPromptImage.value = false;
   }
@@ -480,6 +484,8 @@ async function uploadPromptImage() {
 function removePromptImage(event?: Event) {
   event?.stopPropagation();
   promptImage.value = "";
+  promptLocalImage.value = null;
+  promptUploadedImageUrl.value = "";
 }
 
 function previewPromptImage() {
@@ -590,6 +596,8 @@ async function resumeBackendJob(jobId: string) {
     const job = await fetchGenerateJob(jobId);
     promptText.value = job.prompt || promptText.value;
     promptImage.value = job.inputImageUrl || "";
+    promptLocalImage.value = null;
+    promptUploadedImageUrl.value = job.inputImageUrl || "";
     pendingRouteOptions.value = {
       model: job.modelId,
       ratio: job.ratio,
@@ -610,6 +618,17 @@ async function resumeBackendJob(jobId: string) {
   }
 }
 
+async function resolvePromptImageUrl() {
+  if (!promptImage.value) return "";
+  if (promptUploadedImageUrl.value) return promptUploadedImageUrl.value;
+  if (!promptLocalImage.value) return promptImage.value;
+  const uploaded = await uploadSelectedImage("prompt-image", promptLocalImage.value);
+  promptUploadedImageUrl.value = uploaded.publicUrl;
+  promptImage.value = uploaded.publicUrl;
+  promptLocalImage.value = null;
+  return uploaded.publicUrl;
+}
+
 async function startBackendGenerate(prompt: string) {
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
@@ -622,11 +641,12 @@ async function startBackendGenerate(prompt: string) {
   stageText.value = "任务提交中...";
 
   try {
+    const inputImageUrl = await resolvePromptImageUrl();
     const created = await createGenerateJob({
-      mode: promptImage.value ? "image-to-image" : "text-to-image",
+      mode: inputImageUrl ? "image-to-image" : "text-to-image",
       modelId: selectedModel.value.id,
       prompt,
-      inputImageUrl: promptImage.value || undefined,
+      inputImageUrl: inputImageUrl || undefined,
       style: selectedStyleName.value,
       ratio: selectedRatio.value.label,
       quality: selectedQuality.value.label,
@@ -928,7 +948,7 @@ async function goPublish() {
           <view class="prompt-actions">
             <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
             <view class="prompt-action accent" :class="{ disabled: isUploadingPromptImage }" @click="uploadPromptImage">
-              {{ isUploadingPromptImage ? "上传中..." : "上传图片" }}
+              {{ isUploadingPromptImage ? "选择中..." : "上传图片" }}
             </view>
             <view class="action-spacer" />
             <view v-if="promptText" class="prompt-action neutral has-icon" @click="clearPrompt">
