@@ -25,6 +25,7 @@ type GeneratedImage = {
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
+const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
 const REVERSE_PROMPT_COST = 2;
 
 @Injectable()
@@ -108,7 +109,9 @@ export class GenerateService {
 
   async listJobs(userId: number, status: string | undefined, page: number, pageSize: number) {
     const where: Prisma.GenerateJobWhereInput = { userId };
-    if (status) where.status = status;
+    const statuses = this.parseStatusQuery(status);
+    if (statuses.length === 1) where.status = statuses[0];
+    else if (statuses.length > 1) where.status = { in: statuses };
     const [rows, total] = await Promise.all([
       this.prisma.generateJob.findMany({
         where,
@@ -119,6 +122,13 @@ export class GenerateService {
       this.prisma.generateJob.count({ where })
     ]);
     return buildPage(rows.map((job) => this.toJobView(job)), total, page, pageSize);
+  }
+
+  private parseStatusQuery(status: string | undefined) {
+    if (!status) return [];
+    const statuses = [...new Set(status.split(",").map((item) => item.trim()).filter(Boolean))];
+    if (statuses.some((item) => !JOB_STATUSES.has(item))) throw new BadRequestException("invalid generate job status");
+    return statuses;
   }
 
   async cancelJob(userId: number, id: string) {

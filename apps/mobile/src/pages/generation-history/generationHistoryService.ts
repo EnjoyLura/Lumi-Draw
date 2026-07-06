@@ -62,8 +62,9 @@ function sortByUpdatedAt(items: GenerateHistoryJob[]) {
   return [...items].sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
 }
 
-async function fetchGenerateJobsByStatus(status: GenerateJobStatus, page: number, pageSize: number) {
-  return api.get<PageResult<GenerateHistoryJob>>(`/generate/jobs?status=${status}&page=${page}&pageSize=${pageSize}`);
+async function fetchGenerateJobsByStatuses(statuses: GenerateJobStatus[], page: number, pageSize: number) {
+  const statusQuery = encodeURIComponent(statuses.join(","));
+  return api.get<PageResult<GenerateHistoryJob>>(`/generate/jobs?status=${statusQuery}&page=${page}&pageSize=${pageSize}`);
 }
 
 export async function fetchGenerateHistoryJobs(filter: GenerateHistoryFilter, page = 1, pageSize = 20) {
@@ -71,15 +72,8 @@ export async function fetchGenerateHistoryJobs(filter: GenerateHistoryFilter, pa
     return api.get<PageResult<GenerateHistoryJob>>(`/generate/jobs?page=${page}&pageSize=${pageSize}`);
   }
 
-  const pages = await Promise.all(FILTER_STATUS_MAP[filter].map((status) => fetchGenerateJobsByStatus(status, page, pageSize)));
-  const items = sortByUpdatedAt(pages.flatMap((item) => item.items));
-  return {
-    items,
-    page,
-    pageSize,
-    total: pages.reduce((sum, item) => sum + item.total, 0),
-    hasMore: pages.some((item) => item.hasMore)
-  };
+  const result = await fetchGenerateJobsByStatuses(FILTER_STATUS_MAP[filter], page, pageSize);
+  return { ...result, items: sortByUpdatedAt(result.items) };
 }
 
 export function retryGenerateJob(jobId: string) {

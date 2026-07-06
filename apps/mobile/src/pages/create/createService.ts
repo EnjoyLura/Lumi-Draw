@@ -80,7 +80,16 @@ export interface BackendGenerateResult {
 
 export interface BackendGenerateJob {
   id: string;
+  mode: "text-to-image" | "image-to-image";
+  modelId: string;
+  providerModel?: string;
   prompt: string;
+  inputImageUrl?: string;
+  gameplayId?: number;
+  style?: string;
+  ratio: string;
+  quality: string;
+  count: number;
   status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
   progress: number;
   stageText: string;

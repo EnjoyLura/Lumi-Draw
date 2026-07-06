@@ -140,29 +140,25 @@ function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
   };
 }
 
-async function fetchGenerateJobsByStatus(status: "queued" | "running") {
-  const result = await api.get<PageResult<BackendGenerateJob>>(`/generate/jobs?status=${status}&page=1&pageSize=20`);
+async function fetchGenerateJobsByStatuses(statuses: BackendGenerateJob["status"][]) {
+  const statusQuery = encodeURIComponent(statuses.join(","));
+  const result = await api.get<PageResult<BackendGenerateJob>>(`/generate/jobs?status=${statusQuery}&page=1&pageSize=20`);
   return result.items;
 }
 
 export async function fetchGalleryGenerateTasks() {
-  const [queued, running] = await Promise.all([fetchGenerateJobsByStatus("queued"), fetchGenerateJobsByStatus("running")]);
-  return [...running, ...queued]
+  const items = await fetchGenerateJobsByStatuses(["running", "queued"]);
+  return items
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map(toGalleryGenTask);
 }
 
-async function fetchTerminalGenerateJobsByStatus(status: GalleryTerminalGenerateJob["status"]) {
-  const result = await api.get<PageResult<GalleryTerminalGenerateJob>>(`/generate/jobs?status=${status}&page=1&pageSize=20`);
+async function fetchTerminalGenerateJobsByStatuses(statuses: GalleryTerminalGenerateJob["status"][]) {
+  const statusQuery = encodeURIComponent(statuses.join(","));
+  const result = await api.get<PageResult<GalleryTerminalGenerateJob>>(`/generate/jobs?status=${statusQuery}&page=1&pageSize=20`);
   return result.items;
 }
 
 export async function fetchGalleryTerminalGenerateJobs() {
-  const [succeeded, partialFailed, failed, cancelled] = await Promise.all([
-    fetchTerminalGenerateJobsByStatus("succeeded"),
-    fetchTerminalGenerateJobsByStatus("partial_failed"),
-    fetchTerminalGenerateJobsByStatus("failed"),
-    fetchTerminalGenerateJobsByStatus("cancelled")
-  ]);
-  return [...succeeded, ...partialFailed, ...failed, ...cancelled];
+  return fetchTerminalGenerateJobsByStatuses(["succeeded", "partial_failed", "failed", "cancelled"]);
 }

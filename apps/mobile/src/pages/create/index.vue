@@ -105,6 +105,11 @@ const moreStyleSelected = computed(() => {
 });
 const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
 const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
+const savedDraftCount = computed(() => generatedResults.value.filter((item) => !item.failed && item.savedWorkId).length);
+const allSuccessfulResultsSaved = computed(
+  () => successCount.value > 0 && generatedResults.value.filter((item) => !item.failed).every((item) => item.savedWorkId)
+);
+const hasAutoSavedDrafts = computed(() => !useMockData.value && savedDraftCount.value > 0);
 const refundCredits = computed(() => failCount.value * selectedModel.value.cost);
 const createConfigUnavailable = computed(
   () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
@@ -518,6 +523,16 @@ async function resumeBackendJob(jobId: string) {
   try {
     const job = await fetchGenerateJob(jobId);
     promptText.value = job.prompt || promptText.value;
+    promptImage.value = job.inputImageUrl || "";
+    pendingRouteOptions.value = {
+      model: job.modelId,
+      ratio: job.ratio,
+      quality: job.quality,
+      style: job.style || ""
+    };
+    applyPendingRouteOptions();
+    const countIndex = countOptions.findIndex((item) => item === job.count);
+    if (countIndex >= 0) selectedCountIndex.value = countIndex;
     applyBackendJob(job);
     if (!isTerminalJob(job.status)) {
       addActiveGenerateJobId(jobId);
@@ -965,6 +980,10 @@ async function goPublish() {
               <text class="meta-item">{{ genMeta.size }}</text>
               <text class="meta-item">{{ selectedModel.name }}</text>
             </view>
+            <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
+              <text class="draft-saved-icon">▤</text>
+              <text>生成作品已自动保存为草稿，可在画廊草稿箱继续发布。</text>
+            </view>
             <view class="result-actions">
               <button class="result-action ghost" @click="goPublish">
                 <text class="result-action-icon">✈</text>
@@ -972,7 +991,7 @@ async function goPublish() {
               </button>
               <button class="result-action primary" :disabled="isSavingDrafts" @click="saveAllResults">
                 <text class="result-action-icon">⇩</text>
-                <text>{{ isSavingDrafts ? "保存中..." : "全部保存" }}</text>
+                <text>{{ isSavingDrafts ? "保存中..." : allSuccessfulResultsSaved ? "已存草稿" : "全部保存" }}</text>
               </button>
             </view>
           </view>
@@ -1832,6 +1851,27 @@ async function goPublish() {
   padding: 12px 0;
   font-size: 13px;
   color: var(--fg-muted);
+}
+
+.draft-saved-note {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border: 1px solid rgba(91, 159, 232, 0.18);
+  border-radius: 10px;
+}
+
+.draft-saved-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .result-actions {

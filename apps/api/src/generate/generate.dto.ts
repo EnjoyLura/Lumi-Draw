@@ -48,7 +48,8 @@ export class CreateGenerateJobDto {
 
 export class GenerateJobListQueryDto extends PageQueryDto {
   @IsOptional()
-  @IsIn(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"])
+  @IsString()
+  @MaxLength(128)
   status?: string;
 }
 
