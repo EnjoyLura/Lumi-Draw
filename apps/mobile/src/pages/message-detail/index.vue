@@ -20,14 +20,20 @@ const showLoginSheet = ref(false);
 const hasLoaded = ref(false);
 const loginRequired = ref(false);
 const loadFailed = ref(false);
+let skipNextShowReload = false;
 
 const messages = computed(() => (useMockData.value ? getMessages(category.value.key, readKeys.value) : backendMessages.value));
 
 onLoad((query) => {
+  skipNextShowReload = true;
   void syncCategory(resolveRouteType(query), true);
 });
 
 onShow(() => {
+  if (skipNextShowReload) {
+    skipNextShowReload = false;
+    return;
+  }
   void syncCategory(resolveRouteType(), false);
 });
 
@@ -70,7 +76,7 @@ function resolveRouteType(query?: Record<string, unknown>) {
 async function syncCategory(type: MessageCategoryKey, force: boolean) {
   const nextCategory = getMessageCategory(type);
   const changed = nextCategory.key !== category.value.key;
-  if (!force && !changed && hasLoaded.value) return;
+  if (!force && !changed && hasLoaded.value && useMockData.value) return;
 
   category.value = nextCategory;
   refreshNavigationTitle(nextCategory.title);
