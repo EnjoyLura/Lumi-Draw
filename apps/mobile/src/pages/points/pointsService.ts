@@ -244,6 +244,19 @@ async function waitForPaidOrder(orderId: string) {
   return latest;
 }
 
+function isH5Runtime() {
+  return typeof window !== "undefined";
+}
+
+function normalizePaymentError(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("cancel")) return "支付已取消";
+  if (message.includes("requestPayment") || message.includes("wxpay")) {
+    return "当前环境无法拉起微信支付，请在微信小程序中验收支付，或开启模拟支付";
+  }
+  return message || "支付失败，请稍后重试";
+}
+
 export async function requestOrderPayment(order: PaymentOrderView) {
   const params = order.paymentParams;
   if (!params) return order;
@@ -256,18 +269,26 @@ export async function requestOrderPayment(order: PaymentOrderView) {
     throw new Error(params.message || "微信支付暂未配置");
   }
 
-  await new Promise<void>((resolve, reject) => {
-    uni.requestPayment({
-      provider: "wxpay",
-      timeStamp: params.timeStamp,
-      nonceStr: params.nonceStr,
-      package: params.package,
-      signType: params.signType,
-      paySign: params.paySign,
-      success: () => resolve(),
-      fail: (error) => reject(new Error(error.errMsg || "支付取消"))
+  if (isH5Runtime()) {
+    throw new Error("当前环境无法拉起微信支付，请在微信小程序中验收支付，或开启模拟支付");
+  }
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      uni.requestPayment({
+        provider: "wxpay",
+        timeStamp: params.timeStamp,
+        nonceStr: params.nonceStr,
+        package: params.package,
+        signType: params.signType,
+        paySign: params.paySign,
+        success: () => resolve(),
+        fail: (error) => reject(new Error(error.errMsg || "支付取消"))
+      });
     });
-  });
+  } catch (error) {
+    throw new Error(normalizePaymentError(error));
+  }
 
   return waitForPaidOrder(order.id);
 }
