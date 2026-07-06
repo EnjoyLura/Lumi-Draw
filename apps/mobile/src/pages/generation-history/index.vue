@@ -44,6 +44,7 @@ const lastMode = ref<boolean | null>(null);
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let skipNextShowReload = false;
 
 const mockJobs = computed<GenerateHistoryJob[]>(() =>
   galleryGenTasks.map((task) => ({
@@ -76,12 +77,18 @@ const emptyTitle = computed(() => {
 
 onLoad(() => {
   lastMode.value = useMockData.value;
+  skipNextShowReload = true;
   void reloadJobs();
 });
 
 onShow(() => {
-  if (lastMode.value === useMockData.value) return;
+  if (skipNextShowReload) {
+    skipNextShowReload = false;
+    return;
+  }
+  const modeChanged = lastMode.value !== useMockData.value;
   lastMode.value = useMockData.value;
+  if (useMockData.value && !modeChanged) return;
   void reloadJobs();
 });
 
