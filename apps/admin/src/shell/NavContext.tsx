@@ -76,15 +76,13 @@ export function NavProvider({ children }: { children: ReactNode }) {
   const toggleDrawer = useCallback(() => setDrawerOpen((v) => !v), []);
 
   const onNavLeft = useCallback(() => {
-    setStack((prev) => {
-      if (prev.length > 1) {
-        setDir("back");
-        return prev.slice(0, -1);
-      }
-      setDrawerOpen((v) => !v);
-      return prev;
-    });
-  }, []);
+    if (stack.length > 1) {
+      setDir("back");
+      setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
+      return;
+    }
+    setDrawerOpen((v) => !v);
+  }, [stack.length]);
 
   const openSheet = useCallback((title: string, body: ReactNode, foot?: ReactNode) => {
     setSheet({ open: true, title, body, foot: foot ?? null });
