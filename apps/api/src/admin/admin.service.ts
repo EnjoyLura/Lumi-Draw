@@ -205,6 +205,16 @@ export class AdminService {
         where: { id: work.userId, worksCount: { gt: 0 } },
         data: { worksCount: { decrement: 1 } }
       });
+      if (work.likes > 0) {
+        await tx.user.updateMany({
+          where: { id: work.userId, likesCount: { gte: work.likes } },
+          data: { likesCount: { decrement: work.likes } }
+        });
+        await tx.user.updateMany({
+          where: { id: work.userId, likesCount: { lt: work.likes } },
+          data: { likesCount: 0 }
+        });
+      }
     });
     return { ok: true, id, action: "delete" };
   }

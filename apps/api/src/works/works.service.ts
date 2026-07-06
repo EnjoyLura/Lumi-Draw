@@ -186,7 +186,7 @@ export class WorksService {
   }
 
   async remove(userId: number, id: number, action: "delete" | "offline" | "draft" = "delete") {
-    await this.ownedWork(userId, id);
+    const work = await this.ownedWork(userId, id);
     if (action === "offline") {
       await this.prisma.work.update({ where: { id }, data: { status: "offline", isPublic: false } });
       return { ok: true, action };
@@ -205,6 +205,16 @@ export class WorksService {
         where: { id: userId, worksCount: { gt: 0 } },
         data: { worksCount: { decrement: 1 } }
       });
+      if (work.likes > 0) {
+        await tx.user.updateMany({
+          where: { id: userId, likesCount: { gte: work.likes } },
+          data: { likesCount: { decrement: work.likes } }
+        });
+        await tx.user.updateMany({
+          where: { id: userId, likesCount: { lt: work.likes } },
+          data: { likesCount: 0 }
+        });
+      }
     });
     return { ok: true, action: "delete" };
   }
