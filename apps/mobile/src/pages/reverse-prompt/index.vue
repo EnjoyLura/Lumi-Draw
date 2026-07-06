@@ -13,7 +13,7 @@ const hintText = ref("");
 const isUploading = ref(false);
 const isAnalyzing = ref(false);
 const showLoginSheet = ref(false);
-const { login: commitLogin, requireLogin } = useAuth();
+const { login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 
 const hasResult = computed(() => !!resultText.value);
@@ -65,6 +65,7 @@ async function startReverse() {
 
     const result = await reversePrompt({ imageUrl: imageUrl.value, hint: hintText.value.trim() || undefined });
     resultText.value = result.prompt;
+    updateCurrentUser({ credits: result.creditsAfter });
     uni.showToast({ title: `分析完成，消耗 ${result.costCredits} 积分`, icon: "none" });
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "分析失败，请稍后重试", icon: "none" });
