@@ -8,7 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type InvitedUser } from "../points/pointsData";
 import { fetchInviteSummary } from "../points/pointsService";
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const inviteCode = ref("");
@@ -32,7 +32,7 @@ async function loadInvite() {
     loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     inviteCode.value = "";
     invitedUsers.value = [];
     rewardPerInvite.value = 0;

@@ -8,7 +8,7 @@ import { useDataMode } from "../../services/dataMode";
 import { milestones, type Milestone } from "../points/pointsData";
 import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const currentDate = new Date();
 const currentYear = currentDate.getFullYear();
@@ -18,8 +18,8 @@ const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
 const monthTitle = `${currentYear}年${currentMonth}月`;
 
 const checkinDone = ref(false);
-const checkinStreak = ref(7);
-const nextCredits = ref(10);
+const checkinStreak = ref(0);
+const nextCredits = ref(0);
 const signedDays = ref<number[]>([]);
 const milestoneStates = ref<Record<number, Milestone["state"]>>({});
 const streakPulse = ref(false);
@@ -37,7 +37,7 @@ function buildMilestoneStates(streak: number) {
   }, {});
 }
 
-milestoneStates.value = buildMilestoneStates(checkinStreak.value);
+milestoneStates.value = buildMilestoneStates(0);
 
 function buildVisibleSignedDays(streak: number, checkedToday: boolean) {
   const endDay = checkedToday ? currentDay : currentDay - 1;
@@ -75,9 +75,10 @@ async function loadStatus() {
     loginRequired.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
     checkinDone.value = false;
     checkinStreak.value = 0;
+    nextCredits.value = 0;
     signedDays.value = [];
     milestoneStates.value = buildMilestoneStates(0);
     loginRequired.value = true;
