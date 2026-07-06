@@ -18,7 +18,7 @@ const emit = defineEmits<{
     <view class="login-sub">登录后即可体验AI创作、收藏作品等功能</view>
     <button class="login-primary" @click="emit('login')">▣ 微信一键登录</button>
     <view class="login-agree">
-      登录即代表同意 <text>用户协议</text> 和 <text>隐私政策</text>
+      登录即代表同意 <text class="agree-link">用户协议</text> 和 <text class="agree-link">隐私政策</text>
     </view>
   </view>
 </template>
@@ -107,7 +107,7 @@ const emit = defineEmits<{
   color: var(--fg-muted);
 }
 
-.login-agree text {
+.agree-link {
   color: var(--accent);
 }
 </style>

@@ -18,6 +18,41 @@ onLaunch(() => {
 </template>
 
 <style>
+page {
+  --bg-base: #eef4fc;
+  --bg-soft: #e1ebf8;
+  --bg-card: #ffffff;
+  --bg-elevated: #fbfdff;
+  --bg-glass: rgba(255, 255, 255, 0.72);
+  --fg-primary: #0e1f3a;
+  --fg-secondary: #445876;
+  --fg-muted: #8497b5;
+  --border: rgba(91, 159, 232, 0.14);
+  --border-strong: rgba(91, 159, 232, 0.32);
+  --card-border: rgba(91, 159, 232, 0.14);
+  --accent: #5b9fe8;
+  --accent-deep: #3b7fc8;
+  --accent-soft: rgba(91, 159, 232, 0.12);
+  --accent-glow: rgba(91, 159, 232, 0.28);
+  --tab-active: #5b9fe8;
+  --tab-active-fg: #ffffff;
+  --mint: #6fd4b0;
+  --mint-soft: rgba(111, 212, 176, 0.16);
+  --peach: #ffb59a;
+  --peach-soft: rgba(255, 181, 154, 0.2);
+  --peach-deep: #e07a5a;
+  --lavender: #b8a5e3;
+  --lavender-soft: rgba(184, 165, 227, 0.2);
+  --lemon: #ffe08a;
+  --lemon-soft: rgba(255, 224, 138, 0.24);
+  --rose: #ffa8b8;
+  --rose-soft: rgba(255, 168, 184, 0.22);
+  --gradient-dream: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 52%, #6fd4b0 100%);
+  --gradient-aurora: linear-gradient(135deg, #a3e4cc 0%, #5b9fe8 52%, #b8a5e3 100%);
+  --gradient-sky: linear-gradient(180deg, #e1ebf8 0%, #f5f9fe 100%);
+  --page-bg: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
+}
+
 :root {
   --bg-base: #eef4fc;
   --bg-soft: #e1ebf8;
