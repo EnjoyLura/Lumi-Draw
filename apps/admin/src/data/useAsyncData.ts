@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface AsyncState<T> {
   data: T | null;
@@ -10,6 +10,7 @@ interface AsyncState<T> {
 export function useAsyncData<T>(loader: (() => Promise<T>) | null, deps: unknown[]): AsyncState<T> & { reload: () => void } {
   const [state, setState] = useState<AsyncState<T>>({ data: null, loading: !!loader, error: null });
   const [tick, setTick] = useState(0);
+  const silentReloadRef = useRef(false);
 
   useEffect(() => {
     if (!loader) {
@@ -17,13 +18,21 @@ export function useAsyncData<T>(loader: (() => Promise<T>) | null, deps: unknown
       return;
     }
     let alive = true;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    const silentReload = silentReloadRef.current;
+    silentReloadRef.current = false;
+    setState((s) => ({ ...s, loading: !(silentReload && s.data !== null), error: null }));
     loader()
       .then((data) => {
         if (alive) setState({ data, loading: false, error: null });
       })
       .catch((e: unknown) => {
-        if (alive) setState({ data: null, loading: false, error: e instanceof Error ? e.message : "加载失败" });
+        if (alive) {
+          setState((s) => ({
+            data: silentReload && s.data !== null ? s.data : null,
+            loading: false,
+            error: e instanceof Error ? e.message : "加载失败"
+          }));
+        }
       });
     return () => {
       alive = false;
@@ -31,5 +40,11 @@ export function useAsyncData<T>(loader: (() => Promise<T>) | null, deps: unknown
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
 
-  return { ...state, reload: () => setTick((t) => t + 1) };
+  return {
+    ...state,
+    reload: () => {
+      silentReloadRef.current = true;
+      setTick((t) => t + 1);
+    }
+  };
 }
