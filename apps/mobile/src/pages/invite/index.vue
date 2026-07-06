@@ -11,19 +11,15 @@ import { fetchInviteSummary } from "../points/pointsService";
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
-const inviteCode = ref(mockInviteCode);
-const invitedUsers = ref<InvitedUser[]>(mockInvitedUsers);
-const rewardPerInvite = ref(50);
-const totalReward = ref(mockInvitedUsers.reduce((sum, item) => sum + item.reward, 0));
+const inviteCode = ref("");
+const invitedUsers = ref<InvitedUser[]>([]);
+const rewardPerInvite = ref(0);
+const totalReward = ref(0);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
-let lastMockMode: boolean | null = null;
 
 onShow(() => {
-  if (lastMockMode !== useMockData.value) {
-    lastMockMode = useMockData.value;
-  }
   void loadInvite();
 });
 

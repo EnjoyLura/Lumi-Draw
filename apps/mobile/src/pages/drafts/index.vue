@@ -27,7 +27,7 @@ const EMPTY_PROFILE: GalleryUser = {
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const realDrafts = ref<HomeWork[]>([]);
-const profile = ref(galleryUser);
+const profile = ref(EMPTY_PROFILE);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const loginRequired = ref(false);
@@ -74,7 +74,11 @@ function goCreate() {
 }
 
 async function loadDrafts(page = 1, append = false) {
-  if (useMockData.value) return;
+  if (useMockData.value) {
+    profile.value = galleryUser;
+    loginRequired.value = false;
+    return;
+  }
   if (!ensureLogin()) {
     resetRealDrafts();
     loginRequired.value = true;

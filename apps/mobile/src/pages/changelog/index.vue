@@ -6,7 +6,7 @@ import { fetchChangelog } from "../settings/settingsService";
 import { currentVersion, versionLogs, type ChangeKind, type VersionLog } from "./changelogData";
 
 const { useMockData } = useDataMode();
-const logs = ref<VersionLog[]>(versionLogs);
+const logs = ref<VersionLog[]>([]);
 const isLoading = ref(false);
 const loadFailed = ref(false);
 let lastMode: boolean | null = null;
