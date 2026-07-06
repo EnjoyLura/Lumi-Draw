@@ -101,8 +101,12 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
   };
 }
 
-export async function apiGetUsers(): Promise<AdminUser[]> {
-  const page = await http.get<Paginated<ApiUser>>("/admin/users?page=1&pageSize=100");
+export async function apiGetUsers(options: { keyword?: string; status?: "normal" | "banned"; member?: string } = {}): Promise<AdminUser[]> {
+  const params = new URLSearchParams({ page: "1", pageSize: "100" });
+  if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
+  if (options.status) params.set("status", options.status);
+  if (options.member) params.set("member", options.member);
+  const page = await http.get<Paginated<ApiUser>>(`/admin/users?${params.toString()}`);
   return page.items.map(mapUser);
 }
 

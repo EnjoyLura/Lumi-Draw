@@ -61,7 +61,8 @@ export class AdminService {
     if (keyword?.trim()) {
       const kw = keyword.trim();
       const or: Prisma.UserWhereInput[] = [{ nickname: { contains: kw } }, { phone: { contains: kw } }];
-      const asId = Number.parseInt(kw, 10);
+      const numericText = kw.match(/\d+/)?.[0] ?? "";
+      const asId = Number.parseInt(numericText, 10);
       if (Number.isInteger(asId)) or.push({ id: asId });
       where.OR = or;
     }

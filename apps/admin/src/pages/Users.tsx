@@ -22,11 +22,12 @@ function formatCount(value: number) {
 export function Users() {
   const { go } = useNav();
   const { useMock } = useAdminSession();
-  const { data } = useAsyncData(useMock ? null : apiGetUsers, [useMock]);
-  const summaryState = useAsyncData(useMock ? null : apiGetUsersSummary, [useMock]);
-  const users = useMock ? getUsers() : data ?? [];
   const [filter, setFilter] = useState("全部");
   const [query, setQuery] = useState("");
+  const serverStatus = filter === "封禁" ? "banned" : undefined;
+  const { data } = useAsyncData(useMock ? null : () => apiGetUsers({ keyword: query, status: serverStatus }), [useMock, query, serverStatus]);
+  const summaryState = useAsyncData(useMock ? null : apiGetUsersSummary, [useMock]);
+  const users = useMock ? getUsers() : data ?? [];
   const localSummary: AdminUsersSummary = {
     total: users.length,
     todayNew: users.filter((u) => isToday(u.reg)).length,
@@ -39,8 +40,8 @@ export function Users() {
   const list = users.filter((u) => {
     if (filter === "会员" && u.member === "无") return false;
     if (filter === "活跃" && !u.active) return false;
-    if (filter === "封禁" && u.status !== "封禁") return false;
-    if (q && u.name.toLowerCase().indexOf(q) < 0 && String(u.id).indexOf(q) < 0 && u.phone.indexOf(q) < 0) return false;
+    if (useMock && filter === "封禁" && u.status !== "封禁") return false;
+    if (useMock && q && u.name.toLowerCase().indexOf(q) < 0 && String(u.id).indexOf(q) < 0 && u.phone.indexOf(q) < 0) return false;
     return true;
   });
 
