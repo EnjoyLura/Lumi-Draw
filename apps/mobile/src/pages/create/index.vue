@@ -4,7 +4,7 @@ import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { addActiveGenerateJobId } from "../../services/generateTaskState";
+import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { uploadChosenImage, uploadRemoteImage } from "../../services/upload";
 import {
   countOptions,
@@ -544,6 +544,7 @@ function applyBackendJob(job: BackendGenerateJob) {
   if (!isTerminalJob(job.status)) return;
 
   if (pollTimer) clearTimeout(pollTimer);
+  removeActiveGenerateJobIds([job.id]);
   void syncCreditsAfterTerminalJob(job);
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;

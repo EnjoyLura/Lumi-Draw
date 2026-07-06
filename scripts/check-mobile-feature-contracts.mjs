@@ -50,6 +50,7 @@ const pageContracts = [
       "publishGenerateResult",
       "uploadChosenImage",
       "uploadRemoteImage",
+      "removeActiveGenerateJobIds",
       "resumeBackendJob",
       "jobId",
       "hasAutoSavedDrafts",
