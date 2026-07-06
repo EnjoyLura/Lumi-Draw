@@ -37,9 +37,6 @@ onLoad((query) => {
     activeType.value = "experience";
     desc.value = "我想咨询：";
   }
-  if (!useMockData.value) {
-    ensureLogin();
-  }
 });
 
 async function addImage() {
