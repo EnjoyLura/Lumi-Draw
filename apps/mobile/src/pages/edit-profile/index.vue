@@ -175,7 +175,7 @@ async function save() {
 </script>
 
 <template>
-  <view class="edit-page" :class="themeClass">
+  <view class="edit-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

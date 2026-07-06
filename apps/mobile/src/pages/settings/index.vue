@@ -212,7 +212,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="settings-page" :class="themeClass">
+  <view class="settings-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="settings-content">
         <view class="section-title">账号</view>

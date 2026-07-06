@@ -183,7 +183,7 @@ function handleReachBottom() {
 </script>
 
 <template>
-  <view class="search-page" :class="themeClass">
+  <view class="search-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">

@@ -246,7 +246,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="publish-page" :class="themeClass">
+  <view class="publish-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

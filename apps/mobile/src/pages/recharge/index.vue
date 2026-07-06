@@ -212,7 +212,7 @@ function confirmCustomRecharge() {
 </script>
 
 <template>
-  <view class="recharge-page" :class="themeClass">
+  <view class="recharge-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

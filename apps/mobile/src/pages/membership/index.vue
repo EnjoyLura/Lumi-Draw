@@ -187,7 +187,7 @@ function showAgreement() {
 </script>
 
 <template>
-  <view class="membership-page" :class="themeClass">
+  <view class="membership-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="member-card">

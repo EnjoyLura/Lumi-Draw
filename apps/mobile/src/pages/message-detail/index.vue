@@ -153,7 +153,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="message-detail-page" :class="themeClass">
+  <view class="message-detail-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
         <LumiLoginRequired

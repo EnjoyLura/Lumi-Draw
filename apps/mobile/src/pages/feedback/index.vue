@@ -198,7 +198,7 @@ async function submit() {
 </script>
 
 <template>
-  <view class="feedback-page" :class="themeClass">
+  <view class="feedback-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="feedback-content">
         <view class="field">

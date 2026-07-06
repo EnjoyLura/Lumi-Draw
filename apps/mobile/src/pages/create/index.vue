@@ -877,7 +877,7 @@ async function goPublish() {
 </script>
 
 <template>
-  <view class="create-page" :class="themeClass">
+  <view class="create-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="create-scroll" scroll-y>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">

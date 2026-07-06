@@ -52,7 +52,6 @@ const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
-const isSwitchingWorks = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
@@ -65,7 +64,6 @@ const feedState = reactive({
   new: { page: 1, hasMore: false }
 });
 
-let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = null;
@@ -109,7 +107,6 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
 });
@@ -157,6 +154,7 @@ function resetMockHomeData() {
   feedState.recommend = { page: 1, hasMore: false };
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
+  worksSlideClass.value = "";
   worksRenderKey.value += 1;
   scheduleAnnouncementPopup();
 }
@@ -174,6 +172,7 @@ function clearRealHomeData() {
   feedState.recommend = { page: 1, hasMore: false };
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
+  worksSlideClass.value = "";
   worksRenderKey.value += 1;
 }
 
@@ -223,6 +222,7 @@ async function loadHomeData() {
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
     visibleWorkCount.value = 8;
+    worksSlideClass.value = "";
     worksRenderKey.value += 1;
     scheduleAnnouncementPopup();
   } catch {
@@ -418,21 +418,14 @@ function openWorkDetail(workId: number) {
 }
 
 function switchHomeTab(tab: HomeTab) {
-  if (tab === selectedHomeTab.value || isPageLoading.value || isSwitchingWorks.value) return;
+  if (tab === selectedHomeTab.value || isPageLoading.value) return;
 
   const direction = tab === "new" && selectedHomeTab.value === "recommend" ? "left" : "right";
   selectedHomeTab.value = tab;
   visibleWorkCount.value = 8;
-  isSwitchingWorks.value = true;
-  worksSlideClass.value = "";
-
-  if (slideTimer) clearTimeout(slideTimer);
-  slideTimer = setTimeout(() => {
-    renderedHomeTab.value = tab;
-    worksRenderKey.value += 1;
-    worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
-    isSwitchingWorks.value = false;
-  }, 300);
+  renderedHomeTab.value = tab;
+  worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
+  worksRenderKey.value += 1;
 }
 
 async function loadMoreFeed() {
@@ -461,7 +454,7 @@ async function loadMoreFeed() {
 }
 
 function handleReachBottom() {
-  if (isSwitchingWorks.value || isLoadingMore.value) return;
+  if (isLoadingMore.value) return;
 
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
@@ -699,7 +692,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <view class="works-stage">
-          <view v-if="isPageLoading || isSwitchingWorks" class="works-loading">
+          <view v-if="isPageLoading" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
@@ -1255,11 +1248,11 @@ function getRatioClass(ratio: string) {
 }
 
 .waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-col {
@@ -1633,24 +1626,24 @@ function getRatioClass(ratio: string) {
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translate3d(-30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translate3d(30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 

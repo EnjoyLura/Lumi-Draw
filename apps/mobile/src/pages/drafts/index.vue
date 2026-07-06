@@ -135,7 +135,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="drafts-page" :class="themeClass">
+  <view class="drafts-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">

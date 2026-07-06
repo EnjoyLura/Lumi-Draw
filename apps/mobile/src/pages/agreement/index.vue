@@ -117,7 +117,7 @@ async function loadAgreement() {
 </script>
 
 <template>
-  <view class="agreement-page" :class="themeClass">
+  <view class="agreement-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="agreement-content">
         <view class="title-row">

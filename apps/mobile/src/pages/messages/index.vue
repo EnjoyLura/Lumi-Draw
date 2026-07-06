@@ -91,7 +91,7 @@ function openCategory(key: MessageCategoryKey) {
 </script>
 
 <template>
-  <view class="messages-page" :class="themeClass">
+  <view class="messages-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
         <LumiLoginRequired

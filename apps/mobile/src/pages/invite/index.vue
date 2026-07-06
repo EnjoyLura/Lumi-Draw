@@ -104,7 +104,7 @@ function shareInvite() {
 </script>
 
 <template>
-  <view class="invite-page" :class="themeClass">
+  <view class="invite-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

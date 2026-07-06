@@ -136,7 +136,7 @@ function goPlaza() {
 </script>
 
 <template>
-  <view class="history-page" :class="themeClass">
+  <view class="history-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

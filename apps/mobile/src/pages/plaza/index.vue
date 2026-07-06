@@ -90,6 +90,7 @@ function resetPlazaFilter() {
 function applyPlazaFilter() {
   filterOpen.value = false;
   visibleWorkCount.value = 10;
+  contentSlideClass.value = "";
   if (useMockData.value) {
     renderKey.value += 1;
     uni.showToast({ title: "筛选已应用", icon: "none" });
@@ -122,6 +123,7 @@ const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const slideDirection = ref<"left" | "right">("left");
+const contentSlideClass = ref("");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
@@ -208,6 +210,7 @@ function resetMockPlazaData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleWorkCount.value = 10;
+  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -226,6 +229,7 @@ function clearRealPlazaData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleWorkCount.value = 10;
+  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -277,9 +281,9 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   });
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
-  mergeUsers(result.users);
-  pageState.page = result.page;
-  pageState.hasMore = result.hasMore;
+    mergeUsers(result.users);
+    pageState.page = result.page;
+    pageState.hasMore = result.hasMore;
 }
 
 function syncInteractionIds(works: HomeWork[], append: boolean) {
@@ -351,6 +355,7 @@ async function reloadPlazaData() {
     userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
+    contentSlideClass.value = "";
     renderKey.value += 1;
   } catch {
     clearRealPlazaData();
@@ -395,7 +400,7 @@ function switchPlazaTab(tab: PlazaTab, index: number) {
   slideDirection.value = index > plazaTabs.findIndex((item) => item.key === renderedTab.value) ? "left" : "right";
   queueRefresh(() => {
     renderedTab.value = tab;
-  });
+  }, slideDirection.value);
 }
 
 function selectCategory(index: number) {
@@ -403,35 +408,44 @@ function selectCategory(index: number) {
   slideDirection.value = index > lastCategoryIndex.value ? "left" : "right";
   lastCategoryIndex.value = index;
   activeCategoryIndex.value = index;
-  queueRefresh();
+  queueRefresh(undefined, slideDirection.value);
 }
 
-function queueRefresh(after?: () => void) {
-  isLoading.value = true;
+function queueRefresh(after?: () => void, animationDirection?: "left" | "right") {
+  contentSlideClass.value = "";
   visibleWorkCount.value = 10;
   if (loadingTimer) clearTimeout(loadingTimer);
+
+  if (useMockData.value) {
+    after?.();
+    contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
+    renderKey.value += 1;
+    return;
+  }
+
+  isLoading.value = true;
   loadingTimer = setTimeout(async () => {
     after?.();
-    if (!useMockData.value) {
-      try {
-        loadFailed.value = false;
-        await loadCurrentPlazaPage(1, false);
-      } catch {
-        workList.value = [];
-        pageState.page = 1;
-        pageState.hasMore = false;
-        loadFailed.value = true;
-        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
-      }
+    try {
+      loadFailed.value = false;
+      await loadCurrentPlazaPage(1, false);
+    } catch {
+      workList.value = [];
+      pageState.page = 1;
+      pageState.hasMore = false;
+      loadFailed.value = true;
+      uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
     }
+    contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
     renderKey.value += 1;
     isLoading.value = false;
-  }, 300);
+  }, 0);
 }
 
 async function queueFilterRefresh() {
   isLoading.value = true;
   loadFailed.value = false;
+  contentSlideClass.value = "";
   workList.value = [];
   pageState.page = 1;
   pageState.hasMore = false;
@@ -659,7 +673,7 @@ function handleReachBottom() {
           v-else-if="filteredWorks.length"
           :key="renderKey"
           class="waterfall"
-          :class="slideDirection === 'left' ? 'wf-slide-left' : 'wf-slide-right'"
+          :class="contentSlideClass"
         >
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
@@ -993,11 +1007,11 @@ function handleReachBottom() {
 }
 
 .waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-column {
@@ -1251,24 +1265,24 @@ function handleReachBottom() {
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translate3d(-30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translate3d(30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 

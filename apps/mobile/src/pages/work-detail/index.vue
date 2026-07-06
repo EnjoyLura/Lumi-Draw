@@ -571,7 +571,7 @@ function showToast(title: string) {
 </script>
 
 <template>
-  <view class="detail-page" :class="themeClass">
+  <view class="detail-page" :class="[themeClass, 'page-enter']">
     <template v-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <image

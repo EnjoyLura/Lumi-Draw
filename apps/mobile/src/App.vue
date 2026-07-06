@@ -95,70 +95,86 @@ uni-page-body {
 }
 
 .tab-in-right {
-  animation: tabInRight 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
+  animation: tabInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .tab-in-left {
-  animation: tabInLeft 0.32s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
+  animation: tabInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 @keyframes tabInRight {
   from {
-    opacity: 0;
-    transform: translateX(36px);
+    transform: translate3d(36px, 0, 0);
   }
 
   to {
-    opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes tabInLeft {
   from {
-    opacity: 0;
-    transform: translateX(-36px);
+    transform: translate3d(-36px, 0, 0);
   }
 
   to {
-    opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.34s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+@keyframes pageEnter {
+  from {
+    transform: translate3d(42px, 0, 0);
+  }
+
+  to {
+    transform: translate3d(0, 0, 0);
   }
 }
 
 .waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
   will-change: transform, opacity;
 }
 
 .waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  backface-visibility: hidden;
   will-change: transform, opacity;
 }
 
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translate3d(-30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translate3d(30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 

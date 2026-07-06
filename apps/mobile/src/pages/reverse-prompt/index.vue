@@ -111,7 +111,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="reverse-page" :class="themeClass">
+  <view class="reverse-page" :class="[themeClass, 'page-enter']">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="card upload-card">

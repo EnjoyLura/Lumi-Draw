@@ -81,6 +81,7 @@ const showLoginSheet = ref(false);
 const unreadMessageCount = ref(0);
 const visibleCount = ref(PAGE_SIZE);
 const slideDirection = ref<"left" | "right">("left");
+const contentSlideClass = ref("");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
@@ -163,6 +164,7 @@ function resetMockGalleryData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
+  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -177,6 +179,7 @@ function resetRealGalleryData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
+  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -253,6 +256,7 @@ async function handleGenerateTasksCompleted(ids: string[]) {
     if (hasSavedDraft) {
       await Promise.all([loadGalleryPage(1, false), fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))]);
       visibleCount.value = PAGE_SIZE;
+      contentSlideClass.value = "";
       renderKey.value += 1;
       uni.showModal({
         title: "生成完成",
@@ -300,6 +304,7 @@ async function reloadGalleryData() {
     const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true), loadUnreadMessages()]);
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
+    contentSlideClass.value = "";
     renderKey.value += 1;
   } catch {
     resetRealGalleryData();
@@ -382,24 +387,33 @@ function switchGalleryTab(tab: GalleryTab, index: number) {
   activeTab.value = tab;
   slideDirection.value = index > galleryTabs.findIndex((item) => item.key === renderedTab.value) ? "left" : "right";
   selectedIds.value = new Set();
-  isLoading.value = true;
+  contentSlideClass.value = "";
   if (loadingTimer) clearTimeout(loadingTimer);
+
+  if (useMockData.value) {
+    renderedTab.value = tab;
+    visibleCount.value = PAGE_SIZE;
+    contentSlideClass.value = `wf-slide-${slideDirection.value}`;
+    renderKey.value += 1;
+    return;
+  }
+
+  isLoading.value = true;
   loadingTimer = setTimeout(async () => {
     renderedTab.value = tab;
     visibleCount.value = PAGE_SIZE;
-    if (!useMockData.value) {
-      works.value = [];
-      pageState.page = 1;
-      pageState.hasMore = false;
-      try {
-        await loadGalleryPage(1, false);
-      } catch {
-        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
-      }
+    works.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
+    try {
+      await loadGalleryPage(1, false);
+    } catch {
+      uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
     }
+    contentSlideClass.value = `wf-slide-${slideDirection.value}`;
     renderKey.value += 1;
     isLoading.value = false;
-  }, 320);
+  }, 0);
 }
 
 function handleReachBottom() {
@@ -679,7 +693,7 @@ function openWork(work: HomeWork) {
           <view class="spinner" />
         </view>
 
-        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="slideDirection === 'left' ? 'wf-slide-left' : 'wf-slide-right'">
+        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="contentSlideClass">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
@@ -1227,11 +1241,11 @@ function openWork(work: HomeWork) {
 }
 
 .waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-column {
@@ -1594,24 +1608,24 @@ function openWork(work: HomeWork) {
 @keyframes slideInLeft {
   from {
     opacity: 0;
-    transform: translateX(-30px);
+    transform: translate3d(-30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(30px);
+    transform: translate3d(30px, 0, 0);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
