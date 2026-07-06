@@ -43,13 +43,15 @@ async function submitReport() {
 
   isSubmitting.value = true;
   try {
+    let duplicated = false;
     if (!useMockData.value) {
-      await submitWorkReport(workId.value, {
+      const result = await submitWorkReport(workId.value, {
         reason: reportReasons[selectedReasonIndex.value],
         description: description.value.trim()
       });
+      duplicated = result.duplicated;
     }
-    uni.showToast({ title: "举报已提交，我们会尽快处理", icon: "none" });
+    uni.showToast({ title: duplicated ? "已收到举报，请勿重复提交" : "举报已提交，我们会尽快处理", icon: "none" });
     setTimeout(() => {
       leaveReportPage();
     }, 450);
