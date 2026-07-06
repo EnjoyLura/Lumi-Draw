@@ -131,6 +131,10 @@ export async function apiAdjustUserCredits(id: number, amount: number, reason: s
   return http.post<{ id: number; balance: number; amount: number }>(`/admin/users/${id}/credits/adjust`, { amount, reason });
 }
 
+export async function apiGiftUserMember(id: number, planId: number, reason: string) {
+  return mapUser(await http.post<ApiUser>(`/admin/users/${id}/member/gift`, { planId, reason }));
+}
+
 export async function apiGetWorks(): Promise<AdminWork[]> {
   const page = await http.get<Paginated<ApiWork>>("/admin/works?page=1&pageSize=100");
   return page.items.map(mapWork);

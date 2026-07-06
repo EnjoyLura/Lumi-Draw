@@ -268,6 +268,21 @@ async function main() {
       return afterUser.credits === beforeUser.credits + 2;
     }, "admin user credits adjustment did not persist");
 
+    const beforeGiftUser = await apiRequest("GET", `/admin/users/${userId}`, undefined, admin.accessToken);
+    const memberPlans = await apiRequest("GET", "/admin/member-plans", undefined, admin.accessToken);
+    const giftPlan = (memberPlans || []).find((plan) => plan.enabled !== false);
+    assert(giftPlan?.id, "admin member plan missing for UI smoke");
+    await page.getByRole("button", { name: /会员/ }).click();
+    await page.locator(".sheet.show").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".sheet.show select").selectOption(String(giftPlan.id));
+    await page.locator(".sheet.show input").fill("admin real ui smoke member gift");
+    await page.locator(".sheet.show").getByRole("button", { name: "确定" }).click();
+    await page.locator(".sheet.show").waitFor({ state: "hidden", timeout: 10_000 });
+    await waitFor(async () => {
+      const afterGiftUser = await apiRequest("GET", `/admin/users/${userId}`, undefined, admin.accessToken);
+      return afterGiftUser.memberPlan === giftPlan.name && afterGiftUser.credits === beforeGiftUser.credits + giftPlan.giftCredits;
+    }, "admin member gift did not persist");
+
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.locator(".grid-nav .gn").filter({ hasText: "作品管理" }).click();
     await page.locator(".nav-title").filter({ hasText: "作品管理" }).waitFor({ state: "visible", timeout: 10_000 });

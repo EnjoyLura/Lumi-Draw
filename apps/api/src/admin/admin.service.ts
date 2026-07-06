@@ -151,6 +151,35 @@ export class AdminService {
     return { id, balance, amount };
   }
 
+  async giftMember(id: number, planId: unknown, reason: unknown) {
+    const user = await this.ensureUser(id);
+    const numericPlanId = Number(planId);
+    if (!Number.isInteger(numericPlanId) || numericPlanId <= 0) {
+      throw new BadRequestException("planId 必须为有效会员方案");
+    }
+
+    const plan = await this.prisma.memberPlan.findFirst({ where: { id: numericPlanId, enabled: true } });
+    if (!plan) throw new NotFoundException("会员方案不存在");
+
+    const note = typeof reason === "string" && reason.trim() ? reason.trim() : "后台赠送会员";
+    const expireAt = this.resolveMemberExpireAt(user.memberExpireAt, this.resolveMemberDays(plan.name));
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const next = await tx.user.update({
+        where: { id },
+        data: {
+          memberPlan: plan.name,
+          memberExpireAt: expireAt
+        }
+      });
+      if (plan.giftCredits > 0) {
+        await this.credits.addTransactionInTx(tx, id, "membership", plan.giftCredits, `${note}：${plan.name}`, `admin_member_gift:${plan.id}`);
+      }
+      return next;
+    });
+
+    return userRow(updated);
+  }
+
   // ---------- 作品管理动作 ----------
   private async ensureWork(id: number) {
     const work = await this.prisma.work.findUnique({ where: { id } });
@@ -217,5 +246,18 @@ export class AdminService {
       }
     });
     return { ok: true, id, action: "delete" };
+  }
+
+  private resolveMemberExpireAt(current: Date | null, days: number) {
+    const base = current && current.getTime() > Date.now() ? current : new Date();
+    const next = new Date(base);
+    next.setDate(next.getDate() + Math.max(days, 1));
+    return next;
+  }
+
+  private resolveMemberDays(name: string) {
+    if (name.includes("年") || name.toLowerCase().includes("year")) return 365;
+    if (name.includes("季") || name.toLowerCase().includes("quarter")) return 90;
+    return 30;
   }
 }

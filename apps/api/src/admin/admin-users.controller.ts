@@ -42,4 +42,9 @@ export class AdminUsersController {
   adjust(@Param("id", ParseIntPipe) id: number, @Body() b: Body_) {
     return this.admin.adjustCredits(id, b.amount, b.reason);
   }
+
+  @Post(":id/member/gift")
+  giftMember(@Param("id", ParseIntPipe) id: number, @Body() b: Body_) {
+    return this.admin.giftMember(id, b.planId, b.reason);
+  }
 }

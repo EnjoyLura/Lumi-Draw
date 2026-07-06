@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   apiAdjustUserCredits,
   apiBanUser,
+  apiGetMemberPlans,
   apiGetUserDetail,
+  apiGiftUserMember,
   apiUnbanUser,
   apiUpdateUser,
   type AdminUserDetailData
@@ -153,19 +155,50 @@ function AdjustCreditsForm({ user, useMock, onDone }: { user: AdminUser; useMock
   );
 }
 
-function GiftMemberForm() {
+function GiftMemberForm({ user, useMock, onDone }: { user: AdminUser; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
+  const { data, loading } = useAsyncData(useMock ? null : () => apiGetMemberPlans(), [useMock]);
+  const plans = useMock ? MEMBER_PLANS : data ?? [];
+  const [planId, setPlanId] = useState(() => String((plans[0] ?? MEMBER_PLANS[0])?.id ?? ""));
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const selectedPlan = plans.find((plan) => plan.id === Number(planId));
+  const submit = async () => {
+    if (!selectedPlan) {
+      toast("请选择会员方案");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (useMock) {
+        user.member = selectedPlan.name;
+        user.credits += selectedPlan.gift;
+      } else {
+        await apiGiftUserMember(user.id, selectedPlan.id, reason.trim() || "后台赠送会员");
+      }
+      closeSheet();
+      onDone();
+      toast("会员已赠送");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "赠送失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <label className="field-label">会员方案</label>
-      <select className="input">
-        {MEMBER_PLANS.map((p) => <option key={p.id}>{p.name}（¥{p.price}）</option>)}
+      <select className="input" value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={loading || saving}>
+        {plans.map((p) => <option key={p.id} value={p.id}>{p.name}（¥{p.price}）</option>)}
       </select>
+      {loading ? <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 8 }}>加载会员方案中...</div> : null}
       <label className="field-label" style={{ marginTop: 12 }}>赠送原因</label>
-      <input className="input" placeholder="如：新用户福利" />
+      <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="如：新用户福利" disabled={saving} />
       <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={() => { closeSheet(); toast("会员赠送接口尚未接入"); }}>确定</button>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={submit} disabled={saving || loading || !plans.length}>{saving ? "赠送中" : "确定"}</button>
       </div>
     </>
   );
@@ -313,7 +346,7 @@ export function UserDetail({ param }: { param?: string }) {
       <div className="actionbar">
         <button className="btn btn-ghost btn-sm" onClick={() => openSheet("编辑用户", <EditUserForm user={u} useMock={useMock} onDone={onDone} />)}><i className="ri-edit-line" />编辑</button>
         <button className="btn btn-soft btn-sm" onClick={() => openSheet("调整积分", <AdjustCreditsForm user={u} useMock={useMock} onDone={onDone} />)}><i className="ri-coins-line" />积分</button>
-        <button className="btn btn-soft btn-sm" onClick={() => openSheet("赠送会员", <GiftMemberForm />)}><i className="ri-vip-crown-line" />会员</button>
+        <button className="btn btn-soft btn-sm" onClick={() => openSheet("赠送会员", <GiftMemberForm user={u} useMock={useMock} onDone={onDone} />)}><i className="ri-vip-crown-line" />会员</button>
         <button className={`btn ${ban ? "btn-success" : "btn-danger"} btn-sm`} style={{ flex: 1 }} onClick={() => (ban ? unban() : openSheet("封禁用户", <BanUserForm user={u} useMock={useMock} onDone={onDone} />))}>
           <i className={`ri-${ban ? "lock-unlock-line" : "forbid-line"}`} />{ban ? "解封" : "封禁"}
         </button>

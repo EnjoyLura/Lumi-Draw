@@ -32,7 +32,7 @@ function TxnDetail({ t }: { t: AdminTxn }) {
       </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet}>关闭</button>
-        {refundable ? <button className="btn btn-danger btn-block" onClick={() => { closeSheet(); toast("退款接口尚未接入"); }}>发起退款</button> : null}
+        {refundable ? <button className="btn btn-danger btn-block" onClick={() => { closeSheet(); toast("微信支付退款需上线前配置商户退款证书"); }}>发起退款</button> : null}
       </div>
     </>
   );

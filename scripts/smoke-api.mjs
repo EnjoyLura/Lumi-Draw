@@ -784,6 +784,22 @@ async function main() {
       );
       assert(adjusted.data?.amount === 3, "admin credit adjust amount mismatch");
 
+      const { body: memberPlans } = await request("GET", "/admin/member-plans", undefined, admin.accessToken);
+      const giftPlan = (memberPlans.data || []).find((plan) => plan.enabled !== false);
+      assert(giftPlan?.id, "admin member plan missing for gift smoke");
+      const beforeGift = await request("GET", `/admin/users/${user.user.id}`, undefined, admin.accessToken);
+      const { body: giftedUser } = await request(
+        "POST",
+        `/admin/users/${user.user.id}/member/gift`,
+        { planId: giftPlan.id, reason: "admin smoke member gift" },
+        admin.accessToken
+      );
+      assert(giftedUser.data?.memberPlan === giftPlan.name, "admin member gift did not update user plan");
+      if (giftPlan.giftCredits > 0) {
+        const afterGift = await request("GET", `/admin/users/${user.user.id}`, undefined, admin.accessToken);
+        assert(afterGift.body.data?.credits === beforeGift.body.data?.credits + giftPlan.giftCredits, "admin member gift credits did not persist");
+      }
+
       const { body: createdWork } = await request(
         "POST",
         "/works",
