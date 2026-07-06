@@ -22,12 +22,11 @@ const yesterdayWorks = computed(() => sourceWorks.value.slice(6, 9));
 const earlierWorks = computed(() => sourceWorks.value.slice(9));
 
 onLoad(() => {
-  lastMode = useMockData.value;
-  void loadHistory();
+  lastMode = null;
 });
 
 onShow(() => {
-  if (lastMode === useMockData.value) return;
+  if (useMockData.value && lastMode === useMockData.value) return;
   lastMode = useMockData.value;
   void loadHistory();
 });
