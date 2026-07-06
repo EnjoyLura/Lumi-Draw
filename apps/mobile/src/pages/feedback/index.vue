@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -30,6 +30,7 @@ const images = ref<string[]>([]);
 const isUploading = ref(false);
 const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
+let lastRouteSource = "";
 
 const descCount = computed(() => `${desc.value.length}/500`);
 
@@ -38,11 +39,54 @@ function leaveFeedbackPage() {
 }
 
 onLoad((query) => {
-  if (query?.source === "service") {
-    activeType.value = "experience";
-    desc.value = "我想咨询：";
-  }
+  applyRouteSource(query);
 });
+
+onShow(() => {
+  applyRouteSource();
+});
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  applyRouteSource();
+}
+
+function resolveRouteSource(query?: Record<string, unknown>) {
+  const querySource = typeof query?.source === "string" ? query.source : "";
+  if (querySource) return querySource;
+
+  if (typeof window !== "undefined") {
+    const hashSource = window.location.hash.match(/[?&]source=([^&]+)/)?.[1];
+    if (hashSource) return decodeURIComponent(hashSource);
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  return current?.options?.source || current?.$page?.options?.source || "";
+}
+
+function applyRouteSource(query?: Record<string, unknown>) {
+  const source = resolveRouteSource(query);
+  if (source === lastRouteSource) return;
+  lastRouteSource = source;
+  if (source !== "service") return;
+  activeType.value = "experience";
+  if (!desc.value.trim()) desc.value = "我想咨询：";
+}
 
 async function addImage() {
   if (images.value.length >= 2 || isUploading.value) return;

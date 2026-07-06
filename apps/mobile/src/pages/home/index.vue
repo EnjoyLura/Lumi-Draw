@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import {
@@ -66,6 +66,7 @@ let slideTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = null;
+let lastInviteCode = "";
 
 const currentTabWorks = computed(() => {
   return renderedHomeTab.value === "new" ? latestWorks.value : recommendWorks.value;
@@ -80,13 +81,11 @@ const popupAnnouncement = computed(() => announcementList.value.find((item) => i
 const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
 
 onLoad((query) => {
-  const inviteCode = typeof query?.inviteCode === "string" ? query.inviteCode : "";
-  if (!inviteCode) return;
-  savePendingInviteCode(decodeURIComponent(inviteCode));
-  uni.showToast({ title: "已记录邀请码，登录后自动绑定", icon: "none" });
+  applyInviteCode(query);
 });
 
 onShow(() => {
+  applyInviteCode();
   void loadUnreadMessages();
   if (lastMockMode === useMockData.value) {
     if (!useMockData.value && isLoggedIn.value) void loadHomeData();
@@ -96,11 +95,53 @@ onShow(() => {
   void loadHomeData();
 });
 
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
 onBeforeUnmount(() => {
   if (slideTimer) clearTimeout(slideTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
 });
+
+function handleHashChange() {
+  applyInviteCode();
+}
+
+function resolveInviteCode(query?: Record<string, unknown>) {
+  const queryCode = typeof query?.inviteCode === "string" ? query.inviteCode : "";
+  if (queryCode) return decodeURIComponent(queryCode);
+
+  if (typeof window !== "undefined") {
+    const hashCode = window.location.hash.match(/[?&]inviteCode=([^&]+)/)?.[1];
+    if (hashCode) return decodeURIComponent(hashCode);
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageCode = current?.options?.inviteCode || current?.$page?.options?.inviteCode || "";
+  return pageCode ? decodeURIComponent(pageCode) : "";
+}
+
+function applyInviteCode(query?: Record<string, unknown>) {
+  const inviteCode = resolveInviteCode(query).trim();
+  if (!inviteCode || inviteCode === lastInviteCode) return;
+  lastInviteCode = inviteCode;
+  savePendingInviteCode(inviteCode);
+  uni.showToast({ title: "已记录邀请码，登录后自动绑定", icon: "none" });
+}
 
 function resetMockHomeData() {
   loadFailed.value = false;
