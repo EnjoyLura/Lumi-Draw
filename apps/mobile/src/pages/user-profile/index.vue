@@ -87,12 +87,14 @@ onShow(() => {
 });
 
 function toProfileView(profile: BackendUserProfile): ProfileView {
+  const fallbackName = `用户${profile.id}`;
+  const name = profile.nickname || fallbackName;
   return {
     id: profile.id,
-    name: profile.nickname,
-    avatar: profile.avatarText || profile.nickname.slice(0, 1) || "露",
+    name,
+    avatar: profile.avatarText || name.slice(0, 1) || "U",
     color: profile.avatarColor || "var(--accent)",
-    bio: profile.bio || "用 AI 描绘心中的灵感。",
+    bio: profile.bio || "这个用户还没有填写简介",
     works: profile.worksCount,
     likes: formatCompactNumber(profile.likesCount),
     followers: formatCompactNumber(profile.followers),
