@@ -8,6 +8,7 @@ import { fetchHomeBootstrap } from "../home/homeService";
 const { useMockData } = useDataMode();
 const gameplayList = ref<Gameplay[]>(gameplays);
 const isLoading = ref(false);
+const loadFailed = ref(false);
 let lastMode: boolean | null = null;
 
 onShow(() => {
@@ -19,16 +20,19 @@ onShow(() => {
 async function loadGameplays() {
   if (useMockData.value) {
     gameplayList.value = gameplays;
+    loadFailed.value = false;
     return;
   }
 
   isLoading.value = true;
+  loadFailed.value = false;
   try {
     const data = await fetchHomeBootstrap();
-    gameplayList.value = data.gameplays.length ? data.gameplays : gameplays;
+    gameplayList.value = data.gameplays;
   } catch {
-    gameplayList.value = gameplays;
-    uni.showToast({ title: "玩法加载失败，已使用本地数据", icon: "none" });
+    gameplayList.value = [];
+    loadFailed.value = true;
+    uni.showToast({ title: "玩法加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
   }
@@ -44,7 +48,20 @@ function applyGameplay(gameplay: Gameplay) {
 <template>
   <view class="all-gameplays-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="grid">
+      <view v-if="!useMockData && loadFailed" class="empty-state">
+        <view class="empty-icon">!</view>
+        <view class="empty-title">玩法加载失败</view>
+        <view class="empty-sub">请稍后重试，当前不会显示模拟玩法。</view>
+        <button class="empty-btn" @click="loadGameplays">重新加载</button>
+      </view>
+
+      <view v-else-if="!isLoading && gameplayList.length === 0" class="empty-state">
+        <view class="empty-icon">⌕</view>
+        <view class="empty-title">暂无玩法</view>
+        <view class="empty-sub">后台配置玩法后会显示在这里。</view>
+      </view>
+
+      <view v-else class="grid">
         <view v-for="gameplay in gameplayList" :key="gameplay.name" class="gameplay-card" @click="applyGameplay(gameplay)">
           <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
           <view class="gameplay-overlay" />
@@ -159,5 +176,65 @@ function applyGameplay(gameplay: Gameplay) {
   font-size: 12px;
   color: var(--fg-muted);
   text-align: center;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 58vh;
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 14px;
+  font-size: 30px;
+  font-weight: 900;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 18px;
+}
+
+.empty-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.empty-sub {
+  max-width: 260px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(91, 159, 232, 0.2);
+}
+
+.empty-btn::after {
+  border: none;
 }
 </style>
