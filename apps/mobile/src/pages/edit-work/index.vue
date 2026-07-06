@@ -101,13 +101,14 @@ function applyWork(work: {
   title?: string;
   description?: string;
   tags: string[];
+  editTags?: string[];
 }) {
   image.value = work.image;
   modelName.value = work.modelName || "";
   info.value = [work.ratio, work.styleName, work.time].filter(Boolean).join(" · ");
   title.value = work.title || "";
   desc.value = work.description || "";
-  selectedTags.value = work.tags.filter((tag) => workTags.some((item) => item.name === tag));
+  selectedTags.value = (work.editTags ?? work.tags).filter((tag) => workTags.some((item) => item.name === tag));
 }
 
 async function loadWork() {
@@ -214,7 +215,8 @@ async function submit() {
     await updateEditableWork(workId.value, {
       title: title.value.trim(),
       description: desc.value.trim(),
-      style: selectedTags.value[0] || ""
+      style: selectedTags.value[0] || "",
+      tags: selectedTags.value
     });
     uni.showToast({ title: "作品信息已保存", icon: "none" });
     setTimeout(leaveEditWorkPage, 600);

@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 import { PageQueryDto } from "../common/dto/pagination";
 
 export class CreateWorkDto {
@@ -38,6 +38,13 @@ export class CreateWorkDto {
   style?: string;
 
   @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  @MaxLength(20, { each: true })
+  tags?: string[];
+
+  @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
 }
@@ -61,6 +68,13 @@ export class UpdateWorkDto {
   @IsString()
   @MaxLength(60)
   style?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  @MaxLength(20, { each: true })
+  tags?: string[];
 }
 
 export class MyGalleryQueryDto extends PageQueryDto {

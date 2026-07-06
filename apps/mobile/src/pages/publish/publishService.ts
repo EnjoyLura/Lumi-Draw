@@ -18,6 +18,7 @@ interface BackendWorkDetail {
   quality?: string | null;
   modelId?: string | null;
   style?: string | null;
+  tags?: string[];
   status?: string;
   isPublic?: boolean;
 }
@@ -62,6 +63,7 @@ export async function publishWork(payload: PublishWorkPayload) {
       title: payload.title,
       description: payload.description,
       style: payload.tags[0] || detail.style || "",
+      tags: payload.tags,
       isPublic: true
     });
   }
@@ -78,6 +80,7 @@ export async function publishWork(payload: PublishWorkPayload) {
     quality: detail.quality || "1K",
     modelId: detail.modelId || "",
     style,
+    tags: payload.tags,
     isPublic: true
   });
 }

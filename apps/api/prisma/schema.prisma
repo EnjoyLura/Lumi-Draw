@@ -428,6 +428,7 @@ model Work {
   quality     String   @default("1K")
   modelId     String   @default("")
   style       String   @default("")
+  tags        String[] @default([])
   status      String   @default("published") // draft | pending | published | rejected | offline
   isPublic    Boolean  @default(true)
   featured    Boolean  @default(false)

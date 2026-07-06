@@ -56,6 +56,15 @@ function splitCsvNumbers(value?: string) {
     .filter((item) => Number.isInteger(item) && item > 0);
 }
 
+function normalizeTags(tags?: string[], fallback = "") {
+  const cleaned = (tags ?? [])
+    .map((tag) => tag.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  if (!cleaned.length && fallback.trim()) cleaned.push(fallback.trim());
+  return Array.from(new Set(cleaned));
+}
+
 async function withInteractionState(prisma: PrismaService, userId: number | undefined, cards: ReturnType<typeof toCard>[]) {
   if (!userId || cards.length === 0) return cards;
 
@@ -152,6 +161,7 @@ export class WorksService {
       modelId: work.modelId,
       modelName: model?.name ?? work.modelId,
       style: work.style,
+      tags: work.tags,
       status: work.status,
       likes: work.likes,
       favorites: work.favorites,
@@ -178,6 +188,7 @@ export class WorksService {
     const manualReview = await this.isManualReview();
     const isPublic = dto.isPublic ?? true;
     const status = !isPublic ? "draft" : manualReview ? "pending" : "published";
+    const tags = normalizeTags(dto.tags, dto.style);
     const work = await this.prisma.work.create({
       data: {
         userId,
@@ -188,7 +199,8 @@ export class WorksService {
         ratio: dto.ratio ?? "1:1",
         quality: dto.quality ?? "1K",
         modelId: dto.modelId ?? "",
-        style: dto.style ?? "",
+        style: dto.style ?? tags[0] ?? "",
+        tags,
         isPublic,
         status
       }
@@ -203,6 +215,11 @@ export class WorksService {
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
     if (dto.style !== undefined) data.style = dto.style;
+    if (dto.tags !== undefined) {
+      const tags = normalizeTags(dto.tags, dto.style);
+      data.tags = tags;
+      data.style = dto.style ?? tags[0] ?? "";
+    }
     if (dto.isPublic !== undefined) {
       data.isPublic = dto.isPublic;
       if (dto.isPublic) {

@@ -9,6 +9,7 @@ export interface DetailWork extends HomeWork {
   quality?: string;
   styleName: string;
   tags: string[];
+  editTags?: string[];
   favorites: number;
   remakes: number;
   time: string;
