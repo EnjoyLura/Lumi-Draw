@@ -70,6 +70,10 @@ export interface CreateDraftWorkPayload {
   style: string;
 }
 
+export interface CreatedDraftWork {
+  id: number;
+}
+
 export interface BackendGenerateResult {
   id: string;
   status: "succeeded" | "failed";
@@ -194,7 +198,7 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
 }
 
 export function createDraftWork(payload: CreateDraftWorkPayload) {
-  return api.post("/works", {
+  return api.post<CreatedDraftWork>("/works", {
     ...payload,
     isPublic: false
   });

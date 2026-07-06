@@ -56,7 +56,8 @@ const pageContracts = [
       "savedDraftCount",
       "生成作品已自动保存为草稿",
       "已存草稿",
-      "goPublish"
+      "goPublish",
+      "/pages/publish/index?draftId=${draftId}"
     ]
   },
   {

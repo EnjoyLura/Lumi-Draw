@@ -766,7 +766,7 @@ async function savePreview() {
     }
 
     const uploaded = await uploadRemoteImage(previewData.value.src, "work");
-    await createDraftWork({
+    const created = await createDraftWork({
       title: draftTitle(),
       description: "",
       prompt: promptText.value.trim(),
@@ -776,6 +776,9 @@ async function savePreview() {
       modelId: selectedModel.value.id,
       style: selectedStyleName.value
     });
+    const result = generatedResults.value.find((item) => resultImageSrc(item) === previewData.value?.src);
+    if (result && created.id) result.savedWorkId = created.id;
+    if (created.id) previewData.value.savedWorkId = created.id;
     showToast("图片已保存到草稿箱");
     closePreview();
   } catch {
@@ -817,7 +820,7 @@ async function saveAllResults() {
       }
 
       const uploaded = await uploadRemoteImage(resultImageSrc(item), "work", `${item.seed}.jpg`);
-      await createDraftWork({
+      const created = await createDraftWork({
         title: draftTitle(index),
         description: "",
         prompt: promptText.value.trim(),
@@ -827,6 +830,7 @@ async function saveAllResults() {
         modelId: selectedModel.value.id,
         style: selectedStyleName.value
       });
+      if (created.id) item.savedWorkId = created.id;
       savedCount += 1;
     }
     showToast(savedCount ? `已保存 ${savedCount} 张到草稿箱` : "图片已在草稿箱");
@@ -842,7 +846,8 @@ async function goPublish() {
   if (!useMockData.value && generatedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
     await saveAllResults();
   }
-  uni.navigateTo({ url: "/pages/publish/index" });
+  const draftId = generatedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
+  uni.navigateTo({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
 }
 </script>
 
