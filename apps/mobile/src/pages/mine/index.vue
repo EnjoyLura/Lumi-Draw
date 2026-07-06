@@ -17,6 +17,17 @@ const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
 let lastLoadKey = "";
 
+function resetRealMineUser() {
+  displayUser.value = {
+    ...mineUser,
+    name: "",
+    avatar: "",
+    userNo: "",
+    credits: 0
+  };
+  unreadMessageCount.value = 0;
+}
+
 const accountRows = computed(() => {
   if (useMockData.value) return accountItems;
   return accountItems.map((item) => {
@@ -43,7 +54,7 @@ async function loadProfile() {
     return;
   }
   if (!isLoggedIn.value) {
-    unreadMessageCount.value = 0;
+    resetRealMineUser();
     return;
   }
 
@@ -59,6 +70,7 @@ async function loadProfile() {
       currentUser.value.credits = profile.credits;
     }
   } catch {
+    resetRealMineUser();
     uni.showToast({ title: "用户资料加载失败", icon: "none" });
   } finally {
     isLoadingProfile.value = false;
