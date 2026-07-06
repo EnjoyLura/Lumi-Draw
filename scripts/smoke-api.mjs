@@ -66,6 +66,27 @@ async function main() {
     assert(typeof credits.data?.credits === "number", "credits missing");
   });
 
+  await step("profile update", async () => {
+    const suffix = String(Date.now()).slice(-8);
+    const nextProfile = {
+      nickname: `smoke-user-${suffix}`,
+      bio: "profile smoke test",
+      gender: "female",
+      phone: `139${suffix}`,
+      avatarUrl: `https://example.com/avatar-${suffix}.png`
+    };
+    const { body: updated } = await request("PATCH", "/users/me", nextProfile, user.accessToken);
+    assert(updated.data?.nickname === nextProfile.nickname, "profile nickname did not update");
+    assert(updated.data?.bio === nextProfile.bio, "profile bio did not update");
+    assert(updated.data?.gender === nextProfile.gender, "profile gender did not update");
+    assert(updated.data?.phone === nextProfile.phone, "profile phone did not update");
+    assert(updated.data?.avatarUrl === nextProfile.avatarUrl, "profile avatar URL did not update");
+
+    const { body: reloaded } = await request("GET", "/users/me", undefined, user.accessToken);
+    assert(reloaded.data?.nickname === nextProfile.nickname, "profile update did not persist");
+    assert(reloaded.data?.phone === nextProfile.phone, "profile phone did not persist");
+  });
+
   await step("upload policy and complete", async () => {
     const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
     const { body: policy } = await request(
