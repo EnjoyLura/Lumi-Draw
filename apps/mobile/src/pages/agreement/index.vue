@@ -29,6 +29,7 @@ const title = ref("协议");
 const content = ref("");
 const updatedAt = ref("");
 const isLoading = ref(false);
+const loadFailed = ref(false);
 
 const updatedText = computed(() => (updatedAt.value ? `更新于 ${updatedAt.value.slice(0, 10)}` : ""));
 
@@ -40,11 +41,13 @@ onLoad((query) => {
 async function loadAgreement() {
   const mock = mockAgreements[agreementType.value] || mockAgreements.user;
   title.value = mock.title;
-  content.value = mock.content;
+  content.value = "";
   updatedAt.value = "";
+  loadFailed.value = false;
   isLoading.value = true;
   try {
     if (useMockData.value) {
+      content.value = mock.content;
       return;
     }
     const data = await fetchAgreement(agreementType.value);
@@ -52,7 +55,9 @@ async function loadAgreement() {
     content.value = data.content;
     updatedAt.value = data.updatedAt;
   } catch {
-    uni.showToast({ title: "协议加载失败，已显示默认内容", icon: "none" });
+    content.value = "";
+    loadFailed.value = true;
+    uni.showToast({ title: "协议加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
   }
@@ -70,7 +75,12 @@ async function loadAgreement() {
           </view>
           <view v-if="isLoading" class="spinner" />
         </view>
-        <view class="content-card">
+        <view v-if="!useMockData && loadFailed" class="failure-card">
+          <view class="failure-title">协议加载失败</view>
+          <view class="failure-sub">当前不会显示本地模拟协议内容，请重新加载后查看后端配置。</view>
+          <button class="failure-btn" @click="loadAgreement">重新加载</button>
+        </view>
+        <view v-else class="content-card">
           <text class="content-text">{{ content }}</text>
         </view>
       </view>
@@ -118,6 +128,48 @@ async function loadAgreement() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+}
+
+.failure-card {
+  padding: 22px 16px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.failure-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.failure-sub {
+  margin-bottom: 14px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+
+.failure-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0 auto;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.failure-btn::after {
+  border: none;
 }
 
 .content-text {
