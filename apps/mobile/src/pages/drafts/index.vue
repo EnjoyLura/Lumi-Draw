@@ -29,12 +29,17 @@ const hasMore = computed(() => !useMockData.value && pageState.hasMore);
 onShow(() => {
   if (lastMode !== useMockData.value) {
     lastMode = useMockData.value;
-    realDrafts.value = [];
-    pageState.page = 1;
-    pageState.hasMore = false;
+    resetRealDrafts();
   }
   void loadDrafts(1, false);
 });
+
+function resetRealDrafts() {
+  realDrafts.value = [];
+  profile.value = galleryUser;
+  pageState.page = 1;
+  pageState.hasMore = false;
+}
 
 function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
@@ -57,6 +62,7 @@ function goCreate() {
 async function loadDrafts(page = 1, append = false) {
   if (useMockData.value) return;
   if (!ensureLogin()) {
+    resetRealDrafts();
     loginRequired.value = true;
     return;
   }
@@ -74,6 +80,7 @@ async function loadDrafts(page = 1, append = false) {
     pageState.page = draftPage.page;
     pageState.hasMore = draftPage.hasMore;
   } catch {
+    if (!append) resetRealDrafts();
     uni.showToast({ title: "草稿加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
