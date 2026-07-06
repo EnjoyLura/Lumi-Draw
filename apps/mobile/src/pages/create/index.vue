@@ -226,9 +226,6 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
-  if (!isLoggedIn.value) {
-    showLoginSheet.value = true;
-  }
 });
 
 onBeforeUnmount(() => {
