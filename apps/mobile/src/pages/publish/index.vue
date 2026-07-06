@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -22,6 +23,7 @@ const isSubmitting = ref(false);
 const isUploadingLocalImage = ref(false);
 const pendingDraftId = ref<number | null>(null);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
 let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
@@ -44,13 +46,28 @@ onShow(() => {
   void loadDrafts();
 });
 
+function clearPublishForm() {
+  selectedDraft.value = null;
+  title.value = "";
+  desc.value = "";
+  selectedTags.value = [];
+  pickerOpen.value = false;
+}
+
 async function loadDrafts() {
   if (useMockData.value) {
     backendDrafts.value = [];
+    loginRequired.value = false;
     applyPendingDraft();
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    backendDrafts.value = [];
+    clearPublishForm();
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
 
   isLoadingDrafts.value = true;
   try {
@@ -60,6 +77,8 @@ async function loadDrafts() {
       selectedDraft.value = null;
     }
   } catch {
+    backendDrafts.value = [];
+    if (selectedDraft.value?.source === "backend") selectedDraft.value = null;
     uni.showToast({ title: "草稿加载失败", icon: "none" });
   } finally {
     isLoadingDrafts.value = false;
@@ -209,7 +228,14 @@ async function submit() {
 <template>
   <view class="publish-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="publish-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后发布作品"
+        subtitle="登录后才能读取草稿箱并提交真实作品审核。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else class="publish-content">
         <view class="field">
           <view class="field-title">选择作品</view>
           <view class="draft-card" @click="openPicker">
