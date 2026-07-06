@@ -66,6 +66,34 @@ async function main() {
     assert(typeof credits.data?.credits === "number", "credits missing");
   });
 
+  await step("upload policy and complete", async () => {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=", "base64");
+    const { body: policy } = await request(
+      "POST",
+      "/uploads/policy",
+      { scene: "feedback", filename: "smoke.png", contentType: "image/png", sizeBytes: png.byteLength },
+      user.accessToken
+    );
+    assert(policy.data?.uploadUrl, "upload URL missing");
+    assert(policy.data?.ossKey?.startsWith("uploads/feedback/"), "upload oss key scene mismatch");
+
+    const uploaded = await fetch(policy.data.uploadUrl, {
+      method: "PUT",
+      headers: policy.data.headers,
+      body: png
+    });
+    assert(uploaded.ok, `OSS PUT failed with HTTP ${uploaded.status}`);
+
+    const { body: completed } = await request(
+      "POST",
+      "/uploads/complete",
+      { ossKey: policy.data.ossKey, publicUrl: policy.data.publicUrl },
+      user.accessToken
+    );
+    assert(completed.data?.ok === true, "upload complete did not succeed");
+    assert(completed.data?.publicUrl === policy.data.publicUrl, "upload public URL mismatch");
+  });
+
   await step("feedback", async () => {
     const { body } = await request(
       "POST",
