@@ -35,10 +35,10 @@ export function getDashboardTodos(): DashboardTodos {
 export function getTodayMetrics(): TodayMetric[] {
   if (!readUseMockData()) return notImplemented("getTodayMetrics");
   return [
-    { key: "users", label: "新增用户", val: "245", delta: 12, icon: "ri-user-add-line", color: "#5B9FE8", soft: "var(--info-soft)" },
-    { key: "active", label: "活跃用户", val: "1,860", delta: 8, icon: "ri-pulse-line", color: "#6FD4B0", soft: "var(--success-soft)" },
-    { key: "works", label: "新增作品", val: "1,380", delta: 15, icon: "ri-image-add-line", color: "#8B7FD6", soft: "var(--purple-soft)" },
-    { key: "income", label: "今日收入", val: "¥5,600", delta: -3, icon: "ri-money-cny-circle-line", color: "#EF4444", soft: "var(--danger-soft)" }
+    { key: "newUsers", label: "新增用户", val: "245", delta: 12, icon: "ri-user-add-line", color: "#5B9FE8", soft: "var(--info-soft)" },
+    { key: "totalUsers", label: "总用户", val: "12,486", delta: 8, icon: "ri-group-line", color: "#6FD4B0", soft: "var(--success-soft)" },
+    { key: "newWorks", label: "新增作品", val: "1,380", delta: 15, icon: "ri-image-add-line", color: "#8B7FD6", soft: "var(--purple-soft)" },
+    { key: "totalWorks", label: "总作品", val: "48,620", delta: -3, icon: "ri-image-2-line", color: "#EF4444", soft: "var(--danger-soft)" }
   ];
 }
 

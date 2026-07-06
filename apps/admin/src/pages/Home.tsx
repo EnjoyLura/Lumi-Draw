@@ -22,12 +22,13 @@ export function Home() {
   const { data } = useAsyncData(useMock ? null : apiGetDashboard, [useMock]);
   const metrics = useMock ? getTodayMetrics() : data?.metrics ?? [];
   const todos = useMock ? getDashboardTodos() : data?.todos ?? { review: 0, report: 0, feedback: 0 };
+  const todayNewUsers = metrics.find((item) => item.key === "newUsers")?.val ?? "0";
 
   return (
     <>
       <div className="card" style={{ padding: 16, background: "linear-gradient(135deg,#5B9FE8,#3B7FC8)", border: "none", color: "#fff" }}>
         <div style={{ fontSize: 13, opacity: 0.9 }}>下午好，超级管理员 👋</div>
-        <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>露米绘画运营数据正常，今日新增 245 位用户</div>
+        <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>露米绘画运营数据正常，今日新增 {todayNewUsers} 位用户</div>
       </div>
 
       <div className="sec-title">

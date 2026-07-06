@@ -831,10 +831,10 @@ interface ApiSummary {
 export async function apiGetDashboard(): Promise<{ metrics: TodayMetric[]; todos: DashboardTodos }> {
   const s = await http.get<ApiSummary>("/admin/dashboard/summary");
   const metrics: TodayMetric[] = [
-    { key: "users", label: "新增用户", val: String(s.metrics.todayNewUsers), delta: 0, icon: "ri-user-add-line", color: "#5B9FE8", soft: "var(--info-soft)" },
-    { key: "active", label: "总用户", val: String(s.metrics.totalUsers), delta: 0, icon: "ri-group-line", color: "#6FD4B0", soft: "var(--success-soft)" },
-    { key: "works", label: "新增作品", val: String(s.metrics.todayNewWorks), delta: 0, icon: "ri-image-add-line", color: "#8B7FD6", soft: "var(--purple-soft)" },
-    { key: "income", label: "总作品", val: String(s.metrics.totalWorks), delta: 0, icon: "ri-image-2-line", color: "#EF4444", soft: "var(--danger-soft)" }
+    { key: "newUsers", label: "新增用户", val: String(s.metrics.todayNewUsers), delta: 0, icon: "ri-user-add-line", color: "#5B9FE8", soft: "var(--info-soft)" },
+    { key: "totalUsers", label: "总用户", val: String(s.metrics.totalUsers), delta: 0, icon: "ri-group-line", color: "#6FD4B0", soft: "var(--success-soft)" },
+    { key: "newWorks", label: "新增作品", val: String(s.metrics.todayNewWorks), delta: 0, icon: "ri-image-add-line", color: "#8B7FD6", soft: "var(--purple-soft)" },
+    { key: "totalWorks", label: "总作品", val: String(s.metrics.totalWorks), delta: 0, icon: "ri-image-2-line", color: "#EF4444", soft: "var(--danger-soft)" }
   ];
   return {
     metrics,
@@ -876,7 +876,7 @@ export interface AdminDashboardDetail {
 }
 
 export async function apiGetDashboardDetail(metric: string): Promise<AdminDashboardDetail> {
-  const actualMetric = metric === "works" ? "works" : "users";
+  const actualMetric = ["newUsers", "totalUsers", "newWorks", "totalWorks"].includes(metric) ? metric : metric === "works" ? "newWorks" : "newUsers";
   const d = await http.get<{ labels: string[]; series: number[]; total: number }>(`/admin/dashboard/detail?metric=${actualMetric}&range=7d`);
   return { labels: shortDateLabels(d.labels), series: d.series, total: d.total };
 }
