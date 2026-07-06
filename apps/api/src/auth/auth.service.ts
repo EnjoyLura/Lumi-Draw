@@ -19,7 +19,11 @@ function publicUser(user: User) {
     phone: user.phone,
     credits: user.credits,
     memberPlan: user.memberPlan,
-    status: user.status
+    status: user.status,
+    worksCount: user.worksCount,
+    likesCount: user.likesCount,
+    followers: user.followers,
+    following: user.following
   };
 }
 

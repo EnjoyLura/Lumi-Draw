@@ -1,6 +1,6 @@
 import { api } from "../../services/api";
 import type { HomeWork } from "../home/homeData";
-import { galleryUser, type GalleryGenTask, type GalleryUser } from "./galleryData";
+import type { GalleryGenTask, GalleryUser } from "./galleryData";
 
 interface BackendUser {
   id: number;
@@ -11,6 +11,7 @@ interface BackendUser {
   credits: number;
   memberPlan?: string | null;
   worksCount: number;
+  likesCount?: number;
   followers: number;
 }
 
@@ -59,18 +60,20 @@ export interface GalleryWorkPage {
 }
 
 export function toGalleryUser(user: BackendUser): GalleryUser {
+  const fallbackName = `用户${user.id}`;
+  const name = user.nickname || fallbackName;
   return {
     id: user.id,
-    name: user.nickname || galleryUser.name,
-    avatar: user.avatarText || user.nickname?.slice(0, 1) || galleryUser.avatar,
-    color: user.avatarColor || galleryUser.color,
+    name,
+    avatar: user.avatarText || name.slice(0, 1) || "U",
+    color: user.avatarColor || "var(--accent)",
     points: `${user.credits}`,
     userNo: `LUMI${String(user.id).padStart(4, "0")}`,
-    bio: user.bio || galleryUser.bio,
-    role: user.memberPlan || galleryUser.role,
+    bio: user.bio || "这个用户还没有填写简介",
+    role: user.memberPlan || "创作者",
     works: user.worksCount,
     followers: `${user.followers}`,
-    likes: galleryUser.likes
+    likes: `${user.likesCount ?? 0}`
   };
 }
 

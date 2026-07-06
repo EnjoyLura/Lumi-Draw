@@ -17,6 +17,7 @@ function publicUser(user: User) {
     memberPlan: user.memberPlan,
     status: user.status,
     worksCount: user.worksCount,
+    likesCount: user.likesCount,
     followers: user.followers,
     following: user.following
   };
