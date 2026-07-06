@@ -4,6 +4,7 @@ import { onLoad } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateBackOrRedirect } from "../../services/navigation";
 import { reportReasons } from "../work-detail/workDetailData";
 import { submitWorkReport } from "./reportService";
 
@@ -14,6 +15,10 @@ const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
+
+function leaveReportPage() {
+  navigateBackOrRedirect(workId.value ? `/pages/work-detail/index?id=${workId.value}` : "/pages/plaza/index");
+}
 
 onLoad((query) => {
   const id = Number(query?.workId || 0);
@@ -46,7 +51,7 @@ async function submitReport() {
     }
     uni.showToast({ title: "举报已提交，我们会尽快处理", icon: "none" });
     setTimeout(() => {
-      uni.navigateBack();
+      leaveReportPage();
     }, 450);
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "举报提交失败，请稍后重试", icon: "none" });

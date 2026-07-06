@@ -5,6 +5,7 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 
@@ -26,6 +27,10 @@ const loadFailed = ref(false);
 
 const nickCount = computed(() => `${nickname.value.length}/20`);
 const signCount = computed(() => `${signature.value.length}/100`);
+
+function leaveEditProfilePage() {
+  navigateBackOrRedirect("/pages/mine/index");
+}
 
 onShow(() => {
   void loadProfile();
@@ -135,7 +140,7 @@ async function save() {
 
   if (useMockData.value) {
     uni.showToast({ title: "资料已保存", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveEditProfilePage, 600);
     return;
   }
   if (!ensureLogin()) return;
@@ -157,7 +162,7 @@ async function save() {
       currentUser.value.gender = profile.gender;
     }
     uni.showToast({ title: "资料已保存", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveEditProfilePage, 600);
   } catch {
     uni.showToast({ title: "保存失败，请稍后重试", icon: "none" });
   } finally {

@@ -5,6 +5,7 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { draftWorks, ratioToResolution, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
@@ -29,6 +30,10 @@ let lastMockMode: boolean | null = null;
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
 const draftOptions = computed(() => (useMockData.value ? draftWorks : backendDrafts.value));
+
+function leavePublishPage() {
+  navigateBackOrRedirect("/pages/gallery/index");
+}
 
 onLoad((query) => {
   const draftId = Number(query?.draftId || 0);
@@ -201,7 +206,7 @@ async function submit() {
 
   if (useMockData.value) {
     uni.showToast({ title: `作品「${title.value.trim()}」发布成功`, icon: "none" });
-    setTimeout(() => uni.navigateBack(), 800);
+    setTimeout(leavePublishPage, 800);
     return;
   }
 
@@ -216,7 +221,7 @@ async function submit() {
       draft: selectedDraft.value
     });
     uni.showToast({ title: "作品已提交审核", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 900);
+    setTimeout(leavePublishPage, 900);
   } catch {
     uni.showToast({ title: "发布失败，请稍后重试", icon: "none" });
   } finally {

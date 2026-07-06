@@ -5,6 +5,7 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateBackOrRedirect } from "../../services/navigation";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
@@ -26,6 +27,10 @@ const loadFailed = ref(false);
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
+
+function leaveEditWorkPage() {
+  navigateBackOrRedirect(workId.value ? `/pages/work-detail/index?id=${workId.value}` : "/pages/gallery/index");
+}
 
 onLoad((query) => {
   const id = Number(query?.id || 0);
@@ -153,7 +158,7 @@ async function submit() {
   }
   if (useMockData.value) {
     uni.showToast({ title: "作品信息已保存", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveEditWorkPage, 600);
     return;
   }
   if (!workId.value || !ensureLogin()) return;
@@ -166,7 +171,7 @@ async function submit() {
       style: selectedTags.value[0] || ""
     });
     uni.showToast({ title: "作品信息已保存", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveEditWorkPage, 600);
   } catch {
     uni.showToast({ title: "保存失败，请稍后重试", icon: "none" });
   } finally {

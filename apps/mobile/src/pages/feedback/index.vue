@@ -4,6 +4,7 @@ import { onLoad } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { submitFeedback } from "./feedbackService";
 
@@ -31,6 +32,10 @@ const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
 
 const descCount = computed(() => `${desc.value.length}/500`);
+
+function leaveFeedbackPage() {
+  navigateBackOrRedirect("/pages/mine/index");
+}
 
 onLoad((query) => {
   if (query?.source === "service") {
@@ -91,7 +96,7 @@ async function submit() {
 
   if (useMockData.value) {
     uni.showToast({ title: "感谢您的反馈", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveFeedbackPage, 600);
     return;
   }
   if (!ensureLogin()) return;
@@ -105,7 +110,7 @@ async function submit() {
       wechat: wechat.value.trim()
     });
     uni.showToast({ title: "感谢您的反馈", icon: "none" });
-    setTimeout(() => uni.navigateBack(), 600);
+    setTimeout(leaveFeedbackPage, 600);
   } catch {
     uni.showToast({ title: "提交失败，请稍后重试", icon: "none" });
   } finally {
