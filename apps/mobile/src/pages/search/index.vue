@@ -13,7 +13,7 @@ const keyword = ref("");
 const submittedKeyword = ref("");
 const searchHistory = ref([...initialSearchHistory]);
 const backendResults = ref<HomeWork[]>([]);
-const userList = ref<HomeUser[]>(mockHomeUsers);
+const userList = ref<HomeUser[]>([]);
 const hotSearchList = ref([...hotSearches]);
 const hotSearchLoadFailed = ref(false);
 const isLoading = ref(false);
@@ -43,6 +43,14 @@ onShow(() => {
   loadSearchHistory();
   if (lastMockMode === useMockData.value) return;
   lastMockMode = useMockData.value;
+  if (useMockData.value) {
+    userList.value = mockHomeUsers;
+  } else {
+    userList.value = [];
+    backendResults.value = [];
+    pageState.page = 1;
+    pageState.hasMore = false;
+  }
   void loadHotSearches();
   if (!useMockData.value && submittedKeyword.value) void runBackendSearch(submittedKeyword.value, 1, false);
 });
