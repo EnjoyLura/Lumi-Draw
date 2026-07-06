@@ -171,7 +171,7 @@ export class ConfigService {
         type,
         title: fallback.title,
         content: fallback.content,
-        updatedAt: new Date(0).toISOString()
+        updatedAt: ""
       };
     }
     return {
