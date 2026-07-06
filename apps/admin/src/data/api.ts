@@ -792,6 +792,33 @@ export async function apiSaveReviewSettings(values: AdminReviewSettings) {
   return http.put<AdminReviewSettings>("/admin/review-settings", values);
 }
 
+export interface AdminSystemSettings {
+  reviewMode: string;
+  manualReviewEnabled: boolean;
+}
+
+function boolSetting(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value === "true";
+  return fallback;
+}
+
+export async function apiGetSystemSettings(): Promise<AdminSystemSettings> {
+  const data = await http.get<Record<string, unknown>>("/admin/settings");
+  return {
+    reviewMode: typeof data.reviewMode === "string" ? data.reviewMode : "auto",
+    manualReviewEnabled: boolSetting(data.manualReviewEnabled, true)
+  };
+}
+
+export async function apiSaveSystemSettings(values: AdminSystemSettings) {
+  const data = await http.put<Record<string, unknown>>("/admin/settings", values);
+  return {
+    reviewMode: typeof data.reviewMode === "string" ? data.reviewMode : values.reviewMode,
+    manualReviewEnabled: boolSetting(data.manualReviewEnabled, values.manualReviewEnabled)
+  };
+}
+
 interface ApiSummary {
   metrics: { totalUsers: number; totalWorks: number; publishedWorks: number; pendingWorks: number; todayNewUsers: number; todayNewWorks: number };
   todos: { pendingWorks: number; pendingReports: number; pendingFeedback: number };

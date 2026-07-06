@@ -16,7 +16,8 @@
     "typecheck": "pnpm -r typecheck",
     "check:mobile-routes": "node scripts/check-mobile-routes.mjs",
     "check:mobile-features": "node scripts/check-mobile-feature-contracts.mjs",
-    "verify:static": "pnpm check:mobile-routes && pnpm check:mobile-features && pnpm typecheck && pnpm build:api && pnpm build:admin && pnpm build:mobile:h5 && git diff --check",
+    "check:admin-features": "node scripts/check-admin-feature-contracts.mjs",
+    "verify:static": "pnpm check:mobile-routes && pnpm check:mobile-features && pnpm check:admin-features && pnpm typecheck && pnpm build:api && pnpm build:admin && pnpm build:mobile:h5 && git diff --check",
     "verify:api": "pnpm smoke:api",
     "verify:full": "pnpm verify:static && pnpm verify:api",
     "smoke:api": "node scripts/smoke-api.mjs"

@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { readUseMockData, writeUseMockData } from "../dataMode";
+import { useEffect, useState } from "react";
+import { apiGetSystemSettings, apiSaveSystemSettings, type AdminSystemSettings } from "../data/api";
+import { useAdminSession } from "../data/adminSession";
+import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Sec } from "../ui";
+import { Sec, Seg, Switch } from "../ui";
 
 const GROUPS: Array<[string, Array<[string, string, string]>]> = [
   ["内容与安全", [["setAudit", "审核设置", "ri-shield-check-line"], ["setSensitive", "敏感词管理", "ri-filter-line"]]],
@@ -10,17 +12,64 @@ const GROUPS: Array<[string, Array<[string, string, string]>]> = [
 
 export function Settings() {
   const { go, toast } = useNav();
-  const [mock, setMock] = useState(readUseMockData());
+  const { useMock, setUseMock } = useAdminSession();
+  const { data, loading, error, reload } = useAsyncData<AdminSystemSettings>(useMock ? null : () => apiGetSystemSettings(), [useMock]);
+  const [mock, setMock] = useState(useMock);
+  const [reviewMode, setReviewMode] = useState("auto");
+  const [manualReviewEnabled, setManualReviewEnabled] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMock(useMock);
+  }, [useMock]);
+
+  useEffect(() => {
+    if (!useMock && data) {
+      setReviewMode(data.reviewMode);
+      setManualReviewEnabled(data.manualReviewEnabled);
+    }
+  }, [data, useMock]);
 
   const toggleMock = () => {
     const next = !mock;
     setMock(next);
-    writeUseMockData(next);
+    setUseMock(next);
     toast(next ? "已开启模拟数据" : "已切换为后端接口");
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      if (!useMock) {
+        const saved = await apiSaveSystemSettings({ reviewMode, manualReviewEnabled });
+        setReviewMode(saved.reviewMode);
+        setManualReviewEnabled(saved.manualReviewEnabled);
+        reload();
+      }
+      toast("已保存系统设置");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <>
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载系统设置中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
+      <Sec title="平台配置" />
+      <div className="card" style={{ padding: "2px 14px" }}>
+        <div className="kv" style={{ display: "block", padding: "12px 0" }}>
+          <div className="k" style={{ fontWeight: 600, color: "var(--fg-2)", marginBottom: 10 }}>审核模式</div>
+          <Seg items={[["auto", "自动"], ["manual", "人工"]]} active={reviewMode} onPick={setReviewMode} small />
+        </div>
+        <div className="kv">
+          <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开启人工审核</span>
+          <Switch on={manualReviewEnabled} onToggle={() => setManualReviewEnabled(!manualReviewEnabled)} />
+        </div>
+      </div>
+      <div className="actionbar"><button className="btn btn-primary btn-block" onClick={saveSettings} disabled={saving}>{saving ? "保存中" : "保存设置"}</button></div>
       {GROUPS.map(([title, items]) => (
         <div key={title}>
           <Sec title={title} />

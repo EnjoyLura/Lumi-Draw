@@ -602,6 +602,18 @@ async function main() {
       assert(typeof body.data.todos?.pendingFeedback === "number", "admin pending feedback missing");
     });
 
+    await step("admin system settings", async () => {
+      const { body: settings } = await request("GET", "/admin/settings", undefined, admin.accessToken);
+      assert(settings.data && typeof settings.data === "object", "admin settings missing");
+      const next = {
+        reviewMode: typeof settings.data.reviewMode === "string" ? settings.data.reviewMode : "auto",
+        manualReviewEnabled: settings.data.manualReviewEnabled === undefined ? true : settings.data.manualReviewEnabled === "true"
+      };
+      const { body: saved } = await request("PUT", "/admin/settings", next, admin.accessToken);
+      assert(saved.data?.reviewMode === next.reviewMode, "admin settings reviewMode did not persist");
+      assert(String(saved.data?.manualReviewEnabled) === String(next.manualReviewEnabled), "admin settings manualReviewEnabled did not persist");
+    });
+
     await step("admin push notification", async () => {
       const content = `smoke push notification ${Date.now()}`;
       const { body: created } = await request(
