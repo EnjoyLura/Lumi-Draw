@@ -18,6 +18,8 @@ interface BackendWorkDetail {
   quality?: string | null;
   modelId?: string | null;
   style?: string | null;
+  status?: string;
+  isPublic?: boolean;
 }
 
 interface PageResult<T> {

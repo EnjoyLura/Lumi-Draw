@@ -133,6 +133,13 @@ function applyPendingDraft() {
   selectDraft(draft);
 }
 
+function publishSuccessMessage(result?: { status?: string; isPublic?: boolean }) {
+  if (result?.status === "pending") return "作品已提交审核";
+  if (result?.status === "published" && result.isPublic !== false) return "作品发布成功";
+  if (result?.status === "draft" || result?.isPublic === false) return "作品已保存为草稿";
+  return "作品已保存";
+}
+
 async function uploadLocalImage() {
   if (isUploadingLocalImage.value) return;
   if (!ensureLogin()) return;
@@ -214,13 +221,13 @@ async function submit() {
 
   isSubmitting.value = true;
   try {
-    await publishWork({
+    const result = await publishWork({
       title: title.value.trim(),
       description: desc.value.trim(),
       tags: selectedTags.value,
       draft: selectedDraft.value
     });
-    uni.showToast({ title: "作品已提交审核", icon: "none" });
+    uni.showToast({ title: publishSuccessMessage(result), icon: "none" });
     setTimeout(leavePublishPage, 900);
   } catch {
     uni.showToast({ title: "发布失败，请稍后重试", icon: "none" });
