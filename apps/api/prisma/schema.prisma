@@ -15,6 +15,7 @@ model Banner {
   id          Int      @id @default(autoincrement())
   title       String
   description String
+  imageUrl    String   @default("")
   action      String   @default("")
   sort        Int      @default(0)
   enabled     Boolean  @default(true)

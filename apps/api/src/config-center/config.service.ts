@@ -31,6 +31,7 @@ export class ConfigService {
       id: b.id,
       title: b.title,
       description: b.description,
+      imageUrl: b.imageUrl,
       action: b.action,
       sort: b.sort
     }));

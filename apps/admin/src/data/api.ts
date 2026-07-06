@@ -308,19 +308,19 @@ export async function apiReplyFeedback(id: number, reply: string) {
 }
 
 interface ApiBanner {
-  id: number; title: string; description: string; action: string; sort: number; enabled: boolean;
+  id: number; title: string; description: string; imageUrl?: string; action: string; sort: number; enabled: boolean;
 }
 
 function mapBanner(b: ApiBanner): AdminBanner {
-  return { id: b.id, title: b.title, desc: b.description, action: b.action, sort: b.sort, on: b.enabled };
+  return { id: b.id, title: b.title, desc: b.description, imageUrl: b.imageUrl, action: b.action, sort: b.sort, on: b.enabled };
 }
 
 export async function apiGetBanners() {
   return (await http.get<ApiBanner[]>("/admin/banners")).map(mapBanner);
 }
 
-export async function apiSaveBanner(id: number, values: Pick<AdminBanner, "title" | "desc" | "action" | "sort"> & { on?: boolean }) {
-  const body = { title: values.title, description: values.desc, action: values.action, sort: values.sort, enabled: values.on };
+export async function apiSaveBanner(id: number, values: Pick<AdminBanner, "title" | "desc" | "action" | "sort"> & { imageUrl?: string; on?: boolean }) {
+  const body = { title: values.title, description: values.desc, imageUrl: values.imageUrl, action: values.action, sort: values.sort, enabled: values.on };
   return mapBanner(id ? await http.patch<ApiBanner>(`/admin/banners/${id}`, body) : await http.post<ApiBanner>("/admin/banners", body));
 }
 

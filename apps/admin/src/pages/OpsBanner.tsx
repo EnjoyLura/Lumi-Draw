@@ -10,20 +10,92 @@ import { moveItem, useRefresh } from "./opsShared";
 
 const ACTIONS = ["创作页", "会员页", "签到页", "活动页", "无"];
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
-const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed" };
+const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed", cursor: "pointer", overflow: "hidden", position: "relative" };
+const MAX_BANNER_IMAGE_BYTES = 80 * 1024;
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("图片加载失败"));
+    img.src = src;
+  });
+}
+
+function estimateDataUrlBytes(dataUrl: string) {
+  const base64 = dataUrl.split(",")[1] ?? "";
+  return Math.ceil(base64.length * 0.75);
+}
+
+async function compressBannerImage(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
+  const source = await readFileAsDataUrl(file);
+  const image = await loadImage(source);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("浏览器不支持图片处理");
+
+  let maxWidth = 960;
+  let quality = 0.78;
+  let output = source;
+  for (let i = 0; i < 8; i += 1) {
+    const scale = Math.min(1, maxWidth / image.width);
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    output = canvas.toDataURL("image/jpeg", quality);
+    if (estimateDataUrlBytes(output) <= MAX_BANNER_IMAGE_BYTES) break;
+    if (quality > 0.5) quality -= 0.1;
+    else maxWidth = Math.max(480, Math.floor(maxWidth * 0.8));
+  }
+  return output;
+}
 
 function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBanner; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const b = item ?? (id ? BANNERS.find((x) => x.id === id) : undefined);
   const [title, setTitle] = useState(b?.title ?? "");
   const [desc, setDesc] = useState(b?.desc ?? "");
+  const [imageUrl, setImageUrl] = useState(b?.imageUrl ?? "");
   const [action, setAction] = useState(b?.action ?? "创作页");
   const [sort, setSort] = useState(String(b?.sort ?? BANNERS.length + 1));
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const chooseImage = () => {
+    if (uploading || saving) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      void compressBannerImage(file)
+        .then((url) => {
+          setImageUrl(url);
+          toast("图片已选择");
+        })
+        .catch((e) => toast(e instanceof Error ? e.message : "图片处理失败"))
+        .finally(() => setUploading(false));
+    };
+    input.click();
+  };
 
   const save = async () => {
     if (!title.trim()) { toast("请输入标题"); return; }
-    const data = { title: title.trim(), desc, action, sort: parseInt(sort) || 0 };
+    const data = { title: title.trim(), desc, imageUrl, action, sort: parseInt(sort) || 0 };
     setSaving(true);
     try {
       if (useMock) {
@@ -55,7 +127,23 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
       <label className="field-label" style={{ marginTop: 12 }}>排序</label>
       <input className="input" type="number" value={sort} onChange={(e) => setSort(e.target.value)} />
       <label className="field-label" style={{ marginTop: 12 }}>封面图</label>
-      <div className="card" style={UPLOAD_STYLE}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} />&nbsp;点击上传</div>
+      <div
+        className="card"
+        role="button"
+        tabIndex={0}
+        style={UPLOAD_STYLE}
+        onClick={chooseImage}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") chooseImage(); }}
+      >
+        {imageUrl ? (
+          <>
+            <img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+            <span style={{ position: "absolute", right: 8, bottom: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 12 }}>点击更换</span>
+          </>
+        ) : (
+          <span><i className={uploading ? "ri-loader-4-line" : "ri-upload-cloud-line"} style={{ fontSize: 22 }} />&nbsp;{uploading ? "处理中" : "点击上传"}</span>
+        )}
+      </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
@@ -123,7 +211,7 @@ export function OpsBanner() {
       {banners.map((b, i) => (
         <div key={b.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 12 }}>
-            <img className="thumb" src={IMG("banner" + b.id)} style={{ width: 80, height: 54, flexShrink: 0 }} alt="" />
+            <img className="thumb" src={b.imageUrl || IMG("banner" + b.id)} style={{ width: 80, height: 54, flexShrink: 0 }} alt="" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{b.title}</span>

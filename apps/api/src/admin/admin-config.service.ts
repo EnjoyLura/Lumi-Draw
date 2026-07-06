@@ -19,7 +19,7 @@ function requireFields(body: Record<string, unknown>, keys: string[]) {
 
 // 各配置实体的可写字段白名单（防止未知字段进 Prisma）
 const FIELDS = {
-  banner: ["title", "description", "action", "sort", "enabled"],
+  banner: ["title", "description", "imageUrl", "action", "sort", "enabled"],
   gameplay: ["name", "description", "uses", "hot", "enabled", "sort"],
   style: ["name", "prompt", "uses", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],

@@ -1,0 +1,1 @@
+ALTER TABLE "banners" ADD COLUMN "imageUrl" TEXT NOT NULL DEFAULT '';

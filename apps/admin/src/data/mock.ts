@@ -142,6 +142,7 @@ export interface AdminBanner {
   id: number;
   title: string;
   desc: string;
+  imageUrl?: string;
   action: string;
   sort: number;
   on: boolean;
