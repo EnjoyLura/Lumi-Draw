@@ -329,7 +329,7 @@ export async function apiSetBannerEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiGameplay {
-  id: number; name: string; description: string; uses: number; hot: boolean; enabled: boolean; sort: number;
+  id: number; name: string; description: string; uses: string | number; hot: boolean; enabled: boolean; sort: number;
 }
 
 function mapGameplay(g: ApiGameplay): AdminGameplay {
@@ -340,8 +340,8 @@ export async function apiGetGameplays() {
   return (await http.get<ApiGameplay[]>("/admin/gameplays")).map(mapGameplay);
 }
 
-export async function apiSaveGameplay(id: number, values: { name: string; desc: string; hot: boolean; on?: boolean }) {
-  const body = { name: values.name, description: values.desc, hot: values.hot, enabled: values.on };
+export async function apiSaveGameplay(id: number, values: { name: string; desc: string; uses?: string; hot: boolean; on?: boolean }) {
+  const body = { name: values.name, description: values.desc, uses: values.uses, hot: values.hot, enabled: values.on };
   return mapGameplay(id ? await http.patch<ApiGameplay>(`/admin/gameplays/${id}`, body) : await http.post<ApiGameplay>("/admin/gameplays", body));
 }
 

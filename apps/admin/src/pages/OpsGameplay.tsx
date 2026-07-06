@@ -15,6 +15,7 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
   const g = item ?? (id ? GAMEPLAYS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(g?.name ?? "");
   const [desc, setDesc] = useState(g?.desc ?? "");
+  const [uses, setUses] = useState(g?.uses ?? "0");
   const [prompt, setPrompt] = useState("");
   const [hot, setHot] = useState(g?.hot ?? false);
   const [saving, setSaving] = useState(false);
@@ -25,10 +26,10 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
     setSaving(true);
     try {
       if (useMock) {
-        if (g) Object.assign(g, { name: name.trim(), desc, hot });
-        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: "0", on: true });
+        if (g) Object.assign(g, { name: name.trim(), desc, uses: uses.trim() || "0", hot });
+        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: uses.trim() || "0", on: true });
       } else {
-        await apiSaveGameplay(id, { name: name.trim(), desc, hot, on: g?.on ?? true });
+        await apiSaveGameplay(id, { name: name.trim(), desc, uses: uses.trim() || "0", hot, on: g?.on ?? true });
       }
       closeSheet();
       onSaved();
@@ -46,6 +47,8 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：人物美颜" />
       <label className="field-label" style={{ marginTop: 12 }}>玩法描述</label>
       <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="一句话介绍该玩法" />
+      <label className="field-label" style={{ marginTop: 12 }}>使用人数</label>
+      <input className="input" value={uses} onChange={(e) => setUses(e.target.value)} placeholder="如：8600 或 12.6w" />
       <label className="field-label" style={{ marginTop: 12 }}>关联提示词模板</label>
       <textarea className="input" rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="预设提示词" />
       <div className="kv" style={{ marginTop: 8 }}>
