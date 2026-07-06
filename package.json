@@ -17,6 +17,7 @@
     "check:mobile-routes": "node scripts/check-mobile-routes.mjs",
     "check:mobile-features": "node scripts/check-mobile-feature-contracts.mjs",
     "check:admin-features": "node scripts/check-admin-feature-contracts.mjs",
+    "check:production-safety": "node scripts/check-production-safety.mjs",
     "verify:static": "pnpm check:mobile-routes && pnpm check:mobile-features && pnpm check:admin-features && pnpm typecheck && pnpm build:api && pnpm build:admin && pnpm build:mobile:h5 && git diff --check",
     "verify:ui": "pnpm build:mobile:h5 && pnpm build:admin && playwright test",
     "verify:api": "pnpm smoke:api",
