@@ -12,7 +12,10 @@ import {
   createStyles,
   gameplayTemplates,
   qualityOptions,
-  ratioOptions
+  ratioOptions,
+  type CreateModel,
+  type QualityOption,
+  type RatioOption
 } from "./createData";
 import {
   createDraftWork,
@@ -22,6 +25,19 @@ import {
   publishGenerateResult,
   type BackendGenerateJob
 } from "./createService";
+
+const EMPTY_MODEL: CreateModel = {
+  id: "",
+  name: "模型未同步",
+  description: "请等待创作配置加载完成",
+  tags: ["待同步"],
+  cost: 0,
+  image: "",
+  badge: "未配置",
+  badgeColor: "var(--fg-muted)"
+};
+const EMPTY_QUALITY: QualityOption = { label: "未同步", description: "待配置", icon: "--" };
+const EMPTY_RATIO: RatioOption = { label: "1:1", width: 1, height: 1 };
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -47,6 +63,7 @@ const previewSheetOpen = ref(false);
 const showLoginSheet = ref(false);
 const isUploadingPromptImage = ref(false);
 const isSavingDrafts = ref(false);
+const configLoadFailed = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
 
@@ -70,12 +87,12 @@ let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
-const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? createModels[0]);
+const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? (useMockData.value ? createModels[0] : EMPTY_MODEL));
 const selectedGameplay = computed(() => {
   return gameplayOptions.value.find((item) => item.name === selectedGameplayName.value);
 });
-const selectedQuality = computed(() => qualityList.value[selectedQualityIndex.value] ?? qualityOptions[0]);
-const selectedRatio = computed(() => ratioList.value[selectedRatioIndex.value] ?? ratioOptions[0]);
+const selectedQuality = computed(() => qualityList.value[selectedQualityIndex.value] ?? (useMockData.value ? qualityOptions[0] : EMPTY_QUALITY));
+const selectedRatio = computed(() => ratioList.value[selectedRatioIndex.value] ?? (useMockData.value ? ratioOptions[0] : EMPTY_RATIO));
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
 const totalCost = computed(() => selectedModel.value.cost * selectedCount.value);
 const visibleStyles = computed(() => styleOptions.value.slice(0, 7));
@@ -87,6 +104,9 @@ const moreStyleSelected = computed(() => {
 const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
 const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
 const refundCredits = computed(() => failCount.value * selectedModel.value.cost);
+const createConfigUnavailable = computed(
+  () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
+);
 
 const generationStages = [
   "解析提示词，理解创作意图...",
@@ -121,6 +141,7 @@ function randomError() {
 }
 
 function resetCreateConfig() {
+  configLoadFailed.value = false;
   modelOptions.value = createModels;
   styleOptions.value = createStyles;
   qualityList.value = qualityOptions;
@@ -138,20 +159,29 @@ async function loadCreateConfig() {
     return;
   }
 
+  configLoadFailed.value = false;
   try {
     const config = await fetchCreateConfig();
-    modelOptions.value = config.models.length ? config.models : createModels;
-    styleOptions.value = config.styles.length ? config.styles : createStyles;
-    qualityList.value = config.qualities.length ? config.qualities : qualityOptions;
-    ratioList.value = config.ratios.length ? config.ratios : ratioOptions;
-    gameplayOptions.value = config.gameplays.length ? config.gameplays : gameplayTemplates;
-    selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
-    selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
-    selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+    modelOptions.value = config.models;
+    styleOptions.value = config.styles;
+    qualityList.value = config.qualities;
+    ratioList.value = config.ratios;
+    gameplayOptions.value = config.gameplays;
+    selectedModelIndex.value = Math.max(0, Math.min(selectedModelIndex.value, modelOptions.value.length - 1));
+    selectedQualityIndex.value = Math.max(0, Math.min(selectedQualityIndex.value, qualityList.value.length - 1));
+    selectedRatioIndex.value = Math.max(0, Math.min(selectedRatioIndex.value, ratioList.value.length - 1));
     applyPendingRouteOptions();
   } catch {
-    resetCreateConfig();
-    showToast("创作配置加载失败，已使用本地配置");
+    modelOptions.value = [];
+    styleOptions.value = [];
+    qualityList.value = [];
+    ratioList.value = [];
+    gameplayOptions.value = [];
+    selectedModelIndex.value = 0;
+    selectedQualityIndex.value = 0;
+    selectedRatioIndex.value = 0;
+    configLoadFailed.value = true;
+    showToast("创作配置加载失败，请稍后重试");
   }
 }
 
@@ -531,6 +561,11 @@ async function startGenerate() {
     return;
   }
 
+  if (createConfigUnavailable.value) {
+    showToast("创作配置未同步，请刷新后重试");
+    return;
+  }
+
   if (!useMockData.value) {
     await startBackendGenerate(prompt);
     return;
@@ -729,6 +764,12 @@ async function goPublish() {
           <view class="login-gate-title">登录后开始 AI 创作</view>
           <view class="login-gate-sub">登录即可使用模型、上传参考图、保存作品与管理草稿</view>
           <button class="login-gate-btn" @click="openLoginSheet">立即登录</button>
+        </view>
+
+        <view v-if="createConfigUnavailable" class="config-alert">
+          <view class="config-alert-title">创作配置未同步</view>
+          <view class="config-alert-sub">请重新加载模型、分辨率和尺寸配置，当前不会使用本地模拟配置提交生成。</view>
+          <button class="config-alert-btn" @click="loadCreateConfig">重新加载</button>
         </view>
 
         <view class="gameplay-wrap">
@@ -1179,6 +1220,49 @@ async function goPublish() {
 }
 
 .login-gate-btn::after {
+  border: none;
+}
+
+.config-alert {
+  padding: 16px;
+  margin: 0 16px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.config-alert-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.config-alert-sub {
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-secondary);
+}
+
+.config-alert-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 112px;
+  height: 36px;
+  padding: 0 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+}
+
+.config-alert-btn::after {
   border: none;
 }
 
