@@ -15,6 +15,7 @@ const searchHistory = ref([...initialSearchHistory]);
 const backendResults = ref<HomeWork[]>([]);
 const userList = ref<HomeUser[]>(mockHomeUsers);
 const hotSearchList = ref([...hotSearches]);
+const hotSearchLoadFailed = ref(false);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const pageState = reactive({ page: 1, hasMore: false });
@@ -77,14 +78,17 @@ function mergeUsers(nextUsers: HomeUser[]) {
 async function loadHotSearches() {
   if (useMockData.value) {
     hotSearchList.value = [...hotSearches];
+    hotSearchLoadFailed.value = false;
     return;
   }
 
   try {
     const rows = await fetchHotSearches();
-    hotSearchList.value = rows.length ? rows : [...hotSearches];
+    hotSearchList.value = rows;
+    hotSearchLoadFailed.value = false;
   } catch {
-    hotSearchList.value = [...hotSearches];
+    hotSearchList.value = [];
+    hotSearchLoadFailed.value = true;
   }
 }
 
@@ -203,6 +207,10 @@ function handleReachBottom() {
                 <text class="hot-index" :class="{ top: index < 3 }">{{ index + 1 }}</text>
                 <text class="hot-text">{{ item }}</text>
               </view>
+            </view>
+            <view v-if="!useMockData && !hotSearchList.length" class="hot-empty">
+              <text>{{ hotSearchLoadFailed ? "热门搜索加载失败" : "暂无热门搜索" }}</text>
+              <button v-if="hotSearchLoadFailed" class="hot-retry" @click="loadHotSearches">重试</button>
             </view>
           </view>
         </view>
@@ -404,6 +412,38 @@ function handleReachBottom() {
 .hot-list {
   display: flex;
   flex-direction: column;
+}
+
+.hot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.hot-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: none;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+
+.hot-retry::after {
+  border: none;
 }
 
 .hot-row {
