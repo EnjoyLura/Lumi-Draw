@@ -308,6 +308,72 @@ async function main() {
       return (drafts.items || []).some((item) => item.id === generatedWorkId);
     }, "generated draft was not persisted through real API");
 
+    await page.goto(`${BASE_URL}/#/pages/drafts/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".drafts-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".work-card").first().waitFor({ state: "visible", timeout: 10_000 });
+    const draftTitles = await page.locator(".work-title").allInnerTexts();
+    assert(draftTitles.some((title) => title.includes(generationPrompt.slice(0, 12))), "drafts page did not render the generated real draft");
+
+    const publishTitle = `H5 published ${Date.now().toString().slice(-6)}`;
+    const publishDescription = `H5 real publish smoke ${Date.now()}`;
+    await page.goto(`${BASE_URL}/#/pages/publish/index?draftId=${generatedWorkId}`, { waitUntil: "domcontentloaded" });
+    await page.locator(".publish-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".draft-thumb").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".publish-page .text-input input").fill(publishTitle);
+    await page.locator(".publish-page .text-area textarea").fill(publishDescription);
+    await page.locator(".publish-page .tag-chip").first().click();
+    const publishResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/works/${generatedWorkId}`) && response.request().method() === "PATCH"
+    );
+    await page.locator(".publish-page .submit-btn").click();
+    const publishedWork = await responseData(await publishResponse);
+    await page.waitForTimeout(1_000);
+    assert(publishedWork.title === publishTitle, "publish page response title mismatch");
+    if (publishedWork.status === "pending") await maybeApproveWork(generatedWorkId);
+    await waitFor(async () => {
+      const detail = await apiRequest("GET", `/works/${generatedWorkId}`, undefined, actorLogin.accessToken);
+      return detail.title === publishTitle && detail.description === publishDescription && detail.isPublic === true;
+    }, "publish page did not persist published work through real API");
+
+    const editedTitle = `H5 edited ${Date.now().toString().slice(-6)}`;
+    const editedDescription = `H5 real edit smoke ${Date.now()}`;
+    await page.goto(`${BASE_URL}/#/pages/edit-work/index?id=${generatedWorkId}`, { waitUntil: "domcontentloaded" });
+    await page.locator(".edit-work-page").waitFor({ state: "visible", timeout: 10_000 });
+    await waitFor(async () => {
+      const value = await page.locator(".edit-work-page .text-input input").inputValue();
+      return value === publishTitle;
+    }, "edit work page did not finish loading the published work title");
+    await page.locator(".edit-work-page .text-input input").fill(editedTitle);
+    await page.locator(".edit-work-page .text-area textarea").fill(editedDescription);
+    await page.locator(".edit-work-page .tag-chip").nth(1).click();
+    const editResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/works/${generatedWorkId}`) && response.request().method() === "PATCH"
+    );
+    await page.locator(".edit-work-page .submit-btn").click();
+    const editedWork = await responseData(await editResponse);
+    await page.waitForTimeout(800);
+    assert(editedWork.title === editedTitle, "edit work page response title mismatch");
+    await waitFor(async () => {
+      const detail = await apiRequest("GET", `/works/${generatedWorkId}`, undefined, actorLogin.accessToken);
+      return detail.title === editedTitle && detail.description === editedDescription;
+    }, "edit work page did not persist updates through real API");
+
+    await page.goto(`${BASE_URL}/#/pages/follow-list/index?type=following`, { waitUntil: "domcontentloaded" });
+    await page.locator(".follow-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".follow-row").first().waitFor({ state: "visible", timeout: 10_000 });
+    const followList = await apiRequest("GET", "/social/follows?type=following&page=1&pageSize=20", undefined, actorLogin.accessToken);
+    assert((followList.items || []).some((item) => item.id === ownerLogin.user.id), "follow list API did not include followed owner");
+    const unfollowResponse = page.waitForResponse(
+      (response) => response.url().includes(`/api/social/users/${ownerLogin.user.id}/follow`) && response.request().method() === "DELETE"
+    );
+    await page.locator(".follow-row").first().locator(".follow-btn").click();
+    const unfollowed = await responseData(await unfollowResponse);
+    assert(unfollowed.following === false, "follow list UI did not unfollow through real API");
+    await waitFor(async () => {
+      const nextList = await apiRequest("GET", "/social/follows?type=following&page=1&pageSize=20", undefined, actorLogin.accessToken);
+      return !(nextList.items || []).some((item) => item.id === ownerLogin.user.id);
+    }, "follow list unfollow did not persist through real API");
+
     await page.goto(`${BASE_URL}/#/pages/recharge/index`, { waitUntil: "domcontentloaded" });
     await page.locator(".recharge-page").waitFor({ state: "visible", timeout: 10_000 });
     const [creditBalance, bootstrap] = await Promise.all([
@@ -322,7 +388,8 @@ async function main() {
     await page.locator(".custom-card").click();
     await page.locator(".custom-sheet.show").waitFor({ state: "visible", timeout: 10_000 });
     await page.locator(".amount-input input").fill("3");
-    await page.locator(".custom-sheet.show .btn.secondary").click();
+    await page.locator(".custom-sheet.show .btn.secondary").evaluate((element) => element.click());
+    await page.locator(".custom-sheet.show").waitFor({ state: "hidden", timeout: 10_000 });
 
     await page.goto(`${BASE_URL}/#/pages/checkin/index`, { waitUntil: "domcontentloaded" });
     await page.locator(".checkin-page").waitFor({ state: "visible", timeout: 10_000 });
@@ -359,12 +426,18 @@ async function main() {
     await page.locator(".edit-page").waitFor({ state: "visible", timeout: 10_000 });
     const nextNickname = `H5 Real ${Date.now().toString().slice(-6)}`;
     const nextBio = `H5 real profile smoke ${Date.now()}`;
+    const currentProfile = await apiRequest("GET", "/users/me", undefined, actorLogin.accessToken);
+    await waitFor(async () => {
+      const value = await page.locator(".field .input input").first().inputValue();
+      return value === currentProfile.nickname;
+    }, "edit profile page did not finish loading the current user profile");
     await page.locator(".field .input input").first().fill(nextNickname);
     await page.locator(".gender-option").nth(1).click();
     await page.locator(".textarea textarea").fill(nextBio);
     const profileResponse = page.waitForResponse((response) => response.url().includes("/api/users/me") && response.request().method() === "PATCH");
     await page.locator(".save-btn").click();
     const updatedProfile = await responseData(await profileResponse);
+    await page.waitForTimeout(700);
     assert(updatedProfile.nickname === nextNickname, "profile UI save response nickname mismatch");
     await waitFor(async () => {
       const profile = await apiRequest("GET", "/users/me", undefined, actorLogin.accessToken);
@@ -380,6 +453,7 @@ async function main() {
     const feedbackResponse = page.waitForResponse((response) => response.url().includes("/api/feedback") && response.request().method() === "POST");
     await page.locator(".submit-btn").click();
     const feedback = await responseData(await feedbackResponse);
+    await page.waitForTimeout(700);
     assert(feedback.id && feedback.status, "feedback UI submit did not return persisted row");
 
     const adminLogin = await maybeAdminLogin();
@@ -398,12 +472,24 @@ async function main() {
     );
     await page.locator(".submit-btn").click();
     const report = await responseData(await reportResponse);
+    await page.waitForTimeout(600);
     assert(report.id && report.status, "report UI submit did not return persisted row");
 
     if (adminLogin?.accessToken) {
       const reportList = await apiRequest("GET", "/admin/reports?page=1&pageSize=20", undefined, adminLogin.accessToken);
       assert((reportList.items || []).some((item) => item.id === report.id), "admin report list did not include H5 submitted report");
     }
+
+    await page.goto(`${BASE_URL}/#/pages/history/index`, { waitUntil: "domcontentloaded" });
+    await page.locator(".history-page").waitFor({ state: "visible", timeout: 10_000 });
+    await page.locator(".grid-item").first().waitFor({ state: "visible", timeout: 10_000 });
+    const clearHistoryResponse = page.waitForResponse((response) => response.url().includes("/api/social/history") && response.request().method() === "DELETE");
+    await page.locator(".clear-btn").click();
+    const clearedHistoryResult = await responseData(await clearHistoryResponse);
+    assert(clearedHistoryResult.ok === true, "history page clear response mismatch");
+    await page.locator(".empty-state").waitFor({ state: "visible", timeout: 10_000 });
+    const clearedHistory = await apiRequest("GET", "/social/history?page=1&pageSize=20", undefined, actorLogin.accessToken);
+    assert((clearedHistory.items || []).length === 0, "history page clear did not persist through real API");
 
     if (adminLogin?.accessToken) {
       const replyContent = `H5 real feedback reply ${Date.now()}`;
