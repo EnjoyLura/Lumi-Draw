@@ -18,11 +18,13 @@
     "check:mobile-features": "node scripts/check-mobile-feature-contracts.mjs",
     "check:admin-features": "node scripts/check-admin-feature-contracts.mjs",
     "verify:static": "pnpm check:mobile-routes && pnpm check:mobile-features && pnpm check:admin-features && pnpm typecheck && pnpm build:api && pnpm build:admin && pnpm build:mobile:h5 && git diff --check",
+    "verify:ui": "pnpm build:mobile:h5 && pnpm build:admin && playwright test",
     "verify:api": "pnpm smoke:api",
-    "verify:full": "pnpm verify:static && pnpm verify:api",
+    "verify:full": "pnpm verify:static && pnpm verify:api && pnpm verify:ui",
     "smoke:api": "node scripts/smoke-api.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "typescript": "5.4.5"
   }
 }

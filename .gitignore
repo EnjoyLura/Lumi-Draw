@@ -20,6 +20,8 @@ build/
 .nuxt/
 .vite/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # Logs
