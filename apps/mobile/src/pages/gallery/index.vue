@@ -14,7 +14,7 @@ import {
   syncActiveGenerateJobIds
 } from "../../services/generateTaskState";
 import type { HomeWork } from "../home/homeData";
-import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab } from "./galleryData";
+import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab, type GalleryUser } from "./galleryData";
 import {
   deleteGalleryWorks,
   fetchGalleryGenerateTasks,
@@ -27,6 +27,20 @@ import {
 const PAGE_SIZE = 10;
 const tabEnterClass = resolveTabEnterClass("pages/gallery/index");
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+
+const EMPTY_PROFILE: GalleryUser = {
+  id: 0,
+  name: "未同步资料",
+  avatar: "U",
+  color: "var(--accent)",
+  points: "0",
+  userNo: "-",
+  bio: "资料加载完成后显示真实信息",
+  role: "创作者",
+  works: 0,
+  followers: "0",
+  likes: "0"
+};
 
 type SideQuick = {
   icon: string;
@@ -141,7 +155,7 @@ function resetMockGalleryData() {
 }
 
 function resetRealGalleryData() {
-  profile.value = galleryUser;
+  profile.value = EMPTY_PROFILE;
   works.value = [];
   genTasks.value = [];
   manageMode.value = false;

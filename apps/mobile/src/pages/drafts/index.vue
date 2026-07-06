@@ -4,11 +4,25 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { galleryUser, galleryWorks } from "../gallery/galleryData";
+import { galleryUser, galleryWorks, type GalleryUser } from "../gallery/galleryData";
 import { fetchGalleryUser, fetchGalleryWorks } from "../gallery/galleryService";
 import type { HomeWork } from "../home/homeData";
 
 const PAGE_SIZE = 12;
+
+const EMPTY_PROFILE: GalleryUser = {
+  id: 0,
+  name: "未同步资料",
+  avatar: "U",
+  color: "var(--accent)",
+  points: "0",
+  userNo: "-",
+  bio: "",
+  role: "创作者",
+  works: 0,
+  followers: "0",
+  likes: "0"
+};
 
 const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -36,7 +50,7 @@ onShow(() => {
 
 function resetRealDrafts() {
   realDrafts.value = [];
-  profile.value = galleryUser;
+  profile.value = EMPTY_PROFILE;
   pageState.page = 1;
   pageState.hasMore = false;
 }
