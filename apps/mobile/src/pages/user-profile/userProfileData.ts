@@ -12,7 +12,7 @@ export interface ProfileUser {
   likes: string;
   followers: string;
   following: number;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   role: string;
 }
 

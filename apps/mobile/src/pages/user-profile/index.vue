@@ -44,7 +44,7 @@ interface ProfileView {
   likes: string;
   followers: string;
   following: number;
-  gender: "male" | "female";
+  gender: "male" | "female" | "unknown";
   role: string;
   isFollowing: boolean;
 }
@@ -59,7 +59,7 @@ const emptyProfile = computed<ProfileView>(() => ({
   likes: "0",
   followers: "0",
   following: 0,
-  gender: "female",
+  gender: "unknown",
   role: "AI 创作者",
   isFollowing: false
 }));
@@ -72,7 +72,11 @@ const following = computed(() => (useMockData.value ? isFollowing(userId.value) 
 const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) : realWorks.value));
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
-const genderIcon = computed(() => (user.value.gender === "female" ? "♀" : "♂"));
+const genderIcon = computed(() => {
+  if (user.value.gender === "female") return "♀";
+  if (user.value.gender === "male") return "♂";
+  return "•";
+});
 
 onLoad((query) => {
   const id = Number(query?.id || 1);
@@ -99,7 +103,7 @@ function toProfileView(profile: BackendUserProfile): ProfileView {
     likes: formatCompactNumber(profile.likesCount),
     followers: formatCompactNumber(profile.followers),
     following: profile.following,
-    gender: profile.gender === "male" ? "male" : "female",
+    gender: profile.gender === "male" || profile.gender === "female" ? profile.gender : "unknown",
     role: "AI 创作者",
     isFollowing: profile.isFollowing
   };
@@ -518,6 +522,11 @@ async function confirmUnfollow() {
 .gender-tag.male {
   color: var(--accent);
   background: var(--accent-soft);
+}
+
+.gender-tag.unknown {
+  color: var(--fg-muted);
+  background: var(--bg-elevated);
 }
 
 .bio {

@@ -54,7 +54,7 @@ function toProfileUser(user: BackendUserProfile): FollowProfileUser {
     likes: formatCompactNumber(user.likesCount),
     followers: formatCompactNumber(user.followers),
     following: user.following,
-    gender: user.gender === "male" ? "male" : "female",
+    gender: user.gender === "male" || user.gender === "female" ? user.gender : "unknown",
     role: "AI 创作者",
     isFollowing: user.isFollowing
   };
@@ -160,8 +160,8 @@ async function toggleFollow(id: number) {
   uni.showToast({ title: next ? "关注成功" : "已取消关注", icon: "none" });
 }
 
-function goHome() {
-  uni.reLaunch({ url: "/pages/home/index" });
+function goPlaza() {
+  uni.reLaunch({ url: "/pages/plaza/index" });
 }
 </script>
 
@@ -200,7 +200,7 @@ function goHome() {
         <view class="empty-icon">♡</view>
         <view class="empty-title">{{ type === "following" ? "暂无关注" : "暂无粉丝" }}</view>
         <view class="empty-sub">{{ type === "following" ? "去广场发现有趣的创作者吧" : "创作更多优秀作品来吸引粉丝" }}</view>
-        <button v-if="type === 'following'" class="empty-btn" @click="goHome">✦ 去广场</button>
+        <button v-if="type === 'following'" class="empty-btn" @click="goPlaza">✦ 去广场</button>
       </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
