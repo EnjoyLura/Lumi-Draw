@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -57,13 +57,19 @@ const detailImageStyle = computed(() => {
 });
 
 onLoad((query) => {
-  const id = Number(query?.id || 1);
-  if (Number.isFinite(id) && id > 0) workId.value = id;
+  workId.value = resolveRouteId(query);
   lastMode = useMockData.value;
   void loadDetail();
 });
 
 onShow(() => {
+  const nextId = resolveRouteId();
+  if (nextId !== workId.value) {
+    workId.value = nextId;
+    lastMode = useMockData.value;
+    void loadDetail();
+    return;
+  }
   if (lastMode !== useMockData.value) {
     lastMode = useMockData.value;
     void loadDetail();
@@ -73,6 +79,44 @@ onShow(() => {
     void loadDetail();
   }
 });
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextId = resolveRouteId();
+  if (nextId === workId.value) return;
+  workId.value = nextId;
+  lastMode = useMockData.value;
+  void loadDetail();
+}
+
+function resolveRouteId(query?: Record<string, unknown>) {
+  const queryId = Number(query?.id || 0);
+  if (Number.isFinite(queryId) && queryId > 0) return queryId;
+
+  if (typeof window !== "undefined") {
+    const hashId = Number(window.location.hash.match(/[?&]id=([^&]+)/)?.[1] || 0);
+    if (Number.isFinite(hashId) && hashId > 0) return hashId;
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageId = Number(current?.options?.id || current?.$page?.options?.id || 0);
+  return Number.isFinite(pageId) && pageId > 0 ? pageId : 1;
+}
 
 function loadMockDetail() {
   const item = getWorkById(workId.value);

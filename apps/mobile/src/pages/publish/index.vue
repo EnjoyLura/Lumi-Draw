@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -36,11 +36,15 @@ function leavePublishPage() {
 }
 
 onLoad((query) => {
-  const draftId = Number(query?.draftId || 0);
-  if (Number.isFinite(draftId) && draftId > 0) pendingDraftId.value = draftId;
+  pendingDraftId.value = resolveRouteDraftId(query);
 });
 
 onShow(() => {
+  const nextDraftId = resolveRouteDraftId();
+  if (nextDraftId && nextDraftId !== pendingDraftId.value && nextDraftId !== selectedDraft.value?.id) {
+    pendingDraftId.value = nextDraftId;
+    clearPublishForm();
+  }
   if (lastMockMode !== useMockData.value) {
     selectedDraft.value = null;
     title.value = "";
@@ -50,6 +54,44 @@ onShow(() => {
   }
   void loadDrafts();
 });
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextDraftId = resolveRouteDraftId();
+  if (!nextDraftId || nextDraftId === pendingDraftId.value || nextDraftId === selectedDraft.value?.id) return;
+  pendingDraftId.value = nextDraftId;
+  clearPublishForm();
+  void loadDrafts();
+}
+
+function resolveRouteDraftId(query?: Record<string, unknown>) {
+  const queryId = Number(query?.draftId || 0);
+  if (Number.isFinite(queryId) && queryId > 0) return queryId;
+
+  if (typeof window !== "undefined") {
+    const hashId = Number(window.location.hash.match(/[?&]draftId=([^&]+)/)?.[1] || 0);
+    if (Number.isFinite(hashId) && hashId > 0) return hashId;
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageId = Number(current?.options?.draftId || current?.$page?.options?.draftId || 0);
+  return Number.isFinite(pageId) && pageId > 0 ? pageId : 0;
+}
 
 function clearPublishForm() {
   selectedDraft.value = null;

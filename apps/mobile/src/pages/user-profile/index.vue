@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -79,16 +79,58 @@ const genderIcon = computed(() => {
 });
 
 onLoad((query) => {
-  const id = Number(query?.id || 1);
-  if (Number.isFinite(id) && id > 0) userId.value = id;
+  userId.value = resolveRouteId(query);
   lastMode = null;
 });
 
 onShow(() => {
+  const nextId = resolveRouteId();
+  if (nextId !== userId.value) {
+    userId.value = nextId;
+    lastMode = null;
+  }
   if (useMockData.value && lastMode === useMockData.value) return;
   lastMode = useMockData.value;
   void loadProfile();
 });
+
+onMounted(() => {
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
+});
+
+onUnmounted(() => {
+  if (typeof window === "undefined") return;
+  window.removeEventListener("hashchange", handleHashChange);
+});
+
+function handleHashChange() {
+  const nextId = resolveRouteId();
+  if (nextId === userId.value) return;
+  userId.value = nextId;
+  lastMode = null;
+  void loadProfile();
+}
+
+function resolveRouteId(query?: Record<string, unknown>) {
+  const queryId = Number(query?.id || 0);
+  if (Number.isFinite(queryId) && queryId > 0) return queryId;
+
+  if (typeof window !== "undefined") {
+    const hashId = Number(window.location.hash.match(/[?&]id=([^&]+)/)?.[1] || 0);
+    if (Number.isFinite(hashId) && hashId > 0) return hashId;
+  }
+
+  const pages = getCurrentPages();
+  const current = pages[pages.length - 1] as
+    | {
+        options?: Record<string, string>;
+        $page?: { options?: Record<string, string> };
+      }
+    | undefined;
+  const pageId = Number(current?.options?.id || current?.$page?.options?.id || 0);
+  return Number.isFinite(pageId) && pageId > 0 ? pageId : 1;
+}
 
 function toProfileView(profile: BackendUserProfile): ProfileView {
   const fallbackName = `用户${profile.id}`;
