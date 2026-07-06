@@ -17,7 +17,7 @@ export interface UploadedImage {
   ratio?: string;
 }
 
-interface ChosenImage {
+export interface ChosenImage {
   path: string;
   name: string;
   contentType: string;
@@ -221,13 +221,21 @@ async function putObject(policy: UploadPolicy, image: Pick<ChosenImage, "path" |
   await putWithUniRequest(policy, image.path);
 }
 
-export async function uploadChosenImage(scene: string): Promise<UploadedImage> {
-  const image = await chooseSingleImage();
+export function chooseLocalImage() {
+  return chooseSingleImage();
+}
+
+export async function uploadSelectedImage(scene: string, image: ChosenImage): Promise<UploadedImage> {
   const size = await resolveImageSize(image);
   const policy = await requestUploadPolicy(scene, image.name, image.contentType);
   await putObject(policy, image);
   const completed = await completeUpload(policy.ossKey, policy.publicUrl);
   return { ...completed, localPath: image.path, width: size?.width, height: size?.height, ratio: ratioFromSize(size?.width, size?.height) };
+}
+
+export async function uploadChosenImage(scene: string): Promise<UploadedImage> {
+  const image = await chooseLocalImage();
+  return uploadSelectedImage(scene, image);
 }
 
 export async function uploadRemoteImage(url: string, scene: string, filename = `image-${Date.now()}.jpg`): Promise<UploadedImage> {

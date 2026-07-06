@@ -6,13 +6,20 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { mockImage } from "../../services/mockImages";
 import { navigateBackOrRedirect } from "../../services/navigation";
-import { uploadChosenImage } from "../../services/upload";
+import { chooseLocalImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
 import { submitFeedback } from "./feedbackService";
 
 interface FeedbackType {
   key: string;
   label: string;
   icon: string;
+}
+
+interface FeedbackImage {
+  id: string;
+  previewUrl: string;
+  localImage?: ChosenImage;
+  uploadedUrl?: string;
 }
 
 const { login: commitLogin, requireLogin } = useAuth();
@@ -27,7 +34,7 @@ const feedbackTypes: FeedbackType[] = [
 const activeType = ref("bug");
 const desc = ref("");
 const wechat = ref("");
-const images = ref<string[]>([]);
+const images = ref<FeedbackImage[]>([]);
 const isUploading = ref(false);
 const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
@@ -91,20 +98,27 @@ function applyRouteSource(query?: Record<string, unknown>) {
 
 async function addImage() {
   if (images.value.length >= 2 || isUploading.value) return;
-  if (!ensureLogin()) return;
 
   if (useMockData.value) {
     const seed = images.value.length === 0 ? "fb1" : "fb2";
-    images.value.push(mockImage(seed, 200, 200));
+    images.value.push({
+      id: `mock-${Date.now()}-${images.value.length}`,
+      previewUrl: mockImage(seed, 200, 200),
+      uploadedUrl: mockImage(seed, 200, 200)
+    });
     return;
   }
 
   isUploading.value = true;
   try {
-    const uploaded = await uploadChosenImage("feedback");
-    images.value.push(uploaded.publicUrl);
+    const image = await chooseLocalImage();
+    images.value.push({
+      id: `${Date.now()}-${image.name}`,
+      previewUrl: image.path,
+      localImage: image
+    });
   } catch {
-    uni.showToast({ title: "图片上传失败", icon: "none" });
+    uni.showToast({ title: "未选择图片", icon: "none" });
   } finally {
     isUploading.value = false;
   }
@@ -132,6 +146,21 @@ function removeImage(index: number) {
   images.value.splice(index, 1);
 }
 
+async function resolveFeedbackImageUrls() {
+  const urls: string[] = [];
+  for (const item of images.value) {
+    if (item.uploadedUrl) {
+      urls.push(item.uploadedUrl);
+      continue;
+    }
+    if (!item.localImage) continue;
+    const uploaded = await uploadSelectedImage("feedback", item.localImage);
+    item.uploadedUrl = uploaded.publicUrl;
+    urls.push(uploaded.publicUrl);
+  }
+  return urls;
+}
+
 async function submit() {
   if (isSubmitting.value) return;
   if (!desc.value.trim() && !images.value.length) {
@@ -148,10 +177,11 @@ async function submit() {
 
   isSubmitting.value = true;
   try {
+    const imageUrls = await resolveFeedbackImageUrls();
     await submitFeedback({
       type: activeType.value,
       content: desc.value.trim(),
-      imageUrls: images.value,
+      imageUrls,
       wechat: wechat.value.trim()
     });
     uni.showToast({ title: "感谢您的反馈", icon: "none" });
@@ -200,13 +230,13 @@ async function submit() {
         <view class="field">
           <view class="field-title">截图 <text class="field-sub">（可选，最多2张）</text></view>
           <view class="image-row">
-            <view v-for="(img, index) in images" :key="img" class="image-item">
-              <image class="image-thumb" :src="img" mode="aspectFill" />
+            <view v-for="(img, index) in images" :key="img.id" class="image-item">
+              <image class="image-thumb" :src="img.previewUrl" mode="aspectFill" />
               <view class="image-remove" @click="removeImage(index)">×</view>
             </view>
             <view v-if="images.length < 2" class="image-add" @click="addImage">
               <view class="image-add-icon">{{ isUploading ? "..." : "+" }}</view>
-              <view class="image-add-text">{{ isUploading ? "上传中" : "添加图片" }}</view>
+              <view class="image-add-text">{{ isUploading ? "选择中" : "添加图片" }}</view>
             </view>
           </view>
         </view>
