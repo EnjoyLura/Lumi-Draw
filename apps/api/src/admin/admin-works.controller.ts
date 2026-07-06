@@ -18,6 +18,11 @@ export class AdminWorksController {
     return this.admin.works(query);
   }
 
+  @Get("summary")
+  summary() {
+    return this.admin.worksSummary();
+  }
+
   @Get(":id")
   detail(@Param("id", ParseIntPipe) id: number) {
     return this.admin.workDetail(id);

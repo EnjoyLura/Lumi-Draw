@@ -100,6 +100,18 @@ export class AdminService {
     return buildPage(rows.map((w) => workRow(w)), total, page, pageSize);
   }
 
+  async worksSummary() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [total, todayNew, featured, offline] = await Promise.all([
+      this.prisma.work.count(),
+      this.prisma.work.count({ where: { createdAt: { gte: today } } }),
+      this.prisma.work.count({ where: { featured: true } }),
+      this.prisma.work.count({ where: { status: "offline" } })
+    ]);
+    return { total, todayNew, featured, offline };
+  }
+
   async workDetail(id: number) {
     const work = await this.prisma.work.findUnique({ where: { id }, include: { user: true } });
     if (!work) throw new NotFoundException("作品不存在");

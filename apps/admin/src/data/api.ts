@@ -140,6 +140,17 @@ export async function apiGetWorks(): Promise<AdminWork[]> {
   return page.items.map(mapWork);
 }
 
+export interface AdminWorksSummary {
+  total: number;
+  todayNew: number;
+  featured: number;
+  offline: number;
+}
+
+export async function apiGetWorksSummary(): Promise<AdminWorksSummary> {
+  return http.get<AdminWorksSummary>("/admin/works/summary");
+}
+
 export async function apiGetWorkDetail(id: number): Promise<AdminWorkDetailData> {
   return mapWork(await http.get<ApiWork>(`/admin/works/${id}`));
 }
