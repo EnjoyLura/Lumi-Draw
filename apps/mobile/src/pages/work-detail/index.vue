@@ -80,7 +80,17 @@ function loadMockDetail() {
   user.value = item ? getWorkUser(item) : undefined;
 }
 
+function resetTransientState() {
+  cancelLongPress();
+  confirmFollowOpen.value = false;
+  longPressOpen.value = false;
+  detailManageOpen.value = false;
+  likePulse.value = false;
+  favoritePulse.value = false;
+}
+
 async function loadDetail() {
+  resetTransientState();
   liked.value = false;
   favorited.value = false;
   following.value = false;
