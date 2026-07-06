@@ -142,3 +142,87 @@ test("mobile h5 opens plaza filter drawer", async ({ page }) => {
   await expect(page.locator(".filter-sheet.show")).toHaveCount(0);
   expect(runtimeErrors).toEqual([]);
 });
+
+test("mobile h5 searches mock works", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/search/index");
+  await expect(page.locator(".search-page")).toBeVisible();
+
+  await page.locator(".search-input input").fill("cyberpunk");
+  await page.locator(".search-btn").click();
+
+  await expect(page.locator(".work-card").first()).toBeVisible();
+  await expect(page.locator(".search-input input")).toHaveValue("cyberpunk");
+  await expect(page.locator(".waterfall .work-card")).toHaveCount(2);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 toggles work detail like and favorite", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/work-detail/index?id=1");
+  await expect(page.locator(".detail-page")).toBeVisible();
+
+  const likeAction = page.locator(".bottom-action").first();
+  const favoriteAction = page.locator(".bottom-action.favorite");
+
+  await likeAction.click();
+  await expect(likeAction).toHaveClass(/active/);
+
+  await favoriteAction.click();
+  await expect(favoriteAction).toHaveClass(/active/);
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 settings toggles mock data switch", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/settings/index");
+  await expect(page.locator(".settings-page")).toBeVisible();
+
+  const mockRow = page.locator(".settings-page .list-row").nth(3);
+  await expect(mockRow.locator(".switch")).toHaveClass(/active/);
+
+  await mockRow.click();
+  await expect(mockRow.locator(".switch")).not.toHaveClass(/active/);
+  await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), MOCK_KEY)).toBe("0");
+
+  await mockRow.click();
+  await expect(mockRow.locator(".switch")).toHaveClass(/active/);
+  await expect.poll(() => page.evaluate((key) => window.localStorage.getItem(key), MOCK_KEY)).toBe("1");
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 publish form accepts draft, text and tags", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/publish/index");
+  await expect(page.locator(".publish-page")).toBeVisible();
+
+  await page.locator(".draft-card").click();
+  await expect(page.locator(".picker-sheet.show")).toBeVisible();
+  await page.locator(".picker-item").first().click();
+  await expect(page.locator(".picker-sheet.show")).toHaveCount(0);
+  await expect(page.locator(".draft-selected-title")).toBeVisible();
+
+  await page.locator(".publish-page .text-input input").fill("Playwright publish");
+  await page.locator(".publish-page .text-area textarea").fill("Playwright publish description");
+  await expect(page.locator(".publish-page .counter").first()).toContainText("18/30");
+  await expect(page.locator(".publish-page .counter").nth(1)).toContainText("30/200");
+
+  await page.locator(".publish-page .tag-chip").first().click();
+  await expect(page.locator(".publish-page .tag-chip").first()).toHaveCSS("font-weight", "600");
+  expect(runtimeErrors).toEqual([]);
+});
+
+test("mobile h5 edit work form accepts text and tags", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/edit-work/index?id=3");
+  await expect(page.locator(".edit-work-page")).toBeVisible();
+
+  await page.locator(".edit-work-page .text-input input").fill("Playwright edit");
+  await page.locator(".edit-work-page .text-area textarea").fill("Playwright edit description");
+  await expect(page.locator(".edit-work-page .counter").first()).toContainText("15/30");
+  await expect(page.locator(".edit-work-page .counter").nth(1)).toContainText("27/200");
+
+  await page.locator(".edit-work-page .tag-chip").nth(1).click();
+  await expect(page.locator(".edit-work-page .tag-chip").nth(1)).toHaveCSS("font-weight", "600");
+  expect(runtimeErrors).toEqual([]);
+});
