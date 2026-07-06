@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
+import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -20,6 +21,8 @@ const selectedTags = ref<string[]>([]);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const showLoginSheet = ref(false);
+const loginRequired = ref(false);
+const loadFailed = ref(false);
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
@@ -29,6 +32,15 @@ onLoad((query) => {
   if (Number.isFinite(id) && id > 0) workId.value = id;
   void loadWork();
 });
+
+function clearWork() {
+  image.value = "";
+  modelName.value = "";
+  info.value = "";
+  title.value = "";
+  desc.value = "";
+  selectedTags.value = [];
+}
 
 function applyWork(work: {
   image: string;
@@ -49,20 +61,33 @@ function applyWork(work: {
 }
 
 async function loadWork() {
-  if (!workId.value) return;
+  loadFailed.value = false;
+  if (!workId.value) {
+    clearWork();
+    loadFailed.value = true;
+    return;
+  }
   if (useMockData.value) {
+    loginRequired.value = false;
     loadMockWork();
     return;
   }
-  if (!ensureLogin()) return;
+  if (!ensureLogin()) {
+    clearWork();
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  clearWork();
 
   isLoading.value = true;
   try {
     const detail = await fetchEditableWork(workId.value);
     applyWork(detail.work);
   } catch {
+    clearWork();
+    loadFailed.value = true;
     uni.showToast({ title: "作品信息加载失败", icon: "none" });
-    loadMockWork();
   } finally {
     isLoading.value = false;
   }
@@ -90,7 +115,12 @@ async function login() {
 function loadMockWork() {
   const id = workId.value;
   const work = getWorkById(id);
-  if (!work) return;
+  if (!work) {
+    clearWork();
+    loadFailed.value = true;
+    return;
+  }
+  loadFailed.value = false;
   applyWork(work);
 }
 
@@ -113,6 +143,10 @@ function toggleTag(name: string) {
 
 async function submit() {
   if (isSaving.value) return;
+  if (loadFailed.value) {
+    uni.showToast({ title: "作品信息未加载，请重试", icon: "none" });
+    return;
+  }
   if (!title.value.trim()) {
     uni.showToast({ title: "请输入作品标题", icon: "none" });
     return;
@@ -144,7 +178,21 @@ async function submit() {
 <template>
   <view class="edit-work-page">
     <scroll-view class="page-scroll" scroll-y>
-      <view class="edit-content">
+      <LumiLoginRequired
+        v-if="!useMockData && loginRequired"
+        title="登录后编辑作品"
+        subtitle="登录后才能读取并修改你的真实作品信息。"
+        @login="showLoginSheet = true"
+      />
+
+      <view v-else-if="loadFailed" class="edit-empty">
+        <view class="empty-icon">□</view>
+        <view class="empty-title">作品信息加载失败</view>
+        <view class="empty-sub">请确认作品存在且属于当前账号后重试。</view>
+        <button class="empty-btn" @click="loadWork">重新加载</button>
+      </view>
+
+      <view v-else class="edit-content">
         <view class="field">
           <view class="field-title">作品预览</view>
           <view class="preview-card">
@@ -194,7 +242,7 @@ async function submit() {
           </view>
         </view>
 
-        <button class="submit-btn" :disabled="isSaving || isLoading" @click="submit">
+        <button class="submit-btn" :disabled="isSaving || isLoading || loadFailed" @click="submit">
           {{ isSaving ? "保存中..." : "✓ 保存修改" }}
         </button>
       </view>
@@ -218,6 +266,59 @@ async function submit() {
 
 .edit-content {
   padding: 16px;
+}
+
+.edit-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 52vh;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  margin-bottom: 14px;
+  font-size: 42px;
+  color: var(--fg-muted);
+}
+
+.empty-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.empty-sub {
+  max-width: 260px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(255, 92, 122, 0.24);
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .field {
