@@ -83,10 +83,11 @@ export function formatRelativeTime(value: string) {
 }
 
 export function toHomeUser(author: BackendAuthor): HomeUser {
+  const fallbackName = author.id ? `用户${author.id}` : "未知用户";
   return {
     id: author.id,
-    name: author.nickname,
-    avatar: author.avatarText || author.nickname.slice(0, 1) || "露",
+    name: author.nickname || fallbackName,
+    avatar: author.avatarText || author.nickname?.slice(0, 1) || "U",
     color: author.avatarColor || "var(--accent)"
   };
 }
