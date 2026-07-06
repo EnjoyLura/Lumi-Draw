@@ -11,15 +11,15 @@ import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchR
 type RecordTab = "earn" | "spend";
 const RECORD_PAGE_SIZE = 20;
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
-const balance = ref(currentCredits);
-const tiers = ref<RechargeTier[]>(rechargeTiers);
+const balance = ref(0);
+const tiers = ref<RechargeTier[]>([]);
 const selectedTierIdx = ref(3);
 const activeTab = ref<RecordTab>("earn");
-const earnList = ref<PointRecord[]>(earnRecords);
-const spendList = ref<PointRecord[]>(spendRecords);
+const earnList = ref<PointRecord[]>([]);
+const spendList = ref<PointRecord[]>([]);
 const customOpen = ref(false);
 const customAmount = ref("");
 const isLoading = ref(false);
@@ -50,6 +50,7 @@ onShow(() => {
 
 async function loadPageData() {
   if (useMockData.value) {
+    customOpen.value = false;
     balance.value = currentCredits;
     tiers.value = rechargeTiers;
     earnList.value = earnRecords;
@@ -60,7 +61,8 @@ async function loadPageData() {
     loadFailed.value = false;
     return;
   }
-  if (!ensureLogin()) {
+  if (!isLoggedIn.value) {
+    customOpen.value = false;
     balance.value = 0;
     tiers.value = [];
     earnList.value = [];
@@ -73,6 +75,7 @@ async function loadPageData() {
   }
   loginRequired.value = false;
   loadFailed.value = false;
+  customOpen.value = false;
   balance.value = 0;
   tiers.value = [];
   earnList.value = [];
@@ -614,11 +617,13 @@ function confirmCustomRecharge() {
   background: var(--bg-card);
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -8px 30px rgba(14, 31, 58, 0.12);
+  pointer-events: none;
   transform: translateY(110%);
   transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .custom-sheet.show {
+  pointer-events: auto;
   transform: translateY(0);
 }
 

@@ -7,11 +7,11 @@ import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
 import { createMembershipOrder, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
 
-const { login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const selectedPlanIdx = ref(1);
-const plans = ref<MemberPlan[]>(memberPlans);
+const plans = ref<MemberPlan[]>([]);
 const isMember = ref(false);
 const memberPlanName = ref("");
 const memberExpireAt = ref("");
@@ -94,7 +94,7 @@ async function loadMembership() {
     selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
 
     resetMemberStatus();
-    if (!ensureLogin()) return;
+    if (!isLoggedIn.value) return;
     const status = await fetchMemberStatus();
     isMember.value = status.isMember;
     memberPlanName.value = status.memberPlan;
