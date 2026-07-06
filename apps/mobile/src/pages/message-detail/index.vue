@@ -101,8 +101,14 @@ async function loadMessages(type: MessageCategoryKey) {
 
   isLoading.value = true;
   try {
-    backendMessages.value = await fetchMessageList(type);
-    await markMessageCategoryRead(type);
+    const rows = await fetchMessageList(type);
+    backendMessages.value = rows;
+    try {
+      await markMessageCategoryRead(type);
+      backendMessages.value = rows.map((message) => ({ ...message, unread: false }));
+    } catch {
+      uni.showToast({ title: "已读状态同步失败，稍后会自动重试", icon: "none" });
+    }
   } catch {
     backendMessages.value = [];
     loadFailed.value = true;
