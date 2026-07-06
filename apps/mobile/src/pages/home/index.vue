@@ -50,6 +50,7 @@ const visibleWorkCount = ref(8);
 const isPageLoading = ref(false);
 const isLoadingMore = ref(false);
 const isSwitchingWorks = ref(false);
+const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const worksSlideClass = ref("");
 const { useMockData } = useDataMode();
@@ -95,6 +96,7 @@ onBeforeUnmount(() => {
 });
 
 function resetMockHomeData() {
+  loadFailed.value = false;
   bannerList.value = mockHomeBanners;
   announcementList.value = mockHomeAnnouncements;
   gameplayList.value = mockGameplays;
@@ -106,6 +108,21 @@ function resetMockHomeData() {
   visibleWorkCount.value = 8;
   worksRenderKey.value += 1;
   scheduleAnnouncementPopup();
+}
+
+function clearRealHomeData() {
+  if (announcementTimer) clearTimeout(announcementTimer);
+  showAnnouncementPopup.value = false;
+  bannerList.value = [];
+  announcementList.value = [];
+  gameplayList.value = [];
+  userList.value = [];
+  recommendWorks.value = [];
+  latestWorks.value = [];
+  feedState.recommend = { page: 1, hasMore: false };
+  feedState.new = { page: 1, hasMore: false };
+  visibleWorkCount.value = 8;
+  worksRenderKey.value += 1;
 }
 
 function mergeUsers(nextUsers: HomeUser[]) {
@@ -122,6 +139,7 @@ async function loadHomeData() {
   }
 
   isPageLoading.value = true;
+  loadFailed.value = false;
   try {
     const [bootstrap, recommendFeed, latestFeed] = await Promise.all([
       fetchHomeBootstrap(),
@@ -142,8 +160,9 @@ async function loadHomeData() {
     worksRenderKey.value += 1;
     scheduleAnnouncementPopup();
   } catch {
-    uni.showToast({ title: "首页数据加载失败，已使用本地数据", icon: "none" });
-    resetMockHomeData();
+    clearRealHomeData();
+    loadFailed.value = true;
+    uni.showToast({ title: "首页数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isPageLoading.value = false;
   }
@@ -467,6 +486,14 @@ function getRatioClass(ratio: string) {
       </view>
 
       <view class="home-content">
+        <view v-if="!useMockData && loadFailed" class="home-failure">
+          <view class="failure-icon">!</view>
+          <view class="failure-title">首页数据加载失败</view>
+          <view class="failure-sub">请检查网络或稍后重试，当前不会显示模拟内容。</view>
+          <button class="failure-action" @click="loadHomeData">重新加载</button>
+        </view>
+
+        <template v-else>
         <view class="banner-card">
           <swiper
             class="banner-swiper"
@@ -614,6 +641,7 @@ function getRatioClass(ratio: string) {
             {{ isLoadingMore ? "正在加载更多作品" : hasMoreWorks ? "继续往下滑获取更多作品" : "我也是有底线的~" }}
           </text>
         </view>
+        </template>
       </view>
     </scroll-view>
 
@@ -765,6 +793,67 @@ function getRatioClass(ratio: string) {
 
 .home-content {
   padding: 12px 0 20px;
+}
+
+.home-failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 58vh;
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.failure-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 14px;
+  font-size: 30px;
+  font-weight: 900;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 18px;
+}
+
+.failure-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.failure-sub {
+  max-width: 280px;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--fg-secondary);
+}
+
+.failure-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 42px;
+  padding: 0 22px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px rgba(91, 159, 232, 0.2);
+}
+
+.failure-action::after {
+  border: none;
 }
 
 .banner-card {
