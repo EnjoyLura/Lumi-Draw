@@ -15,6 +15,10 @@ export interface BackendAuthor {
   avatarText?: string | null;
   avatarColor?: string | null;
   avatarUrl?: string | null;
+  worksCount?: number;
+  likesCount?: number;
+  followers?: number;
+  following?: number;
 }
 
 export interface BackendUserProfile extends BackendAuthor {

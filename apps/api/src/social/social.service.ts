@@ -15,7 +15,11 @@ function toAuthor(user: User) {
     nickname: user.nickname,
     avatarText: user.avatarText,
     avatarColor: user.avatarColor,
-    avatarUrl: user.avatarUrl ?? undefined
+    avatarUrl: user.avatarUrl ?? undefined,
+    worksCount: user.worksCount,
+    likesCount: user.likesCount,
+    followers: user.followers,
+    following: user.following
   };
 }
 

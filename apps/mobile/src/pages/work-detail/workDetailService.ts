@@ -1,5 +1,5 @@
 import { api } from "../../services/api";
-import { formatRelativeTime, toHomeUser, type BackendAuthor } from "../../services/social";
+import { formatCompactNumber, formatRelativeTime, toHomeUser, type BackendAuthor } from "../../services/social";
 import type { HomeUser } from "../home/homeData";
 import type { DetailWork } from "./workDetailData";
 
@@ -25,7 +25,24 @@ interface BackendWorkDetail {
 
 export interface BackendWorkDetailView {
   work: DetailWork;
-  user: HomeUser;
+  user: DetailAuthor;
+}
+
+export interface DetailAuthor extends HomeUser {
+  worksText: string;
+  likesText: string;
+  followersText: string;
+  followersCount: number;
+}
+
+function toDetailAuthor(author: BackendAuthor): DetailAuthor {
+  return {
+    ...toHomeUser(author),
+    worksText: formatCompactNumber(author.worksCount ?? 0),
+    likesText: formatCompactNumber(author.likesCount ?? 0),
+    followersText: formatCompactNumber(author.followers ?? 0),
+    followersCount: author.followers ?? 0
+  };
 }
 
 export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView> {
@@ -55,7 +72,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       remakes: item.remakes,
       time: formatRelativeTime(item.createdAt)
     },
-    user: toHomeUser(item.author)
+    user: toDetailAuthor(item.author)
   };
 }
 

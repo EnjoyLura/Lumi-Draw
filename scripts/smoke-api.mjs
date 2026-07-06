@@ -240,6 +240,12 @@ async function main() {
       await request("POST", `/admin/reviews/${workId}/approve`, {}, adminLogin.data.accessToken);
     }
 
+    const { body: detailBeforeFollow } = await request("GET", `/works/${workId}`);
+    assert(detailBeforeFollow.data?.author?.id === owner.user.id, "work detail author missing");
+    assert(typeof detailBeforeFollow.data?.author?.worksCount === "number", "work detail author worksCount missing");
+    assert(typeof detailBeforeFollow.data?.author?.likesCount === "number", "work detail author likesCount missing");
+    assert(typeof detailBeforeFollow.data?.author?.followers === "number", "work detail author followers missing");
+
     const { body: like } = await request("POST", `/social/works/${workId}/like`, undefined, actor.accessToken);
     assert(like.data?.liked === true, "like did not toggle on");
     const { body: favorite } = await request("POST", `/social/works/${workId}/favorite`, undefined, actor.accessToken);
@@ -250,6 +256,11 @@ async function main() {
     assert(typeof remake.data?.remakes === "number", "remake count missing");
     const { body: follow } = await request("POST", `/social/users/${owner.user.id}/follow`, undefined, actor.accessToken);
     assert(follow.data?.following === true, "follow did not toggle on");
+    const { body: detailAfterFollow } = await request("GET", `/works/${workId}`);
+    assert(
+      detailAfterFollow.data?.author?.followers === follow.data.followers,
+      "work detail author followers did not reflect follow result"
+    );
 
     const { body: publicProfile } = await request("GET", `/social/users/${owner.user.id}/profile`);
     assert(publicProfile.data?.id === owner.user.id, "public user profile should be readable without login");

@@ -7,6 +7,7 @@ import { useDataMode } from "../../services/dataMode";
 import {
   fetchWorkState,
   followUser,
+  formatCompactNumber,
   recordWorkRemake,
   recordWorkView,
   toggleWorkFavorite,
@@ -14,13 +15,15 @@ import {
   unfollowUser
 } from "../../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
-import { deleteWork, fetchWorkDetail, moveWorkToDraft } from "./workDetailService";
+import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "./workDetailService";
 
 const workId = ref(1);
 const { currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const work = ref<DetailWork | undefined>();
-const user = ref<ReturnType<typeof getWorkUser> | undefined>();
+type DetailUser = ReturnType<typeof getWorkUser> | DetailAuthor;
+
+const user = ref<DetailUser | undefined>();
 const liked = ref(false);
 const favorited = ref(false);
 const following = ref(false);
@@ -48,6 +51,13 @@ const managePrimaryText = computed(() => {
 });
 const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value && liked.value ? 1 : 0));
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
+const authorSub = computed(() => {
+  if (!user.value) return "";
+  if ("worksText" in user.value) {
+    return `${user.value.worksText}作品 · ${user.value.likesText}获赞 · ${user.value.followersText}粉丝`;
+  }
+  return isOwn.value ? "48作品 · 1.2k获赞" : "32作品 · 860获赞";
+});
 const detailImageStyle = computed(() => {
   if (!work.value) return {};
   const [width, height] = work.value.ratio.split(":").map(Number);
@@ -165,6 +175,15 @@ function copyPrompt() {
   uni.setClipboardData({ data: work.value.prompt });
 }
 
+function updateAuthorFollowers(followers: number) {
+  if (!user.value || !("worksText" in user.value)) return;
+  user.value = {
+    ...user.value,
+    followersCount: followers,
+    followersText: formatCompactNumber(followers)
+  };
+}
+
 function playPulse(target: "like" | "favorite") {
   if (target === "like") {
     likePulse.value = false;
@@ -246,7 +265,10 @@ async function toggleFollow() {
   if (!following.value) {
     if (!useMockData.value && !ensureLogin()) return;
     try {
-      if (!useMockData.value) await followUser(user.value.id);
+      if (!useMockData.value) {
+        const result = await followUser(user.value.id);
+        updateAuthorFollowers(result.followers);
+      }
       following.value = true;
       uni.showToast({ title: "关注成功", icon: "none" });
     } catch {
@@ -261,7 +283,10 @@ async function toggleFollow() {
 async function cancelFollow() {
   if (!user.value) return;
   try {
-    if (!useMockData.value) await unfollowUser(user.value.id);
+    if (!useMockData.value) {
+      const result = await unfollowUser(user.value.id);
+      updateAuthorFollowers(result.followers);
+    }
     following.value = false;
     confirmFollowOpen.value = false;
     uni.showToast({ title: "已取消关注", icon: "none" });
@@ -566,7 +591,7 @@ function showToast(title: string) {
               <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
               <view class="author-text">
                 <view class="author-name">{{ user.name }}</view>
-                <view class="author-sub">{{ isOwn ? "48作品 · 1.2k获赞" : "32作品 · 860获赞" }}</view>
+                <view class="author-sub">{{ authorSub }}</view>
               </view>
             </view>
             <button v-if="isOwn" class="small-btn muted" @click="openDetailManage">
