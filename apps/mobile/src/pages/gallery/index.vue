@@ -132,6 +132,20 @@ function resetMockGalleryData() {
   profile.value = galleryUser;
   works.value = galleryWorks;
   genTasks.value = galleryGenTasks;
+  manageMode.value = false;
+  selectedIds.value = new Set();
+  pageState.page = 1;
+  pageState.hasMore = false;
+  visibleCount.value = PAGE_SIZE;
+  renderKey.value += 1;
+}
+
+function resetRealGalleryData() {
+  profile.value = galleryUser;
+  works.value = [];
+  genTasks.value = [];
+  manageMode.value = false;
+  selectedIds.value = new Set();
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
@@ -227,17 +241,19 @@ async function reloadGalleryData() {
   }
 
   if (!isLoggedIn.value) {
-    genTasks.value = [];
+    resetRealGalleryData();
     return;
   }
 
   isLoading.value = true;
+  resetRealGalleryData();
   try {
     const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true)]);
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;
   } catch {
+    resetRealGalleryData();
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -323,6 +339,9 @@ function switchGalleryTab(tab: GalleryTab, index: number) {
     renderedTab.value = tab;
     visibleCount.value = PAGE_SIZE;
     if (!useMockData.value) {
+      works.value = [];
+      pageState.page = 1;
+      pageState.hasMore = false;
       try {
         await loadGalleryPage(1, false);
       } catch {
