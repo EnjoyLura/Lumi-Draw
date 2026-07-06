@@ -24,7 +24,8 @@
     "verify:full": "pnpm verify:static && pnpm verify:api && pnpm verify:ui",
     "audit:mobile-visuals": "pnpm build:mobile:h5 && node scripts/audit-mobile-visuals.mjs",
     "smoke:api": "node scripts/smoke-api.mjs",
-    "smoke:mobile-real-h5": "node scripts/smoke-mobile-real-h5.mjs"
+    "smoke:mobile-real-h5": "node scripts/smoke-mobile-real-h5.mjs",
+    "smoke:admin-real-ui": "node scripts/smoke-admin-real-ui.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
