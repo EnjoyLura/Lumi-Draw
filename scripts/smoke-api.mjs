@@ -245,6 +245,10 @@ async function main() {
     assert(typeof detailBeforeFollow.data?.author?.worksCount === "number", "work detail author worksCount missing");
     assert(typeof detailBeforeFollow.data?.author?.likesCount === "number", "work detail author likesCount missing");
     assert(typeof detailBeforeFollow.data?.author?.followers === "number", "work detail author followers missing");
+    const { body: filteredPlaza } = await request("GET", "/works/plaza?modelIds=smoke-model&ratios=1%3A1&qualities=1K&page=1&pageSize=20");
+    assert((filteredPlaza.data?.items || []).some((item) => item.id === workId), "filtered plaza should include matching work");
+    const { body: filteredOutPlaza } = await request("GET", "/works/plaza?modelIds=missing-smoke-model&page=1&pageSize=20");
+    assert(!(filteredOutPlaza.data?.items || []).some((item) => item.id === workId), "filtered plaza should exclude non-matching work");
 
     const { body: like } = await request("POST", `/social/works/${workId}/like`, undefined, actor.accessToken);
     assert(like.data?.liked === true, "like did not toggle on");

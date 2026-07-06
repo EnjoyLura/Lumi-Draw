@@ -97,7 +97,9 @@ function goGallery() {
 function handleProfileTap() {
   if (!isLoggedIn.value) {
     showLoginSheet.value = true;
+    return;
   }
+  uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
 function handleCreditsTap() {

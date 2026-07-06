@@ -11,7 +11,7 @@ import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/m
 import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
-import { fetchPlazaCategories, fetchPlazaWorks, type PlazaCategoryOption } from "./plazaService";
+import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
 
 const tabEnterClass = resolveTabEnterClass("pages/plaza/index");
 
@@ -41,9 +41,17 @@ const EMPTY_DRAWER_PROFILE: MineUser = {
   userNo: "-",
   credits: 0
 };
-const filterModels = ["全部", "GPT Image 2", "Nano Banana 2", "Flux Pro", "SDXL", "DALL-E 3", "Midjourney"];
-const filterSizes = ["全部", "1:1", "3:4", "4:3", "16:9", "9:16"];
-const filterQualities = ["全部", "标清", "高清", "超清"];
+const fallbackModelFilters: PlazaFilterOption[] = [
+  { label: "GPT Image 2", value: "gpt-image-2" },
+  { label: "Nano Banana 2", value: "nano-banana-2" },
+  { label: "Nano Banana Pro", value: "nano-banana-pro" },
+  { label: "Seedream 4.5", value: "seedream-4-5" }
+];
+const fallbackSizeFilters: PlazaFilterOption[] = ["1:1", "3:4", "4:3", "16:9", "9:16"].map((label) => ({ label, value: label }));
+const fallbackQualityFilters: PlazaFilterOption[] = ["1K", "2K", "4K"].map((label) => ({ label, value: label }));
+const modelFilterOptions = ref<PlazaFilterOption[]>(fallbackModelFilters);
+const sizeFilterOptions = ref<PlazaFilterOption[]>(fallbackSizeFilters);
+const qualityFilterOptions = ref<PlazaFilterOption[]>(fallbackQualityFilters);
 const filterSelection = reactive({
   category: new Set<string>(),
   model: new Set<string>(),
@@ -53,10 +61,15 @@ const filterSelection = reactive({
 type FilterGroup = keyof typeof filterSelection;
 
 function isFilterActive(group: FilterGroup, value: string) {
+  if (value === "全部") return filterSelection[group].size === 0;
   return filterSelection[group].has(value);
 }
 
 function toggleFilter(group: FilterGroup, value: string) {
+  if (value === "全部") {
+    filterSelection[group].clear();
+    return;
+  }
   const set = filterSelection[group];
   if (set.has(value)) {
     set.delete(value);
@@ -75,7 +88,13 @@ function resetPlazaFilter() {
 
 function applyPlazaFilter() {
   filterOpen.value = false;
-  uni.showToast({ title: "筛选已应用", icon: "none" });
+  visibleWorkCount.value = 10;
+  if (useMockData.value) {
+    renderKey.value += 1;
+    uni.showToast({ title: "筛选已应用", icon: "none" });
+    return;
+  }
+  void queueFilterRefresh();
 }
 
 const statusBarHeight = ref(0);
@@ -106,6 +125,9 @@ const slideDirection = ref<"left" | "right">("left");
 const renderKey = ref(0);
 const { useMockData } = useDataMode();
 const pageState = reactive({ page: 1, hasMore: false });
+const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((item) => item.label)]);
+const filterSizes = computed(() => ["全部", ...sizeFilterOptions.value.map((item) => item.label)]);
+const filterQualities = computed(() => ["全部", ...qualityFilterOptions.value.map((item) => item.label)]);
 const sideQuickActions: SideQuick[] = [
   { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
@@ -143,8 +165,7 @@ const filteredWorks = computed(() => {
 
   if (!useMockData.value) return workList.value;
 
-  const category = displayCategories.value[activeCategoryIndex.value];
-  const baseWorks = activeCategoryIndex.value === 0 ? mockHomeWorks : filterByCategory(mockHomeWorks, category);
+  const baseWorks = getMockFilteredWorks();
 
   if (renderedTab.value === "hot") {
     return [...baseWorks].sort((a, b) => b.likes - a.likes);
@@ -178,6 +199,9 @@ function resetMockPlazaData() {
   drawerProfile.value = null;
   syncSideMessageBadge();
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
+  modelFilterOptions.value = fallbackModelFilters;
+  sizeFilterOptions.value = fallbackSizeFilters;
+  qualityFilterOptions.value = fallbackQualityFilters;
   userList.value = mockHomeUsers;
   workList.value = mockHomeWorks;
   pageState.page = 1;
@@ -189,6 +213,9 @@ function resetMockPlazaData() {
 function clearRealPlazaData() {
   drawerProfile.value = null;
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
+  modelFilterOptions.value = fallbackModelFilters;
+  sizeFilterOptions.value = fallbackSizeFilters;
+  qualityFilterOptions.value = fallbackQualityFilters;
   userList.value = [];
   workList.value = [];
   unreadMessageCount.value = 0;
@@ -235,9 +262,13 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     return;
   }
 
-  const categoryId = categoryOptions.value[activeCategoryIndex.value]?.id;
+  const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[activeCategoryIndex.value]?.id;
   const result = await fetchPlazaWorks({
     categoryId,
+    categoryIds: selectedCategoryIds(),
+    modelIds: selectedOptionValues(modelFilterOptions.value, filterSelection.model),
+    ratios: selectedOptionValues(sizeFilterOptions.value, filterSelection.size),
+    qualities: selectedOptionValues(qualityFilterOptions.value, filterSelection.quality),
     sort: getPlazaSort(),
     page,
     pageSize: 10,
@@ -308,8 +339,11 @@ async function reloadPlazaData() {
   isLoading.value = true;
   loadFailed.value = false;
   try {
-    const [categories] = await Promise.all([fetchPlazaCategories(), loadDrawerProfile()]);
-    categoryOptions.value = categories;
+    const [config] = await Promise.all([fetchPlazaConfig(), loadDrawerProfile()]);
+    categoryOptions.value = config.categories;
+    modelFilterOptions.value = config.models.length ? config.models : fallbackModelFilters;
+    sizeFilterOptions.value = config.ratios.length ? config.ratios : fallbackSizeFilters;
+    qualityFilterOptions.value = config.qualities.length ? config.qualities : fallbackQualityFilters;
     activeCategoryIndex.value = categoryOptions.value.length
       ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
       : 0;
@@ -392,6 +426,45 @@ function queueRefresh(after?: () => void) {
     renderKey.value += 1;
     isLoading.value = false;
   }, 300);
+}
+
+async function queueFilterRefresh() {
+  isLoading.value = true;
+  loadFailed.value = false;
+  workList.value = [];
+  pageState.page = 1;
+  pageState.hasMore = false;
+  try {
+    await loadCurrentPlazaPage(1, false);
+    renderKey.value += 1;
+    uni.showToast({ title: "筛选已应用", icon: "none" });
+  } catch {
+    loadFailed.value = true;
+    uni.showToast({ title: "筛选失败，请稍后重试", icon: "none" });
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function selectedOptionValues(options: PlazaFilterOption[], labels: Set<string>) {
+  const byLabel = new Map(options.map((item) => [item.label, item.value]));
+  return [...labels].map((label) => byLabel.get(label)).filter((value): value is string => Boolean(value));
+}
+
+function selectedCategoryIds() {
+  const byName = new Map(categoryOptions.value.map((category) => [category.name, category.id]));
+  return [...filterSelection.category].map((name) => byName.get(name)).filter((id): id is number => Boolean(id));
+}
+
+function getMockFilteredWorks() {
+  const selectedCategories = [...filterSelection.category];
+  const categoryNames = selectedCategories.length ? selectedCategories : displayCategories.value[activeCategoryIndex.value] === "全部" ? [] : [displayCategories.value[activeCategoryIndex.value]];
+  const categoryWorks = categoryNames.length
+    ? categoryNames.flatMap((category) => filterByCategory(mockHomeWorks, category))
+    : mockHomeWorks;
+  const uniqueWorks = Array.from(new Map(categoryWorks.map((work) => [work.id, work])).values());
+  const selectedSizes = filterSelection.size;
+  return selectedSizes.size ? uniqueWorks.filter((work) => selectedSizes.has(work.ratio)) : uniqueWorks;
 }
 
 function filterByCategory(works: HomeWork[], category: string) {

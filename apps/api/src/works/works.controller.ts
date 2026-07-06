@@ -21,7 +21,19 @@ export class WorksController {
   @UseGuards(OptionalJwtAuthGuard)
   @Get("plaza")
   plaza(@CurrentUser() user: { id: number } | undefined, @Query() query: PlazaQueryDto) {
-    return this.works.plaza(query.categoryId, query.sort, query.page, query.pageSize, user?.id);
+    return this.works.plaza(
+      {
+        categoryId: query.categoryId,
+        categoryIds: query.categoryIds,
+        modelIds: query.modelIds,
+        ratios: query.ratios,
+        qualities: query.qualities
+      },
+      query.sort,
+      query.page,
+      query.pageSize,
+      user?.id
+    );
   }
 
   @UseGuards(OptionalJwtAuthGuard)

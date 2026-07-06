@@ -64,7 +64,10 @@ const pageContracts = [
     route: "pages/plaza/index",
     tokens: [
       "useDataMode",
+      "fetchPlazaConfig",
       "fetchPlazaWorks",
+      "queueFilterRefresh",
+      "selectedOptionValues",
       "fetchFavorites",
       "toggleWorkFavorite",
       "toggleWorkLike",
@@ -94,7 +97,7 @@ const pageContracts = [
   },
   {
     route: "pages/mine/index",
-    tokens: ["useDataMode", "fetchMineProfile", "fetchUnreadMessageCount", "updateCurrentUser"]
+    tokens: ["useDataMode", "fetchMineProfile", "fetchUnreadMessageCount", "updateCurrentUser", "handleProfileTap", "/pages/edit-profile/index"]
   },
   {
     route: "pages/all-gameplays/index",

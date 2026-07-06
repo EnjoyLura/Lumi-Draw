@@ -15,6 +15,22 @@ export class PlazaQueryDto extends PageQueryDto {
   categoryId?: number;
 
   @IsOptional()
+  @IsString()
+  categoryIds?: string;
+
+  @IsOptional()
+  @IsString()
+  modelIds?: string;
+
+  @IsOptional()
+  @IsString()
+  ratios?: string;
+
+  @IsOptional()
+  @IsString()
+  qualities?: string;
+
+  @IsOptional()
   @IsIn(["hot", "latest"])
   sort: "hot" | "latest" = "hot";
 }

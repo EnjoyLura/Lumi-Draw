@@ -6,6 +6,18 @@ export interface PlazaCategoryOption {
   name: string;
 }
 
+export interface PlazaFilterOption {
+  label: string;
+  value: string;
+}
+
+export interface PlazaConfig {
+  categories: PlazaCategoryOption[];
+  models: PlazaFilterOption[];
+  ratios: PlazaFilterOption[];
+  qualities: PlazaFilterOption[];
+}
+
 interface BackendCategory {
   id: number;
   name: string;
@@ -13,6 +25,9 @@ interface BackendCategory {
 
 interface BackendBootstrap {
   categories: BackendCategory[];
+  models?: Array<{ id: string; name: string; enabled?: boolean }>;
+  ratios?: Array<{ label: string; enabled?: boolean }>;
+  qualities?: Array<{ label: string; enabled?: boolean }>;
 }
 
 interface BackendAuthor {
@@ -81,12 +96,29 @@ function uniqueUsers(users: HomeUser[]) {
 }
 
 export async function fetchPlazaCategories(): Promise<PlazaCategoryOption[]> {
+  return (await fetchPlazaConfig()).categories;
+}
+
+function enabled<T extends { enabled?: boolean }>(items: T[] | undefined) {
+  return (items ?? []).filter((item) => item.enabled !== false);
+}
+
+export async function fetchPlazaConfig(): Promise<PlazaConfig> {
   const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
-  return [{ name: "全部" }, ...data.categories.map((category) => ({ id: category.id, name: category.name }))];
+  return {
+    categories: [{ name: "全部" }, ...data.categories.map((category) => ({ id: category.id, name: category.name }))],
+    models: enabled(data.models).map((model) => ({ label: model.name, value: model.id })),
+    ratios: enabled(data.ratios).map((ratio) => ({ label: ratio.label, value: ratio.label })),
+    qualities: enabled(data.qualities).map((quality) => ({ label: quality.label, value: quality.label }))
+  };
 }
 
 export async function fetchPlazaWorks(params: {
   categoryId?: number;
+  categoryIds?: number[];
+  modelIds?: string[];
+  ratios?: string[];
+  qualities?: string[];
   sort: "hot" | "latest";
   page: number;
   pageSize: number;
@@ -96,7 +128,11 @@ export async function fetchPlazaWorks(params: {
     `sort=${encodeURIComponent(params.sort)}`,
     `page=${params.page}`,
     `pageSize=${params.pageSize}`,
-    params.categoryId ? `categoryId=${params.categoryId}` : ""
+    params.categoryId ? `categoryId=${params.categoryId}` : "",
+    params.categoryIds?.length ? `categoryIds=${encodeURIComponent(params.categoryIds.join(","))}` : "",
+    params.modelIds?.length ? `modelIds=${encodeURIComponent(params.modelIds.join(","))}` : "",
+    params.ratios?.length ? `ratios=${encodeURIComponent(params.ratios.join(","))}` : "",
+    params.qualities?.length ? `qualities=${encodeURIComponent(params.qualities.join(","))}` : ""
   ]
     .filter(Boolean)
     .join("&");

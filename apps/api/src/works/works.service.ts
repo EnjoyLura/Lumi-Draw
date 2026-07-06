@@ -5,6 +5,13 @@ import { PrismaService } from "../prisma/prisma.service";
 import type { CreateWorkDto, UpdateWorkDto } from "./works.write.dto";
 
 type WorkWithAuthor = Work & { user: User };
+type PlazaFilters = {
+  categoryId?: number;
+  categoryIds?: string;
+  modelIds?: string;
+  ratios?: string;
+  qualities?: string;
+};
 
 const PUBLIC_WHERE: Prisma.WorkWhereInput = { status: "published", isPublic: true };
 
@@ -34,6 +41,19 @@ function toCard(work: WorkWithAuthor) {
     remakes: work.remakes,
     author: author(work.user)
   };
+}
+
+function splitCsv(value?: string) {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function splitCsvNumbers(value?: string) {
+  return splitCsv(value)
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item > 0);
 }
 
 async function withInteractionState(prisma: PrismaService, userId: number | undefined, cards: ReturnType<typeof toCard>[]) {
@@ -82,14 +102,20 @@ export class WorksService {
     return this.listCards({ ...PUBLIC_WHERE, recommend: true }, [{ likes: "desc" }, { id: "desc" }], page, pageSize, currentUserId);
   }
 
-  async plaza(categoryId: number | undefined, sort: "hot" | "latest", page: number, pageSize: number, currentUserId?: number) {
+  async plaza(filters: PlazaFilters, sort: "hot" | "latest", page: number, pageSize: number, currentUserId?: number) {
     const where: Prisma.WorkWhereInput = { ...PUBLIC_WHERE };
-    if (categoryId) {
-      const category = await this.prisma.category.findUnique({ where: { id: categoryId } });
-      if (category) {
-        where.style = category.name;
-      }
+    const categoryIds = Array.from(new Set([filters.categoryId, ...splitCsvNumbers(filters.categoryIds)].filter((id): id is number => Boolean(id))));
+    if (categoryIds.length) {
+      const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
+      const names = categories.map((category) => category.name);
+      if (names.length) where.style = { in: names };
     }
+    const modelIds = splitCsv(filters.modelIds);
+    if (modelIds.length) where.modelId = { in: modelIds };
+    const ratios = splitCsv(filters.ratios);
+    if (ratios.length) where.ratio = { in: ratios };
+    const qualities = splitCsv(filters.qualities);
+    if (qualities.length) where.quality = { in: qualities };
     const orderBy: Prisma.WorkOrderByWithRelationInput[] =
       sort === "hot" ? [{ likes: "desc" }, { id: "desc" }] : [{ createdAt: "desc" }];
     return this.listCards(where, orderBy, page, pageSize, currentUserId);
