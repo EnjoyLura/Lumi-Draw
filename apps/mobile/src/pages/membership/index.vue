@@ -18,6 +18,7 @@ const memberExpireAt = ref("");
 const isLoading = ref(false);
 const isPaying = ref(false);
 const showLoginSheet = ref(false);
+const loadFailed = ref(false);
 let lastMockMode: boolean | null = null;
 
 function resetMemberStatus() {
@@ -26,9 +27,16 @@ function resetMemberStatus() {
   memberExpireAt.value = "";
 }
 
-const selectedPlan = computed(() => plans.value[selectedPlanIdx.value] ?? memberPlans[0]);
+const selectedPlan = computed<MemberPlan | null>(() => plans.value[selectedPlanIdx.value] ?? (useMockData.value ? memberPlans[0] : null));
 const memberStats = computed(() => {
   const plan = selectedPlan.value;
+  if (!plan) {
+    return [
+      { value: "0", label: "开通赠送", className: "gold" },
+      { value: "标准", label: "签到加成", className: "lavender" },
+      { value: "待配置", label: "套餐权益", className: "mint" }
+    ];
+  }
   return [
     { value: String(plan.totalCredits || 0), label: "开通赠送", className: "gold" },
     { value: plan.checkinBonus ? `+${plan.checkinBonus}` : "标准", label: "签到加成", className: "lavender" },
@@ -37,6 +45,7 @@ const memberStats = computed(() => {
 });
 const activeBenefits = computed<MemberBenefit[]>(() => {
   const plan = selectedPlan.value;
+  if (!plan) return [];
   if (!plan.rights?.length && !plan.checkinBonus && !plan.totalCredits) return memberBenefits;
 
   const benefits: MemberBenefit[] = [
@@ -73,13 +82,15 @@ async function loadMembership() {
   if (useMockData.value) {
     plans.value = memberPlans;
     resetMemberStatus();
+    loadFailed.value = false;
     return;
   }
 
   isLoading.value = true;
+  loadFailed.value = false;
   try {
     const nextPlans = await fetchMemberPlans();
-    plans.value = nextPlans.length ? nextPlans : memberPlans;
+    plans.value = nextPlans;
     selectedPlanIdx.value = Math.min(selectedPlanIdx.value, plans.value.length - 1);
 
     resetMemberStatus();
@@ -90,6 +101,8 @@ async function loadMembership() {
     memberExpireAt.value = status.memberExpireAt || "";
   } catch {
     resetMemberStatus();
+    plans.value = [];
+    loadFailed.value = true;
     uni.showToast({ title: "会员数据加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -124,6 +137,14 @@ async function openMember() {
   if (isPaying.value) return;
 
   const plan = selectedPlan.value;
+  if (!plan) {
+    uni.showToast({ title: "会员方案未同步，请刷新后重试", icon: "none" });
+    return;
+  }
+  if (!plan?.id && !useMockData.value) {
+    uni.showToast({ title: "会员方案未同步，请刷新后重试", icon: "none" });
+    return;
+  }
   isPaying.value = true;
   try {
     if (useMockData.value) {
@@ -178,7 +199,18 @@ function showAgreement() {
         </view>
 
         <view class="section-title">选择套餐</view>
-        <view class="plan-list">
+        <view v-if="!useMockData && loadFailed" class="empty-config">
+          <view class="empty-title">会员方案加载失败</view>
+          <view class="empty-sub">请稍后重试，当前不会显示模拟套餐。</view>
+          <button class="empty-btn" @click="loadMembership">重新加载</button>
+        </view>
+
+        <view v-else-if="!isLoading && !plans.length" class="empty-config">
+          <view class="empty-title">暂无会员方案</view>
+          <view class="empty-sub">后台配置会员方案后会显示在这里。</view>
+        </view>
+
+        <view v-else class="plan-list">
           <view
             v-for="(plan, index) in plans"
             :key="`${plan.name}-${plan.price}`"
@@ -203,13 +235,13 @@ function showAgreement() {
           </view>
         </view>
 
-        <button class="open-btn" :disabled="isPaying" @click="openMember">
+        <button v-if="plans.length" class="open-btn" :disabled="isPaying" @click="openMember">
           <text class="open-icon">♛</text>
-          <text>{{ isPaying ? "支付处理中..." : `立即开通 · ¥${selectedPlan.price}` }}</text>
+          <text>{{ isPaying ? "支付处理中..." : `立即开通 · ¥${selectedPlan?.price || 0}` }}</text>
         </button>
 
-        <view class="section-title">会员权益</view>
-        <view class="benefit-grid">
+        <view v-if="activeBenefits.length" class="section-title">会员权益</view>
+        <view v-if="activeBenefits.length" class="benefit-grid">
           <view v-for="benefit in activeBenefits" :key="`${benefit.title}-${benefit.desc}`" class="benefit-card">
             <view class="benefit-icon" :class="benefit.tone">{{ benefit.icon }}</view>
             <view>
@@ -338,6 +370,49 @@ function showAgreement() {
   flex-direction: column;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.empty-config {
+  padding: 28px 18px;
+  margin-bottom: 16px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.empty-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.empty-sub {
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 116px;
+  height: 38px;
+  padding: 0 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .plan-card {

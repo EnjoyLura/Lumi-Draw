@@ -27,6 +27,7 @@ const isLoadingMoreRecords = ref(false);
 const isPaying = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+const loadFailed = ref(false);
 const recordState = reactive({
   earn: { page: 1, hasMore: false },
   spend: { page: 1, hasMore: false }
@@ -56,6 +57,7 @@ async function loadPageData() {
     recordState.earn = { page: 1, hasMore: false };
     recordState.spend = { page: 1, hasMore: false };
     loginRequired.value = false;
+    loadFailed.value = false;
     return;
   }
   if (!ensureLogin()) {
@@ -66,9 +68,11 @@ async function loadPageData() {
     recordState.earn = { page: 1, hasMore: false };
     recordState.spend = { page: 1, hasMore: false };
     loginRequired.value = true;
+    loadFailed.value = false;
     return;
   }
   loginRequired.value = false;
+  loadFailed.value = false;
   balance.value = 0;
   tiers.value = [];
   earnList.value = [];
@@ -85,13 +89,14 @@ async function loadPageData() {
       fetchCreditRecordPage("spend", 1, RECORD_PAGE_SIZE)
     ]);
     balance.value = nextBalance;
-    tiers.value = nextTiers.length ? nextTiers : rechargeTiers;
+    tiers.value = nextTiers;
     earnList.value = nextEarn.items;
     spendList.value = nextSpend.items;
     recordState.earn = { page: nextEarn.page, hasMore: nextEarn.hasMore };
     recordState.spend = { page: nextSpend.page, hasMore: nextSpend.hasMore };
     selectedTierIdx.value = Math.min(selectedTierIdx.value, tiers.value.length - 1);
   } catch {
+    loadFailed.value = true;
     uni.showToast({ title: "积分数据加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -156,6 +161,10 @@ async function startRecharge(amount?: number) {
   if (isPaying.value) return;
 
   const tier = tiers.value[selectedTierIdx.value];
+  if (!amount && !tier) {
+    uni.showToast({ title: "充值档位未同步，请刷新后重试", icon: "none" });
+    return;
+  }
   isPaying.value = true;
   try {
     if (useMockData.value) {
@@ -208,7 +217,19 @@ function confirmCustomRecharge() {
         </view>
 
         <view class="section-title">充值档位</view>
-        <view class="tier-grid">
+        <view v-if="!useMockData && loadFailed" class="empty-config">
+          <view class="empty-title">充值配置加载失败</view>
+          <view class="empty-sub">请稍后重试，当前不会显示模拟档位。</view>
+          <button class="empty-btn" @click="loadPageData">重新加载</button>
+        </view>
+
+        <view v-else-if="!isLoading && !tiers.length" class="empty-config">
+          <view class="empty-title">暂无充值档位</view>
+          <view class="empty-sub">可使用自定义充值，或等待后台配置充值方案。</view>
+          <button class="empty-btn" @click="openCustomRecharge">自定义充值</button>
+        </view>
+
+        <view v-else class="tier-grid">
           <view
             v-for="(tier, index) in tiers"
             :key="`${tier.price}-${tier.credits}`"
@@ -230,7 +251,7 @@ function confirmCustomRecharge() {
           </view>
         </view>
 
-        <button class="pay-btn" :disabled="isPaying" @click="() => startRecharge()">{{ isPaying ? "支付处理中..." : "微信支付充值" }}</button>
+        <button v-if="tiers.length" class="pay-btn" :disabled="isPaying" @click="() => startRecharge()">{{ isPaying ? "支付处理中..." : "微信支付充值" }}</button>
 
         <view class="sub-tabs">
           <view class="sub-tab" :class="{ active: activeTab === 'earn' }" @click="switchTab('earn')">积分获得</view>
@@ -338,6 +359,49 @@ function confirmCustomRecharge() {
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.empty-config {
+  padding: 28px 18px;
+  margin-bottom: 12px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.empty-title {
+  margin-bottom: 6px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.empty-sub {
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-secondary);
+}
+
+.empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 116px;
+  height: 38px;
+  padding: 0 18px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--gradient-dream);
+  border: none;
+  border-radius: 999px;
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .tier-card {
