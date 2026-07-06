@@ -11,20 +11,21 @@ import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineSer
 const { isLoggedIn, currentUser, login: commitLogin } = useAuth();
 const { useMockData } = useDataMode();
 const tabEnterClass = resolveTabEnterClass("pages/mine/index");
+const EMPTY_MINE_USER = {
+  ...mineUser,
+  name: "",
+  avatar: "",
+  userNo: "",
+  credits: 0
+};
 const showLoginSheet = ref(false);
-const displayUser = ref(mineUser);
+const displayUser = ref(EMPTY_MINE_USER);
 const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
 let lastLoadKey = "";
 
 function resetRealMineUser() {
-  displayUser.value = {
-    ...mineUser,
-    name: "",
-    avatar: "",
-    userNo: "",
-    credits: 0
-  };
+  displayUser.value = EMPTY_MINE_USER;
   unreadMessageCount.value = 0;
 }
 

@@ -10,9 +10,11 @@ interface BackendMineProfile {
 }
 
 export function toMineUser(profile: BackendMineProfile): MineUser {
+  const fallbackName = `用户${profile.id}`;
+  const name = profile.nickname || fallbackName;
   return {
-    name: profile.nickname,
-    avatar: profile.avatarText || profile.nickname.slice(0, 1) || "米",
+    name,
+    avatar: profile.avatarText || name.slice(0, 1) || "U",
     color: profile.avatarColor || "var(--accent)",
     userNo: `LUMI${String(profile.id).padStart(4, "0")}`,
     credits: profile.credits
