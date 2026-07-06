@@ -53,6 +53,7 @@ async function startReverse() {
   if (isAnalyzing.value) return;
 
   isAnalyzing.value = true;
+  resultText.value = "";
   try {
     if (useMockData.value) {
       await new Promise((resolve) => setTimeout(resolve, 700));
