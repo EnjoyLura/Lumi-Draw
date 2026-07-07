@@ -24,7 +24,6 @@ import { fetchUnreadMessageCount } from "../mine/mineService";
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
-const WORK_SWITCH_LOADING_MS = 420;
 const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 const { useMockData } = useDataMode();
@@ -55,7 +54,6 @@ const isPageLoading = ref(!useMockData.value);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
-const worksSlideClass = ref("");
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -64,7 +62,6 @@ const feedState = reactive({
 });
 
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
-let switchTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastInviteCode = "";
@@ -108,7 +105,6 @@ onUnmounted(() => {
 
 onBeforeUnmount(() => {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
-  if (switchTimer) clearTimeout(switchTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
 });
 
@@ -146,7 +142,6 @@ function applyInviteCode(query?: Record<string, unknown>) {
 
 function resetMockHomeData() {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
-  if (switchTimer) clearTimeout(switchTimer);
   isPageLoading.value = false;
   isLoadingMore.value = false;
   loadFailed.value = false;
@@ -159,7 +154,6 @@ function resetMockHomeData() {
   feedState.recommend = { page: 1, hasMore: false };
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
-  worksSlideClass.value = "";
   worksRenderKey.value += 1;
   scheduleAnnouncementPopup();
 }
@@ -177,7 +171,6 @@ function clearRealHomeData() {
   feedState.recommend = { page: 1, hasMore: false };
   feedState.new = { page: 1, hasMore: false };
   visibleWorkCount.value = 8;
-  worksSlideClass.value = "";
   worksRenderKey.value += 1;
 }
 
@@ -227,7 +220,6 @@ async function loadHomeData() {
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
     visibleWorkCount.value = 8;
-    worksSlideClass.value = "";
     worksRenderKey.value += 1;
     scheduleAnnouncementPopup();
   } catch {
@@ -419,18 +411,10 @@ function openWorkDetail(workId: number) {
 function switchHomeTab(tab: HomeTab) {
   if (tab === selectedHomeTab.value || isPageLoading.value) return;
 
-  const direction = tab === "new" && selectedHomeTab.value === "recommend" ? "left" : "right";
   selectedHomeTab.value = tab;
-  worksSlideClass.value = "";
-  isPageLoading.value = true;
-  if (switchTimer) clearTimeout(switchTimer);
-  switchTimer = setTimeout(() => {
-    visibleWorkCount.value = 8;
-    renderedHomeTab.value = tab;
-    worksSlideClass.value = direction === "left" ? "wf-slide-left" : "wf-slide-right";
-    worksRenderKey.value += 1;
-    isPageLoading.value = false;
-  }, WORK_SWITCH_LOADING_MS);
+  visibleWorkCount.value = 8;
+  renderedHomeTab.value = tab;
+  worksRenderKey.value += 1;
 }
 
 async function loadMoreFeed() {
@@ -696,12 +680,12 @@ function getRatioClass(ratio: string) {
           </view>
         </view>
 
-        <view class="works-stage" :class="{ 'is-switching': isPageLoading }">
+        <view class="works-stage">
           <view v-if="isPageLoading" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
-          <view :key="worksRenderKey" class="waterfall" :class="worksSlideClass">
+          <view v-else :key="worksRenderKey" class="waterfall">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
@@ -1243,30 +1227,13 @@ function getRatioClass(ratio: string) {
 }
 
 .works-stage {
-  position: relative;
   min-height: 420px;
-}
-
-.works-stage.is-switching .waterfall {
-  opacity: 0.42;
-  transform: scale(0.995);
 }
 
 .waterfall {
   display: flex;
   gap: 6px;
   padding: 0 8px;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-
-.waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-col {
@@ -1285,14 +1252,9 @@ function getRatioClass(ratio: string) {
 }
 
 .works-loading {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 3;
   display: flex;
   justify-content: center;
-  padding: 34px 0 22px;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--bg-base) 0%, rgba(255, 255, 255, 0) 100%);
+  padding: 20px 0;
 }
 
 .loading-spinner {
@@ -1639,30 +1601,6 @@ function getRatioClass(ratio: string) {
 
   to {
     opacity: 1;
-  }
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0.86;
-    transform: translate3d(-18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0.86;
-    transform: translate3d(18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
   }
 }
 

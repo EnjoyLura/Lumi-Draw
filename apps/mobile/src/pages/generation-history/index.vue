@@ -317,7 +317,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="generation-history-page" :class="[themeClass, 'page-enter']">
+  <view class="generation-history-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="filter-bar">
         <view

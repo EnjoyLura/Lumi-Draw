@@ -317,7 +317,7 @@ async function confirmUnfollow() {
 </script>
 
 <template>
-  <view class="profile-page" :class="[themeClass, 'page-enter']">
+  <view class="profile-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view v-if="loading" class="profile-empty">
         <view class="empty-icon">◎</view>

@@ -64,7 +64,7 @@ async function loadChangelog() {
 </script>
 
 <template>
-  <view class="changelog-page" :class="[themeClass, 'page-enter']">
+  <view class="changelog-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="changelog-content">
         <view class="app-head">

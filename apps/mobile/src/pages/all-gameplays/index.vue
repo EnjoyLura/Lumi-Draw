@@ -49,7 +49,7 @@ function applyGameplay(gameplay: Gameplay) {
 </script>
 
 <template>
-  <view class="all-gameplays-page" :class="[themeClass, 'page-enter']">
+  <view class="all-gameplays-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view v-if="!useMockData && loadFailed" class="empty-state">
         <view class="empty-icon">!</view>

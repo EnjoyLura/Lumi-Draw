@@ -14,8 +14,6 @@ import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, 
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
 
-const WORK_SWITCH_LOADING_MS = 420;
-
 type SideQuick = {
   icon: string;
   label: string;
@@ -91,7 +89,6 @@ function resetPlazaFilter() {
 function applyPlazaFilter() {
   filterOpen.value = false;
   visibleWorkCount.value = 10;
-  contentSlideClass.value = "";
   if (useMockData.value) {
     renderKey.value += 1;
     uni.showToast({ title: "筛选已应用", icon: "none" });
@@ -123,8 +120,6 @@ const visibleWorkCount = ref(10);
 const isLoading = ref(!useMockData.value);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
-const slideDirection = ref<"left" | "right">("left");
-const contentSlideClass = ref("");
 const renderKey = ref(0);
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
@@ -214,7 +209,6 @@ function resetMockPlazaData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleWorkCount.value = 10;
-  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -233,7 +227,6 @@ function clearRealPlazaData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleWorkCount.value = 10;
-  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -359,7 +352,6 @@ async function reloadPlazaData() {
     userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
-    contentSlideClass.value = "";
     renderKey.value += 1;
   } catch {
     clearRealPlazaData();
@@ -401,33 +393,25 @@ function openWorkDetail(workId: number) {
 function switchPlazaTab(tab: PlazaTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
-  slideDirection.value = index > plazaTabs.findIndex((item) => item.key === renderedTab.value) ? "left" : "right";
   queueRefresh(() => {
     renderedTab.value = tab;
-  }, slideDirection.value);
+  });
 }
 
 function selectCategory(index: number) {
   if (index === activeCategoryIndex.value || isLoading.value) return;
-  slideDirection.value = index > lastCategoryIndex.value ? "left" : "right";
   lastCategoryIndex.value = index;
   activeCategoryIndex.value = index;
-  queueRefresh(undefined, slideDirection.value);
+  queueRefresh();
 }
 
-function queueRefresh(after?: () => void, animationDirection?: "left" | "right") {
-  contentSlideClass.value = "";
+function queueRefresh(after?: () => void) {
   visibleWorkCount.value = 10;
   if (loadingTimer) clearTimeout(loadingTimer);
 
   if (useMockData.value) {
-    isLoading.value = true;
-    loadingTimer = setTimeout(() => {
-      after?.();
-      contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
-      renderKey.value += 1;
-      isLoading.value = false;
-    }, WORK_SWITCH_LOADING_MS);
+    after?.();
+    renderKey.value += 1;
     return;
   }
 
@@ -444,7 +428,6 @@ function queueRefresh(after?: () => void, animationDirection?: "left" | "right")
       loadFailed.value = true;
       uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
     }
-    contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
     renderKey.value += 1;
     isLoading.value = false;
   }, 0);
@@ -453,7 +436,6 @@ function queueRefresh(after?: () => void, animationDirection?: "left" | "right")
 async function queueFilterRefresh() {
   isLoading.value = true;
   loadFailed.value = false;
-  contentSlideClass.value = "";
   workList.value = [];
   pageState.page = 1;
   pageState.hasMore = false;
@@ -673,16 +655,14 @@ function handleReachBottom() {
           <view class="filter-btn" @click="openFilter">≡</view>
         </view>
 
-        <view class="works-stage" :class="{ 'is-switching': isLoading }">
         <view v-if="isLoading" class="loading-card">
           <view class="spinner" />
         </view>
 
         <view
-          v-if="filteredWorks.length"
+          v-else-if="filteredWorks.length"
           :key="renderKey"
           class="waterfall"
-          :class="contentSlideClass"
         >
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
@@ -723,19 +703,17 @@ function handleReachBottom() {
           </view>
         </view>
 
-        <view v-else-if="!isLoading && !useMockData && loadFailed" class="empty-state">
+        <view v-else-if="!useMockData && loadFailed" class="empty-state">
           <view class="empty-icon">!</view>
           <view class="empty-title">广场数据加载失败</view>
           <view class="empty-sub">请检查网络或稍后重试，当前不会显示模拟作品。</view>
           <button class="empty-action" @click="reloadPlazaData">重新加载</button>
         </view>
 
-        <view v-else-if="!isLoading" class="empty-state">
+        <view v-else class="empty-state">
           <view class="empty-icon">{{ renderedTab === "favorite" ? "♡" : "⌕" }}</view>
           <view class="empty-title">{{ renderedTab === "favorite" ? "暂无收藏" : "暂无作品" }}</view>
           <view class="empty-sub">{{ renderedTab === "favorite" ? "在作品详情页收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
-        </view>
-
         </view>
 
         <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
@@ -1010,32 +988,11 @@ function handleReachBottom() {
   border-left: 0.5px solid var(--border);
 }
 
-.works-stage {
-  position: relative;
-  min-height: 360px;
-}
-
-.works-stage.is-switching .waterfall {
-  opacity: 0.42;
-  transform: scale(0.995);
-}
-
 .waterfall {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 0 8px;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-
-.waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-column {
@@ -1129,14 +1086,9 @@ function handleReachBottom() {
 }
 
 .loading-card {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 3;
   display: flex;
   justify-content: center;
-  padding: 34px 0 22px;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--bg-base) 0%, rgba(255, 255, 255, 0) 100%);
+  padding: 20px 0;
 }
 
 .spinner {
@@ -1289,30 +1241,6 @@ function handleReachBottom() {
 
 .tab-item.center .tab-label {
   margin-top: 2px;
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0.86;
-    transform: translate3d(-18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0.86;
-    transform: translate3d(18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
 }
 
 @keyframes spin {

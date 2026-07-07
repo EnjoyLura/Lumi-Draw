@@ -116,7 +116,7 @@ async function login() {
 </script>
 
 <template>
-  <view class="report-page" :class="[themeClass, 'page-enter']">
+  <view class="report-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="section-title">请选择举报原因</view>

@@ -232,7 +232,7 @@ function goPlaza() {
 </script>
 
 <template>
-  <view class="follow-page" :class="[themeClass, 'page-enter']">
+  <view class="follow-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

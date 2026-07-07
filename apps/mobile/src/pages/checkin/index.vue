@@ -180,7 +180,7 @@ function claimMilestone(item: Milestone) {
 </script>
 
 <template>
-  <view class="checkin-page" :class="[themeClass, 'page-enter']">
+  <view class="checkin-page" :class="themeClass">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

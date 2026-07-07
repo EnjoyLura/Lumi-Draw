@@ -27,7 +27,6 @@ import {
 } from "./galleryService";
 
 const PAGE_SIZE = 10;
-const WORK_SWITCH_LOADING_MS = 420;
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
@@ -81,8 +80,6 @@ const sideOpen = ref(false);
 const showLoginSheet = ref(false);
 const unreadMessageCount = ref(0);
 const visibleCount = ref(PAGE_SIZE);
-const slideDirection = ref<"left" | "right">("left");
-const contentSlideClass = ref("");
 const renderKey = ref(0);
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
@@ -168,7 +165,6 @@ function resetMockGalleryData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
-  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -183,7 +179,6 @@ function resetRealGalleryData() {
   pageState.page = 1;
   pageState.hasMore = false;
   visibleCount.value = PAGE_SIZE;
-  contentSlideClass.value = "";
   renderKey.value += 1;
 }
 
@@ -260,7 +255,6 @@ async function handleGenerateTasksCompleted(ids: string[]) {
     if (hasSavedDraft) {
       await Promise.all([loadGalleryPage(1, false), fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))]);
       visibleCount.value = PAGE_SIZE;
-      contentSlideClass.value = "";
       renderKey.value += 1;
       uni.showModal({
         title: "生成完成",
@@ -308,7 +302,6 @@ async function reloadGalleryData() {
     const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true), loadUnreadMessages()]);
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
-    contentSlideClass.value = "";
     renderKey.value += 1;
   } catch {
     resetRealGalleryData();
@@ -389,20 +382,13 @@ function navigateSide(url: string) {
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   activeTab.value = tab;
-  slideDirection.value = index > galleryTabs.findIndex((item) => item.key === renderedTab.value) ? "left" : "right";
   selectedIds.value = new Set();
-  contentSlideClass.value = "";
   if (loadingTimer) clearTimeout(loadingTimer);
 
   if (useMockData.value) {
-    isLoading.value = true;
-    loadingTimer = setTimeout(() => {
-      renderedTab.value = tab;
-      visibleCount.value = PAGE_SIZE;
-      contentSlideClass.value = `wf-slide-${slideDirection.value}`;
-      renderKey.value += 1;
-      isLoading.value = false;
-    }, WORK_SWITCH_LOADING_MS);
+    renderedTab.value = tab;
+    visibleCount.value = PAGE_SIZE;
+    renderKey.value += 1;
     return;
   }
 
@@ -418,7 +404,6 @@ function switchGalleryTab(tab: GalleryTab, index: number) {
     } catch {
       uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
     }
-    contentSlideClass.value = `wf-slide-${slideDirection.value}`;
     renderKey.value += 1;
     isLoading.value = false;
   }, 0);
@@ -697,12 +682,11 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view class="works-stage" :class="{ 'is-switching': isLoading }">
         <view v-if="isLoading" :key="`loading-${activeTab}`" class="loading-card">
           <view class="spinner" />
         </view>
 
-        <view v-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="contentSlideClass">
+        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
@@ -740,13 +724,11 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-else-if="!isLoading" :key="`empty-${renderedTab}-${renderKey}`" class="empty-state">
+        <view v-else :key="`empty-${renderedTab}-${renderKey}`" class="empty-state">
           <view class="empty-icon">{{ emptyInfo.icon }}</view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
           <button v-if="renderedTab === 'all'" class="empty-btn" @click="goCreate">✦ 去创作</button>
-        </view>
-
         </view>
 
         <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
@@ -1245,31 +1227,10 @@ function openWork(work: HomeWork) {
   color: var(--accent);
 }
 
-.works-stage {
-  position: relative;
-  min-height: 360px;
-}
-
-.works-stage.is-switching .waterfall {
-  opacity: 0.42;
-  transform: scale(0.995);
-}
-
 .waterfall {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  transition:
-    opacity 0.18s ease,
-    transform 0.18s ease;
-}
-
-.waterfall.wf-slide-left {
-  animation: slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.waterfall.wf-slide-right {
-  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .waterfall-column {
@@ -1406,14 +1367,9 @@ function openWork(work: HomeWork) {
 }
 
 .loading-card {
-  position: absolute;
-  inset: 0 0 auto;
-  z-index: 3;
   display: flex;
   justify-content: center;
-  padding: 34px 0 22px;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--bg-base) 0%, rgba(255, 255, 255, 0) 100%);
+  padding: 20px 0;
 }
 
 .spinner {
@@ -1632,30 +1588,6 @@ function openWork(work: HomeWork) {
 
 .tab-item.center .tab-label {
   margin-top: 2px;
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0.86;
-    transform: translate3d(-18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0.86;
-    transform: translate3d(18px, 0, 0) scale(0.995);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
 }
 
 @keyframes spin {
