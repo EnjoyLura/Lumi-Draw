@@ -13,6 +13,13 @@ import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
+import {
+  getWaterfallAnimationClass,
+  getWaterfallDirection,
+  WATERFALL_ANIMATION_DURATION,
+  WATERFALL_LOADING_FRAME_DELAY,
+  WATERFALL_SWITCH_DELAY
+} from "../../services/waterfallTransition";
 
 type SideQuick = {
   icon: string;
@@ -107,6 +114,7 @@ try {
 const activeTab = ref<PlazaTab>("recommend");
 const renderedTab = ref<PlazaTab>("recommend");
 const activeCategoryIndex = ref(0);
+const renderedCategoryIndex = ref(0);
 const lastCategoryIndex = ref(0);
 const categoryOptions = ref<PlazaCategoryOption[]>(plazaCategories.map((name) => ({ name })));
 const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : []);
@@ -121,6 +129,7 @@ const isLoading = ref(!useMockData.value);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const renderKey = ref(0);
+const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((item) => item.label)]);
@@ -142,6 +151,7 @@ const sideRows = ref<SideRow[]>([
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
+let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
@@ -149,6 +159,7 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
+const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.value || activeCategoryIndex.value !== renderedCategoryIndex.value);
 const drawerDisplay = computed(() => {
   if (!isLoggedIn.value) return EMPTY_DRAWER_PROFILE;
   if (useMockData.value) return mineUser;
@@ -190,11 +201,13 @@ onShow(() => {
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  clearWaterfallAnimation();
 });
 
 function resetMockPlazaData() {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  clearWaterfallAnimation();
   isLoading.value = false;
   isLoadingMore.value = false;
   loadFailed.value = false;
@@ -204,6 +217,8 @@ function resetMockPlazaData() {
   modelFilterOptions.value = fallbackModelFilters;
   sizeFilterOptions.value = fallbackSizeFilters;
   qualityFilterOptions.value = fallbackQualityFilters;
+  activeCategoryIndex.value = 0;
+  renderedCategoryIndex.value = 0;
   userList.value = mockHomeUsers;
   workList.value = mockHomeWorks;
   pageState.page = 1;
@@ -213,11 +228,14 @@ function resetMockPlazaData() {
 }
 
 function clearRealPlazaData() {
+  clearWaterfallAnimation();
   drawerProfile.value = null;
   categoryOptions.value = plazaCategories.map((name) => ({ name }));
   modelFilterOptions.value = fallbackModelFilters;
   sizeFilterOptions.value = fallbackSizeFilters;
   qualityFilterOptions.value = fallbackQualityFilters;
+  activeCategoryIndex.value = 0;
+  renderedCategoryIndex.value = 0;
   userList.value = [];
   workList.value = [];
   unreadMessageCount.value = 0;
@@ -264,7 +282,7 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     return;
   }
 
-  const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[activeCategoryIndex.value]?.id;
+  const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[renderedCategoryIndex.value]?.id;
   const result = await fetchPlazaWorks({
     categoryId,
     categoryIds: selectedCategoryIds(),
@@ -349,6 +367,7 @@ async function reloadPlazaData() {
     activeCategoryIndex.value = categoryOptions.value.length
       ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
       : 0;
+    renderedCategoryIndex.value = activeCategoryIndex.value;
     userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
@@ -392,49 +411,86 @@ function openWorkDetail(workId: number) {
 
 function switchPlazaTab(tab: PlazaTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
+  const previousIndex = plazaTabs.findIndex((item) => item.key === activeTab.value);
+  const direction = getWaterfallDirection(index, previousIndex);
   activeTab.value = tab;
   queueRefresh(() => {
     renderedTab.value = tab;
-  });
+  }, direction);
 }
 
 function selectCategory(index: number) {
   if (index === activeCategoryIndex.value || isLoading.value) return;
-  lastCategoryIndex.value = index;
+  lastCategoryIndex.value = activeCategoryIndex.value;
+  const direction = getWaterfallDirection(index, lastCategoryIndex.value);
   activeCategoryIndex.value = index;
-  queueRefresh();
+  queueRefresh(() => {
+    renderedCategoryIndex.value = index;
+  }, direction);
 }
 
-function queueRefresh(after?: () => void) {
+function clearWaterfallAnimation() {
+  if (waterfallAnimationTimer) clearTimeout(waterfallAnimationTimer);
+  waterfallAnimationTimer = undefined;
+  waterfallAnimationClass.value = "";
+}
+
+function playWaterfallAnimation(direction: ReturnType<typeof getWaterfallDirection>) {
+  clearWaterfallAnimation();
+  waterfallAnimationClass.value = getWaterfallAnimationClass(direction);
+  waterfallAnimationTimer = setTimeout(() => {
+    waterfallAnimationClass.value = "";
+    waterfallAnimationTimer = undefined;
+  }, WATERFALL_ANIMATION_DURATION);
+}
+
+function queueRefresh(after?: () => void, direction: ReturnType<typeof getWaterfallDirection> = "left") {
   visibleWorkCount.value = 10;
   if (loadingTimer) clearTimeout(loadingTimer);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isLoadingMore.value = false;
+  clearWaterfallAnimation();
+  isLoading.value = true;
 
   if (useMockData.value) {
-    after?.();
-    renderKey.value += 1;
+    loadingTimer = setTimeout(() => {
+      if (!isLoading.value) return;
+      loadingTimer = setTimeout(() => {
+        after?.();
+        renderKey.value += 1;
+        isLoading.value = false;
+        loadingTimer = undefined;
+        playWaterfallAnimation(direction);
+      }, WATERFALL_SWITCH_DELAY);
+    }, WATERFALL_LOADING_FRAME_DELAY);
     return;
   }
 
-  isLoading.value = true;
-  loadingTimer = setTimeout(async () => {
-    after?.();
-    try {
-      loadFailed.value = false;
-      await loadCurrentPlazaPage(1, false);
-    } catch {
-      workList.value = [];
-      pageState.page = 1;
-      pageState.hasMore = false;
-      loadFailed.value = true;
-      uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
-    }
-    renderKey.value += 1;
-    isLoading.value = false;
-  }, 0);
+  loadingTimer = setTimeout(() => {
+    if (!isLoading.value) return;
+    loadingTimer = setTimeout(async () => {
+      after?.();
+      try {
+        loadFailed.value = false;
+        await loadCurrentPlazaPage(1, false);
+      } catch {
+        workList.value = [];
+        pageState.page = 1;
+        pageState.hasMore = false;
+        loadFailed.value = true;
+        uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+      }
+      renderKey.value += 1;
+      isLoading.value = false;
+      loadingTimer = undefined;
+      playWaterfallAnimation(direction);
+    }, WATERFALL_SWITCH_DELAY);
+  }, WATERFALL_LOADING_FRAME_DELAY);
 }
 
 async function queueFilterRefresh() {
   isLoading.value = true;
+  clearWaterfallAnimation();
   loadFailed.value = false;
   workList.value = [];
   pageState.page = 1;
@@ -463,7 +519,7 @@ function selectedCategoryIds() {
 
 function getMockFilteredWorks() {
   const selectedCategories = [...filterSelection.category];
-  const categoryNames = selectedCategories.length ? selectedCategories : displayCategories.value[activeCategoryIndex.value] === "全部" ? [] : [displayCategories.value[activeCategoryIndex.value]];
+  const categoryNames = selectedCategories.length ? selectedCategories : displayCategories.value[renderedCategoryIndex.value] === "全部" ? [] : [displayCategories.value[renderedCategoryIndex.value]];
   const categoryWorks = categoryNames.length
     ? categoryNames.flatMap((category) => filterByCategory(mockHomeWorks, category))
     : mockHomeWorks;
@@ -655,14 +711,16 @@ function handleReachBottom() {
           <view class="filter-btn" @click="openFilter">≡</view>
         </view>
 
-        <view v-if="isLoading" class="loading-card">
-          <view class="spinner" />
-        </view>
+        <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
+          <view v-if="isLoading && !isWaterfallSwitching" class="loading-card">
+            <view class="spinner" />
+          </view>
 
         <view
           v-else-if="filteredWorks.length"
           :key="renderKey"
           class="waterfall"
+          :class="waterfallAnimationClass"
         >
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
@@ -716,7 +774,12 @@ function handleReachBottom() {
           <view class="empty-sub">{{ renderedTab === "favorite" ? "在作品详情页收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
         </view>
 
-        <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
+            <view class="spinner" />
+          </view>
+        </view>
+
+        <view v-if="!isLoading && !isWaterfallSwitching && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
           <view v-if="isLoadingMore" class="spinner mini" />
           <text>{{ isLoadingMore ? "正在加载更多作品" : hasMoreWorks ? "继续往下滑获取更多作品" : "我也是有底线的~" }}</text>
         </view>
@@ -986,6 +1049,36 @@ function handleReachBottom() {
   font-size: 20px;
   color: var(--fg-primary);
   border-left: 0.5px solid var(--border);
+}
+
+.waterfall-stage {
+  position: relative;
+  min-height: 320px;
+}
+
+.waterfall-stage.switching .waterfall,
+.waterfall-stage.switching .empty-state {
+  opacity: 0;
+}
+
+.switch-loading-card {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+  pointer-events: none;
+  background: var(--bg-base);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.switch-loading-card.show {
+  opacity: 1;
 }
 
 .waterfall {

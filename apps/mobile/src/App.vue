@@ -94,6 +94,38 @@ uni-page-body {
   overflow-x: hidden;
 }
 
+@keyframes wf-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes wf-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.wf-slide-left {
+  animation: wf-slide-in-left 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wf-slide-right {
+  animation: wf-slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .theme-dark,
 :root[data-theme="dark"] {
   --bg-base: #141416;

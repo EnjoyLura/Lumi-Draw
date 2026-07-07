@@ -25,6 +25,13 @@ import {
   fetchGalleryWorks,
   moveGalleryWorksToDraft
 } from "./galleryService";
+import {
+  getWaterfallAnimationClass,
+  getWaterfallDirection,
+  WATERFALL_ANIMATION_DURATION,
+  WATERFALL_LOADING_FRAME_DELAY,
+  WATERFALL_SWITCH_DELAY
+} from "../../services/waterfallTransition";
 
 const PAGE_SIZE = 10;
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -81,6 +88,7 @@ const showLoginSheet = ref(false);
 const unreadMessageCount = ref(0);
 const visibleCount = ref(PAGE_SIZE);
 const renderKey = ref(0);
+const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
@@ -101,6 +109,7 @@ const sideRows = ref<SideRow[]>([
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
+let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
@@ -115,6 +124,7 @@ const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleCount.
 const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const hasMore = computed(() => visibleCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
+const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.value);
 const selectedCount = computed(() => selectedIds.value.size);
 const selectedWorks = computed(() => works.value.filter((work) => selectedIds.value.has(work.id)));
 const selectedPublishedWorks = computed(() => selectedWorks.value.filter((work) => work.published));
@@ -143,6 +153,7 @@ onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
+  clearWaterfallAnimation();
 });
 
 function getStatusForTab(tab = renderedTab.value) {
@@ -154,6 +165,7 @@ function getStatusForTab(tab = renderedTab.value) {
 function resetMockGalleryData() {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  clearWaterfallAnimation();
   isLoading.value = false;
   isLoadingMore.value = false;
   profile.value = galleryUser;
@@ -169,6 +181,7 @@ function resetMockGalleryData() {
 }
 
 function resetRealGalleryData() {
+  clearWaterfallAnimation();
   profile.value = EMPTY_PROFILE;
   works.value = [];
   genTasks.value = [];
@@ -379,34 +392,54 @@ function navigateSide(url: string) {
   uni.navigateTo({ url });
 }
 
+function clearWaterfallAnimation() {
+  if (waterfallAnimationTimer) clearTimeout(waterfallAnimationTimer);
+  waterfallAnimationTimer = undefined;
+  waterfallAnimationClass.value = "";
+}
+
+function playWaterfallAnimation(direction: ReturnType<typeof getWaterfallDirection>) {
+  clearWaterfallAnimation();
+  waterfallAnimationClass.value = getWaterfallAnimationClass(direction);
+  waterfallAnimationTimer = setTimeout(() => {
+    waterfallAnimationClass.value = "";
+    waterfallAnimationTimer = undefined;
+  }, WATERFALL_ANIMATION_DURATION);
+}
+
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
+  const previousIndex = galleryTabs.findIndex((item) => item.key === activeTab.value);
+  const direction = getWaterfallDirection(index, previousIndex);
   activeTab.value = tab;
   selectedIds.value = new Set();
   if (loadingTimer) clearTimeout(loadingTimer);
-
-  if (useMockData.value) {
-    renderedTab.value = tab;
-    visibleCount.value = PAGE_SIZE;
-    renderKey.value += 1;
-    return;
-  }
-
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isLoadingMore.value = false;
+  clearWaterfallAnimation();
   isLoading.value = true;
-  loadingTimer = setTimeout(async () => {
-    renderedTab.value = tab;
-    visibleCount.value = PAGE_SIZE;
-    works.value = [];
-    pageState.page = 1;
-    pageState.hasMore = false;
-    try {
-      await loadGalleryPage(1, false);
-    } catch {
-      uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
-    }
-    renderKey.value += 1;
-    isLoading.value = false;
-  }, 0);
+
+  loadingTimer = setTimeout(() => {
+    if (!isLoading.value) return;
+    loadingTimer = setTimeout(async () => {
+      renderedTab.value = tab;
+      visibleCount.value = PAGE_SIZE;
+      if (!useMockData.value) {
+        works.value = [];
+        pageState.page = 1;
+        pageState.hasMore = false;
+        try {
+          await loadGalleryPage(1, false);
+        } catch {
+          uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
+        }
+      }
+      renderKey.value += 1;
+      isLoading.value = false;
+      loadingTimer = undefined;
+      playWaterfallAnimation(direction);
+    }, WATERFALL_SWITCH_DELAY);
+  }, WATERFALL_LOADING_FRAME_DELAY);
 }
 
 function handleReachBottom() {
@@ -682,11 +715,12 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-if="isLoading" :key="`loading-${activeTab}`" class="loading-card">
-          <view class="spinner" />
-        </view>
+        <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
+          <view v-if="isLoading && !isWaterfallSwitching" :key="`loading-${activeTab}`" class="loading-card">
+            <view class="spinner" />
+          </view>
 
-        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall">
+        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="waterfallAnimationClass">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
@@ -731,7 +765,12 @@ function openWork(work: HomeWork) {
           <button v-if="renderedTab === 'all'" class="empty-btn" @click="goCreate">✦ 去创作</button>
         </view>
 
-        <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+          <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
+            <view class="spinner" />
+          </view>
+        </view>
+
+        <view v-if="!isLoading && !isWaterfallSwitching && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
           <view v-if="isLoadingMore" class="spinner mini" />
           <text>{{ isLoadingMore ? "正在加载更多作品" : hasMore ? "继续往下滑获取更多作品" : "我也是有底线的~" }}</text>
         </view>
@@ -1225,6 +1264,36 @@ function openWork(work: HomeWork) {
   flex: 0 0 auto;
   font-size: 11px;
   color: var(--accent);
+}
+
+.waterfall-stage {
+  position: relative;
+  min-height: 320px;
+}
+
+.waterfall-stage.switching .waterfall,
+.waterfall-stage.switching .empty-state {
+  opacity: 0;
+}
+
+.switch-loading-card {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+  pointer-events: none;
+  background: var(--bg-base);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.switch-loading-card.show {
+  opacity: 1;
 }
 
 .waterfall {

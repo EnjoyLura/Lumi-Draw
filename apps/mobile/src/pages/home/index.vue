@@ -21,6 +21,13 @@ import { goRootTab } from "../../services/tabNavigation";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
+import {
+  getWaterfallAnimationClass,
+  getWaterfallDirection,
+  WATERFALL_ANIMATION_DURATION,
+  WATERFALL_LOADING_FRAME_DELAY,
+  WATERFALL_SWITCH_DELAY
+} from "../../services/waterfallTransition";
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
@@ -51,9 +58,11 @@ const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(!useMockData.value);
+const isWorksSwitching = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
+const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -63,6 +72,8 @@ const feedState = reactive({
 
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
+let worksSwitchTimer: ReturnType<typeof setTimeout> | undefined;
+let worksAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastInviteCode = "";
 
@@ -77,6 +88,7 @@ const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedS
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
 const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
 const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
+const isWaterfallSwitching = computed(() => selectedHomeTab.value !== renderedHomeTab.value);
 
 onLoad((query) => {
   applyInviteCode(query);
@@ -106,6 +118,7 @@ onUnmounted(() => {
 onBeforeUnmount(() => {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
+  clearWorksSwitchTimers();
 });
 
 function handleHashChange() {
@@ -142,6 +155,7 @@ function applyInviteCode(query?: Record<string, unknown>) {
 
 function resetMockHomeData() {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  clearWorksSwitchTimers();
   isPageLoading.value = false;
   isLoadingMore.value = false;
   loadFailed.value = false;
@@ -160,6 +174,7 @@ function resetMockHomeData() {
 
 function clearRealHomeData() {
   if (announcementTimer) clearTimeout(announcementTimer);
+  clearWorksSwitchTimers();
   showAnnouncementPopup.value = false;
   bannerList.value = [];
   announcementList.value = [];
@@ -408,13 +423,47 @@ function openWorkDetail(workId: number) {
   });
 }
 
-function switchHomeTab(tab: HomeTab) {
-  if (tab === selectedHomeTab.value || isPageLoading.value) return;
+function clearWorksSwitchTimers() {
+  if (worksSwitchTimer) clearTimeout(worksSwitchTimer);
+  if (worksAnimationTimer) clearTimeout(worksAnimationTimer);
+  worksSwitchTimer = undefined;
+  worksAnimationTimer = undefined;
+  isWorksSwitching.value = false;
+  waterfallAnimationClass.value = "";
+}
 
+function playWaterfallAnimation(direction: ReturnType<typeof getWaterfallDirection>) {
+  if (worksAnimationTimer) clearTimeout(worksAnimationTimer);
+  waterfallAnimationClass.value = getWaterfallAnimationClass(direction);
+  worksAnimationTimer = setTimeout(() => {
+    waterfallAnimationClass.value = "";
+    worksAnimationTimer = undefined;
+  }, WATERFALL_ANIMATION_DURATION);
+}
+
+function switchHomeTab(tab: HomeTab) {
+  if (tab === selectedHomeTab.value || isPageLoading.value || isWorksSwitching.value) return;
+
+  const previousIndex = selectedHomeTab.value === "new" ? 1 : 0;
+  const nextIndex = tab === "new" ? 1 : 0;
+  const direction = getWaterfallDirection(nextIndex, previousIndex);
+  if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  isLoadingMore.value = false;
   selectedHomeTab.value = tab;
   visibleWorkCount.value = 8;
-  renderedHomeTab.value = tab;
-  worksRenderKey.value += 1;
+  isWorksSwitching.value = true;
+  waterfallAnimationClass.value = "";
+  if (worksSwitchTimer) clearTimeout(worksSwitchTimer);
+  worksSwitchTimer = setTimeout(() => {
+    if (!isWorksSwitching.value || selectedHomeTab.value !== tab) return;
+    worksSwitchTimer = setTimeout(() => {
+      renderedHomeTab.value = tab;
+      worksRenderKey.value += 1;
+      isWorksSwitching.value = false;
+      worksSwitchTimer = undefined;
+      playWaterfallAnimation(direction);
+    }, WATERFALL_SWITCH_DELAY);
+  }, WATERFALL_LOADING_FRAME_DELAY);
 }
 
 async function loadMoreFeed() {
@@ -680,12 +729,12 @@ function getRatioClass(ratio: string) {
           </view>
         </view>
 
-        <view class="works-stage">
+        <view class="works-stage" :class="{ switching: isWaterfallSwitching }">
           <view v-if="isPageLoading" class="works-loading">
             <view class="loading-spinner" />
           </view>
 
-          <view v-else :key="worksRenderKey" class="waterfall">
+          <view v-else :key="worksRenderKey" class="waterfall" :class="waterfallAnimationClass">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
@@ -739,6 +788,10 @@ function getRatioClass(ratio: string) {
                 </view>
               </view>
             </view>
+          </view>
+
+          <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
+            <view class="loading-spinner" />
           </view>
         </view>
 
@@ -1227,7 +1280,12 @@ function getRatioClass(ratio: string) {
 }
 
 .works-stage {
+  position: relative;
   min-height: 420px;
+}
+
+.works-stage.switching .waterfall {
+  opacity: 0;
 }
 
 .waterfall {
@@ -1255,6 +1313,26 @@ function getRatioClass(ratio: string) {
   display: flex;
   justify-content: center;
   padding: 20px 0;
+}
+
+.switch-loading-card {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+  pointer-events: none;
+  background: var(--bg-base);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.switch-loading-card.show {
+  opacity: 1;
 }
 
 .loading-spinner {
