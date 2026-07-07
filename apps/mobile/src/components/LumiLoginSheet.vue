@@ -11,7 +11,7 @@ const emit = defineEmits<{
 
 <template>
   <view v-if="open" class="login-overlay" @click="emit('close')" />
-  <view class="login-sheet" :class="{ show: open }">
+  <view class="login-sheet" :class="{ 'login-sheet-show': open }">
     <view class="sheet-handle" />
     <view class="login-logo">✎</view>
     <view class="login-title">登录露米绘画</view>
@@ -23,7 +23,7 @@ const emit = defineEmits<{
   </view>
 </template>
 
-<style scoped>
+<style>
 .login-overlay {
   position: fixed;
   inset: 0;
@@ -47,7 +47,7 @@ const emit = defineEmits<{
   transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.login-sheet.show {
+.login-sheet-show {
   pointer-events: auto;
   transform: translateY(0);
 }
