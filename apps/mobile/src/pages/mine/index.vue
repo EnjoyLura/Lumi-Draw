@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
+import { navigateToPage } from "../../services/navigation";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
@@ -89,7 +90,7 @@ function goPlaza() {
 }
 
 function goCreate() {
-  uni.navigateTo({ url: "/pages/create/index" });
+  navigateToPage({ url: "/pages/create/index" });
 }
 
 function goGallery() {
@@ -101,12 +102,12 @@ function handleProfileTap() {
     showLoginSheet.value = true;
     return;
   }
-  uni.navigateTo({ url: "/pages/edit-profile/index" });
+  navigateToPage({ url: "/pages/edit-profile/index" });
 }
 
 function handleCreditsTap() {
   if (isLoggedIn.value) {
-    uni.navigateTo({ url: "/pages/recharge/index" });
+    navigateToPage({ url: "/pages/recharge/index" });
   } else {
     showLoginSheet.value = true;
   }
@@ -119,19 +120,19 @@ function handleQuickAction(label: string) {
   }
   const item = quickActions.find((action) => action.label === label);
   if (item?.key === "recharge") {
-    uni.navigateTo({ url: "/pages/recharge/index" });
+    navigateToPage({ url: "/pages/recharge/index" });
     return;
   }
   if (item?.key === "checkin") {
-    uni.navigateTo({ url: "/pages/checkin/index" });
+    navigateToPage({ url: "/pages/checkin/index" });
     return;
   }
   if (item?.key === "membership") {
-    uni.navigateTo({ url: "/pages/membership/index" });
+    navigateToPage({ url: "/pages/membership/index" });
     return;
   }
   if (item?.key === "invite") {
-    uni.navigateTo({ url: "/pages/invite/index" });
+    navigateToPage({ url: "/pages/invite/index" });
     return;
   }
 }
@@ -142,35 +143,35 @@ function handleListItem(item: MineListItem) {
     return;
   }
   if (item.key === "messages") {
-    uni.navigateTo({ url: "/pages/messages/index" });
+    navigateToPage({ url: "/pages/messages/index" });
     return;
   }
   if (item.key === "settings") {
-    uni.navigateTo({ url: "/pages/settings/index" });
+    navigateToPage({ url: "/pages/settings/index" });
     return;
   }
   if (item.key === "feedback") {
-    uni.navigateTo({ url: "/pages/feedback/index" });
+    navigateToPage({ url: "/pages/feedback/index" });
     return;
   }
   if (item.key === "service") {
-    uni.navigateTo({ url: "/pages/feedback/index?source=service" });
+    navigateToPage({ url: "/pages/feedback/index?source=service" });
     return;
   }
   if (item.key === "drafts") {
-    uni.navigateTo({ url: "/pages/drafts/index" });
+    navigateToPage({ url: "/pages/drafts/index" });
     return;
   }
   if (item.key === "history") {
-    uni.navigateTo({ url: "/pages/history/index" });
+    navigateToPage({ url: "/pages/history/index" });
     return;
   }
   if (item.key === "generationHistory") {
-    uni.navigateTo({ url: "/pages/generation-history/index" });
+    navigateToPage({ url: "/pages/generation-history/index" });
     return;
   }
   if (item.key === "following") {
-    uni.navigateTo({ url: "/pages/follow-list/index?type=following" });
+    navigateToPage({ url: "/pages/follow-list/index?type=following" });
     return;
   }
 }

@@ -16,6 +16,7 @@ import {
 } from "./homeData";
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
+import { navigateToPage } from "../../services/navigation";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
@@ -347,13 +348,13 @@ function resolvePageAction(action: string) {
 }
 
 function selectGameplay(name: string) {
-  uni.navigateTo({
+  navigateToPage({
     url: `/pages/create/index?gameplay=${encodeURIComponent(name)}`
   });
 }
 
 function goCreate() {
-  uni.navigateTo({
+  navigateToPage({
     url: "/pages/create/index"
   });
 }
@@ -363,13 +364,13 @@ function goPlaza() {
 }
 
 function goMessages() {
-  uni.navigateTo({
+  navigateToPage({
     url: "/pages/messages/index"
   });
 }
 
 function goUserProfile(userId: number) {
-  uni.navigateTo({
+  navigateToPage({
     url: `/pages/user-profile/index?id=${userId}`
   });
 }
@@ -383,7 +384,7 @@ function goMine() {
 }
 
 function goAllGameplays() {
-  uni.navigateTo({
+  navigateToPage({
     url: "/pages/all-gameplays/index"
   });
 }
@@ -391,7 +392,7 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
-    uni.navigateTo({ url: route });
+    navigateToPage({ url: route });
     return;
   }
 
@@ -403,7 +404,7 @@ function handleBannerTap(action: string, title: string) {
 }
 
 function openWorkDetail(workId: number) {
-  uni.navigateTo({
+  navigateToPage({
     url: `/pages/work-detail/index?id=${workId}`
   });
 }

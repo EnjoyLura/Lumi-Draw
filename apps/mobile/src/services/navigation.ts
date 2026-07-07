@@ -1,3 +1,16 @@
+type NavigateToOptions = UniApp.NavigateToOptions & {
+  animationType?: string;
+  animationDuration?: number;
+};
+
+export function navigateToPage(options: UniApp.NavigateToOptions) {
+  uni.navigateTo({
+    animationType: "none",
+    animationDuration: 0,
+    ...options
+  } as NavigateToOptions);
+}
+
 export function navigateBackOrRedirect(fallbackUrl: string) {
   try {
     if (getCurrentPages().length > 1) {
