@@ -6,7 +6,6 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { mockImage } from "../../services/mockImages";
-import { navigateToPage } from "../../services/navigation";
 import { chooseLocalImage, uploadRemoteImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
 import {
   countOptions,
@@ -438,7 +437,7 @@ function selectModel(index: number) {
 
 function goReversePrompt() {
   if (!ensureLogin()) return;
-  navigateToPage({
+  uni.navigateTo({
     url: "/pages/reverse-prompt/index"
   });
 }
@@ -873,7 +872,7 @@ async function goPublish() {
     await saveAllResults();
   }
   const draftId = generatedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
-  navigateToPage({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
+  uni.navigateTo({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
 }
 </script>
 

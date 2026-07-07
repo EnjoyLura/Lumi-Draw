@@ -6,7 +6,6 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
-import { navigateToPage } from "../../services/navigation";
 import { goRootTab } from "../../services/tabNavigation";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
@@ -263,7 +262,7 @@ async function handleGenerateTasksCompleted(ids: string[]) {
         confirmText: "去创作页",
         cancelText: "留在画廊",
         success(result) {
-          if (result.confirm) navigateToPage({ url: `/pages/create/index?jobId=${encodeURIComponent(finished[0].id)}` });
+          if (result.confirm) uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(finished[0].id)}` });
         }
       });
       return;
@@ -321,7 +320,7 @@ function goPlaza() {
 }
 
 function goCreate() {
-  navigateToPage({ url: "/pages/create/index" });
+  uni.navigateTo({ url: "/pages/create/index" });
 }
 
 function goMine() {
@@ -329,22 +328,22 @@ function goMine() {
 }
 
 function goSearch() {
-  navigateToPage({ url: "/pages/search/index" });
+  uni.navigateTo({ url: "/pages/search/index" });
 }
 
 function goEditProfile() {
   if (!ensureLogin()) return;
-  navigateToPage({ url: "/pages/edit-profile/index" });
+  uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
 function goPublish() {
   if (!ensureLogin()) return;
-  navigateToPage({ url: "/pages/publish/index" });
+  uni.navigateTo({ url: "/pages/publish/index" });
 }
 
 function goFollowList() {
   if (!ensureLogin()) return;
-  navigateToPage({ url: "/pages/follow-list/index?type=followers" });
+  uni.navigateTo({ url: "/pages/follow-list/index?type=followers" });
 }
 
 function openLoginSheet() {
@@ -377,7 +376,7 @@ function closeSideMenu() {
 function navigateSide(url: string) {
   closeSideMenu();
   if (!ensureLogin()) return;
-  navigateToPage({ url });
+  uni.navigateTo({ url });
 }
 
 function switchGalleryTab(tab: GalleryTab, index: number) {
@@ -577,7 +576,7 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
-  navigateToPage({ url: `/pages/work-detail/index?id=${work.id}` });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 </script>

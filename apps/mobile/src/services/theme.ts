@@ -12,37 +12,18 @@ function applyTheme(mode: ThemeMode) {
   // #endif
 }
 
-function applyWindowBackground(mode: ThemeMode) {
-  const backgroundColor = mode === "dark" ? "#141416" : "#ffffff";
-  const uniWithBackground = uni as typeof uni & {
-    setBackgroundColor?: (options: {
-      backgroundColor: string;
-      backgroundColorTop?: string;
-      backgroundColorBottom?: string;
-    }) => void;
-  };
-
-  uniWithBackground.setBackgroundColor?.({
-    backgroundColor,
-    backgroundColorTop: backgroundColor,
-    backgroundColorBottom: backgroundColor
-  });
-}
-
 export function applyNavigationBar() {
   const dark = theme.value === "dark";
   uni.setNavigationBarColor({
     frontColor: dark ? "#ffffff" : "#000000",
     backgroundColor: dark ? "#141416" : "#ffffff"
   });
-  applyWindowBackground(theme.value);
 }
 
 export function initTheme() {
   const stored = uni.getStorageSync(THEME_STORAGE_KEY);
   theme.value = stored === "dark" ? "dark" : "light";
   applyTheme(theme.value);
-  applyNavigationBar();
 }
 
 export function setTheme(mode: ThemeMode) {

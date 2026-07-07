@@ -5,7 +5,6 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { navigateToPage } from "../../services/navigation";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
@@ -368,7 +367,7 @@ function goHome() {
 }
 
 function goCreate() {
-  navigateToPage({ url: "/pages/create/index" });
+  uni.navigateTo({ url: "/pages/create/index" });
 }
 
 function goGallery() {
@@ -380,15 +379,15 @@ function goMine() {
 }
 
 function goSearch() {
-  navigateToPage({ url: "/pages/search/index" });
+  uni.navigateTo({ url: "/pages/search/index" });
 }
 
 function goUserProfile(userId: number) {
-  navigateToPage({ url: `/pages/user-profile/index?id=${userId}` });
+  uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
 function openWorkDetail(workId: number) {
-  navigateToPage({ url: `/pages/work-detail/index?id=${workId}` });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {
@@ -579,7 +578,7 @@ function ensureLogin() {
 function navigateSide(url: string) {
   closeSideMenu();
   if (!ensureLogin()) return;
-  navigateToPage({ url });
+  uni.navigateTo({ url });
 }
 
 async function login() {
