@@ -14,6 +14,8 @@ import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, 
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
 
+const WORK_SWITCH_LOADING_MS = 420;
+
 type SideQuick = {
   icon: string;
   label: string;
@@ -419,9 +421,13 @@ function queueRefresh(after?: () => void, animationDirection?: "left" | "right")
   if (loadingTimer) clearTimeout(loadingTimer);
 
   if (useMockData.value) {
-    after?.();
-    contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
-    renderKey.value += 1;
+    isLoading.value = true;
+    loadingTimer = setTimeout(() => {
+      after?.();
+      contentSlideClass.value = animationDirection ? `wf-slide-${animationDirection}` : "";
+      renderKey.value += 1;
+      isLoading.value = false;
+    }, WORK_SWITCH_LOADING_MS);
     return;
   }
 
@@ -667,12 +673,13 @@ function handleReachBottom() {
           <view class="filter-btn" @click="openFilter">≡</view>
         </view>
 
+        <view class="works-stage" :class="{ 'is-switching': isLoading }">
         <view v-if="isLoading" class="loading-card">
           <view class="spinner" />
         </view>
 
         <view
-          v-else-if="filteredWorks.length"
+          v-if="filteredWorks.length"
           :key="renderKey"
           class="waterfall"
           :class="contentSlideClass"
@@ -716,17 +723,19 @@ function handleReachBottom() {
           </view>
         </view>
 
-        <view v-else-if="!useMockData && loadFailed" class="empty-state">
+        <view v-else-if="!isLoading && !useMockData && loadFailed" class="empty-state">
           <view class="empty-icon">!</view>
           <view class="empty-title">广场数据加载失败</view>
           <view class="empty-sub">请检查网络或稍后重试，当前不会显示模拟作品。</view>
           <button class="empty-action" @click="reloadPlazaData">重新加载</button>
         </view>
 
-        <view v-else class="empty-state">
+        <view v-else-if="!isLoading" class="empty-state">
           <view class="empty-icon">{{ renderedTab === "favorite" ? "♡" : "⌕" }}</view>
           <view class="empty-title">{{ renderedTab === "favorite" ? "暂无收藏" : "暂无作品" }}</view>
           <view class="empty-sub">{{ renderedTab === "favorite" ? "在作品详情页收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
+        </view>
+
         </view>
 
         <view v-if="!isLoading && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
@@ -1001,11 +1010,24 @@ function handleReachBottom() {
   border-left: 0.5px solid var(--border);
 }
 
+.works-stage {
+  position: relative;
+  min-height: 360px;
+}
+
+.works-stage.is-switching .waterfall {
+  opacity: 0.42;
+  transform: scale(0.995);
+}
+
 .waterfall {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 0 8px;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .waterfall.wf-slide-left {
@@ -1107,9 +1129,14 @@ function handleReachBottom() {
 }
 
 .loading-card {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
   display: flex;
   justify-content: center;
-  padding: 20px 0;
+  padding: 34px 0 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-base) 0%, rgba(255, 255, 255, 0) 100%);
 }
 
 .spinner {
@@ -1266,8 +1293,8 @@ function handleReachBottom() {
 
 @keyframes slideInLeft {
   from {
-    opacity: 0;
-    transform: translate3d(-30px, 0, 0);
+    opacity: 0.86;
+    transform: translate3d(-18px, 0, 0) scale(0.995);
   }
 
   to {
@@ -1278,8 +1305,8 @@ function handleReachBottom() {
 
 @keyframes slideInRight {
   from {
-    opacity: 0;
-    transform: translate3d(30px, 0, 0);
+    opacity: 0.86;
+    transform: translate3d(18px, 0, 0) scale(0.995);
   }
 
   to {
