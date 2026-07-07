@@ -177,8 +177,6 @@
     "navigationBarTitleText": "露米绘画",
     "navigationBarBackgroundColor": "#ffffff",
     "backgroundColor": "#ffffff",
-    "backgroundColorTop": "#ffffff",
-    "backgroundColorBottom": "#ffffff",
     "navigationBarShadow": {
       "colorType": "custom",
       "color": "transparent"

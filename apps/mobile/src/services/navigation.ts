@@ -1,12 +1,9 @@
-import { applyNavigationBar } from "./theme";
-
 type NavigateToOptions = UniApp.NavigateToOptions & {
   animationType?: string;
   animationDuration?: number;
 };
 
 export function navigateToPage(options: UniApp.NavigateToOptions) {
-  applyNavigationBar();
   uni.navigateTo({
     animationType: "none",
     animationDuration: 0,
