@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -199,6 +200,7 @@ async function submit() {
 
 <template>
   <view class="feedback-page" :class="themeClass">
+    <LumiPageHeader title="意见反馈" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="feedback-content">
         <view class="field">
@@ -433,5 +435,17 @@ async function submit() {
 
 .submit-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.feedback-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.feedback-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

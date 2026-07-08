@@ -28,7 +28,7 @@ export function goRootTab(url: string) {
   if (currentRoute() === target || navigating) return;
 
   navigating = true;
-  uni.redirectTo({
+  uni.switchTab({
     url,
     complete() {
       setTimeout(() => {

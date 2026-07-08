@@ -12,6 +12,7 @@ import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineSer
 const { isLoggedIn, currentUser, login: commitLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const { themeClass } = useTheme();
+const statusBarHeight = ref(0);
 const EMPTY_MINE_USER = {
   ...mineUser,
   name: "",
@@ -24,6 +25,12 @@ const displayUser = ref(useMockData.value ? mineUser : EMPTY_MINE_USER);
 const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}` : "";
+
+try {
+  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
+} catch {
+  statusBarHeight.value = 0;
+}
 
 function resetRealMineUser() {
   displayUser.value = EMPTY_MINE_USER;
@@ -189,7 +196,11 @@ async function login() {
 
 <template>
   <view class="mine-page" :class="themeClass">
-    <scroll-view class="mine-scroll" scroll-y>
+    <view class="mine-header">
+      <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
+      <view class="mine-title">我的</view>
+    </view>
+    <scroll-view class="mine-scroll" scroll-y :style="{ top: statusBarHeight + 50 + 'px' }">
       <view class="mine-content">
         <view class="profile-card">
           <view class="user-row">
@@ -273,7 +284,9 @@ async function login() {
 
 .mine-scroll {
   position: absolute;
-  inset: 0 0 80px;
+  right: 0;
+  bottom: 80px;
+  left: 0;
   z-index: 1;
   box-sizing: border-box;
   -ms-overflow-style: none;
@@ -289,6 +302,30 @@ async function login() {
 
 .mine-content {
   padding: 16px 16px 20px;
+}
+
+.mine-header {
+  --mine-header-height: 50px;
+  position: relative;
+  z-index: 2;
+  color: var(--fg-primary);
+  background: var(--page-bg);
+}
+
+.status-spacer {
+  height: 0;
+}
+
+.mine-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--mine-header-height);
+  padding: 0 16px;
+  box-sizing: border-box;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg-primary);
 }
 
 .profile-card {

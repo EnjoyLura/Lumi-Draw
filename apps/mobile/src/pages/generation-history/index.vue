@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onBeforeUnmount, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -318,6 +319,7 @@ async function login() {
 
 <template>
   <view class="generation-history-page" :class="themeClass">
+    <LumiPageHeader title="生成记录" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="filter-bar">
         <view
@@ -698,5 +700,17 @@ async function login() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Lumi custom page header layout */
+.generation-history-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.generation-history-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

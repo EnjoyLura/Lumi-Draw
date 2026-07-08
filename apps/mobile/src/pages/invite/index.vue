@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -105,6 +106,7 @@ function shareInvite() {
 
 <template>
   <view class="invite-page" :class="themeClass">
+    <LumiPageHeader title="邀请好友" />
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -369,5 +371,17 @@ function shareInvite() {
   margin-bottom: 6px;
   font-weight: 700;
   color: var(--accent-deep);
+}
+
+/* Lumi custom page header layout */
+.invite-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.invite-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

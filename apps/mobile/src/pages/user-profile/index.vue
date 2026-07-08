@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -318,6 +319,7 @@ async function confirmUnfollow() {
 
 <template>
   <view class="profile-page" :class="themeClass">
+    <LumiPageHeader title="用户主页" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view v-if="loading" class="profile-empty">
         <view class="empty-icon">◎</view>
@@ -896,5 +898,17 @@ async function confirmUnfollow() {
 .dialog-btn.danger {
   color: #fff;
   background: var(--rose);
+}
+
+/* Lumi custom page header layout */
+.profile-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

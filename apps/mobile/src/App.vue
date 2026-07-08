@@ -53,6 +53,19 @@ page {
   --page-bg: linear-gradient(175deg, var(--bg-base) 0%, var(--bg-soft) 100%);
 }
 
+html,
+body,
+#app,
+uni-app,
+uni-page,
+uni-page-body {
+  background: var(--bg-base);
+}
+
+body {
+  min-height: 100vh;
+}
+
 :root {
   --bg-base: #eef4fc;
   --bg-soft: #e1ebf8;

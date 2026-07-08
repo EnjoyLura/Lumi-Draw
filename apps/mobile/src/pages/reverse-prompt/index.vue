@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -112,6 +113,7 @@ async function login() {
 
 <template>
   <view class="reverse-page" :class="themeClass">
+    <LumiPageHeader title="反推提示词" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="card upload-card">
@@ -322,5 +324,17 @@ async function login() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Lumi custom page header layout */
+.reverse-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.reverse-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

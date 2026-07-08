@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
@@ -65,6 +66,7 @@ async function loadChangelog() {
 
 <template>
   <view class="changelog-page" :class="themeClass">
+    <LumiPageHeader title="更新日志" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="changelog-content">
         <view class="app-head">
@@ -287,5 +289,17 @@ async function loadChangelog() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Lumi custom page header layout */
+.changelog-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.changelog-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

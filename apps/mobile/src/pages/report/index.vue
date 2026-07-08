@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -117,6 +118,7 @@ async function login() {
 
 <template>
   <view class="report-page" :class="themeClass">
+    <LumiPageHeader title="举报" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="section-title">请选择举报原因</view>
@@ -243,5 +245,17 @@ async function login() {
 
 .submit-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.report-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

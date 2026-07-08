@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -137,6 +138,7 @@ function goPlaza() {
 
 <template>
   <view class="history-page" :class="themeClass">
+    <LumiPageHeader title="浏览记录" />
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -291,5 +293,17 @@ function goPlaza() {
 
 .empty-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.history-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

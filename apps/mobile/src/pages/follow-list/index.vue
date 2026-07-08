@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -233,6 +234,7 @@ function goPlaza() {
 
 <template>
   <view class="follow-page" :class="themeClass">
+    <LumiPageHeader />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -413,5 +415,17 @@ function goPlaza() {
 
 .empty-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.follow-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.follow-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

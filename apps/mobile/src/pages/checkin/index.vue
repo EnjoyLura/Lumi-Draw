@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -181,6 +182,7 @@ function claimMilestone(item: Milestone) {
 
 <template>
   <view class="checkin-page" :class="themeClass">
+    <LumiPageHeader title="每日签到" />
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -287,6 +289,12 @@ function claimMilestone(item: Milestone) {
   margin-bottom: 16px;
   text-align: center;
   background: linear-gradient(135deg, rgba(232, 244, 255, 0.95), rgba(255, 255, 255, 0.86));
+}
+
+.checkin-page.theme-dark .streak-card,
+:root[data-theme="dark"] .streak-card {
+  background: linear-gradient(135deg, rgba(38, 38, 40, 0.98), rgba(28, 28, 30, 0.92));
+  border-color: var(--border);
 }
 
 .streak-label {
@@ -489,5 +497,17 @@ function claimMilestone(item: Milestone) {
   right: -3px;
   font-size: 10px;
   color: var(--mint);
+}
+
+/* Lumi custom page header layout */
+.checkin-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.checkin-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

@@ -10,7 +10,8 @@
     {
       "path": "pages/create/index",
       "style": {
-        "navigationBarTitleText": "创作"
+        "navigationBarTitleText": "创作",
+        "navigationStyle": "custom"
       }
     },
     {
@@ -30,145 +31,169 @@
     {
       "path": "pages/generation-history/index",
       "style": {
-        "navigationBarTitleText": "生成记录"
+        "navigationBarTitleText": "生成记录",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/mine/index",
       "style": {
-        "navigationBarTitleText": "我的"
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/all-gameplays/index",
       "style": {
-        "navigationBarTitleText": "全部玩法"
+        "navigationBarTitleText": "全部玩法",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/search/index",
       "style": {
-        "navigationBarTitleText": "搜索"
+        "navigationBarTitleText": "搜索",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/reverse-prompt/index",
       "style": {
-        "navigationBarTitleText": "反推提示词"
+        "navigationBarTitleText": "反推提示词",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/work-detail/index",
       "style": {
-        "navigationBarTitleText": "作品详情"
+        "navigationBarTitleText": "作品详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/report/index",
       "style": {
-        "navigationBarTitleText": "举报"
+        "navigationBarTitleText": "举报",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/user-profile/index",
       "style": {
-        "navigationBarTitleText": "用户主页"
+        "navigationBarTitleText": "用户主页",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/recharge/index",
       "style": {
-        "navigationBarTitleText": "积分充值"
+        "navigationBarTitleText": "积分充值",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/checkin/index",
       "style": {
-        "navigationBarTitleText": "每日签到"
+        "navigationBarTitleText": "每日签到",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/invite/index",
       "style": {
-        "navigationBarTitleText": "邀请好友"
+        "navigationBarTitleText": "邀请好友",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/membership/index",
       "style": {
-        "navigationBarTitleText": "会员中心"
+        "navigationBarTitleText": "会员中心",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/messages/index",
       "style": {
-        "navigationBarTitleText": "消息"
+        "navigationBarTitleText": "消息",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/message-detail/index",
       "style": {
-        "navigationBarTitleText": "消息详情"
+        "navigationBarTitleText": "消息详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/settings/index",
       "style": {
-        "navigationBarTitleText": "设置"
+        "navigationBarTitleText": "设置",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/agreement/index",
       "style": {
-        "navigationBarTitleText": "协议详情"
+        "navigationBarTitleText": "协议详情",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/edit-profile/index",
       "style": {
-        "navigationBarTitleText": "编辑资料"
+        "navigationBarTitleText": "编辑资料",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/feedback/index",
       "style": {
-        "navigationBarTitleText": "意见反馈"
+        "navigationBarTitleText": "意见反馈",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/changelog/index",
       "style": {
-        "navigationBarTitleText": "更新日志"
+        "navigationBarTitleText": "更新日志",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/publish/index",
       "style": {
-        "navigationBarTitleText": "发布作品"
+        "navigationBarTitleText": "发布作品",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/edit-work/index",
       "style": {
-        "navigationBarTitleText": "编辑作品"
+        "navigationBarTitleText": "编辑作品",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/drafts/index",
       "style": {
-        "navigationBarTitleText": "草稿箱"
+        "navigationBarTitleText": "草稿箱",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/history/index",
       "style": {
-        "navigationBarTitleText": "浏览记录"
+        "navigationBarTitleText": "浏览记录",
+        "navigationStyle": "custom"
       }
     },
     {
       "path": "pages/follow-list/index",
       "style": {
-        "navigationBarTitleText": "关注列表"
+        "navigationBarTitleText": "关注列表",
+        "navigationStyle": "custom"
       }
     }
   ],
@@ -181,5 +206,30 @@
       "colorType": "custom",
       "color": "transparent"
     }
+  },
+  "tabBar": {
+    "height": "0px",
+    "borderStyle": "white",
+    "backgroundColor": "#ffffff",
+    "color": "#8497b5",
+    "selectedColor": "#5b9fe8",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "露米绘画"
+      },
+      {
+        "pagePath": "pages/plaza/index",
+        "text": "广场"
+      },
+      {
+        "pagePath": "pages/gallery/index",
+        "text": "画廊"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
+    ]
   }
 }

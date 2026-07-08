@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -878,6 +879,7 @@ async function goPublish() {
 
 <template>
   <view class="create-page" :class="themeClass">
+    <LumiPageHeader title="创作" />
     <scroll-view class="create-scroll" scroll-y>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">
@@ -2481,5 +2483,17 @@ async function goPublish() {
   gap: 12px;
   font-size: 14px;
   color: var(--fg-muted);
+}
+
+/* Lumi custom page header layout */
+.create-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-page > .create-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

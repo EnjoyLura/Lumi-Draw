@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -572,6 +573,7 @@ function showToast(title: string) {
 
 <template>
   <view class="detail-page" :class="themeClass">
+    <LumiPageHeader title="作品详情" />
     <template v-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <image
@@ -1412,5 +1414,17 @@ function showToast(title: string) {
   100% {
     transform: scale(1);
   }
+}
+
+/* Lumi custom page header layout */
+.detail-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-page > .detail-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

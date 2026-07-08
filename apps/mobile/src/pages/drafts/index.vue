@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -136,6 +137,7 @@ async function login() {
 
 <template>
   <view class="drafts-page" :class="themeClass">
+    <LumiPageHeader title="草稿箱" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">
@@ -390,5 +392,17 @@ async function login() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Lumi custom page header layout */
+.drafts-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.drafts-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

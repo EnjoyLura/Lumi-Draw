@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
@@ -184,6 +185,7 @@ function handleReachBottom() {
 
 <template>
   <view class="search-page" :class="themeClass">
+    <LumiPageHeader title="搜索" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">
@@ -674,5 +676,17 @@ function handleReachBottom() {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* Lumi custom page header layout */
+.search-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

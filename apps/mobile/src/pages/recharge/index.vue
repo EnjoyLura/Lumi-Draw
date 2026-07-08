@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -213,6 +214,7 @@ function confirmCustomRecharge() {
 
 <template>
   <view class="recharge-page" :class="themeClass">
+    <LumiPageHeader title="积分充值" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -733,5 +735,17 @@ function confirmCustomRecharge() {
 .btn.gradient {
   color: #fff;
   background: var(--gradient-dream);
+}
+
+/* Lumi custom page header layout */
+.recharge-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.recharge-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

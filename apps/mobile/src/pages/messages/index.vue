@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -92,6 +93,7 @@ function openCategory(key: MessageCategoryKey) {
 
 <template>
   <view class="messages-page" :class="themeClass">
+    <LumiPageHeader title="消息" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
         <LumiLoginRequired
@@ -127,6 +129,8 @@ function openCategory(key: MessageCategoryKey) {
 <style scoped>
 .messages-page {
   --rose: #ff4d6d;
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
@@ -135,7 +139,10 @@ function openCategory(key: MessageCategoryKey) {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  box-sizing: border-box;
 }
 
 .category-list {

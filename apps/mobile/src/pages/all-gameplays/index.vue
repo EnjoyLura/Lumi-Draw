@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
@@ -50,6 +51,7 @@ function applyGameplay(gameplay: Gameplay) {
 
 <template>
   <view class="all-gameplays-page" :class="themeClass">
+    <LumiPageHeader title="全部玩法" />
     <scroll-view class="page-scroll" scroll-y>
       <view v-if="!useMockData && loadFailed" class="empty-state">
         <view class="empty-icon">!</view>
@@ -239,5 +241,17 @@ function applyGameplay(gameplay: Gameplay) {
 
 .empty-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.all-gameplays-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.all-gameplays-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

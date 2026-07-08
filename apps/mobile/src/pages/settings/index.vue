@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -213,6 +214,7 @@ async function login() {
 
 <template>
   <view class="settings-page" :class="themeClass">
+    <LumiPageHeader title="设置" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="settings-content">
         <view class="section-title">账号</view>
@@ -434,5 +436,17 @@ async function login() {
 
 .logout-btn.login {
   color: var(--accent);
+}
+
+/* Lumi custom page header layout */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

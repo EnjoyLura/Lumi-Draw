@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useDataMode } from "../../services/dataMode";
@@ -118,6 +119,7 @@ async function loadAgreement() {
 
 <template>
   <view class="agreement-page" :class="themeClass">
+    <LumiPageHeader />
     <scroll-view class="page-scroll" scroll-y>
       <view class="agreement-content">
         <view class="title-row">
@@ -244,5 +246,17 @@ async function loadAgreement() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Lumi custom page header layout */
+.agreement-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.agreement-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

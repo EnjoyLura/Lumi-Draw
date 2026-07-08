@@ -91,6 +91,11 @@ export function syncCurrentPageNavigationTitle() {
   if (title) refreshNavigationTitle(title);
 }
 
+export function getCurrentPageTitle() {
+  const { route, options } = readCurrentRoute();
+  return titleForRoute(route, options);
+}
+
 let titleSyncStarted = false;
 
 export function initNavigationTitleSync() {

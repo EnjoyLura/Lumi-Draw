@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -188,6 +189,7 @@ function showAgreement() {
 
 <template>
   <view class="membership-page" :class="themeClass">
+    <LumiPageHeader title="会员中心" />
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="member-card">
@@ -599,5 +601,17 @@ function showAgreement() {
 
 .agreement text {
   color: var(--accent);
+}
+
+/* Lumi custom page header layout */
+.membership-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.membership-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

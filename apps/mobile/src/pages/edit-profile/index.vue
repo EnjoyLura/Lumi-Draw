@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -176,6 +177,7 @@ async function save() {
 
 <template>
   <view class="edit-page" :class="themeClass">
+    <LumiPageHeader title="编辑资料" />
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -464,5 +466,17 @@ async function save() {
 
 .save-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.edit-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>

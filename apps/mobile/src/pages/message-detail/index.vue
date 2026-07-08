@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -154,6 +155,7 @@ async function login() {
 
 <template>
   <view class="message-detail-page" :class="themeClass">
+    <LumiPageHeader />
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
         <LumiLoginRequired
@@ -351,5 +353,17 @@ async function login() {
 
 .retry-btn::after {
   border: none;
+}
+
+/* Lumi custom page header layout */
+.message-detail-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.message-detail-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 </style>
