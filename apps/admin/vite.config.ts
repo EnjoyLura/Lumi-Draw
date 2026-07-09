@@ -9,7 +9,10 @@ export default defineConfig({
     proxy: {
       "/api": {
         target: process.env.LUMI_DEV_API_TARGET || "http://127.0.0.1:3000",
-        changeOrigin: true
+        changeOrigin: true,
+        headers: {
+          Origin: "https://ejoyflie.cloud"
+        }
       }
     }
   }

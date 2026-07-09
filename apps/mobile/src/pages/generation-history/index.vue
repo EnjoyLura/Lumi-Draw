@@ -145,6 +145,20 @@ function firstWorkId(job: GenerateHistoryJob) {
   return job.results.find((item) => item.workId)?.workId;
 }
 
+function previewCount(job: GenerateHistoryJob) {
+  return Math.max(1, Math.min(job.results.length, 4));
+}
+
+function previewClass(job: GenerateHistoryJob) {
+  return [`count-${previewCount(job)}`];
+}
+
+function getAspectRatio(ratio: string) {
+  const [width, height] = ratio.split(":").map(Number);
+  if (!width || !height) return "1 / 1";
+  return `${width} / ${height}`;
+}
+
 function clearRefreshTimer() {
   if (refreshTimer) {
     clearTimeout(refreshTimer);
@@ -345,7 +359,7 @@ async function login() {
       </view>
 
       <view v-else-if="visibleJobs.length" class="history-list">
-        <view v-for="job in visibleJobs" :key="job.id" class="job-card" @click="openCreate(job)">
+        <view v-for="job in visibleJobs" :key="job.id" class="job-card">
           <view class="job-head">
             <view class="job-main">
               <view class="job-prompt">{{ job.prompt }}</view>
@@ -361,13 +375,14 @@ async function login() {
             <text class="progress-text">{{ Math.max(0, Math.min(job.progress || 0, 99)) }}%</text>
           </view>
 
-          <view v-if="job.results.length" class="thumb-row">
+          <view v-if="job.results.length" class="thumb-row" :class="previewClass(job)">
             <image
               v-for="result in job.results.slice(0, 4)"
               :key="result.id"
               class="thumb"
               :src="result.imageUrl"
               mode="aspectFill"
+              :style="{ aspectRatio: getAspectRatio(job.ratio) }"
               @click="openWork($event, result.workId)"
             />
           </view>
@@ -381,9 +396,10 @@ async function login() {
           </view>
 
           <view class="action-row">
-            <button v-if="isSuccess(job.status) && firstWorkId(job)" class="ghost-btn" @click="openWork($event, firstWorkId(job))">查看草稿</button>
-            <button v-if="isSuccess(job.status)" class="primary-btn small" @click.stop="openCreate(job)">查看结果</button>
+            <button v-if="canCancel(job.status)" class="ghost-btn" @click.stop="openCreate(job)">查看进度</button>
             <button v-if="canCancel(job.status)" class="ghost-btn danger" @click="cancelJob($event, job)">取消任务</button>
+            <button v-if="isSuccess(job.status) && !firstWorkId(job)" class="ghost-btn" @click.stop="openCreate(job)">查看任务</button>
+            <button v-if="isSuccess(job.status) && firstWorkId(job)" class="primary-btn small" @click="openWork($event, firstWorkId(job))">打开草稿</button>
             <button v-if="job.status === 'failed' || job.status === 'cancelled'" class="primary-btn small" @click="retryJob($event, job)">重新生成</button>
           </view>
         </view>
@@ -552,16 +568,27 @@ async function login() {
 
 .thumb-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 7px;
+  gap: 8px;
   margin-top: 12px;
+}
+
+.thumb-row.count-1 {
+  grid-template-columns: minmax(132px, 168px);
+}
+
+.thumb-row.count-2,
+.thumb-row.count-3,
+.thumb-row.count-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .thumb {
   width: 100%;
-  aspect-ratio: 1;
+  min-height: 112px;
+  max-height: 190px;
   background: var(--border);
   border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(15, 35, 55, 0.08);
 }
 
 .error-text {
@@ -582,6 +609,7 @@ async function login() {
 
 .action-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
   margin-top: 12px;

@@ -51,13 +51,17 @@ function buildVisibleSignedDays(streak: number, checkedToday: boolean) {
 }
 
 const calendarDays = computed(() => {
+  const milestoneDays = new Set(
+    milestones.map((item) => signedDays.value[item.days - 1]).filter((day): day is number => Boolean(day))
+  );
+
   return Array.from({ length: daysInCurrentMonth }, (_, index) => {
     const day = index + 1;
     return {
       day,
       signed: signedDays.value.includes(day),
       today: day === currentDay,
-      milestone: milestones.some((item) => item.days === day)
+      milestone: milestoneDays.has(day)
     };
   });
 });
@@ -249,7 +253,7 @@ function claimMilestone(item: Milestone) {
               }"
             >
               <text>{{ item.day }}</text>
-              <text v-if="item.milestone" class="cal-gift">◆</text>
+              <text v-if="item.milestone" class="cal-gift">🎁</text>
             </view>
           </view>
         </view>
@@ -273,7 +277,7 @@ function claimMilestone(item: Milestone) {
 }
 
 .page-content {
-  padding: 16px;
+  padding: 16px 16px 24px;
 }
 
 .streak-card,
@@ -285,26 +289,45 @@ function claimMilestone(item: Milestone) {
 }
 
 .streak-card {
-  padding: 24px;
-  margin-bottom: 16px;
+  position: relative;
+  padding: 24px 22px 26px;
+  margin-bottom: 18px;
+  overflow: hidden;
   text-align: center;
-  background: linear-gradient(135deg, rgba(232, 244, 255, 0.95), rgba(255, 255, 255, 0.86));
+  background:
+    radial-gradient(circle at 18% 10%, rgba(111, 212, 176, 0.22), transparent 34%),
+    linear-gradient(135deg, rgba(232, 244, 255, 0.98), rgba(255, 255, 255, 0.88));
 }
 
 .checkin-page.theme-dark .streak-card,
 :root[data-theme="dark"] .streak-card {
-  background: linear-gradient(135deg, rgba(38, 38, 40, 0.98), rgba(28, 28, 30, 0.92));
+  background:
+    radial-gradient(circle at 18% 10%, rgba(111, 212, 176, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(38, 38, 40, 0.98), rgba(28, 28, 30, 0.92));
   border-color: var(--border);
 }
 
 .streak-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
   font-size: 13px;
+  font-weight: 700;
   color: var(--fg-muted);
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(91, 159, 232, 0.12);
+  border-radius: 999px;
 }
 
 .streak-num {
-  font-family: Georgia, serif;
-  font-size: 56px;
+  position: relative;
+  z-index: 1;
+  margin-top: 8px;
+  font-size: 62px;
   font-weight: 700;
   line-height: 1.2;
   color: var(--accent);
@@ -317,23 +340,25 @@ function claimMilestone(item: Milestone) {
 
 .streak-unit {
   margin-left: 2px;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--fg-muted);
 }
 
 .checkin-btn {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   gap: 4px;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 46px;
-  margin-top: 16px;
-  font-size: 15px;
+  height: 50px;
+  margin-top: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #fff;
   background: var(--gradient-dream);
-  border: none;
+  border: 0;
   border-radius: 12px;
 }
 
@@ -351,7 +376,7 @@ function claimMilestone(item: Milestone) {
   display: flex;
   gap: 4px;
   align-items: center;
-  margin-bottom: 12px;
+  margin: 18px 2px 12px;
   font-size: 18px;
   font-weight: 700;
 }
@@ -368,23 +393,29 @@ function claimMilestone(item: Milestone) {
 .milestone-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 18px;
 }
 
 .milestone-card {
-  min-height: 78px;
-  padding: 12px 8px;
+  position: relative;
+  min-height: 86px;
+  padding: 13px 8px 12px;
+  overflow: hidden;
   text-align: center;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .milestone-card.available {
   border: 1.5px solid var(--accent);
 }
 
+.milestone-card.claimed {
+  background: linear-gradient(180deg, rgba(111, 212, 176, 0.14), var(--bg-card));
+}
+
 .milestone-card.locked {
-  opacity: 0.5;
+  opacity: 0.62;
 }
 
 .milestone-days {
@@ -393,8 +424,8 @@ function claimMilestone(item: Milestone) {
 }
 
 .milestone-reward {
-  margin-top: 4px;
-  font-size: 16px;
+  margin-top: 5px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -413,7 +444,7 @@ function claimMilestone(item: Milestone) {
   min-width: 34px;
   height: 16px;
   padding: 0 6px;
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 9px;
   font-weight: 700;
   border-radius: 999px;
@@ -435,25 +466,30 @@ function claimMilestone(item: Milestone) {
 }
 
 .calendar-card {
-  padding: 16px;
+  padding: 18px 16px 20px;
+  border-radius: 14px;
 }
 
 .month-row {
-  margin-bottom: 10px;
-  font-size: 12px;
-  color: var(--fg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--fg-secondary);
 }
 
 .week-row,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 7px 4px;
   text-align: center;
 }
 
 .week-row {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 11px;
   color: var(--fg-muted);
 }
@@ -463,8 +499,8 @@ function claimMilestone(item: Milestone) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   margin: 0 auto;
   font-size: 12px;
   color: var(--fg-secondary);
@@ -474,17 +510,14 @@ function claimMilestone(item: Milestone) {
 
 .cal-day.signed {
   font-weight: 700;
-  color: #fff;
-  background: var(--gradient-dream);
+  color: var(--accent-deep);
+  background: var(--accent-soft);
 }
 
 .cal-day.today {
   color: var(--accent);
+  background: var(--bg-card);
   border: 1.5px solid var(--accent);
-}
-
-.cal-day.milestone:not(.signed) {
-  background: var(--mint-soft, rgba(111, 212, 176, 0.16));
 }
 
 .cal-day.pulse {
@@ -493,10 +526,10 @@ function claimMilestone(item: Milestone) {
 
 .cal-gift {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  font-size: 10px;
-  color: var(--mint);
+  top: -5px;
+  right: -5px;
+  font-size: 11px;
+  line-height: 1;
 }
 
 /* Lumi custom page header layout */

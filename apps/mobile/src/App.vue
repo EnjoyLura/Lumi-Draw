@@ -178,6 +178,16 @@ uni-page-body {
   overflow-x: hidden;
 }
 
+/* #ifdef H5 */
+uni-tabbar {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+/* #endif */
+
 @keyframes wf-slide-in-left {
   from {
     opacity: 0;

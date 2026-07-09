@@ -723,8 +723,14 @@ function handleReachBottom() {
           :class="waterfallAnimationClass"
         >
           <view class="waterfall-column">
-            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
+              <image
+                class="work-img"
+                :src="work.image"
+                mode="aspectFill"
+                :style="{ aspectRatio: getAspectRatio(work.ratio) }"
+                @click="openWorkDetail(work.id)"
+              />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -732,7 +738,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
+                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>
@@ -742,8 +748,14 @@ function handleReachBottom() {
           </view>
 
           <view class="waterfall-column">
-            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
+              <image
+                class="work-img"
+                :src="work.image"
+                mode="aspectFill"
+                :style="{ aspectRatio: getAspectRatio(work.ratio) }"
+                @click="openWorkDetail(work.id)"
+              />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -751,7 +763,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click="toggleLike($event, work.id)">
+                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="toggleLike($event, work.id)">
                     <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>

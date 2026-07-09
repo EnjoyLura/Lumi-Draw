@@ -66,8 +66,9 @@ const detailImageStyle = computed(() => {
   if (!work.value) return {};
   const [width, height] = work.value.ratio.split(":").map(Number);
   if (!width || !height) return {};
-  if (height > width) return { height: "400px" };
-  return { height: `${Math.round((height / width) * 750)}rpx` };
+  const ratioHeight = Math.round((height / width) * 750);
+  const minHeight = width > height ? 640 : 0;
+  return { height: `${Math.max(ratioHeight, minHeight)}rpx` };
 });
 
 onLoad((query) => {
@@ -161,6 +162,7 @@ async function loadDetail() {
     const detail = await fetchWorkDetail(workId.value);
     work.value = detail.work;
     user.value = detail.user;
+    if (!detail.work.published) return;
     const [stateResult] = await Promise.allSettled([fetchWorkState(workId.value), recordWorkView(workId.value)]);
     if (stateResult.status === "fulfilled") {
       liked.value = stateResult.value.liked;
@@ -778,9 +780,10 @@ function showToast(title: string) {
 .detail-image {
   display: block;
   width: 100%;
-  min-height: 220px;
-  max-height: 400px;
+  min-height: 260px;
+  max-height: 560px;
   object-fit: cover;
+  background: var(--bg-soft);
 }
 
 .detail-body {

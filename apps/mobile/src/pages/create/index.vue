@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { mockImage } from "../../services/mockImages";
-import { chooseLocalImage, uploadRemoteImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
+import { chooseLocalImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
 import {
   countOptions,
   createModels,
@@ -19,14 +19,7 @@ import {
   type QualityOption,
   type RatioOption
 } from "./createData";
-import {
-  createDraftWork,
-  createGenerateJob,
-  fetchCreateConfig,
-  fetchGenerateJob,
-  publishGenerateResult,
-  type BackendGenerateJob
-} from "./createService";
+import { createGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
@@ -124,12 +117,28 @@ const createConfigUnavailable = computed(
 );
 
 const generationStages = [
-  "解析提示词，理解创作意图...",
-  "构建画面构图，分配元素位置...",
-  "AI深度绘制中，生成主体内容...",
-  "精修细节，优化光影与色彩...",
-  "高清渲染输出，即将完成..."
+  "提交任务：正在整理创作参数",
+  "理解提示词：分析主题、风格与画面重点",
+  "构建画面：规划主体位置和背景层次",
+  "生成图像：绘制主体内容与关键细节",
+  "精修增强：优化光影、色彩和质感",
+  "保存草稿：同步生成结果到草稿箱"
 ];
+
+function generationStageText(progressValue: number, status?: BackendGenerateJob["status"]) {
+  if (status === "queued") return generationStages[0];
+  if (status === "failed") return "生成失败：积分已按规则退回";
+  if (status === "cancelled") return "任务已取消：未消耗积分将退回";
+  if (status === "succeeded") return "生成完成：作品已保存到草稿箱";
+  if (status === "partial_failed") return "部分完成：成功结果已保存到草稿箱";
+
+  if (progressValue < 12) return generationStages[0];
+  if (progressValue < 30) return generationStages[1];
+  if (progressValue < 50) return generationStages[2];
+  if (progressValue < 74) return generationStages[3];
+  if (progressValue < 92) return generationStages[4];
+  return generationStages[5];
+}
 
 const generationErrors = [
   "模型服务暂时不可用",
@@ -550,7 +559,7 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
 
 function applyBackendJob(job: BackendGenerateJob) {
   progress.value = Math.max(progress.value, Math.min(job.progress || 0, 100));
-  stageText.value = job.stageText || stageText.value;
+  stageText.value = generationStageText(progress.value, job.status);
 
   if (!isTerminalJob(job.status)) return;
 
@@ -594,7 +603,7 @@ async function resumeBackendJob(jobId: string) {
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
-  stageText.value = "正在读取生成任务...";
+  stageText.value = generationStageText(0, "queued");
 
   try {
     const job = await fetchGenerateJob(jobId);
@@ -642,7 +651,7 @@ async function startBackendGenerate(prompt: string) {
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
-  stageText.value = "任务提交中...";
+  stageText.value = generationStageText(0, "queued");
 
   try {
     const inputImageUrl = await resolvePromptImageUrl();
@@ -696,19 +705,18 @@ async function startGenerate() {
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
-  stageText.value = generationStages[0];
+  stageText.value = generationStageText(0);
   showToast(`创作任务已提交，正在生成 ${selectedCount.value} 张图片`);
 
   progressTimer = setInterval(() => {
     progress.value = Math.min(progress.value + 11, 95);
-    const stageIndex = Math.min(Math.floor(progress.value / 22), generationStages.length - 1);
-    stageText.value = generationStages[stageIndex];
+    stageText.value = generationStageText(progress.value);
   }, 420);
 
   finishTimer = setTimeout(() => {
     if (progressTimer) clearInterval(progressTimer);
     progress.value = 100;
-    stageText.value = "生成完成！";
+    stageText.value = generationStageText(100, "succeeded");
 
     const count = selectedCount.value;
     const stamp = Date.now();
@@ -775,43 +783,7 @@ async function savePreview() {
     return;
   }
 
-  isSavingDrafts.value = true;
-  try {
-    if (previewData.value.resultId) {
-      const published = await publishGenerateResult(previewData.value.resultId, {
-        title: draftTitle(),
-        description: "",
-        isPublic: false
-      });
-      const result = generatedResults.value.find((item) => item.resultId === previewData.value?.resultId);
-      if (result) result.savedWorkId = published.workId;
-      previewData.value.savedWorkId = published.workId;
-      showToast("图片已保存到草稿箱");
-      closePreview();
-      return;
-    }
-
-    const uploaded = await uploadRemoteImage(previewData.value.src, "work");
-    const created = await createDraftWork({
-      title: draftTitle(),
-      description: "",
-      prompt: promptText.value.trim(),
-      imageUrl: uploaded.publicUrl,
-      ratio: selectedRatio.value.label,
-      quality: selectedQuality.value.label,
-      modelId: selectedModel.value.id,
-      style: selectedStyleName.value
-    });
-    const result = generatedResults.value.find((item) => resultImageSrc(item) === previewData.value?.src);
-    if (result && created.id) result.savedWorkId = created.id;
-    if (created.id) previewData.value.savedWorkId = created.id;
-    showToast("图片已保存到草稿箱");
-    closePreview();
-  } catch {
-    showToast("保存失败，请稍后重试");
-  } finally {
-    isSavingDrafts.value = false;
-  }
+  showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
 }
 
 async function saveAllResults() {
@@ -829,50 +801,23 @@ async function saveAllResults() {
     return;
   }
 
-  isSavingDrafts.value = true;
-  try {
-    let savedCount = 0;
-    for (const [index, item] of successfulResults.entries()) {
-      if (item.savedWorkId) continue;
-      if (item.resultId) {
-        const published = await publishGenerateResult(item.resultId, {
-          title: draftTitle(index),
-          description: "",
-          isPublic: false
-        });
-        item.savedWorkId = published.workId;
-        savedCount += 1;
-        continue;
-      }
-
-      const uploaded = await uploadRemoteImage(resultImageSrc(item), "work", `${item.seed}.jpg`);
-      const created = await createDraftWork({
-        title: draftTitle(index),
-        description: "",
-        prompt: promptText.value.trim(),
-        imageUrl: uploaded.publicUrl,
-        ratio: selectedRatio.value.label,
-        quality: selectedQuality.value.label,
-        modelId: selectedModel.value.id,
-        style: selectedStyleName.value
-      });
-      if (created.id) item.savedWorkId = created.id;
-      savedCount += 1;
-    }
-    showToast(savedCount ? `已保存 ${savedCount} 张到草稿箱` : "图片已在草稿箱");
-  } catch {
-    showToast("保存失败，请稍后重试");
-  } finally {
-    isSavingDrafts.value = false;
+  if (successfulResults.some((item) => !item.savedWorkId)) {
+    showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
+    return;
   }
+  showToast("图片已在草稿箱");
 }
 
 async function goPublish() {
   if (!ensureLogin()) return;
-  if (!useMockData.value && generatedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
+  if (useMockData.value && generatedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
     await saveAllResults();
   }
   const draftId = generatedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
+  if (!useMockData.value && !draftId) {
+    showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
+    return;
+  }
   uni.navigateTo({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
 }
 </script>
@@ -1271,8 +1216,9 @@ async function goPublish() {
 }
 
 .create-scroll {
-  position: absolute;
-  inset: 0 0 104px;
+  flex: 1;
+  min-height: 0;
+  height: auto;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -1290,7 +1236,7 @@ async function goPublish() {
 }
 
 .create-content {
-  padding: 10px 0 14px;
+  padding: 10px 0 calc(128px + env(safe-area-inset-bottom));
 }
 
 .login-gate {
@@ -2495,5 +2441,7 @@ async function goPublish() {
   flex: 1;
   min-height: 0;
   height: auto;
+  position: relative;
+  inset: auto;
 }
 </style>
