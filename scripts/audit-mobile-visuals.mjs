@@ -2,6 +2,7 @@ import { chromium, devices } from "@playwright/test";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import path from "node:path";
+import { readUniJson } from "./uni-json.mjs";
 
 const ROOT = process.cwd();
 const H5_ROOT = path.join(ROOT, "apps", "mobile", "dist", "build", "h5");
@@ -171,7 +172,7 @@ function fileSafe(route) {
 }
 
 function readPages() {
-  return JSON.parse(readFileSync(PAGES_JSON, "utf8")).pages.map((page) => page.path);
+  return readUniJson(PAGES_JSON).pages.map((page) => page.path);
 }
 
 function collectRuntimeErrors(page) {

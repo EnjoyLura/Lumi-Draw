@@ -1,0 +1,10 @@
+{
+  "light": {
+    "pageBackground": "#eef4fc",
+    "navTextStyle": "black"
+  },
+  "dark": {
+    "pageBackground": "#141416",
+    "navTextStyle": "white"
+  }
+}

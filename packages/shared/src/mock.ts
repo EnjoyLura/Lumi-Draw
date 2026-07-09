@@ -2,7 +2,7 @@ import type { AdminMetric, AiModel, UserProfile, WorkItem } from "./contracts";
 
 export const MOCK_STORAGE_KEY = "lumi-draw:use-mock-data";
 
-export const DEFAULT_USE_MOCK = true;
+export const DEFAULT_USE_MOCK = false;
 
 export const mockUser: UserProfile = {
   id: 1,

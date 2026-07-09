@@ -12,16 +12,11 @@ const GROUPS: Array<[string, Array<[string, string, string]>]> = [
 
 export function Settings() {
   const { go, toast } = useNav();
-  const { useMock, setUseMock } = useAdminSession();
+  const { useMock } = useAdminSession();
   const { data, loading, error, reload } = useAsyncData<AdminSystemSettings>(useMock ? null : () => apiGetSystemSettings(), [useMock]);
-  const [mock, setMock] = useState(useMock);
   const [reviewMode, setReviewMode] = useState("auto");
   const [manualReviewEnabled, setManualReviewEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setMock(useMock);
-  }, [useMock]);
 
   useEffect(() => {
     if (!useMock && data) {
@@ -29,13 +24,6 @@ export function Settings() {
       setManualReviewEnabled(data.manualReviewEnabled);
     }
   }, [data, useMock]);
-
-  const toggleMock = () => {
-    const next = !mock;
-    setMock(next);
-    setUseMock(next);
-    toast(next ? "已开启模拟数据" : "已切换为后端接口");
-  };
 
   const saveSettings = async () => {
     setSaving(true);
@@ -84,17 +72,6 @@ export function Settings() {
           </div>
         </div>
       ))}
-      <Sec title="开发调试" />
-      <div className="card">
-        <div className="lrow" style={{ cursor: "default" }}>
-          <div className="lr-ico" style={{ background: "var(--purple-soft)", color: "#8B7FD6" }}><i className="ri-code-s-slash-line" /></div>
-          <div className="lr-main">
-            <div className="lr-t">模拟数据</div>
-            <div className="lr-s">开启后使用静态数据，关闭后请求后端接口</div>
-          </div>
-          <span className={`switch${mock ? " on" : ""}`} onClick={toggleMock} />
-        </div>
-      </div>
       <div style={{ textAlign: "center", fontSize: 12, color: "var(--fg-muted)", marginTop: 24 }}>露米绘画管理后台 v1.0.0</div>
     </>
   );

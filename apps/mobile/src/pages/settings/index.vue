@@ -4,7 +4,7 @@ import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
-import { setUseMockData, useDataMode } from "../../services/dataMode";
+import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { currentVersion } from "../changelog/changelogData";
 import { aboutItems, type SettingsLink } from "./settingsData";
@@ -12,7 +12,7 @@ import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./set
 
 const { useMockData } = useDataMode();
 const { theme, themeClass, toggleTheme } = useTheme();
-const { isLoggedIn, currentUser, login: commitLogin, logout, syncAuthState, updateCurrentUser } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, logout, updateCurrentUser } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const phone = ref(currentUser.value?.phone || "");
@@ -139,14 +139,6 @@ function toggleDark() {
   toggleTheme();
 }
 
-function toggleMock() {
-  setUseMockData(!useMockData.value);
-  syncAuthState();
-  void loadSettingsProfile();
-  void loadVersionMeta();
-  uni.showToast({ title: useMockData.value ? "已切换为模拟数据" : "已切换为后端接口", icon: "none" });
-}
-
 function clearAppCache() {
   const cacheKeys = [
     "lumi-home-announcement-dismissed-week",
@@ -237,18 +229,6 @@ async function login() {
             <view class="lr-icon accent">☀</view>
             <view class="lr-text">深色模式</view>
             <view class="switch" :class="{ active: darkMode }"><view class="knob" /></view>
-          </view>
-        </view>
-
-        <view class="section-title">开发调试</view>
-        <view class="card">
-          <view class="list-row" @click="toggleMock">
-            <view class="lr-icon lavender">≋</view>
-            <view class="lr-multi">
-              <view class="lr-text">模拟数据</view>
-              <view class="lr-sub">开启后使用静态数据，关闭后请求后端接口</view>
-            </view>
-            <view class="switch" :class="{ active: useMockData }"><view class="knob" /></view>
           </view>
         </view>
 

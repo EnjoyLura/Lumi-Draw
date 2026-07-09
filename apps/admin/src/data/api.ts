@@ -1,5 +1,4 @@
-// 真实后端适配层：把后端 API 响应映射为页面沿用的 mock 形状，
-// 这样开启/关闭模拟数据时页面渲染逻辑保持一致。
+// Real API adapter: maps backend responses into the shapes already used by pages.
 import { http, type Paginated } from "./http";
 import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";

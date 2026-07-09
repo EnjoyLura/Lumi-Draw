@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { readFileSync } from "node:fs";
 import path from "node:path";
+import { readUniJson } from "../../scripts/uni-json.mjs";
 
 const MOCK_KEY = "lumi-draw:use-mock-data";
 const LOGIN_KEY = "lumi-logged-in";
@@ -37,7 +37,7 @@ const routes = [
 ];
 
 test("mobile h5 smoke routes cover pages.json", () => {
-  const pagesJson = JSON.parse(readFileSync(path.join(process.cwd(), "apps/mobile/src/pages.json"), "utf8"));
+  const pagesJson = readUniJson(path.join(process.cwd(), "apps/mobile/src/pages.json"));
   const registered = pagesJson.pages.map((page) => page.path).sort();
   const covered = routes
     .map(([, url]) => String(url).match(/#\/([^?]+)/)?.[1])

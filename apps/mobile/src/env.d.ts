@@ -8,6 +8,7 @@ declare module "*.vue" {
 interface ImportMetaEnv {
   readonly MODE?: string;
   readonly VITE_API_BASE?: string;
+  readonly VITE_ENABLE_MOCK_DATA?: string;
 }
 
 interface ImportMeta {

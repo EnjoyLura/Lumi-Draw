@@ -4,7 +4,7 @@ import { useAdminSession } from "../data/adminSession";
 import { ApiError } from "../data/http";
 
 export function AdminLogin() {
-  const { onLoggedIn, setUseMock } = useAdminSession();
+  const { onLoggedIn } = useAdminSession();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -42,9 +42,6 @@ export function AdminLogin() {
         {error ? <div style={{ color: "var(--danger, #EF4444)", fontSize: 12 }}>{error}</div> : null}
         <button className="btn btn-primary btn-block" disabled={loading} onClick={() => void submit()}>
           {loading ? "登录中..." : "登录"}
-        </button>
-        <button className="btn btn-block" style={{ background: "var(--bg-soft)" }} onClick={() => setUseMock(true)}>
-          改用模拟数据
         </button>
       </div>
     </div>

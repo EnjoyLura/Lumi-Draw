@@ -198,15 +198,19 @@
     }
   ],
   "globalStyle": {
-    "navigationBarTextStyle": "black",
+    "navigationBarTextStyle": "@navTextStyle",
     "navigationBarTitleText": "露米绘画",
-    "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#ffffff",
+    "navigationBarBackgroundColor": "@pageBackground",
+    "backgroundColor": "@pageBackground",
+    "backgroundColorTop": "@pageBackground",
+    "backgroundColorBottom": "@pageBackground",
     "navigationBarShadow": {
       "colorType": "custom",
       "color": "transparent"
     }
-  },
+  }
+  // #ifdef H5
+  ,
   "tabBar": {
     "height": "0px",
     "borderStyle": "white",
@@ -232,4 +236,5 @@
       }
     ]
   }
+  // #endif
 }

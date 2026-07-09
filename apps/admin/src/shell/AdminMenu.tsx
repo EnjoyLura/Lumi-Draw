@@ -2,14 +2,7 @@ import { useAdminSession } from "../data/adminSession";
 import { useNav } from "./NavContext";
 
 function AdminMenuBody() {
-  const { closeSheet, go, toast } = useNav();
-  const { useMock, setUseMock } = useAdminSession();
-
-  const toggleMock = () => {
-    const next = !useMock;
-    setUseMock(next);
-    toast(next ? "已开启模拟数据" : "已关闭模拟数据（改用后端接口）");
-  };
+  const { closeSheet, go } = useNav();
 
   return (
     <>
@@ -24,14 +17,6 @@ function AdminMenuBody() {
           <div className="lr-main"><div className="lr-t">系统设置</div></div>
           <i className="ri-arrow-right-s-line lr-arrow" />
         </div>
-        <div className="lrow" onClick={toggleMock}>
-          <div className="lr-ico" style={{ background: "var(--info-soft)", color: "#5B9FE8" }}><i className="ri-database-2-line" /></div>
-          <div className="lr-main">
-            <div className="lr-t">模拟数据</div>
-            <div className="lr-s">开启后使用静态数据，关闭后请求后端接口</div>
-          </div>
-          <div className={`switch${useMock ? " on" : ""}`} />
-        </div>
       </div>
     </>
   );
@@ -39,19 +24,15 @@ function AdminMenuBody() {
 
 export function useOpenAdminMenu() {
   const { openSheet, closeSheet, toast } = useNav();
-  const { useMock, logout } = useAdminSession();
+  const { logout } = useAdminSession();
   return () =>
     openSheet(
       "管理员",
       <AdminMenuBody />,
       <button className="btn btn-danger btn-block" onClick={() => {
         closeSheet();
-        if (useMock) {
-          toast("模拟数据模式无需登录");
-        } else {
-          logout();
-          toast("已退出登录");
-        }
+        logout();
+        toast("已退出登录");
       }}>退出登录</button>
     );
 }

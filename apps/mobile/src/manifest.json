@@ -7,6 +7,8 @@
   "transformPx": false,
   "mp-weixin": {
     "appid": "wxbb3da1bed70db50f",
+    "darkmode": true,
+    "themeLocation": "theme.json",
     "setting": {
       "urlCheck": false
     },

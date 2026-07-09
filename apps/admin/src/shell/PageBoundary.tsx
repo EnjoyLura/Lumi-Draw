@@ -9,8 +9,7 @@ interface State {
   error: Error | null;
 }
 
-// 页面级错误边界：某个页面渲染抛错（例如关闭模拟数据后后端接口未接入）时，
-// 只降级内容区，保留外壳（顶栏 / 抽屉 / 管理员菜单），用户仍可切回模拟数据。
+// Keep the admin shell usable if a page fails while loading real API data.
 export class PageBoundary extends Component<Props, State> {
   state: State = { error: null };
 

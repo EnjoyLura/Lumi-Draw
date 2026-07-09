@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { readUniJson } from "./uni-json.mjs";
 
 const ROOT = process.cwd();
 const MOBILE_SRC = path.join(ROOT, "apps", "mobile", "src");
@@ -30,7 +31,7 @@ function assertIncludes(source, token, context, errors) {
 }
 
 function parsePages() {
-  const json = JSON.parse(readText(PAGES_JSON));
+  const json = readUniJson(PAGES_JSON);
   return json.pages.map((page) => page.path);
 }
 

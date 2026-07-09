@@ -15,7 +15,7 @@ function Overlay() {
 
 function Shell() {
   const { useMock, loggedIn } = useAdminSession();
-  // 关闭模拟数据且未登录时，显示管理员登录页
+  // Real API mode requires an administrator session.
   if (!useMock && !loggedIn) {
     return <AdminLogin />;
   }

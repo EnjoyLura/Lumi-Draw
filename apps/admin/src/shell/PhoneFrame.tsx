@@ -1,4 +1,3 @@
-import { readUseMockData } from "../dataMode";
 import { renderPage } from "../pages/registry";
 import { useOpenAdminMenu } from "./AdminMenu";
 import { pageTitle } from "./menu";
@@ -9,8 +8,7 @@ export function PhoneFrame() {
   const { stack, current, dir, onNavLeft } = useNav();
   const openAdminMenu = useOpenAdminMenu();
   const depth = stack.length;
-  // 把模拟数据开关纳入 key：切换开关后页面重挂载、错误边界复位，可从降级态恢复。
-  const bodyKey = `${current.id}:${current.param ?? ""}:${depth}:${readUseMockData() ? 1 : 0}`;
+  const bodyKey = `${current.id}:${current.param ?? ""}:${depth}`;
 
   return (
     <>

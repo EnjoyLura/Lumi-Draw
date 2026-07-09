@@ -1,14 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import { readUniJson } from "./uni-json.mjs";
 
 const ROOT = process.cwd();
 const MOBILE_SRC = path.join(ROOT, "apps", "mobile", "src");
 const pagesJsonPath = path.join(MOBILE_SRC, "pages.json");
 const pagesRoot = path.join(MOBILE_SRC, "pages");
-
-function readJson(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
-}
 
 function walk(dir, output = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -23,7 +20,7 @@ function normalizeRoute(route) {
   return route.split("?")[0].replace(/\/+$/, "");
 }
 
-const pageRoutes = readJson(pagesJsonPath).pages.map((page) => `/${page.path}`);
+const pageRoutes = readUniJson(pagesJsonPath).pages.map((page) => `/${page.path}`);
 const registered = new Set(pageRoutes.map(normalizeRoute));
 const errors = [];
 

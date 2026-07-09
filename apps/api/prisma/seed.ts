@@ -108,37 +108,33 @@ const settings = [
 ];
 
 const users = [
-  { id: 1, nickname: "云端造梦师", avatarText: "梦", avatarColor: "#5B9FE8", bio: "用AI描绘心中的梦境", gender: "female", credits: 860, memberPlan: "年卡", status: "normal", phone: "138****8801", worksCount: 48, likesCount: 1200, followers: 326, following: 58 },
-  { id: 2, nickname: "星辰大海", avatarText: "星", avatarColor: "#6FD4B0", bio: "探索AI的无限可能", gender: "male", credits: 320, memberPlan: "月卡", status: "normal", phone: "139****2205", worksCount: 36, likesCount: 890, followers: 215, following: 42 },
-  { id: 3, nickname: "月光如水", avatarText: "月", avatarColor: "#FFB59A", bio: "月光下的AI画家", gender: "female", credits: 1580, memberPlan: "季卡", status: "normal", phone: "137****6633", worksCount: 52, likesCount: 2100, followers: 580, following: 73 },
-  { id: 4, nickname: "风之绘师", avatarText: "风", avatarColor: "#B8A5E3", bio: "风中捕捉灵感", gender: "male", credits: 90, memberPlan: "", status: "banned", phone: "135****7788", worksCount: 29, likesCount: 670, followers: 180, following: 35 },
-  { id: 5, nickname: "光影魔术", avatarText: "光", avatarColor: "#FFE08A", bio: "玩转光与影的魔法", gender: "male", credits: 410, memberPlan: "", status: "normal", phone: "136****9900", worksCount: 41, likesCount: 1500, followers: 410, following: 67 },
-  { id: 6, nickname: "涂鸦小新", avatarText: "涂", avatarColor: "#FFA8B8", bio: "新手上路，多多指教", gender: "male", credits: 0, memberPlan: "", status: "normal", phone: "150****1122", worksCount: 3, likesCount: 20, followers: 8, following: 15 }
+  { id: 1, nickname: "云端造梦师", avatarText: "梦", avatarColor: "#5B9FE8", bio: "用 AI 描绘心中的梦境", gender: "female", credits: 860, memberPlan: "年卡", status: "normal", phone: "138****8801", worksCount: 3, likesCount: 1210, followers: 326, following: 58 },
+  { id: 2, nickname: "星辰大海", avatarText: "星", avatarColor: "#6FD4B0", bio: "探索 AI 的无限可能", gender: "male", credits: 320, memberPlan: "月卡", status: "normal", phone: "139****2205", worksCount: 3, likesCount: 1036, followers: 215, following: 42 },
+  { id: 3, nickname: "月光如水", avatarText: "月", avatarColor: "#FFB59A", bio: "月光下的 AI 画家", gender: "female", credits: 1580, memberPlan: "季卡", status: "normal", phone: "137****6633", worksCount: 3, likesCount: 1725, followers: 580, following: 73 }
 ];
 
-// status: published | pending | offline；isPublic 由 status 推导
+// status: published | pending | offline; isPublic is derived from status.
 const works = [
-  { id: 1, userId: 2, title: "霓虹都市", description: "赛博朋克风格的夜晚城市，霓虹灯光映照在雨后的街道上", prompt: "cyberpunk city at night, neon lights, rain", modelId: "gpt-image-2", ratio: "3:4", quality: "2K", style: "赛博朋克", status: "published", featured: true, recommend: true, likes: 328, favorites: 92, remakes: 45 },
-  { id: 2, userId: 3, title: "山水之间", description: "中国水墨风格的山河画卷，云雾缭绕", prompt: "Chinese ink painting, mountains, river, misty", modelId: "seedream-4-5", ratio: "4:3", quality: "4K", style: "国风", status: "published", featured: true, recommend: false, likes: 512, favorites: 186, remakes: 78 },
-  { id: 3, userId: 1, title: "少女与猫", description: "吉卜力风格的少女与猫咪，温暖柔和的光线", prompt: "anime girl with cat, soft colors, ghibli", modelId: "nano-banana-2", ratio: "2:3", quality: "1K", style: "二次元", status: "published", featured: false, recommend: true, likes: 680, favorites: 245, remakes: 112 },
-  { id: 4, userId: 5, title: "抽象梦境", description: "超现实主义的梦境，漂浮的岛屿和柔和的色彩", prompt: "abstract dream, floating islands, surreal", modelId: "nano-banana-2", ratio: "1:1", quality: "2K", style: "梦幻", status: "pending", featured: false, recommend: false, likes: 234, favorites: 78, remakes: 31 },
-  { id: 5, userId: 1, title: "古风少女", description: "身着汉服的古风少女，桃花纷飞的春日", prompt: "ancient chinese girl, hanfu, peach blossom", modelId: "nano-banana-pro", ratio: "9:16", quality: "4K", style: "国风", status: "published", featured: true, recommend: true, likes: 892, favorites: 356, remakes: 156 },
-  { id: 6, userId: 3, title: "赛博精灵", description: "赛博朋克风格的精灵，发光的双眼和未来服装", prompt: "cyberpunk elf, glowing eyes, futuristic", modelId: "gpt-image-2", ratio: "4:3", quality: "2K", style: "赛博朋克", status: "pending", featured: false, recommend: false, likes: 445, favorites: 132, remakes: 67 },
-  { id: 7, userId: 4, title: "水彩猫咪", description: "柔和水彩画风的猫咪，温馨艺术感", prompt: "watercolor cat, soft brushstrokes, pastel", modelId: "seedream-4-5", ratio: "3:4", quality: "1K", style: "水彩", status: "offline", featured: false, recommend: false, likes: 567, favorites: 201, remakes: 89 },
-  { id: 8, userId: 5, title: "极简几何", description: "极简主义的几何艺术，干净的线条和现代感", prompt: "minimalist geometric art, clean lines", modelId: "nano-banana-2", ratio: "1:1", quality: "2K", style: "极简", status: "published", featured: false, recommend: false, likes: 189, favorites: 56, remakes: 22 },
-  { id: 9, userId: 2, title: "暗黑天使", description: "哥特风格的暗黑天使，戏剧性的光影", prompt: "dark angel, gothic, dramatic lighting", modelId: "nano-banana-pro", ratio: "9:16", quality: "4K", style: "暗黑", status: "pending", featured: false, recommend: false, likes: 723, favorites: 289, remakes: 134 },
-  { id: 10, userId: 3, title: "蒸汽城市", description: "蒸汽朋克风格的城市，黄铜齿轮和维多利亚时代风貌", prompt: "steampunk city, brass, gears, victorian", modelId: "gpt-image-2", ratio: "4:3", quality: "2K", style: "蒸汽波", status: "published", featured: false, recommend: false, likes: 356, favorites: 98, remakes: 43 }
+  { id: 1, userId: 1, title: "清晨动漫少女", description: "二次元少女站在清晨街角，柔和光影与干净线条。", prompt: "anime girl, morning street, soft light, clean lineart", modelId: "nano-banana-2", ratio: "3:4", quality: "2K", style: "二次元", tags: ["二次元"], status: "published", featured: true, recommend: true, likes: 680, favorites: 245, remakes: 112 },
+  { id: 2, userId: 2, title: "雾中山谷", description: "远山与溪流被薄雾包围，适合作为自然风景示例。", prompt: "misty valley, river, mountains, cinematic landscape", modelId: "seedream-4-5", ratio: "16:9", quality: "4K", style: "风景", tags: ["风景"], status: "published", featured: true, recommend: false, likes: 512, favorites: 186, remakes: 78 },
+  { id: 3, userId: 3, title: "未来玻璃展馆", description: "通透玻璃建筑与柔和天光，展示建筑类创作。", prompt: "modern glass architecture, soft daylight, clean composition", modelId: "gpt-image-2", ratio: "4:3", quality: "2K", style: "建筑", tags: ["建筑"], status: "published", featured: false, recommend: true, likes: 356, favorites: 98, remakes: 43 },
+  { id: 4, userId: 1, title: "开心贴纸表情", description: "圆润可爱的原创表情包角色，适合聊天贴纸。", prompt: "cute sticker emoji character, round shape, expressive face", modelId: "nano-banana-2", ratio: "1:1", quality: "1K", style: "表情包", tags: ["表情包"], status: "published", featured: false, recommend: false, likes: 234, favorites: 78, remakes: 31 },
+  { id: 5, userId: 2, title: "窗边写实人像", description: "自然光下的半身人像，肤色真实、细节干净。", prompt: "photorealistic portrait near window, natural light, detailed skin", modelId: "gpt-image-2", ratio: "3:4", quality: "4K", style: "写实", tags: ["写实"], status: "published", featured: true, recommend: true, likes: 892, favorites: 356, remakes: 156 },
+  { id: 6, userId: 3, title: "国风桃花少女", description: "汉服少女与桃花枝，保留国风视觉示例。", prompt: "ancient chinese girl, hanfu, peach blossom, elegant", modelId: "nano-banana-pro", ratio: "9:16", quality: "4K", style: "国风", tags: ["国风"], status: "published", featured: true, recommend: true, likes: 745, favorites: 232, remakes: 97 },
+  { id: 7, userId: 1, title: "午后头像写真", description: "适合个人主页展示的人像头像示例。", prompt: "warm avatar portrait, afternoon light, soft background", modelId: "seedream-4-5", ratio: "1:1", quality: "2K", style: "人像", tags: ["人像"], status: "published", featured: false, recommend: false, likes: 296, favorites: 88, remakes: 36 },
+  { id: 8, userId: 2, title: "水彩小猫", description: "柔和水彩风的小猫，保留动物分类样例。", prompt: "watercolor cat, soft brushstrokes, pastel", modelId: "seedream-4-5", ratio: "3:4", quality: "1K", style: "动物", tags: ["动物"], status: "published", featured: false, recommend: false, likes: 188, favorites: 56, remakes: 22 },
+  { id: 9, userId: 3, title: "抽象梦境岛屿", description: "漂浮岛屿与梦幻色彩，用作抽象分类样例。", prompt: "abstract dream, floating islands, surreal pastel colors", modelId: "nano-banana-2", ratio: "1:1", quality: "2K", style: "抽象", tags: ["抽象"], status: "published", featured: false, recommend: false, likes: 624, favorites: 203, remakes: 74 }
 ];
 
 const reports = [
-  { id: 1, workId: 7, reporterId: 5, reason: "色情低俗", status: "pending" },
+  { id: 1, workId: 7, reporterId: 2, reason: "色情低俗", status: "pending" },
   { id: 2, workId: 9, reporterId: 2, reason: "侵权盗版", status: "pending" },
   { id: 3, workId: 1, reporterId: 3, reason: "垃圾广告", status: "resolved" }
 ];
 
 const feedback = [
   { id: 1, userId: 2, type: "优化建议", content: "希望增加更多国风模型，现在的风格不够多", imageUrls: "", wechat: "", status: "pending" },
-  { id: 2, userId: 5, type: "Bug反馈", content: "生成图片有时候会失败，但积分被扣了，麻烦核实一下", imageUrls: "", wechat: "lumi_user_05", status: "processing" },
+  { id: 2, userId: 2, type: "Bug反馈", content: "生成图片有时候会失败，但积分被扣了，麻烦核实一下", imageUrls: "", wechat: "lumi_user_02", status: "processing" },
   { id: 3, userId: 1, type: "体验反馈", content: "整体体验很流畅，客服响应也快，点赞！", imageUrls: "", wechat: "", status: "resolved" }
 ];
 
