@@ -49,3 +49,12 @@ test("public key mode rejects a mismatched key id or modified body", () => {
   assert.equal(client.verifyNotify(signedHeaders(body, "PUB_KEY_ID_OTHER"), body), false);
   assert.equal(client.verifyNotify(signedHeaders(body), `${body} `), false);
 });
+
+test("authorization separates the scheme from its parameters with a space", () => {
+  const client = new WechatPayClient(config()) as unknown as {
+    authorization(method: string, pathWithQuery: string, body: string): string;
+  };
+  const header = client.authorization("GET", "/v3/certificates", "");
+  assert.match(header, /^WECHATPAY2-SHA256-RSA2048 mchid="1900000001",/);
+  assert.doesNotMatch(header, /^WECHATPAY2-SHA256-RSA2048,/);
+});

@@ -125,14 +125,14 @@ export class WechatPayClient {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const message = `${method}\n${pathWithQuery}\n${timestamp}\n${nonce}\n${body}\n`;
     const signature = this.sign(message);
-    return [
-      'WECHATPAY2-SHA256-RSA2048',
+    const parameters = [
       `mchid="${this.config.mchId}"`,
       `nonce_str="${nonce}"`,
       `timestamp="${timestamp}"`,
       `serial_no="${this.config.certSerialNo}"`,
       `signature="${signature}"`
     ].join(",");
+    return `WECHATPAY2-SHA256-RSA2048 ${parameters}`;
   }
 
   private verifyResponse(headers: { get(name: string): string | null }, rawBody: string) {
