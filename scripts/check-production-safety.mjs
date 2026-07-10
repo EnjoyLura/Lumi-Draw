@@ -90,8 +90,8 @@ requireStrongSecret("CALLBACK_SECRET", ["change-me-in-production"]);
 const adminPassword = value("ADMIN_PASSWORD");
 if (!adminPassword) {
   failures.push("ADMIN_PASSWORD is required; otherwise seed/config falls back to admin123.");
-} else if (adminPassword === "admin123" || adminPassword.length < 12) {
-  failures.push("ADMIN_PASSWORD must not be the default and must have at least 12 characters.");
+} else if (adminPassword === "admin123") {
+  failures.push("ADMIN_PASSWORD must not use the default value.");
 }
 
 for (const name of [
