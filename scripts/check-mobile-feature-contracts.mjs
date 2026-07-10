@@ -48,9 +48,8 @@ const pageContracts = [
       "fetchCreateConfig",
       "createGenerateJob",
       "fetchGenerateJob",
-      "publishGenerateResult",
-      "uploadChosenImage",
-      "uploadRemoteImage",
+      "chooseLocalImage",
+      "uploadSelectedImage",
       "removeActiveGenerateJobIds",
       "resumeBackendJob",
       "jobId",
@@ -71,7 +70,6 @@ const pageContracts = [
       "queueFilterRefresh",
       "selectedOptionValues",
       "fetchFavorites",
-      "toggleWorkFavorite",
       "toggleWorkLike",
       "LumiSideDrawer",
       "fetchUnreadMessageCount"
@@ -167,7 +165,7 @@ const pageContracts = [
   },
   {
     route: "pages/settings/index",
-    tokens: ["useDataMode", "setUseMockData", "fetchSettingsProfile", "updateSettingsPhone", "fetchChangelog", "logout"]
+    tokens: ["useDataMode", "fetchSettingsProfile", "updateSettingsPhone", "fetchChangelog", "logout"]
   },
   {
     route: "pages/agreement/index",
@@ -179,7 +177,7 @@ const pageContracts = [
   },
   {
     route: "pages/feedback/index",
-    tokens: ["useDataMode", "submitFeedback", "uploadChosenImage", "resolveRouteSource"]
+    tokens: ["useDataMode", "submitFeedback", "chooseLocalImage", "uploadSelectedImage", "resolveRouteSource"]
   },
   {
     route: "pages/changelog/index",
@@ -187,7 +185,7 @@ const pageContracts = [
   },
   {
     route: "pages/publish/index",
-    tokens: ["useDataMode", "fetchPublishDrafts", "publishWork", "uploadChosenImage", "uploaded.ratio", "resolveRouteDraftId"]
+    tokens: ["useDataMode", "fetchPublishDrafts", "publishWork", "selectedDraft", "resolveRouteDraftId"]
   },
   {
     route: "pages/edit-work/index",

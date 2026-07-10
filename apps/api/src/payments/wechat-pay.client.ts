@@ -9,6 +9,8 @@ export interface WechatPayConfig {
   certSerialNo: string;
   privateKey: string;
   platformCertificate: string;
+  publicKey: string;
+  publicKeyId: string;
   notifyUrl: string;
 }
 
@@ -55,13 +57,14 @@ export function loadPem(inline?: string, filePath?: string) {
 }
 
 export function isWechatPayConfigured(config: WechatPayConfig) {
+  const verificationConfigured = Boolean(config.platformCertificate || (config.publicKey && config.publicKeyId));
   return Boolean(
     config.appId &&
       config.mchId &&
       config.apiV3Key &&
       config.certSerialNo &&
       config.privateKey &&
-      config.platformCertificate &&
+      verificationConfigured &&
       config.notifyUrl
   );
 }
@@ -91,17 +94,19 @@ export class WechatPayClient {
       },
       body: payload
     });
-    const data = (await res.json().catch(() => ({}))) as { prepay_id?: string; message?: string; code?: string };
+    const rawResponse = await res.text();
+    const data = parseWechatResponse(rawResponse);
     if (!res.ok || !data.prepay_id) {
       throw new Error(data.message || data.code || `WeChat Pay create order failed with HTTP ${res.status}`);
+    }
+    if (!this.verifyResponse(res.headers, rawResponse)) {
+      throw new Error("WeChat Pay response signature verification failed");
     }
     return this.buildPaymentParams(data.prepay_id);
   }
 
   verifyNotify(headers: WechatNotifyHeaders, rawBody: string) {
-    if (!headers.timestamp || !headers.nonce || !headers.signature) return false;
-    const message = `${headers.timestamp}\n${headers.nonce}\n${rawBody}\n`;
-    return createVerify("RSA-SHA256").update(message).verify(this.config.platformCertificate, headers.signature, "base64");
+    return this.verifySignature(headers, rawBody);
   }
 
   decryptNotifyResource(resource: { associated_data?: string; nonce: string; ciphertext: string }): WechatTransaction {
@@ -130,6 +135,27 @@ export class WechatPayClient {
     ].join(",");
   }
 
+  private verifyResponse(headers: { get(name: string): string | null }, rawBody: string) {
+    return this.verifySignature(
+      {
+        timestamp: headers.get("wechatpay-timestamp") ?? undefined,
+        nonce: headers.get("wechatpay-nonce") ?? undefined,
+        signature: headers.get("wechatpay-signature") ?? undefined,
+        serial: headers.get("wechatpay-serial") ?? undefined
+      },
+      rawBody
+    );
+  }
+
+  private verifySignature(headers: WechatNotifyHeaders, rawBody: string) {
+    if (!headers.timestamp || !headers.nonce || !headers.signature || !headers.serial) return false;
+    if (this.config.publicKey && headers.serial !== this.config.publicKeyId) return false;
+    const verificationKey = this.config.publicKey || this.config.platformCertificate;
+    if (!verificationKey) return false;
+    const message = `${headers.timestamp}\n${headers.nonce}\n${rawBody}\n`;
+    return createVerify("RSA-SHA256").update(message).verify(verificationKey, headers.signature, "base64");
+  }
+
   private buildPaymentParams(prepayId: string): WechatPaymentParams {
     const timeStamp = Math.floor(Date.now() / 1000).toString();
     const nonceStr = randomBytes(16).toString("hex");
@@ -149,5 +175,13 @@ export class WechatPayClient {
 
   private sign(message: string) {
     return createSign("RSA-SHA256").update(message).sign(this.config.privateKey, "base64");
+  }
+}
+
+function parseWechatResponse(rawBody: string) {
+  try {
+    return JSON.parse(rawBody) as { prepay_id?: string; message?: string; code?: string };
+  } catch {
+    return {} as { prepay_id?: string; message?: string; code?: string };
   }
 }

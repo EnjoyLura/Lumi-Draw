@@ -267,6 +267,11 @@ export class PaymentsService {
         this.config.get<string>("app.wx.payPlatformCertificate"),
         this.config.get<string>("app.wx.payPlatformCertificatePath")
       ),
+      publicKey: loadPem(
+        this.config.get<string>("app.wx.payPublicKey"),
+        this.config.get<string>("app.wx.payPublicKeyPath")
+      ),
+      publicKeyId: this.config.get<string>("app.wx.payPublicKeyId") ?? "",
       notifyUrl: this.config.get<string>("app.wx.payNotifyUrl") ?? ""
     };
   }

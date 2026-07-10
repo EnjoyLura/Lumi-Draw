@@ -48,6 +48,9 @@ export const appConfig = registerAs("app", () => ({
     payPrivateKeyPath: process.env.WX_PAY_PRIVATE_KEY_PATH ?? "",
     payPlatformCertificate: process.env.WX_PAY_PLATFORM_CERTIFICATE ?? "",
     payPlatformCertificatePath: process.env.WX_PAY_PLATFORM_CERTIFICATE_PATH ?? "",
+    payPublicKey: process.env.WX_PAY_PUBLIC_KEY ?? "",
+    payPublicKeyPath: process.env.WX_PAY_PUBLIC_KEY_PATH ?? "",
+    payPublicKeyId: process.env.WX_PAY_PUBLIC_KEY_ID ?? "",
     payNotifyUrl: process.env.WX_PAY_NOTIFY_URL ?? ""
   },
   kie: {

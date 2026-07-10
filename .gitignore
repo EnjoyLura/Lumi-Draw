@@ -7,6 +7,9 @@ agent.md
 *.pem
 *.key
 *.crt
+*.p12
+*_cert.zip
+CertificateDownloader-*.jar
 *_nginx.zip
 
 # Dependencies

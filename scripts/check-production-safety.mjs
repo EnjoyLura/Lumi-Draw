@@ -121,7 +121,14 @@ for (const name of ["WX_MCH_ID", "WX_PAY_API_V3_KEY", "WX_PAY_CERT_SERIAL_NO"]) 
   requireValue(name, "WeChat Pay production signing");
 }
 requireOneOf(["WX_PAY_PRIVATE_KEY", "WX_PAY_PRIVATE_KEY_PATH"], "WeChat Pay private key");
-requireOneOf(["WX_PAY_PLATFORM_CERTIFICATE", "WX_PAY_PLATFORM_CERTIFICATE_PATH"], "WeChat Pay platform certificate");
+const hasPlatformCertificate = ["WX_PAY_PLATFORM_CERTIFICATE", "WX_PAY_PLATFORM_CERTIFICATE_PATH"].some((name) => value(name));
+const hasPublicKey = ["WX_PAY_PUBLIC_KEY", "WX_PAY_PUBLIC_KEY_PATH"].some((name) => value(name));
+if (!hasPlatformCertificate && !hasPublicKey) {
+  failures.push(
+    "WX_PAY_PLATFORM_CERTIFICATE or WX_PAY_PLATFORM_CERTIFICATE_PATH or WX_PAY_PUBLIC_KEY or WX_PAY_PUBLIC_KEY_PATH is required (WeChat Pay signature verification)."
+  );
+}
+if (hasPublicKey) requireValue("WX_PAY_PUBLIC_KEY_ID", "WeChat Pay public key verification");
 requireHttpsUrl("WX_PAY_NOTIFY_URL");
 
 if (failures.length) {
