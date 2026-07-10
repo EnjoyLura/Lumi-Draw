@@ -41,7 +41,7 @@ let lastMockMode: boolean | null = null;
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const activeRecordState = computed(() => recordState[activeTab.value]);
 const customValue = computed(() => Number.parseFloat(customAmount.value));
-const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 1 ? 0 : Math.floor(customValue.value * 10)));
+const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 0.1 ? 0 : Math.floor(customValue.value * 10)));
 const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
 
 function clampTierIndex() {
@@ -203,8 +203,8 @@ async function startRecharge(amount?: number) {
 }
 
 function confirmCustomRecharge() {
-  if (Number.isNaN(customValue.value) || customValue.value < 1) {
-    uni.showToast({ title: "请输入至少 1 元", icon: "none" });
+  if (Number.isNaN(customValue.value) || customValue.value < 0.1) {
+    uni.showToast({ title: "请输入至少 0.1 元", icon: "none" });
     return;
   }
   closeCustomRecharge();
@@ -296,7 +296,7 @@ function confirmCustomRecharge() {
       <view class="field-label">输入充值金额（元）</view>
       <view class="amount-row">
         <text class="money-symbol">¥</text>
-        <input v-model="customAmount" class="amount-input" type="digit" placeholder="最低 1 元" />
+        <input v-model="customAmount" class="amount-input" type="digit" placeholder="最低 0.1 元" />
       </view>
       <view class="preview-card">
         <view class="preview-row">
