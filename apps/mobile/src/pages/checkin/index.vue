@@ -51,9 +51,7 @@ function buildVisibleSignedDays(streak: number, checkedToday: boolean) {
 }
 
 const calendarDays = computed(() => {
-  const milestoneDays = new Set(
-    milestones.map((item) => signedDays.value[item.days - 1]).filter((day): day is number => Boolean(day))
-  );
+  const milestoneDays = new Set(milestones.map((item) => item.days).filter((day) => day <= daysInCurrentMonth));
 
   return Array.from({ length: daysInCurrentMonth }, (_, index) => {
     const day = index + 1;
@@ -528,8 +526,10 @@ function claimMilestone(item: Milestone) {
   position: absolute;
   top: -5px;
   right: -5px;
+  z-index: 1;
   font-size: 11px;
   line-height: 1;
+  pointer-events: none;
 }
 
 /* Lumi custom page header layout */

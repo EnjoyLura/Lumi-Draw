@@ -19,6 +19,7 @@ const { useMockData } = useDataMode();
 const nickname = ref("");
 const gender = ref<"male" | "female" | "unknown">("unknown");
 const signature = ref("");
+const focusedField = ref<"nickname" | "signature" | "">("");
 const accountId = ref("");
 const avatarText = ref("露");
 const avatarColor = ref("var(--accent)");
@@ -205,7 +206,16 @@ async function save() {
 
         <view class="field">
           <view class="field-label">昵称</view>
-          <input class="input" type="text" v-model="nickname" placeholder="请输入昵称" :maxlength="20" />
+          <input
+            class="input"
+            :class="{ focused: focusedField === 'nickname' }"
+            type="text"
+            v-model="nickname"
+            placeholder="请输入昵称"
+            :maxlength="20"
+            @focus="focusedField = 'nickname'"
+            @blur="focusedField = ''"
+          />
           <view class="counter">{{ nickCount }}</view>
         </view>
 
@@ -220,7 +230,15 @@ async function save() {
 
         <view class="field">
           <view class="field-label">个性签名</view>
-          <textarea class="input textarea" v-model="signature" placeholder="写一句个性签名吧" :maxlength="100" />
+          <textarea
+            class="input textarea"
+            :class="{ focused: focusedField === 'signature' }"
+            v-model="signature"
+            placeholder="写一句个性签名吧"
+            :maxlength="100"
+            @focus="focusedField = 'signature'"
+            @blur="focusedField = ''"
+          />
           <view class="counter">{{ signCount }}</view>
         </view>
 
@@ -381,6 +399,14 @@ async function save() {
   background: var(--bg-elevated);
   border: 1.5px solid var(--border);
   border-radius: 12px;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s;
+}
+
+.input.focused {
+  background: var(--bg-card);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .textarea {

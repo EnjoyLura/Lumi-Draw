@@ -90,9 +90,6 @@ onShow(() => {
     void loadDetail();
     return;
   }
-  if (!useMockData.value && work.value) {
-    void loadDetail();
-  }
 });
 
 onMounted(() => {

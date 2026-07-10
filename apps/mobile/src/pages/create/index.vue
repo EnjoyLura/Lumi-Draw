@@ -49,7 +49,7 @@ const selectedGameplayName = ref("");
 const selectedModelIndex = ref(0);
 const selectedStyleName = ref("");
 const selectedQualityIndex = ref(0);
-const selectedRatioIndex = ref(0);
+const selectedRatioLabel = ref("1:1");
 const selectedCountIndex = ref(0);
 const promptText = ref("");
 const promptImage = ref("");
@@ -95,7 +95,9 @@ const selectedGameplay = computed(() => {
   return gameplayOptions.value.find((item) => item.name === selectedGameplayName.value);
 });
 const selectedQuality = computed(() => qualityList.value[selectedQualityIndex.value] ?? (useMockData.value ? qualityOptions[0] : EMPTY_QUALITY));
-const selectedRatio = computed(() => ratioList.value[selectedRatioIndex.value] ?? (useMockData.value ? ratioOptions[0] : EMPTY_RATIO));
+const selectedRatio = computed(
+  () => ratioList.value.find((ratio) => ratio.label === selectedRatioLabel.value) ?? (useMockData.value ? ratioOptions[0] : EMPTY_RATIO)
+);
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
 const totalCost = computed(() => selectedModel.value.cost * selectedCount.value);
 const visibleStyles = computed(() => styleOptions.value.slice(0, 7));
@@ -173,7 +175,9 @@ function resetCreateConfig() {
   gameplayOptions.value = gameplayTemplates;
   selectedModelIndex.value = Math.min(selectedModelIndex.value, modelOptions.value.length - 1);
   selectedQualityIndex.value = Math.min(selectedQualityIndex.value, qualityList.value.length - 1);
-  selectedRatioIndex.value = Math.min(selectedRatioIndex.value, ratioList.value.length - 1);
+  if (!ratioList.value.some((ratio) => ratio.label === selectedRatioLabel.value)) {
+    selectedRatioLabel.value = ratioList.value[0]?.label || "1:1";
+  }
   applyPendingRouteOptions();
 }
 
@@ -193,7 +197,9 @@ async function loadCreateConfig() {
     gameplayOptions.value = config.gameplays;
     selectedModelIndex.value = Math.max(0, Math.min(selectedModelIndex.value, modelOptions.value.length - 1));
     selectedQualityIndex.value = Math.max(0, Math.min(selectedQualityIndex.value, qualityList.value.length - 1));
-    selectedRatioIndex.value = Math.max(0, Math.min(selectedRatioIndex.value, ratioList.value.length - 1));
+    if (!ratioList.value.some((ratio) => ratio.label === selectedRatioLabel.value)) {
+      selectedRatioLabel.value = ratioList.value[0]?.label || "1:1";
+    }
     applyPendingRouteOptions();
   } catch {
     modelOptions.value = [];
@@ -203,7 +209,7 @@ async function loadCreateConfig() {
     gameplayOptions.value = [];
     selectedModelIndex.value = 0;
     selectedQualityIndex.value = 0;
-    selectedRatioIndex.value = 0;
+    selectedRatioLabel.value = "1:1";
     configLoadFailed.value = true;
     showToast("创作配置加载失败，请稍后重试");
   }
@@ -395,9 +401,13 @@ function closeRatioSheet() {
   ratioSheetOpen.value = false;
 }
 
-function selectRatio(index: number) {
-  selectedRatioIndex.value = index;
+function selectRatio(ratio: RatioOption) {
+  selectedRatioLabel.value = ratio.label;
   closeRatioSheet();
+}
+
+function isRatioSelected(ratio: RatioOption) {
+  return selectedRatioLabel.value === ratio.label;
 }
 
 function applySelectedModel(modelId: string) {
@@ -408,8 +418,7 @@ function applySelectedModel(modelId: string) {
 
 function applySelectedRatio(label: string) {
   if (!label) return;
-  const index = ratioList.value.findIndex((ratio) => ratio.label === label);
-  if (index >= 0) selectedRatioIndex.value = index;
+  if (ratioList.value.some((ratio) => ratio.label === label)) selectedRatioLabel.value = label;
 }
 
 function applySelectedQuality(label: string) {
@@ -961,8 +970,8 @@ async function goPublish() {
               v-for="(ratio, index) in inlineRatios"
               :key="ratio.label"
               class="ratio-card"
-              :class="{ selected: selectedRatioIndex === index }"
-              @click="selectedRatioIndex = index"
+              :class="{ selected: isRatioSelected(ratio) }"
+              @click="selectRatio(ratio)"
             >
               <view class="ratio-shape" :style="ratioShapeStyle(ratio.width, ratio.height)" />
               <text class="ratio-name">{{ ratio.label }}</text>
@@ -1143,8 +1152,8 @@ async function goPublish() {
           v-for="(ratio, index) in ratioList"
           :key="ratio.label"
           class="ratio-card"
-          :class="{ selected: selectedRatioIndex === index }"
-          @click="selectRatio(index)"
+          :class="{ selected: isRatioSelected(ratio) }"
+          @click="selectRatio(ratio)"
         >
           <view class="ratio-shape" :style="ratioShapeStyle(ratio.width, ratio.height)" />
           <text class="ratio-name">{{ ratio.label }}</text>

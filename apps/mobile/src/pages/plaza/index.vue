@@ -155,8 +155,22 @@ let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
-const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
-const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
+const waterfallColumns = computed(() => {
+  const columns: [HomeWork[], HomeWork[]] = [[], []];
+  const heights = [0, 0];
+
+  displayedWorks.value.forEach((work) => {
+    const [width, height] = work.ratio.split(":").map(Number);
+    const estimatedHeight = width && height ? height / width + 0.34 : 1.34;
+    const columnIndex = heights[0] <= heights[1] ? 0 : 1;
+    columns[columnIndex].push(work);
+    heights[columnIndex] += estimatedHeight;
+  });
+
+  return columns;
+});
+const leftColumnWorks = computed(() => waterfallColumns.value[0]);
+const rightColumnWorks = computed(() => waterfallColumns.value[1]);
 const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
 const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.value || activeCategoryIndex.value !== renderedCategoryIndex.value);
