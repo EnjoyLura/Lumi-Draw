@@ -117,7 +117,7 @@ export class PaymentsService {
   }
 
   private customRechargeSpec(amount: number | undefined) {
-    if (!amount || !Number.isFinite(amount) || amount < 1) throw new BadRequestException("充值金额不能低于1元");
+    if (!amount || !Number.isFinite(amount) || amount < 0.1) throw new BadRequestException("充值金额不能低于0.1元");
     const normalized = Math.round(amount * 100) / 100;
     const credits = Math.floor(normalized * 10);
     const bonusCredits = Math.floor(credits * 0.05);

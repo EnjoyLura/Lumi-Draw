@@ -7,6 +7,7 @@
     "dev:mobile": "pnpm --filter @lumi-draw/mobile dev:mp-weixin",
     "dev:mobile:h5": "pnpm --filter @lumi-draw/mobile dev:h5",
     "build:mobile": "pnpm --filter @lumi-draw/mobile build:mp-weixin",
+    "build:mobile:simulator": "pnpm --filter @lumi-draw/mobile build:mp-weixin:simulator",
     "build:mobile:h5": "pnpm --filter @lumi-draw/mobile build:h5",
     "dev:admin": "pnpm --filter @lumi-draw/admin dev",
     "build:admin": "pnpm --filter @lumi-draw/admin build",
