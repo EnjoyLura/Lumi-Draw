@@ -153,6 +153,7 @@ let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
+let lastLoadedAt = 0;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const waterfallColumns = computed(() => {
@@ -204,12 +205,9 @@ const filteredWorks = computed(() => {
 onShow(() => {
   void loadUnreadMessages();
   void loadDrawerProfile();
-  if (lastMockMode === useMockData.value && (useMockData.value || renderedTab.value !== "favorite")) {
-    if (!useMockData.value && isLoggedIn.value) void reloadPlazaData();
-    return;
-  }
+  const modeChanged = lastMockMode !== useMockData.value;
   lastMockMode = useMockData.value;
-  void reloadPlazaData();
+  if (modeChanged || Date.now() - lastLoadedAt > 60_000) void reloadPlazaData();
 });
 
 onBeforeUnmount(() => {
@@ -370,7 +368,8 @@ async function reloadPlazaData() {
     return;
   }
 
-  isLoading.value = true;
+  if (isLoading.value) return;
+  isLoading.value = !workList.value.length;
   loadFailed.value = false;
   try {
     const [config] = await Promise.all([fetchPlazaConfig(), loadDrawerProfile()]);
@@ -386,6 +385,7 @@ async function reloadPlazaData() {
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
     renderKey.value += 1;
+    lastLoadedAt = Date.now();
   } catch {
     clearRealPlazaData();
     loadFailed.value = true;
@@ -742,6 +742,7 @@ function handleReachBottom() {
                 class="work-img"
                 :src="work.image"
                 mode="aspectFill"
+                lazy-load
                 :style="{ aspectRatio: getAspectRatio(work.ratio) }"
                 @click="openWorkDetail(work.id)"
               />
@@ -767,6 +768,7 @@ function handleReachBottom() {
                 class="work-img"
                 :src="work.image"
                 mode="aspectFill"
+                lazy-load
                 :style="{ aspectRatio: getAspectRatio(work.ratio) }"
                 @click="openWorkDetail(work.id)"
               />

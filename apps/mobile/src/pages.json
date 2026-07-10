@@ -209,7 +209,6 @@
       "color": "transparent"
     }
   }
-  // #ifdef H5
   ,
   "tabBar": {
     "height": "0px",
@@ -236,5 +235,4 @@
       }
     ]
   }
-  // #endif
 }

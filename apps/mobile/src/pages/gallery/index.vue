@@ -111,6 +111,7 @@ let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
+let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
 const filteredWorks = computed(() => {
@@ -144,9 +145,9 @@ const emptyInfo = computed(() => {
 
 onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
-  if (useMockData.value && lastLoadKey === loadKey) return;
+  const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
-  void reloadGalleryData();
+  if (changed || Date.now() - lastLoadedAt > 60_000) void reloadGalleryData();
 });
 
 onBeforeUnmount(() => {
@@ -309,15 +310,16 @@ async function reloadGalleryData() {
     return;
   }
 
-  isLoading.value = true;
-  resetRealGalleryData();
+  if (isLoading.value) return;
+  isLoading.value = !works.value.length;
   try {
     const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true), loadUnreadMessages()]);
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;
+    lastLoadedAt = Date.now();
   } catch {
-    resetRealGalleryData();
+    if (!works.value.length) resetRealGalleryData();
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
@@ -725,7 +727,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -743,7 +745,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">

@@ -28,7 +28,6 @@ export function goRootTab(url: string) {
   if (currentRoute() === target || navigating) return;
 
   navigating = true;
-  // #ifdef H5
   uni.switchTab({
     url,
     complete() {
@@ -37,15 +36,4 @@ export function goRootTab(url: string) {
       }, 240);
     }
   });
-  // #endif
-  // #ifndef H5
-  uni.redirectTo({
-    url,
-    complete() {
-      setTimeout(() => {
-        navigating = false;
-      }, 240);
-    }
-  });
-  // #endif
 }

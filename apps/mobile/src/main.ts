@@ -9,6 +9,9 @@ export function createApp() {
     onShow() {
       applyNavigationBar();
       syncCurrentPageNavigationTitle();
+      // #ifdef MP-WEIXIN
+      uni.hideTabBar({ animation: false });
+      // #endif
     }
   });
   return {

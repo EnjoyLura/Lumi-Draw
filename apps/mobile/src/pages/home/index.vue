@@ -18,6 +18,7 @@ import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
@@ -74,7 +75,7 @@ let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let announcementTimer: ReturnType<typeof setTimeout> | undefined;
 let worksSwitchTimer: ReturnType<typeof setTimeout> | undefined;
 let worksAnimationTimer: ReturnType<typeof setTimeout> | undefined;
-let lastMockMode: boolean | null = useMockData.value ? true : null;
+let lastLoadKey = useMockData.value ? "mock" : "";
 let lastInviteCode = "";
 
 const currentTabWorks = computed(() => {
@@ -97,12 +98,10 @@ onLoad((query) => {
 onShow(() => {
   applyInviteCode();
   void loadUnreadMessages();
-  if (lastMockMode === useMockData.value) {
-    if (!useMockData.value && isLoggedIn.value) void loadHomeData();
-    return;
-  }
-  lastMockMode = useMockData.value;
-  void loadHomeData();
+  const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
+  const changed = lastLoadKey !== loadKey;
+  lastLoadKey = loadKey;
+  void loadHomeData(changed);
 });
 
 onMounted(() => {
@@ -208,13 +207,15 @@ function mergeUsers(nextUsers: HomeUser[]) {
   userList.value = Array.from(map.values());
 }
 
-async function loadHomeData() {
+async function loadHomeData(force = false) {
   if (useMockData.value) {
     resetMockHomeData();
     return;
   }
 
-  isPageLoading.value = true;
+  const timestampKey = "home";
+  await refreshTabPage(timestampKey, async () => {
+  isPageLoading.value = !recommendWorks.value.length && !latestWorks.value.length;
   loadFailed.value = false;
   try {
     const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
@@ -237,13 +238,20 @@ async function loadHomeData() {
     visibleWorkCount.value = 8;
     worksRenderKey.value += 1;
     scheduleAnnouncementPopup();
-  } catch {
-    clearRealHomeData();
+  } catch (error) {
+    if (!recommendWorks.value.length && !latestWorks.value.length) clearRealHomeData();
     loadFailed.value = true;
     uni.showToast({ title: "首页数据加载失败，请稍后重试", icon: "none" });
+    throw error;
   } finally {
     isPageLoading.value = false;
   }
+  }, { force });
+}
+
+function refreshHomeData() {
+  invalidateTabPage("home");
+  return loadHomeData(true);
 }
 
 function showUnsupportedBanner(title: string) {
@@ -529,7 +537,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await Promise.all([loadHomeData(), loadUnreadMessages()]);
+    await Promise.all([refreshHomeData(), loadUnreadMessages()]);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -638,7 +646,7 @@ function getRatioClass(ratio: string) {
           <view class="failure-icon">!</view>
           <view class="failure-title">首页数据加载失败</view>
           <view class="failure-sub">请检查网络或稍后重试，当前不会显示模拟内容。</view>
-          <button class="failure-action" @click="loadHomeData">重新加载</button>
+          <button class="failure-action" @click="refreshHomeData">重新加载</button>
         </view>
 
         <template v-else>
@@ -738,7 +746,7 @@ function getRatioClass(ratio: string) {
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
-                  <image class="work-image" :src="work.image" mode="aspectFill" />
+                  <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
                   <text class="work-title">{{ getWorkTitle(work) }}</text>
@@ -765,7 +773,7 @@ function getRatioClass(ratio: string) {
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
                 <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
-                  <image class="work-image" :src="work.image" mode="aspectFill" />
+                  <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
                   <text class="work-title">{{ getWorkTitle(work) }}</text>

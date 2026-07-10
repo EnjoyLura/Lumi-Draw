@@ -25,6 +25,7 @@ const displayUser = ref(useMockData.value ? mineUser : EMPTY_MINE_USER);
 const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}` : "";
+let lastLoadedAt = 0;
 
 try {
   statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
@@ -51,9 +52,9 @@ const accountRows = computed(() => {
 
 onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}`;
-  if (useMockData.value && lastLoadKey === loadKey) return;
+  const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
-  void loadProfile();
+  if (changed || Date.now() - lastLoadedAt > 30_000) void loadProfile();
 });
 
 async function loadProfile() {
@@ -68,7 +69,8 @@ async function loadProfile() {
     return;
   }
 
-  isLoadingProfile.value = true;
+  if (isLoadingProfile.value) return;
+  isLoadingProfile.value = !displayUser.value.name;
   try {
     const [profile, unread] = await Promise.all([fetchMineProfile(), fetchUnreadMessageCount()]);
     displayUser.value = toMineUser(profile);
@@ -79,6 +81,7 @@ async function loadProfile() {
       avatarColor: profile.avatarColor,
       credits: profile.credits
     });
+    lastLoadedAt = Date.now();
   } catch {
     resetRealMineUser();
     uni.showToast({ title: "用户资料加载失败", icon: "none" });
