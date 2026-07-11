@@ -25,7 +25,18 @@ function currentRoute() {
 export function goRootTab(url: string) {
   const target = normalizeRoute(url.split("?")[0]);
   if (!TAB_ROUTES.has(target)) return;
-  if (currentRoute() === target || navigating) return;
+  const current = currentRoute();
+  if (current === "/pages/home/index") {
+    if (target === "/pages/home/index") {
+      setEmbeddedPrimaryTab("home");
+      return;
+    }
+    if (target === "/pages/plaza/index") {
+      setEmbeddedPrimaryTab("plaza");
+      return;
+    }
+  }
+  if (current === target || navigating) return;
 
   navigating = true;
   uni.switchTab({
@@ -37,3 +48,4 @@ export function goRootTab(url: string) {
     }
   });
 }
+import { setEmbeddedPrimaryTab } from "./primaryShell";

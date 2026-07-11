@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
+import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import PlazaPage from "../plaza/index.vue";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockHomeAnnouncements,
@@ -18,6 +19,7 @@ import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { activeEmbeddedPrimaryTab, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
@@ -64,6 +66,7 @@ const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const waterfallAnimationClass = ref("");
+const plazaMounted = ref(false);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -96,12 +99,19 @@ onLoad((query) => {
 });
 
 onShow(() => {
+  setEmbeddedPrimaryTab("home");
   applyInviteCode();
   void loadUnreadMessages();
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
   const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
   void loadHomeData(changed);
+});
+
+onReady(() => {
+  setTimeout(() => {
+    plazaMounted.value = true;
+  }, 0);
 });
 
 onMounted(() => {
@@ -382,7 +392,12 @@ function goCreate() {
 }
 
 function goPlaza() {
-  goRootTab("/pages/plaza/index");
+  if (plazaMounted.value) {
+    setEmbeddedPrimaryTab("plaza");
+    return;
+  }
+  plazaMounted.value = true;
+  void nextTick(() => setEmbeddedPrimaryTab("plaza"));
 }
 
 function goMessages() {
@@ -623,7 +638,7 @@ function getRatioClass(ratio: string) {
 </script>
 
 <template>
-  <view class="home-page" :class="themeClass">
+  <view v-show="activeEmbeddedPrimaryTab === 'home'" class="home-page" :class="themeClass">
     <scroll-view
       class="content-area"
       scroll-y
@@ -853,6 +868,7 @@ function getRatioClass(ratio: string) {
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
+  <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
 </template>
 
 <style scoped>

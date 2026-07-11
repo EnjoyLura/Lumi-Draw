@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from "vue";
-import { onReady, onShow } from "@dcloudio/uni-app";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
@@ -210,16 +210,19 @@ const filteredWorks = computed(() => {
   return baseWorks;
 });
 
-onShow(() => {
+function refreshPlazaPage() {
   console.warn("[Lumi probe] plaza onShow");
   void loadUnreadMessages();
   void loadDrawerProfile();
   const modeChanged = lastMockMode !== useMockData.value;
   lastMockMode = useMockData.value;
   if (modeChanged || Date.now() - lastLoadedAt > 60_000) void reloadPlazaData();
-});
+}
 
-onReady(() => {
+onShow(refreshPlazaPage);
+
+onMounted(() => {
+  refreshPlazaPage();
   console.warn("[Lumi probe] plaza onReady");
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
