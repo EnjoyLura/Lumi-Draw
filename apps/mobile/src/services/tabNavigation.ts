@@ -1,7 +1,8 @@
-import { setEmbeddedPrimaryTab } from "./primaryShell";
+import { openEmbeddedCreate, setEmbeddedPrimaryTab } from "./primaryShell";
 
 const TAB_ROUTES = new Set([
   "/pages/home/index",
+  "/pages/create/index",
   "/pages/plaza/index",
   "/pages/gallery/index",
   "/pages/mine/index"
@@ -12,6 +13,15 @@ let navigating = false;
 function normalizeRoute(route: string) {
   if (!route) return "";
   return route.startsWith("/") ? route : `/${route}`;
+}
+
+function readQuery(url: string) {
+  const queryString = url.split("?")[1] || "";
+  const query: Record<string, string> = {};
+  new URLSearchParams(queryString).forEach((value, key) => {
+    query[key] = value;
+  });
+  return query;
 }
 
 function currentRoute() {
@@ -31,6 +41,10 @@ export function goRootTab(url: string) {
   if (current === "/pages/home/index") {
     if (target === "/pages/home/index") {
       setEmbeddedPrimaryTab("home");
+      return;
+    }
+    if (target === "/pages/create/index") {
+      openEmbeddedCreate(readQuery(url));
       return;
     }
     if (target === "/pages/plaza/index") {
