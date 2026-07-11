@@ -18,7 +18,10 @@
       "path": "pages/plaza/index",
       "style": {
         "navigationBarTitleText": "广场",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
       }
     },
     {
