@@ -3,8 +3,10 @@ import { onLaunch } from "@dcloudio/uni-app";
 import { initAuth } from "./services/auth";
 import { initDataMode } from "./services/dataMode";
 import { initNavigationTitleSync } from "./services/navigationTitle";
+import { initPagePerformanceMonitoring } from "./services/pagePerformance";
 
 onLaunch(() => {
+  initPagePerformanceMonitoring();
   initDataMode();
   initAuth();
   initNavigationTitleSync();

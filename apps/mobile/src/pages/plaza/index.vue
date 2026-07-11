@@ -223,7 +223,7 @@ onReady(() => {
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
     initialContentTimer = undefined;
-    setTimeout(() => reportPageNavigationPerformance("plaza"), 500);
+    setTimeout(() => reportPageNavigationPerformance("plaza"), 800);
   }, 0);
 });
 
