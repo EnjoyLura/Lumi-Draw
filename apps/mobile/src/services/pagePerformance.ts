@@ -14,12 +14,13 @@ type MiniProgramRuntime = {
 };
 
 export function reportPageNavigationPerformance(page: string) {
-  if (import.meta.env.MODE !== "development") return;
-
   // #ifdef MP-WEIXIN
   const runtime = (globalThis as typeof globalThis & { wx?: MiniProgramRuntime }).wx;
   const performance = runtime?.getPerformance?.();
-  if (!performance?.getEntriesByName) return;
+  if (!performance?.getEntriesByName) {
+    console.info(`[Lumi performance] ${page}`, { supported: false });
+    return;
+  }
 
   const routeEntries = performance.getEntriesByName("route");
   const firstRenderEntries = performance.getEntriesByName("firstRender");
