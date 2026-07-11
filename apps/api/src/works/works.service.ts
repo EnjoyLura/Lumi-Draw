@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
 import type { CreateWorkDto, UpdateWorkDto } from "./works.write.dto";
 
 type WorkWithAuthor = Work & { user: User };
@@ -87,7 +88,14 @@ async function withInteractionState(prisma: PrismaService, userId: number | unde
 
 @Injectable()
 export class WorksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService
+  ) {}
+
+  private toCard(work: WorkWithAuthor) {
+    return { ...toCard(work), imageUrl: this.uploads.readUrl(work.imageUrl) };
+  }
 
   private async listCards(
     where: Prisma.WorkWhereInput,
@@ -100,7 +108,7 @@ export class WorksService {
       this.prisma.work.findMany({ where, orderBy, include: { user: true }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map(toCard));
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toCard(work)));
     return buildPage(items, total, page, pageSize);
   }
 
@@ -152,7 +160,7 @@ export class WorksService {
       : null;
     return {
       id: work.id,
-      imageUrl: work.imageUrl,
+      imageUrl: this.uploads.readUrl(work.imageUrl),
       title: work.title,
       description: work.description,
       prompt: work.prompt,
@@ -275,7 +283,7 @@ export class WorksService {
     ]);
     const items = rows.map((w) => ({
       id: w.id,
-      imageUrl: w.imageUrl,
+      imageUrl: this.uploads.readUrl(w.imageUrl),
       title: w.title,
       ratio: w.ratio,
       status: w.status,

@@ -24,6 +24,7 @@ const showLoginSheet = ref(false);
 const displayUser = ref(useMockData.value ? mineUser : EMPTY_MINE_USER);
 const unreadMessageCount = ref(0);
 const isLoadingProfile = ref(false);
+const isProfileRequesting = ref(false);
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}` : "";
 let lastLoadedAt = 0;
 
@@ -69,7 +70,8 @@ async function loadProfile() {
     return;
   }
 
-  if (isLoadingProfile.value) return;
+  if (isProfileRequesting.value) return;
+  isProfileRequesting.value = true;
   isLoadingProfile.value = !displayUser.value.name;
   try {
     const [profile, unread] = await Promise.all([fetchMineProfile(), fetchUnreadMessageCount()]);
@@ -87,6 +89,7 @@ async function loadProfile() {
     uni.showToast({ title: "用户资料加载失败", icon: "none" });
   } finally {
     isLoadingProfile.value = false;
+    isProfileRequesting.value = false;
   }
 }
 

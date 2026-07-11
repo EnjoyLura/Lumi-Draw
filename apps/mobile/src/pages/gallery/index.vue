@@ -82,6 +82,7 @@ const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : [])
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(!useMockData.value && isLoggedIn.value);
+const isPageRequesting = ref(false);
 const isLoadingMore = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
@@ -310,7 +311,8 @@ async function reloadGalleryData() {
     return;
   }
 
-  if (isLoading.value) return;
+  if (isPageRequesting.value) return;
+  isPageRequesting.value = true;
   isLoading.value = !works.value.length;
   try {
     const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true), loadUnreadMessages()]);
@@ -323,6 +325,7 @@ async function reloadGalleryData() {
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
+    isPageRequesting.value = false;
   }
 }
 

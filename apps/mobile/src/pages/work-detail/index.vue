@@ -22,7 +22,7 @@ import { useTheme } from "../../services/theme";
 const { themeClass } = useTheme();
 
 const workId = ref(1);
-const { currentUser, login: commitLogin, requireLogin } = useAuth();
+const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const work = ref<DetailWork | undefined>();
 type DetailUser = ReturnType<typeof getWorkUser> | DetailAuthor;
@@ -160,6 +160,7 @@ async function loadDetail() {
     work.value = detail.work;
     user.value = detail.user;
     if (!detail.work.published) return;
+    if (!isLoggedIn.value) return;
     const [stateResult] = await Promise.allSettled([fetchWorkState(workId.value), recordWorkView(workId.value)]);
     if (stateResult.status === "fulfilled") {
       liked.value = stateResult.value.liked;
@@ -428,7 +429,7 @@ async function saveWorkImage() {
 }
 
 async function remakeWork(current: DetailWork) {
-  if (!useMockData.value) {
+  if (!useMockData.value && isLoggedIn.value) {
     try {
       const result = await recordWorkRemake(current.id);
       current.remakes = result.remakes;

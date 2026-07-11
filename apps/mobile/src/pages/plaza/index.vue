@@ -126,6 +126,7 @@ const drawerProfile = ref<MineUser | null>(null);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
 const isLoading = ref(!useMockData.value);
+const isPageRequesting = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
 const renderKey = ref(0);
@@ -368,7 +369,8 @@ async function reloadPlazaData() {
     return;
   }
 
-  if (isLoading.value) return;
+  if (isPageRequesting.value) return;
+  isPageRequesting.value = true;
   isLoading.value = !workList.value.length;
   loadFailed.value = false;
   try {
@@ -392,6 +394,7 @@ async function reloadPlazaData() {
     uni.showToast({ title: "广场数据加载失败，请稍后重试", icon: "none" });
   } finally {
     isLoading.value = false;
+    isPageRequesting.value = false;
   }
 }
 

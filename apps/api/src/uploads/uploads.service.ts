@@ -61,6 +61,25 @@ export class UploadsService {
     return { ok: true, ossKey, publicUrl: resolved };
   }
 
+  /** Returns a short-lived GET URL when the configured OSS bucket is private. */
+  readUrl(url: string) {
+    const oss = this.config.get<{ accessKeyId: string; accessKeySecret: string; bucket: string; endpoint: string }>("app.oss");
+    if (!url || !oss?.accessKeyId || !oss.accessKeySecret || !oss.bucket || !oss.endpoint) return url;
+
+    const host = `https://${oss.bucket}.${oss.endpoint}`;
+    if (!url.startsWith(`${host}/`)) return url;
+    const rawKey = url.slice(host.length + 1).split("?")[0];
+    if (!rawKey) return url;
+
+    const ossKey = decodeURIComponent(rawKey);
+    const expires = Math.floor(Date.now() / 1000) + 60 * 30;
+    const resource = `/${oss.bucket}/${ossKey}`;
+    const stringToSign = `GET\n\n\n${expires}\n${resource}`;
+    const signature = createHmac("sha1", oss.accessKeySecret).update(stringToSign).digest("base64");
+    const query = `OSSAccessKeyId=${encodeURIComponent(oss.accessKeyId)}&Expires=${expires}&Signature=${encodeURIComponent(signature)}`;
+    return `${host}/${encodeKeyPath(ossKey)}?${query}`;
+  }
+
   async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
     const downloaded = await this.downloadImage(sourceUrl);
     const policy = this.policy(scene, `generated.${EXT_BY_TYPE[downloaded.contentType] ?? "jpg"}`, downloaded.contentType);
