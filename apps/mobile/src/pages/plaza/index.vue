@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -39,6 +40,10 @@ type SideRow = {
 const filterOpen = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
+const isInitialContentReady = ref(false);
+const filterMounted = ref(false);
+const sideDrawerMounted = ref(false);
+const loginSheetMounted = ref(false);
 const { isLoggedIn, currentUser, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 const EMPTY_DRAWER_PROFILE: MineUser = {
@@ -153,6 +158,7 @@ const sideRows = ref<SideRow[]>([
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastLoadedAt = 0;
 
@@ -211,9 +217,18 @@ onShow(() => {
   if (modeChanged || Date.now() - lastLoadedAt > 60_000) void reloadPlazaData();
 });
 
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+    setTimeout(() => reportPageNavigationPerformance("plaza"), 500);
+  }, 0);
+});
+
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
+  if (initialContentTimer) clearTimeout(initialContentTimer);
   clearWaterfallAnimation();
 });
 
@@ -625,6 +640,7 @@ async function toggleLike(event: Event, workId: number) {
 }
 
 function openFilter() {
+  filterMounted.value = true;
   filterOpen.value = true;
 }
 
@@ -633,6 +649,7 @@ function closeFilter() {
 }
 
 function openSideMenu() {
+  sideDrawerMounted.value = true;
   sideOpen.value = true;
 }
 
@@ -641,6 +658,7 @@ function closeSideMenu() {
 }
 
 function openLoginSheet() {
+  loginSheetMounted.value = true;
   showLoginSheet.value = true;
 }
 
@@ -729,7 +747,18 @@ function handleReachBottom() {
         </view>
 
         <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
-          <view v-if="isLoading && !isWaterfallSwitching" class="loading-card">
+          <view v-if="!isInitialContentReady" class="initial-waterfall-placeholder">
+            <view class="placeholder-column">
+              <view class="placeholder-card tall" />
+              <view class="placeholder-card short" />
+            </view>
+            <view class="placeholder-column">
+              <view class="placeholder-card short" />
+              <view class="placeholder-card tall" />
+            </view>
+          </view>
+
+          <view v-else-if="isLoading && !isWaterfallSwitching" class="loading-card">
             <view class="spinner" />
           </view>
 
@@ -810,7 +839,7 @@ function handleReachBottom() {
           </view>
         </view>
 
-        <view v-if="!isLoading && !isWaterfallSwitching && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
+        <view v-if="isInitialContentReady && !isLoading && !isWaterfallSwitching && filteredWorks.length" class="load-more-hint" :class="{ 'is-loading': isLoadingMore }">
           <view v-if="isLoadingMore" class="spinner mini" />
           <text>{{ isLoadingMore ? "正在加载更多作品" : hasMoreWorks ? "继续往下滑获取更多作品" : "我也是有底线的~" }}</text>
         </view>
@@ -841,6 +870,7 @@ function handleReachBottom() {
     </view>
 
     <LumiSideDrawer
+      v-if="sideDrawerMounted"
       :open="sideOpen"
       :user-name="isLoggedIn ? drawerDisplay.name : '点击登录'"
       :user-avatar="isLoggedIn ? drawerDisplay.avatar : '♙'"
@@ -851,10 +881,11 @@ function handleReachBottom() {
       @close="closeSideMenu"
       @navigate="navigateSide"
     />
-    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
+    <LumiLoginSheet v-if="loginSheetMounted" :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
 
-    <view class="sheet-overlay" :class="{ show: filterOpen }" @click="closeFilter" />
-    <view class="filter-sheet" :class="{ show: filterOpen }">
+    <template v-if="filterMounted">
+      <view class="sheet-overlay" :class="{ show: filterOpen }" @click="closeFilter" />
+      <view class="filter-sheet" :class="{ show: filterOpen }">
       <view class="sheet-handle" />
       <view class="sheet-body">
         <view class="filter-title">分类</view>
@@ -914,7 +945,8 @@ function handleReachBottom() {
           <view class="btn btn-gradient" @click="applyPlazaFilter">确认</view>
         </view>
       </view>
-    </view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -1085,6 +1117,34 @@ function handleReachBottom() {
 .waterfall-stage {
   position: relative;
   min-height: 320px;
+}
+
+.initial-waterfall-placeholder {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.placeholder-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.placeholder-card {
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  opacity: 0.72;
+}
+
+.placeholder-card.tall {
+  height: 238px;
+}
+
+.placeholder-card.short {
+  height: 178px;
 }
 
 .waterfall-stage.switching .waterfall,

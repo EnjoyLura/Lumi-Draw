@@ -9,6 +9,7 @@
     "appid": "wxbb3da1bed70db50f",
     "darkmode": true,
     "themeLocation": "theme.json",
+    "lazyCodeLoading": "requiredComponents",
     "setting": {
       "urlCheck": false
     },
