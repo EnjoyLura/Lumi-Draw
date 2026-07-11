@@ -142,7 +142,10 @@
       "path": "pages/settings/index",
       "style": {
         "navigationBarTitleText": "设置",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
       }
     },
     {

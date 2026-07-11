@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -19,6 +19,8 @@ const phone = ref(currentUser.value?.phone || "");
 const versionMeta = ref(currentVersion);
 const cacheMeta = ref("12.5MB");
 const isSavingPhone = ref(false);
+const isInitialContentReady = ref(false);
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const phoneText = computed(() => {
   if (!isLoggedIn.value) return "手机号 --";
@@ -41,6 +43,13 @@ const visibleAboutItems = computed(() =>
 onShow(() => {
   void loadSettingsProfile();
   void loadVersionMeta();
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
 });
 
 function requireSession() {
@@ -203,7 +212,8 @@ async function login() {
 <template>
   <view class="settings-page" :class="themeClass">
     <LumiPageHeader title="设置" />
-    <scroll-view class="page-scroll" scroll-y>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y>
       <view class="settings-content">
         <view class="section-title">账号</view>
         <view class="card">
@@ -251,6 +261,8 @@ async function login() {
 
 <style scoped>
 .settings-page {
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
@@ -259,7 +271,13 @@ async function login() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  height: 0;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .settings-content {
