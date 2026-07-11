@@ -5,7 +5,9 @@ import { getCurrentPageTitle } from "../services/navigationTitle";
 
 const props = defineProps<{
   title?: string;
+  embedded?: boolean;
 }>();
+const emit = defineEmits<{ back: [] }>();
 
 const statusBarHeight = ref(0);
 const canGoBack = ref(false);
@@ -69,12 +71,16 @@ function hasPageStack() {
 
 function syncCanGoBack() {
   currentRoute.value = readCurrentRoute();
-  canGoBack.value = hasPageStack() || (!!currentRoute.value && !ROOT_ROUTES.has(currentRoute.value));
+  canGoBack.value = Boolean(props.embedded) || hasPageStack() || (!!currentRoute.value && !ROOT_ROUTES.has(currentRoute.value));
   resolvedTitle.value = props.title || getCurrentPageTitle();
 }
 
 function goBack() {
   if (!canGoBack.value) return;
+  if (props.embedded) {
+    emit("back");
+    return;
+  }
   if (hasPageStack()) {
     uni.navigateBack();
     return;

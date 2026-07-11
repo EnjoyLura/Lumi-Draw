@@ -2,9 +2,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import CheckinPage from "../checkin/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
 import PlazaPage from "../plaza/index.vue";
+import RechargePage from "../recharge/index.vue";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockHomeAnnouncements,
@@ -20,8 +22,8 @@ import {
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
-import { goRootTab } from "../../services/tabNavigation";
-import { activeEmbeddedPrimaryTab, setEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { goRootTab, openSecondaryPage } from "../../services/tabNavigation";
+import { activeEmbeddedPrimaryTab, activeEmbeddedSecondaryPage, closeEmbeddedSecondaryPage, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
@@ -103,7 +105,6 @@ onLoad((query) => {
 });
 
 onShow(() => {
-  setEmbeddedPrimaryTab("home");
   applyInviteCode();
   void loadUnreadMessages();
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
@@ -445,6 +446,7 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
+    if (openSecondaryPage(route)) return;
     uni.navigateTo({ url: route });
     return;
   }
@@ -887,9 +889,20 @@ function getRatioClass(ratio: string) {
   <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
+  <view v-if="activeEmbeddedSecondaryPage" class="embedded-secondary-page">
+    <RechargePage v-if="activeEmbeddedSecondaryPage === 'recharge'" embedded @back="closeEmbeddedSecondaryPage" />
+    <CheckinPage v-else embedded @back="closeEmbeddedSecondaryPage" />
+  </view>
 </template>
 
 <style scoped>
+.embedded-secondary-page {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--page-bg);
+}
+
 .home-page {
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));

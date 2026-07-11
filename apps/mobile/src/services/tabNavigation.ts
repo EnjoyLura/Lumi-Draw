@@ -1,3 +1,5 @@
+import { openEmbeddedSecondaryPage, setEmbeddedPrimaryTab } from "./primaryShell";
+
 const TAB_ROUTES = new Set([
   "/pages/home/index",
   "/pages/plaza/index",
@@ -56,4 +58,17 @@ export function goRootTab(url: string) {
     }
   });
 }
-import { setEmbeddedPrimaryTab } from "./primaryShell";
+export function openSecondaryPage(url: string) {
+  const target = normalizeRoute(url.split("?")[0]);
+  if (currentRoute() !== "/pages/home/index") return false;
+
+  if (target === "/pages/recharge/index") {
+    openEmbeddedSecondaryPage("recharge");
+    return true;
+  }
+  if (target === "/pages/checkin/index") {
+    openEmbeddedSecondaryPage("checkin");
+    return true;
+  }
+  return false;
+}

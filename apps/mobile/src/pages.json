@@ -94,14 +94,20 @@
       "path": "pages/recharge/index",
       "style": {
         "navigationBarTitleText": "积分充值",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
       }
     },
     {
       "path": "pages/checkin/index",
       "style": {
         "navigationBarTitleText": "每日签到",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
       }
     },
     {

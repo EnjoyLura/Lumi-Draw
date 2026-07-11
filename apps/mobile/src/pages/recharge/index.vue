@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -11,6 +11,8 @@ import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchR
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
+const props = defineProps<{ embedded?: boolean }>();
+const emit = defineEmits<{ back: [] }>();
 
 type RecordTab = "earn" | "spend";
 const RECORD_PAGE_SIZE = 20;
@@ -37,6 +39,7 @@ const recordState = reactive({
   spend: { page: 1, hasMore: false }
 });
 let lastMockMode: boolean | null = null;
+let isMounted = false;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const activeRecordState = computed(() => recordState[activeTab.value]);
@@ -48,12 +51,21 @@ function clampTierIndex() {
   selectedTierIdx.value = tiers.value.length ? Math.max(0, Math.min(selectedTierIdx.value, tiers.value.length - 1)) : 0;
 }
 
-onShow(() => {
+function refreshRechargePage() {
   if (lastMockMode !== useMockData.value) {
     lastMockMode = useMockData.value;
     selectedTierIdx.value = 3;
   }
   void loadPageData();
+}
+
+onShow(() => {
+  if (isMounted) refreshRechargePage();
+});
+
+onMounted(() => {
+  isMounted = true;
+  refreshRechargePage();
 });
 
 async function loadPageData() {
@@ -214,7 +226,7 @@ function confirmCustomRecharge() {
 
 <template>
   <view class="recharge-page" :class="themeClass">
-    <LumiPageHeader title="积分充值" />
+    <LumiPageHeader title="积分充值" :embedded="props.embedded" @back="emit('back')" />
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"

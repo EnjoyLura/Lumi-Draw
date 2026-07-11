@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -11,6 +11,8 @@ import { fetchCheckinStatus, submitCheckin } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
+const props = defineProps<{ embedded?: boolean }>();
+const emit = defineEmits<{ back: [] }>();
 
 const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
@@ -33,6 +35,7 @@ const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 let lastMockMode: boolean | null = null;
+let isMounted = false;
 
 function buildMilestoneStates(streak: number) {
   return milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
@@ -64,11 +67,20 @@ const calendarDays = computed(() => {
   });
 });
 
-onShow(() => {
+function refreshCheckinPage() {
   if (lastMockMode !== useMockData.value) {
     lastMockMode = useMockData.value;
   }
   void loadStatus();
+}
+
+onShow(() => {
+  if (isMounted) refreshCheckinPage();
+});
+
+onMounted(() => {
+  isMounted = true;
+  refreshCheckinPage();
 });
 
 async function loadStatus() {
@@ -184,7 +196,7 @@ function claimMilestone(item: Milestone) {
 
 <template>
   <view class="checkin-page" :class="themeClass">
-    <LumiPageHeader title="每日签到" />
+    <LumiPageHeader title="每日签到" :embedded="props.embedded" @back="emit('back')" />
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
