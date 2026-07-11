@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -65,6 +65,7 @@ const showLoginSheet = ref(false);
 const isUploadingPromptImage = ref(false);
 const isSavingDrafts = ref(false);
 const configLoadFailed = ref(false);
+const isInitialContentReady = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
 
@@ -87,8 +88,16 @@ let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 const syncedTerminalJobIds = new Set<string>();
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
+});
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? (useMockData.value ? createModels[0] : EMPTY_MODEL));
 const selectedGameplay = computed(() => {
@@ -834,7 +843,8 @@ async function goPublish() {
 <template>
   <view class="create-page" :class="themeClass">
     <LumiPageHeader title="创作" />
-    <scroll-view class="create-scroll" scroll-y>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">
           <view class="login-gate-icon">✎</view>
@@ -1217,6 +1227,8 @@ async function goPublish() {
 <style scoped>
 .create-page {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
@@ -1230,6 +1242,11 @@ async function goPublish() {
   height: auto;
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .create-scroll::-webkit-scrollbar,
