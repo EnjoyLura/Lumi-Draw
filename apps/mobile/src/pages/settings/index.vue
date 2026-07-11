@@ -11,7 +11,7 @@ import { aboutItems, type SettingsLink } from "./settingsData";
 import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
 
 const { useMockData } = useDataMode();
-const { theme, themeClass, toggleTheme } = useTheme();
+const { theme, themeClass } = useTheme();
 const { isLoggedIn, currentUser, login: commitLogin, logout, updateCurrentUser } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
@@ -135,10 +135,6 @@ async function tapPhone() {
   }
 }
 
-function toggleDark() {
-  toggleTheme();
-}
-
 function clearAppCache() {
   const cacheKeys = [
     "lumi-home-announcement-dismissed-week",
@@ -225,9 +221,10 @@ async function login() {
 
         <view class="section-title">外观</view>
         <view class="card">
-          <view class="list-row" @click="toggleDark">
+          <view class="list-row">
             <view class="lr-icon accent">☀</view>
             <view class="lr-text">深色模式</view>
+            <text class="lr-meta">跟随系统</text>
             <view class="switch" :class="{ active: darkMode }"><view class="knob" /></view>
           </view>
         </view>

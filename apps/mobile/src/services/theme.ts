@@ -9,6 +9,26 @@ const THEME_BACKGROUNDS: Record<ThemeMode, string> = {
 };
 const theme = ref<ThemeMode>("light");
 const themeClass = computed(() => `theme-${theme.value}`);
+let themeListenerInitialized = false;
+
+type ThemeRuntime = UniApp.Uni & {
+  onThemeChange?: (callback: (result: { theme: ThemeMode }) => void) => void;
+};
+
+function normalizeTheme(value: unknown): ThemeMode {
+  return value === "dark" ? "dark" : "light";
+}
+
+function readSystemTheme(): ThemeMode {
+  // #ifdef H5
+  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  // #endif
+  try {
+    return normalizeTheme((uni.getSystemInfoSync() as UniApp.GetSystemInfoResult & { theme?: ThemeMode }).theme);
+  } catch {
+    return "light";
+  }
+}
 
 export function applyPageBackground(mode: ThemeMode = theme.value) {
   const backgroundColor = THEME_BACKGROUNDS[mode];
@@ -28,6 +48,7 @@ export function applyPageBackground(mode: ThemeMode = theme.value) {
 }
 
 function applyTheme(mode: ThemeMode) {
+  theme.value = mode;
   // #ifdef H5
   document.documentElement.setAttribute("data-theme", mode);
   // #endif
@@ -44,23 +65,27 @@ export function applyNavigationBar() {
 }
 
 export function initTheme() {
-  const stored = uni.getStorageSync(THEME_STORAGE_KEY);
-  theme.value = stored === "dark" ? "dark" : "light";
-  applyTheme(theme.value);
-}
+  uni.removeStorageSync(THEME_STORAGE_KEY);
+  applyTheme(readSystemTheme());
+  if (themeListenerInitialized) return;
+  themeListenerInitialized = true;
 
-export function setTheme(mode: ThemeMode) {
-  theme.value = mode;
-  uni.setStorageSync(THEME_STORAGE_KEY, mode);
-  applyTheme(mode);
-  applyNavigationBar();
+  // #ifdef H5
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
+    applyTheme(event.matches ? "dark" : "light");
+    applyNavigationBar();
+  });
+  // #endif
+
+  (uni as ThemeRuntime).onThemeChange?.((result) => {
+    applyTheme(normalizeTheme(result.theme));
+    applyNavigationBar();
+  });
 }
 
 export function useTheme() {
   return {
     theme,
-    themeClass,
-    setTheme,
-    toggleTheme: () => setTheme(theme.value === "dark" ? "light" : "dark")
+    themeClass
   };
 }
