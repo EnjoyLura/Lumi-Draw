@@ -138,6 +138,7 @@ async function login() {
 <template>
   <view class="drafts-page" :class="themeClass">
     <LumiPageHeader title="草稿箱" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">
@@ -195,6 +196,7 @@ async function login() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

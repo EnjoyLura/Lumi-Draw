@@ -139,6 +139,7 @@ function goPlaza() {
 <template>
   <view class="history-page" :class="themeClass">
     <LumiPageHeader title="浏览记录" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -170,6 +171,7 @@ function goPlaza() {
         <button class="empty-btn" @click="goPlaza">✦ 去逛逛</button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

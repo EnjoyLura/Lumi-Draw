@@ -574,6 +574,7 @@ function showToast(title: string) {
 <template>
   <view class="detail-page" :class="themeClass">
     <LumiPageHeader title="作品详情" />
+    <LumiDeferredPageContent>
     <template v-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <image
@@ -756,6 +757,7 @@ function showToast(title: string) {
       <view class="empty-icon">▧</view>
       <view class="empty-title">作品不存在</view>
     </view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

@@ -186,6 +186,7 @@ function handleReachBottom() {
 <template>
   <view class="search-page" :class="themeClass">
     <LumiPageHeader title="搜索" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">
@@ -284,6 +285,7 @@ function handleReachBottom() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
   </view>
 </template>
 

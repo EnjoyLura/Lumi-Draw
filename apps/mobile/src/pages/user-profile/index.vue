@@ -320,6 +320,7 @@ async function confirmUnfollow() {
 <template>
   <view class="profile-page" :class="themeClass">
     <LumiPageHeader title="用户主页" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view v-if="loading" class="profile-empty">
         <view class="empty-icon">◎</view>
@@ -412,6 +413,7 @@ async function confirmUnfollow() {
       </view>
       </template>
     </scroll-view>
+    </LumiDeferredPageContent>
 
     <view v-if="confirmOpen" class="dialog-overlay" @click="confirmOpen = false">
       <view class="dialog" @click.stop>

@@ -52,6 +52,7 @@ function applyGameplay(gameplay: Gameplay) {
 <template>
   <view class="all-gameplays-page" :class="themeClass">
     <LumiPageHeader title="全部玩法" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view v-if="!useMockData && loadFailed" class="empty-state">
         <view class="empty-icon">!</view>
@@ -82,6 +83,7 @@ function applyGameplay(gameplay: Gameplay) {
       </view>
       <view v-if="isLoading" class="loading-tip">正在加载玩法</view>
     </scroll-view>
+    </LumiDeferredPageContent>
   </view>
 </template>
 

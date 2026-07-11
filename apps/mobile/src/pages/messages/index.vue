@@ -94,6 +94,7 @@ function openCategory(key: MessageCategoryKey) {
 <template>
   <view class="messages-page" :class="themeClass">
     <LumiPageHeader title="消息" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="category-list">
         <LumiLoginRequired
@@ -122,6 +123,7 @@ function openCategory(key: MessageCategoryKey) {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

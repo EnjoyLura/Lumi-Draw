@@ -156,6 +156,7 @@ async function login() {
 <template>
   <view class="message-detail-page" :class="themeClass">
     <LumiPageHeader />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="detail-content">
         <LumiLoginRequired
@@ -208,6 +209,7 @@ async function login() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

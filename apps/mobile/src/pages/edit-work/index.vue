@@ -235,6 +235,7 @@ async function submit() {
 <template>
   <view class="edit-work-page" :class="themeClass">
     <LumiPageHeader title="编辑作品" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -305,6 +306,7 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

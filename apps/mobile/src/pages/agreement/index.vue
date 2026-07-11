@@ -120,6 +120,7 @@ async function loadAgreement() {
 <template>
   <view class="agreement-page" :class="themeClass">
     <LumiPageHeader />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="agreement-content">
         <view class="title-row">
@@ -139,6 +140,7 @@ async function loadAgreement() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
   </view>
 </template>
 

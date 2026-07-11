@@ -249,6 +249,7 @@ async function submit() {
 <template>
   <view class="publish-page" :class="themeClass">
     <LumiPageHeader title="发布作品" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -322,6 +323,7 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
 
     <view class="sheet-overlay" :class="{ show: pickerOpen }" @click="closePicker" />
     <view class="picker-sheet" :class="{ show: pickerOpen }">

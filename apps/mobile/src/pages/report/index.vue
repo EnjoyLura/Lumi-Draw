@@ -119,6 +119,7 @@ async function login() {
 <template>
   <view class="report-page" :class="themeClass">
     <LumiPageHeader title="举报" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="section-title">请选择举报原因</view>
@@ -142,6 +143,7 @@ async function login() {
         </button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

@@ -235,6 +235,7 @@ function goPlaza() {
 <template>
   <view class="follow-page" :class="themeClass">
     <LumiPageHeader />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreList">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -271,6 +272,7 @@ function goPlaza() {
         <button v-if="type === 'following'" class="empty-btn" @click="goPlaza">✦ 去广场</button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

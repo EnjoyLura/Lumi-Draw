@@ -179,6 +179,7 @@ async function save() {
 <template>
   <view class="edit-page" :class="themeClass">
     <LumiPageHeader title="编辑资料" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -254,6 +255,7 @@ async function save() {
         <button class="save-btn" :disabled="isSaving || loadFailed" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

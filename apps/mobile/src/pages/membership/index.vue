@@ -190,6 +190,7 @@ function showAgreement() {
 <template>
   <view class="membership-page" :class="themeClass">
     <LumiPageHeader title="会员中心" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="member-card">
@@ -266,6 +267,7 @@ function showAgreement() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

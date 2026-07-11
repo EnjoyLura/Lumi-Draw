@@ -67,6 +67,7 @@ async function loadChangelog() {
 <template>
   <view class="changelog-page" :class="themeClass">
     <LumiPageHeader title="更新日志" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="changelog-content">
         <view class="app-head">
@@ -104,6 +105,7 @@ async function loadChangelog() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
   </view>
 </template>
 

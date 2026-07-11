@@ -334,6 +334,7 @@ async function login() {
 <template>
   <view class="generation-history-page" :class="themeClass">
     <LumiPageHeader title="生成记录" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="filter-bar">
         <view
@@ -417,6 +418,7 @@ async function login() {
         <button class="primary-btn" @click="goCreate">去创作</button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
 
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>

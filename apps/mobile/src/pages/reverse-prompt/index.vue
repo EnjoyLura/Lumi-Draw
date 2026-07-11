@@ -114,6 +114,7 @@ async function login() {
 <template>
   <view class="reverse-page" :class="themeClass">
     <LumiPageHeader title="反推提示词" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="card upload-card">
@@ -150,6 +151,7 @@ async function login() {
         </view>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>

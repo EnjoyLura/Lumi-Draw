@@ -201,6 +201,7 @@ async function submit() {
 <template>
   <view class="feedback-page" :class="themeClass">
     <LumiPageHeader title="意见反馈" />
+    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view class="feedback-content">
         <view class="field">
@@ -258,6 +259,7 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
+    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
