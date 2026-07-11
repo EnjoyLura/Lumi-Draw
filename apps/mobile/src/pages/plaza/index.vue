@@ -7,7 +7,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
-import { goRootTab, openSecondaryPage } from "../../services/tabNavigation";
+import { goRootTab } from "../../services/tabNavigation";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
@@ -675,7 +675,6 @@ function ensureLogin() {
 function navigateSide(url: string) {
   closeSideMenu();
   if (!ensureLogin()) return;
-  if (openSecondaryPage(url)) return;
   uni.navigateTo({ url });
 }
 

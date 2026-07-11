@@ -5,7 +5,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
-import { goRootTab, openSecondaryPage } from "../../services/tabNavigation";
+import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
@@ -128,7 +128,6 @@ function handleProfileTap() {
 
 function handleCreditsTap() {
   if (isLoggedIn.value) {
-    if (openSecondaryPage("/pages/recharge/index")) return;
     uni.navigateTo({ url: "/pages/recharge/index" });
   } else {
     showLoginSheet.value = true;
@@ -142,12 +141,10 @@ function handleQuickAction(label: string) {
   }
   const item = quickActions.find((action) => action.label === label);
   if (item?.key === "recharge") {
-    if (openSecondaryPage("/pages/recharge/index")) return;
     uni.navigateTo({ url: "/pages/recharge/index" });
     return;
   }
   if (item?.key === "checkin") {
-    if (openSecondaryPage("/pages/checkin/index")) return;
     uni.navigateTo({ url: "/pages/checkin/index" });
     return;
   }

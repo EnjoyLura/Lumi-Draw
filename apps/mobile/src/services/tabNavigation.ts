@@ -1,4 +1,4 @@
-import { openEmbeddedSecondaryPage, setEmbeddedPrimaryTab } from "./primaryShell";
+import { setEmbeddedPrimaryTab } from "./primaryShell";
 
 const TAB_ROUTES = new Set([
   "/pages/home/index",
@@ -57,18 +57,4 @@ export function goRootTab(url: string) {
       }, 240);
     }
   });
-}
-export function openSecondaryPage(url: string) {
-  const target = normalizeRoute(url.split("?")[0]);
-  if (currentRoute() !== "/pages/home/index") return false;
-
-  if (target === "/pages/recharge/index") {
-    openEmbeddedSecondaryPage("recharge");
-    return true;
-  }
-  if (target === "/pages/checkin/index") {
-    openEmbeddedSecondaryPage("checkin");
-    return true;
-  }
-  return false;
 }
