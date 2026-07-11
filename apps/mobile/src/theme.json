@@ -1,10 +1,18 @@
 {
   "light": {
     "pageBackground": "#eef4fc",
-    "navTextStyle": "black"
+    "navTextStyle": "black",
+    "tabBackground": "#eef4fc",
+    "tabTextColor": "#8497b5",
+    "tabSelectedColor": "#5b9fe8",
+    "tabBorderStyle": "white"
   },
   "dark": {
     "pageBackground": "#141416",
-    "navTextStyle": "white"
+    "navTextStyle": "white",
+    "tabBackground": "#141416",
+    "tabTextColor": "#8e8e93",
+    "tabSelectedColor": "#fafafa",
+    "tabBorderStyle": "black"
   }
 }

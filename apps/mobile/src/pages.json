@@ -215,10 +215,10 @@
   ,
   "tabBar": {
     "height": "0px",
-    "borderStyle": "white",
-    "backgroundColor": "#ffffff",
-    "color": "#8497b5",
-    "selectedColor": "#5b9fe8",
+    "borderStyle": "@tabBorderStyle",
+    "backgroundColor": "@tabBackground",
+    "color": "@tabTextColor",
+    "selectedColor": "@tabSelectedColor",
     "list": [
       {
         "pagePath": "pages/home/index",
