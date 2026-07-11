@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from "vue";
-import { onReady, onShow } from "@dcloudio/uni-app";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
@@ -149,19 +150,30 @@ const emptyInfo = computed(() => {
   return { icon: "□", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
 
-onShow(() => {
+function refreshGalleryPage() {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
   const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
   if (changed || Date.now() - lastLoadedAt > 60_000) void reloadGalleryData();
-});
+}
 
-onReady(() => {
+function markInitialContentReady() {
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
     initialContentTimer = undefined;
     setTimeout(() => reportPageNavigationPerformance("gallery"), 800);
   }, 0);
+}
+
+onShow(refreshGalleryPage);
+
+onMounted(() => {
+  refreshGalleryPage();
+  markInitialContentReady();
+});
+
+watch(activeEmbeddedPrimaryTab, (tab) => {
+  if (tab === "gallery") refreshGalleryPage();
 });
 
 onBeforeUnmount(() => {

@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import GalleryPage from "../gallery/index.vue";
 import PlazaPage from "../plaza/index.vue";
 import {
   gameplays as mockGameplays,
@@ -67,6 +68,7 @@ const loadFailed = ref(false);
 const worksRenderKey = ref(0);
 const waterfallAnimationClass = ref("");
 const plazaMounted = ref(false);
+const galleryMounted = ref(false);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -111,6 +113,7 @@ onShow(() => {
 onReady(() => {
   setTimeout(() => {
     plazaMounted.value = true;
+    galleryMounted.value = true;
   }, 0);
 });
 
@@ -413,7 +416,12 @@ function goUserProfile(userId: number) {
 }
 
 function goGallery() {
-  goRootTab("/pages/gallery/index");
+  if (galleryMounted.value) {
+    setEmbeddedPrimaryTab("gallery");
+    return;
+  }
+  galleryMounted.value = true;
+  void nextTick(() => setEmbeddedPrimaryTab("gallery"));
 }
 
 function goMine() {
@@ -869,6 +877,7 @@ function getRatioClass(ratio: string) {
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
   <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
+  <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
 </template>
 
 <style scoped>

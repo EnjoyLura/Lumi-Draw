@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-export type EmbeddedPrimaryTab = "home" | "plaza";
+export type EmbeddedPrimaryTab = "home" | "plaza" | "gallery";
 
 export const activeEmbeddedPrimaryTab = ref<EmbeddedPrimaryTab>("home");
 
