@@ -18,7 +18,7 @@ export function reportPageNavigationPerformance(page: string) {
   const runtime = (globalThis as typeof globalThis & { wx?: MiniProgramRuntime }).wx;
   const performance = runtime?.getPerformance?.();
   if (!performance?.getEntriesByName) {
-    console.info(`[Lumi performance] ${page}`, { supported: false });
+    console.warn(`[Lumi performance] ${page}`, { supported: false });
     return;
   }
 
@@ -26,6 +26,6 @@ export function reportPageNavigationPerformance(page: string) {
   const firstRenderEntries = performance.getEntriesByName("firstRender");
   const route = routeEntries[routeEntries.length - 1];
   const firstRender = firstRenderEntries[firstRenderEntries.length - 1];
-  console.info(`[Lumi performance] ${page}`, { route, firstRender });
+  console.warn(`[Lumi performance] ${page}`, { route, firstRender });
   // #endif
 }

@@ -210,6 +210,7 @@ const filteredWorks = computed(() => {
 });
 
 onShow(() => {
+  console.warn("[Lumi probe] plaza onShow");
   void loadUnreadMessages();
   void loadDrawerProfile();
   const modeChanged = lastMockMode !== useMockData.value;
@@ -218,6 +219,7 @@ onShow(() => {
 });
 
 onReady(() => {
+  console.warn("[Lumi probe] plaza onReady");
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
     initialContentTimer = undefined;
