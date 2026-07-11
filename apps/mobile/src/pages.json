@@ -28,7 +28,10 @@
       "path": "pages/gallery/index",
       "style": {
         "navigationBarTitleText": "画廊",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
       }
     },
     {

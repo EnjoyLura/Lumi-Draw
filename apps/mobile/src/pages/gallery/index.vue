@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -86,6 +87,9 @@ const isPageRequesting = ref(false);
 const isLoadingMore = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
+const isInitialContentReady = ref(false);
+const sideDrawerMounted = ref(false);
+const loginSheetMounted = ref(false);
 const unreadMessageCount = ref(0);
 const visibleCount = ref(PAGE_SIZE);
 const renderKey = ref(0);
@@ -111,6 +115,7 @@ let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
 let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
@@ -151,10 +156,19 @@ onShow(() => {
   if (changed || Date.now() - lastLoadedAt > 60_000) void reloadGalleryData();
 });
 
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+    setTimeout(() => reportPageNavigationPerformance("gallery"), 800);
+  }, 0);
+});
+
 onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
+  if (initialContentTimer) clearTimeout(initialContentTimer);
   clearWaterfallAnimation();
 });
 
@@ -365,6 +379,7 @@ function goFollowList() {
 }
 
 function openLoginSheet() {
+  loginSheetMounted.value = true;
   showLoginSheet.value = true;
 }
 
@@ -384,6 +399,7 @@ async function login() {
 }
 
 function openSideMenu() {
+  sideDrawerMounted.value = true;
   sideOpen.value = true;
 }
 
@@ -632,7 +648,7 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-if="isLoggedIn" class="profile-area">
+        <view v-if="isInitialContentReady && isLoggedIn" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
               <view class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
@@ -668,15 +684,26 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-else class="gallery-login-prompt">
+        <view v-else-if="isInitialContentReady" class="gallery-login-prompt">
           <view class="gallery-login-icon">▣</view>
           <view class="gallery-login-title">登录查看我的画廊</view>
           <view class="gallery-login-sub">登录后即可管理你的AI作品、草稿与创作记录</view>
           <button class="gallery-login-btn" @click="openLoginSheet">立即登录</button>
         </view>
+
+        <view v-else class="gallery-initial-placeholder">
+          <view class="profile-placeholder-row">
+            <view class="profile-placeholder-avatar" />
+            <view class="profile-placeholder-lines">
+              <view class="profile-placeholder-line wide" />
+              <view class="profile-placeholder-line narrow" />
+            </view>
+          </view>
+          <view class="profile-placeholder-line full" />
+        </view>
       </view>
 
-      <view v-if="isLoggedIn" class="gallery-tabs-row">
+      <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row">
         <view class="gallery-tabs">
           <view
             v-for="(tab, index) in galleryTabs"
@@ -694,7 +721,7 @@ function openWork(work: HomeWork) {
         </button>
       </view>
 
-      <view v-if="isLoggedIn" class="gallery-content">
+      <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
         <view v-if="genTasks.length" class="gen-cards">
           <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
             <view class="shimmer-bg" />
@@ -781,7 +808,7 @@ function openWork(work: HomeWork) {
         </view>
       </view>
 
-      <view v-if="isLoggedIn" :class="['manage-bar', { show: manageMode }]">
+      <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
         <text class="selected-count">已选择 {{ selectedCount }} 项</text>
         <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
         <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">回草稿</button>
@@ -789,7 +816,7 @@ function openWork(work: HomeWork) {
       </view>
     </scroll-view>
 
-    <view v-if="isLoggedIn" class="publish-btn" @click="goPublish">+</view>
+    <view v-if="isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish">+</view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -815,6 +842,7 @@ function openWork(work: HomeWork) {
     </view>
 
     <LumiSideDrawer
+      v-if="sideDrawerMounted"
       :open="sideOpen"
       :user-name="profile.name"
       :user-avatar="profile.avatar"
@@ -825,7 +853,7 @@ function openWork(work: HomeWork) {
       @close="closeSideMenu"
       @navigate="navigateSide"
     />
-    <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
+    <LumiLoginSheet v-if="loginSheetMounted" :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
 
@@ -901,6 +929,54 @@ function openWork(work: HomeWork) {
 .nav-search {
   position: absolute;
   right: 16px;
+}
+
+.gallery-initial-placeholder {
+  padding: 12px 16px 18px;
+}
+
+.profile-placeholder-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.profile-placeholder-avatar {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 50%;
+  opacity: 0.72;
+}
+
+.profile-placeholder-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-placeholder-line {
+  height: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 7px;
+  opacity: 0.72;
+}
+
+.profile-placeholder-line.wide {
+  width: 68%;
+}
+
+.profile-placeholder-line.narrow {
+  width: 44%;
+}
+
+.profile-placeholder-line.full {
+  width: 100%;
+  margin-top: 18px;
 }
 
 .manage-btn,
