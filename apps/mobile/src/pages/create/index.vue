@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, onBeforeUnmount, onMounted, onUnmounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -22,8 +21,11 @@ import {
 import { createGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
+import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { goRootTab } from "../../services/tabNavigation";
 
 const { themeClass } = useTheme();
+const props = defineProps<{ routeQuery?: Record<string, string> }>();
 
 const EMPTY_MODEL: CreateModel = {
   id: "",
@@ -247,6 +249,11 @@ onShow(() => {
 onMounted(() => {
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
+  applyRouteQuery(props.routeQuery, true);
+  if (lastConfigMode !== useMockData.value) {
+    lastConfigMode = useMockData.value;
+    void loadCreateConfig();
+  }
 });
 
 onUnmounted(() => {
@@ -259,6 +266,12 @@ onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
 });
+
+watch(activeEmbeddedPrimaryTab, (tab) => {
+  if (tab === "create") applyRouteQuery(props.routeQuery, true);
+});
+
+watch(() => props.routeQuery, (query) => applyRouteQuery(query, true), { deep: true });
 
 function handleHashChange() {
   applyRouteQuery();
@@ -838,11 +851,15 @@ async function goPublish() {
   }
   uni.navigateTo({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
 }
+
+function goHome() { goRootTab("/pages/home/index"); }
+function goPlaza() { goRootTab("/pages/plaza/index"); }
+function goGallery() { goRootTab("/pages/gallery/index"); }
+function goMine() { goRootTab("/pages/mine/index"); }
 </script>
 
 <template>
   <view class="create-page" :class="themeClass">
-    <LumiPageHeader title="创作" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
@@ -1221,6 +1238,13 @@ async function goPublish() {
         <text class="meta-item">{{ previewData.ratio }}</text>
       </view>
     </view>
+    <view class="tab-bar">
+      <view class="tab-item" @click="goHome"><text class="tab-icon">⌂</text><text class="tab-label">首页</text></view>
+      <view class="tab-item" @click="goPlaza"><text class="tab-icon">◇</text><text class="tab-label">广场</text></view>
+      <view class="tab-item center active"><text class="tab-icon">✦</text><text class="tab-label">创作</text></view>
+      <view class="tab-item" @click="goGallery"><text class="tab-icon">□</text><text class="tab-label">画廊</text></view>
+      <view class="tab-item" @click="goMine"><text class="tab-icon">☺</text><text class="tab-label">我的</text></view>
+    </view>
   </view>
 </template>
 
@@ -1264,6 +1288,15 @@ async function goPublish() {
 .create-content {
   padding: 10px 0 calc(128px + env(safe-area-inset-bottom));
 }
+
+.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: 80px; padding-bottom: 16px; box-sizing: border-box; background: var(--bg-glass); border-top: 0.5px solid var(--border); backdrop-filter: blur(24px) saturate(180%); }
+.tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
+.tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
+.tab-label { font-size: 10px; color: var(--fg-muted); }
+.tab-item.active .tab-icon, .tab-item.active .tab-label { color: var(--tab-active); }
+.tab-item.center { margin-top: -10px; }
+.tab-item.center .tab-icon { width: 40px; height: 40px; font-size: 24px; color: #fff; background: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 50%, #6fd4b0 100%); border-radius: 50%; }
+.tab-item.center .tab-label { margin-top: 2px; }
 
 .login-gate {
   display: flex;

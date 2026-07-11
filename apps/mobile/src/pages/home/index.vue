@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
 import PlazaPage from "../plaza/index.vue";
@@ -21,7 +22,7 @@ import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
-import { activeEmbeddedPrimaryTab, setEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { activeEmbeddedPrimaryTab, createRouteQuery, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
@@ -71,6 +72,7 @@ const waterfallAnimationClass = ref("");
 const plazaMounted = ref(false);
 const galleryMounted = ref(false);
 const mineMounted = ref(false);
+const createMounted = ref(false);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -116,6 +118,7 @@ onReady(() => {
     plazaMounted.value = true;
     galleryMounted.value = true;
     mineMounted.value = true;
+    createMounted.value = true;
   }, 0);
 });
 
@@ -385,15 +388,11 @@ function resolvePageAction(action: string) {
 }
 
 function selectGameplay(name: string) {
-  uni.navigateTo({
-    url: `/pages/create/index?gameplay=${encodeURIComponent(name)}`
-  });
+  goRootTab(`/pages/create/index?gameplay=${encodeURIComponent(name)}`);
 }
 
 function goCreate() {
-  uni.navigateTo({
-    url: "/pages/create/index"
-  });
+  goRootTab("/pages/create/index");
 }
 
 function goPlaza() {
@@ -444,6 +443,10 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
+    if (route.startsWith("/pages/create/index")) {
+      goRootTab(route);
+      return;
+    }
     uni.navigateTo({ url: route });
     return;
   }
@@ -886,6 +889,7 @@ function getRatioClass(ratio: string) {
   <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
+  <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
 </template>
 
 <style scoped>

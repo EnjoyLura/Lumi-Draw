@@ -424,7 +424,7 @@ function goHome() {
 }
 
 function goCreate() {
-  uni.navigateTo({ url: "/pages/create/index" });
+  goRootTab("/pages/create/index");
 }
 
 function goGallery() {
