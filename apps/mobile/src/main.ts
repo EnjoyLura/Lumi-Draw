@@ -1,7 +1,7 @@
 import { createSSRApp } from "vue";
 import App from "./App.vue";
 import { syncCurrentPageNavigationTitle } from "./services/navigationTitle";
-import { applyNavigationBar } from "./services/theme";
+import { applyNavigationBar, applyPageBackground, initTheme } from "./services/theme";
 
 const TAB_PAGE_ROUTES = new Set(["pages/home/index", "pages/plaza/index", "pages/gallery/index", "pages/mine/index"]);
 
@@ -11,8 +11,12 @@ function isTabPage() {
 }
 
 export function createApp() {
+  initTheme();
   const app = createSSRApp(App);
   app.mixin({
+    onLoad() {
+      applyPageBackground();
+    },
     onShow() {
       applyNavigationBar();
       syncCurrentPageNavigationTitle();

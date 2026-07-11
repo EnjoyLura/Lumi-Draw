@@ -3,12 +3,10 @@ import { onLaunch } from "@dcloudio/uni-app";
 import { initAuth } from "./services/auth";
 import { initDataMode } from "./services/dataMode";
 import { initNavigationTitleSync } from "./services/navigationTitle";
-import { initTheme } from "./services/theme";
 
 onLaunch(() => {
   initDataMode();
   initAuth();
-  initTheme();
   initNavigationTitleSync();
 });
 </script>
