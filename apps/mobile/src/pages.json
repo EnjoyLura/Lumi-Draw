@@ -216,7 +216,6 @@
     "backgroundColor": "@pageBackground",
     "backgroundColorTop": "@pageBackground",
     "backgroundColorBottom": "@pageBackground",
-    "handleWebviewPreload": "manual",
     "navigationBarShadow": {
       "colorType": "custom",
       "color": "transparent"

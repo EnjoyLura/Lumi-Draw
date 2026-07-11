@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -32,11 +32,13 @@ const isPaying = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 const loadFailed = ref(false);
+const isInitialContentReady = ref(false);
 const recordState = reactive({
   earn: { page: 1, hasMore: false },
   spend: { page: 1, hasMore: false }
 });
 let lastMockMode: boolean | null = null;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const activeRecordState = computed(() => recordState[activeTab.value]);
@@ -54,6 +56,13 @@ onShow(() => {
     selectedTierIdx.value = 3;
   }
   void loadPageData();
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
 });
 
 async function loadPageData() {
@@ -215,7 +224,8 @@ function confirmCustomRecharge() {
 <template>
   <view class="recharge-page" :class="themeClass">
     <LumiPageHeader title="积分充值" />
-    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreRecords">
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后查看积分账户"
@@ -319,6 +329,8 @@ function confirmCustomRecharge() {
 
 <style scoped>
 .recharge-page {
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
@@ -327,7 +339,13 @@ function confirmCustomRecharge() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  height: 0;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .page-content {

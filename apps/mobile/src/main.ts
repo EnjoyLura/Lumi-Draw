@@ -2,7 +2,6 @@ import { createSSRApp } from "vue";
 import App from "./App.vue";
 import { syncCurrentPageNavigationTitle } from "./services/navigationTitle";
 import { applyNavigationBar, applyPageBackground, initTheme } from "./services/theme";
-import { warmupNextWebview } from "./services/webviewWarmup";
 
 const TAB_PAGE_ROUTES = new Set(["pages/home/index", "pages/plaza/index", "pages/gallery/index", "pages/mine/index"]);
 
@@ -17,9 +16,6 @@ export function createApp() {
   app.mixin({
     onLoad() {
       applyPageBackground();
-    },
-    onReady() {
-      warmupNextWebview();
     },
     onShow() {
       applyNavigationBar();

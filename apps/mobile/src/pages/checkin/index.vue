@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -32,7 +32,9 @@ const isLoading = ref(false);
 const isSubmitting = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+const isInitialContentReady = ref(false);
 let lastMockMode: boolean | null = null;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 function buildMilestoneStates(streak: number) {
   return milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
@@ -69,6 +71,13 @@ onShow(() => {
     lastMockMode = useMockData.value;
   }
   void loadStatus();
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
 });
 
 async function loadStatus() {
@@ -185,7 +194,8 @@ function claimMilestone(item: Milestone) {
 <template>
   <view class="checkin-page" :class="themeClass">
     <LumiPageHeader title="每日签到" />
-    <scroll-view class="page-scroll" scroll-y>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后参与每日签到"
@@ -263,6 +273,8 @@ function claimMilestone(item: Milestone) {
 
 <style scoped>
 .checkin-page {
+  display: flex;
+  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
@@ -271,7 +283,13 @@ function claimMilestone(item: Milestone) {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  height: 0;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .page-content {
