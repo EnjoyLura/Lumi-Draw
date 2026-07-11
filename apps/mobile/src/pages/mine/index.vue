@@ -6,7 +6,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
-import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
@@ -111,7 +111,7 @@ function goPlaza() {
 }
 
 function goCreate() {
-  goRootTab("/pages/create/index");
+  openEmbeddedCreate();
 }
 
 function goGallery() {

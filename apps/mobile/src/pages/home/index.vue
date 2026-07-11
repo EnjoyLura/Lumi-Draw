@@ -22,7 +22,7 @@ import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
-import { activeEmbeddedPrimaryTab, createRouteQuery, setEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { activeEmbeddedPrimaryTab, createRouteQuery, openEmbeddedCreate, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
@@ -388,11 +388,11 @@ function resolvePageAction(action: string) {
 }
 
 function selectGameplay(name: string) {
-  goRootTab(`/pages/create/index?gameplay=${encodeURIComponent(name)}`);
+  openEmbeddedCreate({ gameplay: name });
 }
 
 function goCreate() {
-  goRootTab("/pages/create/index");
+  openEmbeddedCreate();
 }
 
 function goPlaza() {
@@ -444,7 +444,12 @@ function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
     if (route.startsWith("/pages/create/index")) {
-      goRootTab(route);
+      const [, queryString = ""] = route.split("?");
+      const query: Record<string, string> = {};
+      new URLSearchParams(queryString).forEach((value, key) => {
+        query[key] = value;
+      });
+      openEmbeddedCreate(query);
       return;
     }
     uni.navigateTo({ url: route });

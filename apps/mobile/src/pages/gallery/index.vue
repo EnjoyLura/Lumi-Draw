@@ -7,7 +7,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
-import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
@@ -364,7 +364,7 @@ function goPlaza() {
 }
 
 function goCreate() {
-  goRootTab("/pages/create/index");
+  openEmbeddedCreate();
 }
 
 function goMine() {

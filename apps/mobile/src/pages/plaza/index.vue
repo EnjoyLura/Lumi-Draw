@@ -8,6 +8,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
@@ -424,7 +425,7 @@ function goHome() {
 }
 
 function goCreate() {
-  goRootTab("/pages/create/index");
+  openEmbeddedCreate();
 }
 
 function goGallery() {
