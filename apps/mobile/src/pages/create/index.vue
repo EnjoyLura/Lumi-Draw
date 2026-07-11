@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
-import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -93,13 +93,6 @@ let lastRouteSignature = "";
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 const syncedTerminalJobIds = new Set<string>();
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
-
-onReady(() => {
-  initialContentTimer = setTimeout(() => {
-    isInitialContentReady.value = true;
-    initialContentTimer = undefined;
-  }, 16);
-});
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? (useMockData.value ? createModels[0] : EMPTY_MODEL));
 const selectedGameplay = computed(() => {
@@ -247,13 +240,17 @@ onShow(() => {
 });
 
 onMounted(() => {
-  if (typeof window === "undefined") return;
-  window.addEventListener("hashchange", handleHashChange);
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
   applyRouteQuery(props.routeQuery, true);
   if (lastConfigMode !== useMockData.value) {
     lastConfigMode = useMockData.value;
     void loadCreateConfig();
   }
+  if (typeof window === "undefined") return;
+  window.addEventListener("hashchange", handleHashChange);
 });
 
 onUnmounted(() => {
