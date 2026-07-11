@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -764,64 +765,21 @@ function handleReachBottom() {
             <view class="spinner" />
           </view>
 
-        <view
+        <LumiPlazaWaterfall
           v-else-if="filteredWorks.length"
-          :key="renderKey"
-          class="waterfall"
-          :class="waterfallAnimationClass"
-        >
-          <view class="waterfall-column">
-            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
-              <image
-                class="work-img"
-                :src="work.image"
-                mode="aspectFill"
-                lazy-load
-                :style="{ aspectRatio: getAspectRatio(work.ratio) }"
-                @click="openWorkDetail(work.id)"
-              />
-              <view class="work-body">
-                <view class="work-title">{{ work.title }}</view>
-                <view class="work-meta">
-                  <view class="author" @click.stop="goUserProfile(work.userId)">
-                    <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
-                    <text class="author-name">{{ getUser(work).name }}</text>
-                  </view>
-                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="toggleLike($event, work.id)">
-                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ displayLikeCount(work) }}</text>
-                  </view>
-                </view>
-              </view>
-            </view>
-          </view>
-
-          <view class="waterfall-column">
-            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
-              <image
-                class="work-img"
-                :src="work.image"
-                mode="aspectFill"
-                lazy-load
-                :style="{ aspectRatio: getAspectRatio(work.ratio) }"
-                @click="openWorkDetail(work.id)"
-              />
-              <view class="work-body">
-                <view class="work-title">{{ work.title }}</view>
-                <view class="work-meta">
-                  <view class="author" @click.stop="goUserProfile(work.userId)">
-                    <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
-                    <text class="author-name">{{ getUser(work).name }}</text>
-                  </view>
-                  <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="toggleLike($event, work.id)">
-                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
-                    <text>{{ displayLikeCount(work) }}</text>
-                  </view>
-                </view>
-              </view>
-            </view>
-          </view>
-        </view>
+          :animation-class="waterfallAnimationClass"
+          :display-like-count="displayLikeCount"
+          :get-aspect-ratio="getAspectRatio"
+          :get-user="getUser"
+          :left-works="leftColumnWorks"
+          :liked-work-ids="likedWorkIds"
+          :render-key="renderKey"
+          :right-works="rightColumnWorks"
+          :switching="isWaterfallSwitching"
+          @open-work="openWorkDetail"
+          @open-user="goUserProfile"
+          @toggle-like="toggleLike"
+        />
 
         <view v-else-if="!useMockData && loadFailed" class="empty-state">
           <view class="empty-icon">!</view>
@@ -1149,7 +1107,6 @@ function handleReachBottom() {
   height: 178px;
 }
 
-.waterfall-stage.switching .waterfall,
 .waterfall-stage.switching .empty-state {
   opacity: 0;
 }
@@ -1172,103 +1129,6 @@ function handleReachBottom() {
 
 .switch-loading-card.show {
   opacity: 1;
-}
-
-.waterfall {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 0 8px;
-}
-
-.waterfall-column {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-}
-
-.work-card {
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
-}
-
-.work-img {
-  display: block;
-  width: 100%;
-}
-
-.work-body {
-  padding: 8px 10px 6px;
-}
-
-.work-title {
-  margin-bottom: 2px;
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.work-meta {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.author {
-  display: flex;
-  flex: 1;
-  gap: 5px;
-  align-items: center;
-  min-width: 0;
-}
-
-.avatar {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  border-radius: 50%;
-}
-
-.author-name {
-  flex: 1;
-  overflow: hidden;
-  font-size: 11px;
-  color: var(--fg-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.like {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  padding: 2px 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg-muted);
-  border-radius: 8px;
-  transition:
-    color 0.25s ease,
-    background 0.25s ease,
-    transform 0.25s ease;
-}
-
-.like.liked {
-  color: var(--rose);
-  transform: scale(1.04);
 }
 
 .loading-card {
