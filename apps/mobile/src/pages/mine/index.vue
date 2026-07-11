@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { goRootTab } from "../../services/tabNavigation";
+import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { accountItems, mineUser, quickActions, supportItems, type MineListItem } from "./mineData";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "./mineService";
 
@@ -51,11 +52,19 @@ const accountRows = computed(() => {
   });
 });
 
-onShow(() => {
+function refreshMinePage() {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}-${currentUser.value?.id || 0}`;
   const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
   if (changed || Date.now() - lastLoadedAt > 30_000) void loadProfile();
+}
+
+onShow(refreshMinePage);
+
+onMounted(refreshMinePage);
+
+watch(activeEmbeddedPrimaryTab, (tab) => {
+  if (tab === "mine") refreshMinePage();
 });
 
 async function loadProfile() {

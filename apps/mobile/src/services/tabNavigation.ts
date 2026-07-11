@@ -39,6 +39,10 @@ export function goRootTab(url: string) {
       setEmbeddedPrimaryTab("gallery");
       return;
     }
+    if (target === "/pages/mine/index") {
+      setEmbeddedPrimaryTab("mine");
+      return;
+    }
   }
   if (current === target || navigating) return;
 

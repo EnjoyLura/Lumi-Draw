@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import GalleryPage from "../gallery/index.vue";
+import MinePage from "../mine/index.vue";
 import PlazaPage from "../plaza/index.vue";
 import {
   gameplays as mockGameplays,
@@ -69,6 +70,7 @@ const worksRenderKey = ref(0);
 const waterfallAnimationClass = ref("");
 const plazaMounted = ref(false);
 const galleryMounted = ref(false);
+const mineMounted = ref(false);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -114,6 +116,7 @@ onReady(() => {
   setTimeout(() => {
     plazaMounted.value = true;
     galleryMounted.value = true;
+    mineMounted.value = true;
   }, 0);
 });
 
@@ -425,7 +428,12 @@ function goGallery() {
 }
 
 function goMine() {
-  goRootTab("/pages/mine/index");
+  if (mineMounted.value) {
+    setEmbeddedPrimaryTab("mine");
+    return;
+  }
+  mineMounted.value = true;
+  void nextTick(() => setEmbeddedPrimaryTab("mine"));
 }
 
 function goAllGameplays() {
@@ -878,6 +886,7 @@ function getRatioClass(ratio: string) {
   </view>
   <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
+  <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
 </template>
 
 <style scoped>
