@@ -94,7 +94,7 @@ export class WorksService {
   ) {}
 
   private toCard(work: WorkWithAuthor) {
-    return { ...toCard(work), imageUrl: this.uploads.readUrl(work.imageUrl) };
+    return { ...toCard(work), imageUrl: this.uploads.readUrl(work.imageUrl, "public") };
   }
 
   private async listCards(
@@ -160,7 +160,7 @@ export class WorksService {
       : null;
     return {
       id: work.id,
-      imageUrl: this.uploads.readUrl(work.imageUrl),
+      imageUrl: this.uploads.readUrl(work.imageUrl, work.status === "published" && work.isPublic ? "public" : "private"),
       title: work.title,
       description: work.description,
       prompt: work.prompt,
@@ -283,7 +283,7 @@ export class WorksService {
     ]);
     const items = rows.map((w) => ({
       id: w.id,
-      imageUrl: this.uploads.readUrl(w.imageUrl),
+      imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
       title: w.title,
       ratio: w.ratio,
       status: w.status,

@@ -236,7 +236,10 @@ export class GenerateService {
       isPublic: published.isPublic,
       work: {
         id: published.id,
-        imageUrl: published.imageUrl,
+        imageUrl: this.uploads.readUrl(
+          published.imageUrl,
+          published.status === "published" && published.isPublic ? "public" : "private"
+        ),
         title: published.title,
         description: published.description,
         prompt: published.prompt,
@@ -606,7 +609,7 @@ export class GenerateService {
       provider: job.provider,
       providerModel: job.providerModel,
       prompt: job.prompt,
-      inputImageUrl: job.inputImageUrl || undefined,
+      inputImageUrl: job.inputImageUrl ? this.uploads.readUrl(job.inputImageUrl, "private") : undefined,
       gameplayId: job.gameplayId ?? undefined,
       style: job.style,
       ratio: job.ratio,
@@ -623,7 +626,7 @@ export class GenerateService {
       results: job.results.map((result) => ({
         id: result.id,
         status: result.status,
-        imageUrl: result.imageUrl || undefined,
+        imageUrl: result.imageUrl ? this.uploads.readUrl(result.imageUrl, "private") : undefined,
         width: result.width ?? undefined,
         height: result.height ?? undefined,
         sizeBytes: result.sizeBytes ?? undefined,

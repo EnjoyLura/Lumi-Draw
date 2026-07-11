@@ -65,6 +65,7 @@ export const appConfig = registerAs("app", () => ({
     accessKeyId: process.env.OSS_ACCESS_KEY_ID ?? "",
     accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET ?? "",
     bucket: process.env.OSS_BUCKET ?? "",
-    endpoint: process.env.OSS_ENDPOINT ?? ""
+    endpoint: process.env.OSS_ENDPOINT ?? "",
+    cdnBaseUrl: (process.env.CDN_BASE_URL ?? "").replace(/\/+$/, "")
   }
 }));

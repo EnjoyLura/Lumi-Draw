@@ -3,6 +3,7 @@ import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
 
 type WorkWithAuthor = Work & { user: User };
 type InteractionType = "like" | "favorite";
@@ -79,8 +80,13 @@ function toUserCard(user: User, following = false) {
 export class SocialService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly uploads: UploadsService
   ) {}
+
+  private toWorkCard(work: WorkWithAuthor) {
+    return { ...toWorkCard(work), imageUrl: this.uploads.readUrl(work.imageUrl, "public") };
+  }
 
   private async publicWork(id: number) {
     const work = await this.prisma.work.findFirst({
@@ -251,7 +257,7 @@ export class SocialService {
       this.prisma.work.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map(toWorkCard));
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toWorkCard(work)));
     return buildPage(items, total, page, pageSize);
   }
 
@@ -343,7 +349,7 @@ export class SocialService {
     const cards = views
       .map((view) => {
         const work = byId.get(view.workId);
-        return work ? { ...toWorkCard(work), viewedAt: view.viewedAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work), viewedAt: view.viewedAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);
@@ -368,7 +374,7 @@ export class SocialService {
     const cards = favorites
       .map((favorite) => {
         const work = byId.get(favorite.workId);
-        return work ? { ...toWorkCard(work), favoritedAt: favorite.createdAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work), favoritedAt: favorite.createdAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);

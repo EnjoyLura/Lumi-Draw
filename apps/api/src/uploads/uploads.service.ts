@@ -18,6 +18,14 @@ type TransferRemoteImageResult = {
   contentType: string;
 };
 
+type OssConfig = {
+  accessKeyId: string;
+  accessKeySecret: string;
+  bucket: string;
+  endpoint: string;
+  cdnBaseUrl?: string;
+};
+
 function encodeKeyPath(key: string) {
   return key.split("/").map(encodeURIComponent).join("/");
 }
@@ -27,7 +35,7 @@ export class UploadsService {
   constructor(private readonly config: ConfigService) {}
 
   policy(scene: string, filename: string, contentType: string) {
-    const oss = this.config.get<{ accessKeyId: string; accessKeySecret: string; bucket: string; endpoint: string }>("app.oss");
+    const oss = this.config.get<OssConfig>("app.oss");
     if (!oss?.accessKeyId || !oss.accessKeySecret || !oss.bucket || !oss.endpoint) {
       throw new BadRequestException("OSS 未配置");
     }
@@ -61,9 +69,12 @@ export class UploadsService {
     return { ok: true, ossKey, publicUrl: resolved };
   }
 
-  /** Returns a short-lived GET URL when the configured OSS bucket is private. */
-  readUrl(url: string) {
-    const oss = this.config.get<{ accessKeyId: string; accessKeySecret: string; bucket: string; endpoint: string }>("app.oss");
+  /**
+   * Public media uses a stable CDN URL. Private media keeps a short-lived OSS
+   * signature so drafts and generation results are never persisted in CDN.
+   */
+  readUrl(url: string, visibility: "private" | "public" = "private") {
+    const oss = this.config.get<OssConfig>("app.oss");
     if (!url || !oss?.accessKeyId || !oss.accessKeySecret || !oss.bucket || !oss.endpoint) return url;
 
     const host = `https://${oss.bucket}.${oss.endpoint}`;
@@ -72,6 +83,10 @@ export class UploadsService {
     if (!rawKey) return url;
 
     const ossKey = decodeURIComponent(rawKey);
+    if (visibility === "public" && oss.cdnBaseUrl) {
+      return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}`;
+    }
+
     const expires = Math.floor(Date.now() / 1000) + 60 * 30;
     const resource = `/${oss.bucket}/${ossKey}`;
     const stringToSign = `GET\n\n\n${expires}\n${resource}`;
