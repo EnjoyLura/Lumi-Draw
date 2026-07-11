@@ -34,37 +34,28 @@ function currentRoute() {
   }
 }
 
+function activatePrimaryTarget(target: string, url: string) {
+  if (target === "/pages/home/index") setEmbeddedPrimaryTab("home");
+  else if (target === "/pages/create/index") openEmbeddedCreate(readQuery(url));
+  else if (target === "/pages/plaza/index") setEmbeddedPrimaryTab("plaza");
+  else if (target === "/pages/gallery/index") setEmbeddedPrimaryTab("gallery");
+  else if (target === "/pages/mine/index") setEmbeddedPrimaryTab("mine");
+}
+
 export function goRootTab(url: string) {
   const target = normalizeRoute(url.split("?")[0]);
   if (!TAB_ROUTES.has(target)) return;
   const current = currentRoute();
   if (current === "/pages/home/index") {
-    if (target === "/pages/home/index") {
-      setEmbeddedPrimaryTab("home");
-      return;
-    }
-    if (target === "/pages/create/index") {
-      openEmbeddedCreate(readQuery(url));
-      return;
-    }
-    if (target === "/pages/plaza/index") {
-      setEmbeddedPrimaryTab("plaza");
-      return;
-    }
-    if (target === "/pages/gallery/index") {
-      setEmbeddedPrimaryTab("gallery");
-      return;
-    }
-    if (target === "/pages/mine/index") {
-      setEmbeddedPrimaryTab("mine");
-      return;
-    }
+    activatePrimaryTarget(target, url);
+    return;
   }
   if (current === target || navigating) return;
 
+  activatePrimaryTarget(target, url);
   navigating = true;
-  uni.switchTab({
-    url,
+  uni.reLaunch({
+    url: "/pages/home/index",
     complete() {
       setTimeout(() => {
         navigating = false;

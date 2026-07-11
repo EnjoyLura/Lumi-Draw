@@ -284,30 +284,4 @@
       "color": "transparent"
     }
   }
-  ,
-  "tabBar": {
-    "height": "0px",
-    "borderStyle": "@tabBorderStyle",
-    "backgroundColor": "@tabBackground",
-    "color": "@tabTextColor",
-    "selectedColor": "@tabSelectedColor",
-    "list": [
-      {
-        "pagePath": "pages/home/index",
-        "text": "露米绘画"
-      },
-      {
-        "pagePath": "pages/plaza/index",
-        "text": "广场"
-      },
-      {
-        "pagePath": "pages/gallery/index",
-        "text": "画廊"
-      },
-      {
-        "pagePath": "pages/mine/index",
-        "text": "我的"
-      }
-    ]
-  }
 }
