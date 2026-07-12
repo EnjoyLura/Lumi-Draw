@@ -1049,7 +1049,7 @@ function showToast(title: string) {
   gap: 16px;
   align-items: center;
   padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
-  background: var(--bg-base);
+  background: var(--bottom-bar-bg);
   border-top: 0.5px solid var(--border);
   box-shadow: none;
   backdrop-filter: none;

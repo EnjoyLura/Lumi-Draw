@@ -20,6 +20,7 @@ onLaunch(() => {
 <style>
 page {
   --bg-base: #eef4fc;
+  --bottom-bar-bg: #ffffff;
   --bg-soft: #e1ebf8;
   --bg-card: #ffffff;
   --bg-elevated: #fbfdff;
@@ -69,6 +70,7 @@ body {
 
 :root {
   --bg-base: #eef4fc;
+  --bottom-bar-bg: #ffffff;
   --bg-soft: #e1ebf8;
   --bg-card: #ffffff;
   --bg-elevated: #fbfdff;
@@ -104,6 +106,7 @@ body {
 
 .theme-light {
   --bg-base: #eef4fc;
+  --bottom-bar-bg: #ffffff;
   --bg-soft: #e1ebf8;
   --bg-card: #ffffff;
   --bg-elevated: #fbfdff;
@@ -188,6 +191,7 @@ uni-tabbar {
 .theme-dark,
 :root[data-theme="dark"] {
   --bg-base: #141416;
+  --bottom-bar-bg: #000000;
   --bg-soft: #2c2c2e;
   --bg-card: #262628;
   --bg-elevated: #1c1c1e;

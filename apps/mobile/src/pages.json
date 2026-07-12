@@ -4,7 +4,8 @@
       "path": "pages/home/index",
       "style": {
         "navigationBarTitleText": "露米绘画",
-        "navigationStyle": "custom"
+        "navigationStyle": "custom",
+        "backgroundColorBottom": "@pageBackgroundBottom"
       }
     },
     {
@@ -88,7 +89,7 @@
         "navigationStyle": "custom",
         "backgroundColor": "@pageBackground",
         "backgroundColorTop": "@pageBackground",
-        "backgroundColorBottom": "@pageBackground"
+        "backgroundColorBottom": "@pageBackgroundBottom"
       }
     },
     {

@@ -1,6 +1,7 @@
 {
   "light": {
     "pageBackground": "#eef4fc",
+    "pageBackgroundBottom": "#ffffff",
     "navTextStyle": "black",
     "tabBackground": "#eef4fc",
     "tabTextColor": "#8497b5",
@@ -9,6 +10,7 @@
   },
   "dark": {
     "pageBackground": "#141416",
+    "pageBackgroundBottom": "#000000",
     "navTextStyle": "white",
     "tabBackground": "#141416",
     "tabTextColor": "#8e8e93",
