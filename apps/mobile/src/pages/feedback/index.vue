@@ -333,6 +333,12 @@ async function submit() {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 12px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .desc-textarea {
