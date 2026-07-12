@@ -105,6 +105,7 @@ const isLoadingMore = ref(false);
 const sideOpen = ref(false);
 const showLoginSheet = ref(false);
 const isInitialContentReady = ref(false);
+const hasLoadedOnce = ref(false);
 const sideDrawerMounted = ref(false);
 const loginSheetMounted = ref(false);
 const filterOpen = ref(false);
@@ -197,8 +198,12 @@ function galleryCacheKey() {
 
 function refreshGalleryPage(force = false) {
   const key = galleryCacheKey();
-  if (force) invalidateTabPage(key);
-  return refreshTabPage(key, reloadGalleryData, { force, ttl: 60_000 });
+  const shouldForce = force || !hasLoadedOnce.value;
+  if (shouldForce) invalidateTabPage(key);
+  return refreshTabPage(key, reloadGalleryData, { force: shouldForce, ttl: 60_000 }).then((result) => {
+    hasLoadedOnce.value = true;
+    return result;
+  });
 }
 
 function markInitialContentReady() {
@@ -210,11 +215,10 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
-  void refreshGalleryPage(isMineMode.value).catch(() => undefined);
+  void refreshGalleryPage().catch(() => undefined);
 });
 
 onMounted(() => {
-  void refreshGalleryPage().catch(() => undefined);
   void loadModelOptions();
   markInitialContentReady();
 });
@@ -236,7 +240,7 @@ async function loadModelOptions() {
 }
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === props.pageMode) void refreshGalleryPage(isMineMode.value).catch(() => undefined);
+  if (tab === props.pageMode) void refreshGalleryPage().catch(() => undefined);
 });
 
 onBeforeUnmount(() => {
@@ -827,7 +831,7 @@ function openWork(work: HomeWork) {
             <view class="edit-home-btn" @click="goEditProfile"><LumiIcon class="edit-home-icon" name="pencil" :size="16" /><text>编辑资料</text></view>
           </view>
           <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
-            <view class="membership-mark"><LumiIcon name="crown" :size="24" /></view>
+            <view class="membership-mark"><LumiIcon class="membership-glyph" name="crown" :size="24" /></view>
             <view class="membership-copy">
               <view class="membership-title">{{ membershipTitle }}</view>
               <view class="membership-subtitle">{{ membershipSubtitle }}</view>
@@ -1220,8 +1224,8 @@ function openWork(work: HomeWork) {
 }
 
 .points-pill { display: flex; flex: 0 0 auto; gap: 7px; align-items: center; align-self: center; padding: 9px 13px; color: var(--fg-primary); background: var(--bg-soft); border-radius: 999px; }
-.points-gem { font-size: 17px; color: var(--accent); }
-.points-value { font-size: 17px; font-weight: 600; }
+.points-gem { display: block; align-self: center; font-size: 17px; line-height: 1; color: var(--accent); }
+.points-value { display: block; font-size: 17px; font-weight: 600; line-height: 17px; }
 
 .avatar-wrap {
   position: relative;
@@ -1246,7 +1250,7 @@ function openWork(work: HomeWork) {
 }
 
 .profile-name {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -1381,7 +1385,10 @@ function openWork(work: HomeWork) {
 }
 
 .edit-home-icon {
+  display: block;
+  align-self: center;
   font-size: 18px;
+  line-height: 1;
   color: var(--accent);
 }
 
@@ -1586,6 +1593,12 @@ function openWork(work: HomeWork) {
   color: #fff3d4;
   background: #c88332;
   border-radius: 50%;
+}
+
+.membership-glyph {
+  display: block;
+  margin: auto;
+  line-height: 1;
 }
 
 .membership-copy {

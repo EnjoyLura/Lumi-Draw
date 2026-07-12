@@ -7,6 +7,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
+import { invalidateTabPages } from "../../services/tabPageCache";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
 import { useTheme } from "../../services/theme";
@@ -236,6 +237,7 @@ async function submit() {
       tags: selectedTags.value,
       draft: selectedDraft.value
     });
+    invalidateTabPages("gallery:");
     uni.showToast({ title: publishSuccessMessage(result), icon: "none" });
     setTimeout(leavePublishPage, 900);
   } catch {

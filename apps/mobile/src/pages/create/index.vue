@@ -858,14 +858,14 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 <template>
   <view class="create-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
-    <view class="create-nav-header">
-      <view class="status-spacer" :style="{ height: `${statusBarHeight}px` }" />
-      <view class="create-nav-row" :style="{ height: `${navigationBarHeight}px` }">
-        <view class="create-page-title">创作</view>
-      </view>
-    </view>
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="create-scroll" scroll-y>
+      <view class="create-nav-header">
+        <view class="status-spacer" :style="{ height: `${statusBarHeight}px` }" />
+        <view class="create-nav-row" :style="{ height: `${navigationBarHeight}px` }">
+          <view class="create-page-title">创作</view>
+        </view>
+      </view>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">
           <view class="login-gate-icon"><LumiIcon name="pencil" :size="32" /></view>
@@ -1300,8 +1300,6 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 .create-nav-header {
   position: relative;
-  z-index: 20;
-  flex: 0 0 auto;
   background: var(--page-bg);
 }
 
@@ -2069,6 +2067,11 @@ function goMine() { goRootTab("/pages/mine/index"); }
   backdrop-filter: none;
   overflow: hidden;
   contain: paint;
+}
+
+.create-page.theme-dark .ratio-card,
+.create-page.theme-dark .count-card {
+  border-color: transparent;
 }
 
 .hot-meta,

@@ -52,7 +52,6 @@ async function loadMessages() {
     return;
   }
   loginRequired.value = false;
-  backendRows.value = [];
   loadFailed.value = false;
 
   isLoading.value = true;
@@ -103,19 +102,19 @@ function openCategory(key: MessageCategoryKey) {
           subtitle="点赞、评论、系统通知和审核结果都会同步到这里。"
           @login="showLoginSheet = true"
         />
-        <view v-else-if="isLoading" class="empty-row">消息同步中...</view>
-        <view v-else-if="loadFailed" class="empty-row retry-row">
+        <view v-else-if="isLoading && !categoryRows.length" class="empty-row">消息同步中...</view>
+        <view v-else-if="loadFailed && !categoryRows.length" class="empty-row retry-row">
           <text>消息加载失败</text>
           <button class="retry-btn" @click.stop="loadMessages">重新加载</button>
         </view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
           <view class="category-icon" :style="{ background: category.gradient }">
-            <LumiIcon v-if="category.key === 'like'" name="heart-filled" :size="23" />
-            <LumiIcon v-else-if="category.key === 'favorite'" name="star-filled" :size="23" />
-            <LumiIcon v-else-if="category.key === 'remake'" name="rotate-ccw" :size="23" />
-            <LumiIcon v-else-if="category.key === 'follow'" name="user" :size="23" />
-            <LumiIcon v-else-if="category.key === 'system'" name="bell" :size="23" />
-            <LumiIcon v-else name="message-circle" :size="23" />
+            <LumiIcon v-if="category.key === 'like'" class="category-glyph" name="heart-filled" :size="23" />
+            <LumiIcon v-else-if="category.key === 'favorite'" class="category-glyph" name="star-filled" :size="23" />
+            <LumiIcon v-else-if="category.key === 'remake'" class="category-glyph" name="rotate-ccw" :size="23" />
+            <LumiIcon v-else-if="category.key === 'follow'" class="category-glyph" name="user" :size="23" />
+            <LumiIcon v-else-if="category.key === 'system'" class="category-glyph" name="bell" :size="23" />
+            <LumiIcon v-else class="category-glyph" name="message-circle" :size="23" />
           </view>
           <view class="category-main">
             <view class="category-head">
@@ -219,6 +218,12 @@ function openCategory(key: MessageCategoryKey) {
   color: #fff;
   border-radius: 14px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.category-glyph {
+  display: block;
+  margin: auto;
+  line-height: 1;
 }
 
 .category-main {

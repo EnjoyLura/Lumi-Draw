@@ -10,6 +10,7 @@ import { navigateBackOrRedirect } from "../../services/navigation";
 import { uploadChosenImage } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 import { useTheme } from "../../services/theme";
+import { invalidateTabPages } from "../../services/tabPageCache";
 
 const { themeClass } = useTheme();
 
@@ -179,6 +180,7 @@ async function save() {
       bio: profile.bio,
       gender: profile.gender
     });
+    invalidateTabPages("gallery:");
     uni.showToast({ title: "资料已保存", icon: "none" });
     setTimeout(leaveEditProfilePage, 600);
   } catch {
