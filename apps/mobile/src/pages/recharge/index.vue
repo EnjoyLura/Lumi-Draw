@@ -274,7 +274,6 @@ function confirmCustomRecharge() {
               <LumiIcon name="sparkles-filled" :size="14" />
               <view class="tier-credits">{{ tier.credits }}</view>
             </view>
-            <view class="tier-unit">积分</view>
             <view class="tier-bonus">{{ tier.bonus > 0 ? `送${tier.bonus}积分` : "" }}</view>
             <view class="tier-price">¥{{ tier.price }}</view>
           </view>
@@ -497,8 +496,8 @@ function confirmCustomRecharge() {
 
 .tier-card {
   position: relative;
-  min-height: 112px;
-  padding: 16px 8px 12px;
+  min-height: 98px;
+  padding: 14px 8px 8px;
   text-align: center;
   border: 2px solid var(--border);
   border-radius: 10px;
@@ -523,7 +522,7 @@ function confirmCustomRecharge() {
 
 .tier-credits,
 .custom-plus {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--accent);
 }
