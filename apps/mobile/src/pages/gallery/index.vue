@@ -6,6 +6,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { fetchFavorites, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -18,7 +19,7 @@ import {
   syncActiveGenerateJobIds
 } from "../../services/generateTaskState";
 import type { HomeWork } from "../home/homeData";
-import { galleryGenTasks, galleryTabs, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab, type GalleryUser } from "./galleryData";
+import { galleryGenTasks, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab, type GalleryUser } from "./galleryData";
 import {
   deleteGalleryWorks,
   fetchGalleryGenerateTasks,
@@ -38,6 +39,11 @@ import {
 const PAGE_SIZE = 10;
 const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine" }>(), { pageMode: "gallery" });
 const isMineMode = computed(() => props.pageMode === "mine");
+const workspaceTabs = computed(() =>
+  isMineMode.value
+    ? ([{ key: "all", label: "全部" }, { key: "published", label: "已发布" }, { key: "favorite", label: "收藏" }] as const)
+    : ([{ key: "draft", label: "草稿箱" }] as const)
+);
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
@@ -127,6 +133,9 @@ const filteredWorks = computed(() => {
   if (!useMockData.value) return works.value;
   if (renderedTab.value === "published") return works.value.filter((work) => work.published);
   if (renderedTab.value === "draft") return works.value.filter((work) => !work.published);
+  if (renderedTab.value === "favorite") {
+    return works.value.filter((work) => work.favorited || work.liked || (useMockData.value && [3, 11].includes(work.id)));
+  }
   return works.value;
 });
 
@@ -149,6 +158,7 @@ const genderIcon = computed(() => {
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
+  if (renderedTab.value === "favorite") return { icon: "♡", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
   return { icon: "□", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
 
@@ -318,6 +328,14 @@ async function handleGenerateTasksCompleted(ids: string[]) {
 }
 
 async function loadGalleryPage(page = 1, append = false) {
+  if (renderedTab.value === "favorite") {
+    const result = await fetchFavorites(page, PAGE_SIZE);
+    const favorites = result.items.map(toFavoriteWork);
+    works.value = append ? [...works.value, ...favorites] : favorites;
+    pageState.page = result.page;
+    pageState.hasMore = result.hasMore;
+    return;
+  }
   const result = await fetchGalleryWorks({
     status: getStatusForTab(),
     page,
@@ -452,7 +470,7 @@ function playWaterfallAnimation(direction: ReturnType<typeof getWaterfallDirecti
 
 function switchGalleryTab(tab: GalleryTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
-  const previousIndex = galleryTabs.findIndex((item) => item.key === activeTab.value);
+  const previousIndex = workspaceTabs.value.findIndex((item) => item.key === activeTab.value);
   const direction = getWaterfallDirection(index, previousIndex);
   activeTab.value = tab;
   selectedIds.value = new Set();
@@ -664,9 +682,12 @@ function openWork(work: HomeWork) {
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
           <view class="nav-row">
-            <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
-            <text class="nav-title">{{ isMineMode ? "我的" : "草稿箱" }}</text>
-            <view class="icon-btn search nav-search" @click="goSearch">⌕</view>
+            <view class="nav-left-actions">
+              <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
+              <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
+            </view>
+            <text class="nav-title">{{ isMineMode ? "我的" : "画廊" }}</text>
+            <view class="nav-right-spacer" />
           </view>
         </view>
 
@@ -734,7 +755,7 @@ function openWork(work: HomeWork) {
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row">
         <view v-if="isMineMode" class="gallery-tabs">
           <view
-            v-for="(tab, index) in galleryTabs"
+            v-for="(tab, index) in workspaceTabs"
             :key="tab.key"
             class="gallery-tab"
             :class="{ active: activeTab === tab.key }"
@@ -742,7 +763,7 @@ function openWork(work: HomeWork) {
           >
             {{ tab.label }}
           </view>
-          <view class="tab-indicator" :style="{ transform: `translateX(${galleryTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
+          <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
         </view>
         <view v-else class="draft-tools">
           <view class="draft-tool" @click="goSearch">⌕</view>
@@ -850,7 +871,7 @@ function openWork(work: HomeWork) {
       </view>
     </scroll-view>
 
-    <view v-if="isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish">+</view>
+    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish">+</view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -964,6 +985,24 @@ function openWork(work: HomeWork) {
 .nav-search {
   position: absolute;
   right: 16px;
+}
+
+.nav-left-actions {
+  position: absolute;
+  left: 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.nav-left-actions .nav-menu {
+  position: static;
+}
+
+.nav-right-spacer {
+  position: absolute;
+  right: 16px;
+  width: 78px;
 }
 
 .gallery-initial-placeholder {

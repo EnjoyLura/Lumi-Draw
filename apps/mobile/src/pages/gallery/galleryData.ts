@@ -2,7 +2,7 @@ import { mockImage } from "../../services/mockImages";
 
 import type { HomeWork } from "../home/homeData";
 
-export type GalleryTab = "all" | "published" | "draft";
+export type GalleryTab = "all" | "published" | "draft" | "favorite";
 
 export interface GalleryTabOption {
   key: GalleryTab;
