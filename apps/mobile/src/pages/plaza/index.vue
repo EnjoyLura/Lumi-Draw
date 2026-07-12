@@ -916,6 +916,7 @@ function handleReachBottom() {
 
 <style scoped>
 .plaza-page {
+  --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
@@ -1233,8 +1234,8 @@ function handleReachBottom() {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 80px;
-  padding-bottom: 16px;
+  height: var(--lumi-tabbar-height);
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);

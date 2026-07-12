@@ -899,6 +899,7 @@ function getRatioClass(ratio: string) {
 
 <style scoped>
 .home-page {
+  --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
@@ -974,7 +975,7 @@ function getRatioClass(ratio: string) {
   position: absolute;
   top: 0;
   right: 0;
-  bottom: 80px;
+  bottom: var(--lumi-tabbar-height);
   left: 0;
   z-index: 1;
   box-sizing: border-box;
@@ -1551,8 +1552,8 @@ function getRatioClass(ratio: string) {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 80px;
-  padding-bottom: 16px;
+  height: var(--lumi-tabbar-height);
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);

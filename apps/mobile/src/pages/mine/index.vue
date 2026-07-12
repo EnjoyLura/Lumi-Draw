@@ -289,6 +289,7 @@ async function login() {
 
 <style scoped>
 .mine-page {
+  --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
@@ -300,7 +301,7 @@ async function login() {
 .mine-scroll {
   position: absolute;
   right: 0;
-  bottom: 80px;
+  bottom: var(--lumi-tabbar-height);
   left: 0;
   z-index: 1;
   box-sizing: border-box;
@@ -520,8 +521,8 @@ async function login() {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 80px;
-  padding-bottom: 16px;
+  height: var(--lumi-tabbar-height);
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);

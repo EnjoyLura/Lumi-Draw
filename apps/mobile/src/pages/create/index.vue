@@ -1247,6 +1247,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 <style scoped>
 .create-page {
+  --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1283,10 +1284,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-content {
-  padding: 42px 0 calc(208px + env(safe-area-inset-bottom));
+  padding: 42px 0 calc(184px + env(safe-area-inset-bottom));
 }
 
-.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: 80px; padding-bottom: 16px; box-sizing: border-box; background: var(--bg-glass); border-top: 0.5px solid var(--border); backdrop-filter: blur(24px) saturate(180%); }
+.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); border-top: 0.5px solid var(--border); backdrop-filter: blur(24px) saturate(180%); }
 .tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
@@ -2018,7 +2019,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .create-bottom {
   position: absolute;
   right: 0;
-  bottom: 80px;
+  bottom: var(--lumi-tabbar-height);
   left: 0;
   z-index: 5;
   padding: 12px 16px 14px;
