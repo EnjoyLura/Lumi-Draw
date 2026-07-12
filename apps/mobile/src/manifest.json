@@ -11,7 +11,7 @@
     "themeLocation": "theme.json",
     "lazyCodeLoading": "requiredComponents",
     "setting": {
-      "urlCheck": false,
+      "urlCheck": true,
       "minified": true
     },
     "usingComponents": true

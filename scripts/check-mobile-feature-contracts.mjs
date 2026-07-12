@@ -55,8 +55,8 @@ const pageContracts = [
       "jobId",
       "hasAutoSavedDrafts",
       "savedDraftCount",
-      "生成作品已自动保存为草稿",
-      "已存草稿",
+      "生成作品已自动保存到画廊",
+      "已存画廊",
       "goPublish",
       "/pages/publish/index?draftId=${draftId}"
     ]
@@ -86,7 +86,7 @@ const pageContracts = [
       "moveGalleryWorksToDraft",
       "LumiSideDrawer",
       "生成完成",
-      "生成的作品已自动保存到草稿箱",
+      "生成作品已自动保存到画廊",
       "去创作页",
       "goCreate"
     ]
@@ -97,7 +97,8 @@ const pageContracts = [
   },
   {
     route: "pages/mine/index",
-    tokens: ["useDataMode", "fetchMineProfile", "fetchUnreadMessageCount", "updateCurrentUser", "handleProfileTap", "/pages/edit-profile/index"]
+    tokens: ["GalleryPage", "page-mode=\"mine\""],
+    dataModeDelegated: true
   },
   {
     route: "pages/all-gameplays/index",
@@ -125,7 +126,8 @@ const pageContracts = [
       "authorSub",
       "updateAuthorFollowers",
       "updateAuthorFollowers(result.followers)",
-      "recordWorkRemake",
+      "openEmbeddedCreate",
+      "invalidateTabPages",
       "moveWorkToDraft",
       "deleteWork",
       "resolveRouteId"
@@ -165,7 +167,7 @@ const pageContracts = [
   },
   {
     route: "pages/settings/index",
-    tokens: ["useDataMode", "fetchSettingsProfile", "updateSettingsPhone", "fetchChangelog", "logout"]
+    tokens: ["useDataMode", "fetchChangelog", "logout", "clearAppCache", "toggleDarkMode"]
   },
   {
     route: "pages/agreement/index",
@@ -267,7 +269,7 @@ function main() {
       assertIncludes(source, token, contract.route, errors);
     }
 
-    assertIncludes(source, "useDataMode", contract.route, errors);
+    if (!contract.dataModeDelegated) assertIncludes(source, "useDataMode", contract.route, errors);
   }
 
   const allMobileSource = collectSourceFiles(MOBILE_SRC)
