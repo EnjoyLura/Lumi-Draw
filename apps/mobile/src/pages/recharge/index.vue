@@ -496,8 +496,9 @@ function confirmCustomRecharge() {
 
 .tier-card {
   position: relative;
-  min-height: 98px;
-  padding: 14px 8px 8px;
+  box-sizing: border-box;
+  min-height: 86px;
+  padding: 12px 8px 6px;
   text-align: center;
   border: 2px solid var(--border);
   border-radius: 10px;
