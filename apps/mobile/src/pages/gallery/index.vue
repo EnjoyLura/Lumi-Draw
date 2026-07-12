@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine" }>(), { p
 const isMineMode = computed(() => props.pageMode === "mine");
 const workspaceTabs = computed(() =>
   isMineMode.value
-    ? ([{ key: "all", label: "全部" }, { key: "published", label: "已发布" }, { key: "favorite", label: "收藏" }] as const)
+    ? ([{ key: "all", label: "我的作品" }, { key: "favorite", label: "我的收藏" }] as const)
     : ([{ key: "draft", label: "草稿箱" }] as const)
 );
 const { isLoggedIn, currentUser, login: commitLogin, requireLogin } = useAuth();
@@ -869,7 +869,7 @@ function openWork(work: HomeWork) {
           >
             {{ tab.label }}
           </view>
-          <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
+          <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 84}px)` }" />
         </view>
         <view v-else class="draft-tools">
           <view class="draft-tool" @click="goSearch">⌕</view>
@@ -1468,7 +1468,7 @@ function openWork(work: HomeWork) {
 }
 
 .gallery-tab {
-  width: 41px;
+  width: 64px;
   font-size: 13px;
   font-weight: 500;
   color: var(--fg-muted);
@@ -1486,7 +1486,7 @@ function openWork(work: HomeWork) {
 .tab-indicator {
   position: absolute;
   bottom: 0;
-  left: 10px;
+  left: 22px;
   width: 20px;
   height: 3px;
   background: var(--tab-active);
