@@ -109,7 +109,7 @@ function openCategory(key: MessageCategoryKey) {
           <button class="retry-btn" @click.stop="loadMessages">重新加载</button>
         </view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
-          <view class="category-icon" :style="{ background: category.gradient }">{{ category.icon }}</view>
+          <view class="category-icon" :style="{ background: category.gradient }"><LumiIcon :name="category.icon" :size="22" /></view>
           <view class="category-main">
             <view class="category-head">
               <text class="category-title">{{ category.title }}</text>

@@ -55,15 +55,15 @@ const activeBenefits = computed<MemberBenefit[]>(() => {
   if (!plan.rights?.length && !plan.checkinBonus && !plan.totalCredits) return memberBenefits;
 
   const benefits: MemberBenefit[] = [
-    { title: "开通赠送", desc: `立即获得 ${plan.totalCredits || 0} 积分`, icon: "●", tone: "mint" },
-    { title: "签到加成", desc: plan.checkinBonus ? `每日签到额外 +${plan.checkinBonus} 积分` : "按基础签到规则获得积分", icon: "☀", tone: "accent" }
+    { title: "开通赠送", desc: `立即获得 ${plan.totalCredits || 0} 积分`, icon: "gem", tone: "mint" },
+    { title: "签到加成", desc: plan.checkinBonus ? `每日签到额外 +${plan.checkinBonus} 积分` : "按基础签到规则获得积分", icon: "sun", tone: "accent" }
   ];
 
   plan.rights?.slice(0, 2).forEach((right, index) => {
     benefits.push({
       title: index === 0 ? "套餐权益" : "专属权益",
       desc: right,
-      icon: index === 0 ? "♛" : "↗",
+      icon: index === 0 ? "crown" : "sparkles",
       tone: index === 0 ? "lavender" : "peach"
     });
   });
@@ -208,7 +208,7 @@ function showAgreement() {
       <view class="page-content">
         <view class="member-card">
           <view class="member-head">
-            <view class="crown">♛</view>
+            <view class="crown"><LumiIcon name="crown" :size="26" /></view>
             <view>
               <view class="member-title">Lumi 会员</view>
               <view class="member-sub">{{ isLoading ? "同步会员状态中" : memberStatusText }}</view>
@@ -244,7 +244,7 @@ function showAgreement() {
           >
             <view v-if="plan.recommended" class="recommend">推荐</view>
             <view class="plan-left">
-              <view class="plan-icon" :class="plan.accent">{{ plan.icon }}</view>
+              <view class="plan-icon" :class="plan.accent"><LumiIcon :name="plan.icon" :size="22" /></view>
               <view class="plan-info">
                 <view class="plan-title-row">
                   <text class="plan-name">{{ plan.name }}</text>
@@ -260,14 +260,14 @@ function showAgreement() {
         </view>
 
         <button v-if="plans.length" class="open-btn" :disabled="isPaying" @click="openMember">
-          <text class="open-icon">♛</text>
+          <LumiIcon class="open-icon" name="crown" :size="18" />
           <text>{{ isPaying ? "支付处理中..." : `立即开通 · ¥${selectedPlan?.price || 0}` }}</text>
         </button>
 
         <view v-if="activeBenefits.length" class="section-title">会员权益</view>
         <view v-if="activeBenefits.length" class="benefit-grid">
           <view v-for="benefit in activeBenefits" :key="`${benefit.title}-${benefit.desc}`" class="benefit-card">
-            <view class="benefit-icon" :class="benefit.tone">{{ benefit.icon }}</view>
+            <view class="benefit-icon" :class="benefit.tone"><LumiIcon :name="benefit.icon" :size="20" /></view>
             <view>
               <view class="benefit-title">{{ benefit.title }}</view>
               <view class="benefit-desc">{{ benefit.desc }}</view>

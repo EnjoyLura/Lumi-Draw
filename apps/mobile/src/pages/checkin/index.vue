@@ -217,7 +217,7 @@ function claimMilestone(item: Milestone) {
             <text class="streak-unit">天</text>
           </view>
           <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone || isSubmitting" @click="doCheckin">
-            <text v-if="checkinDone" class="check-icon">✓</text>
+            <LumiIcon v-if="checkinDone" class="check-icon" name="check" :size="16" />
             <text>{{ checkinDone ? "今日已签到" : `今日签到 +${nextCredits}积分` }}</text>
           </button>
         </view>
@@ -267,7 +267,7 @@ function claimMilestone(item: Milestone) {
               }"
             >
               <text>{{ item.day }}</text>
-              <text v-if="item.milestone" class="cal-gift">🎁</text>
+              <LumiIcon v-if="item.milestone" class="cal-gift" name="gift" :size="11" />
             </view>
           </view>
         </view>

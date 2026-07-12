@@ -119,7 +119,7 @@ async function login() {
       <view class="page-content">
         <view class="card upload-card">
           <view v-if="!imageUrl" class="upload-area" @click="uploadReverseImage">
-            <view class="upload-icon">▤</view>
+            <view class="upload-icon"><LumiIcon name="image-plus" :size="30" /></view>
             <view class="upload-title">上传图片</view>
             <view class="upload-sub">AI 将分析图片内容并反推可编辑提示词</view>
           </view>

@@ -55,14 +55,14 @@ function applyGameplay(gameplay: Gameplay) {
     <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <view v-if="!useMockData && loadFailed" class="empty-state">
-        <view class="empty-icon">!</view>
+        <view class="empty-icon"><LumiIcon name="info" :size="30" /></view>
         <view class="empty-title">玩法加载失败</view>
         <view class="empty-sub">请稍后重试，当前不会显示模拟玩法。</view>
         <button class="empty-btn" @click="loadGameplays">重新加载</button>
       </view>
 
       <view v-else-if="!isLoading && gameplayList.length === 0" class="empty-state">
-        <view class="empty-icon">⌕</view>
+        <view class="empty-icon"><LumiIcon name="search" :size="30" /></view>
         <view class="empty-title">暂无玩法</view>
         <view class="empty-sub">后台配置玩法后会显示在这里。</view>
       </view>
@@ -76,7 +76,7 @@ function applyGameplay(gameplay: Gameplay) {
             <view class="gameplay-name">{{ gameplay.name }}</view>
             <view class="gameplay-meta">
               <text>♨ {{ gameplay.uses }}人用过</text>
-              <text>›</text>
+              <LumiIcon name="chevron-right" :size="16" />
             </view>
           </view>
         </view>

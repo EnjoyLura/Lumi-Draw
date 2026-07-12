@@ -120,18 +120,18 @@ const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
-  { icon: "◇", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
-  { icon: "◷", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "♕", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
+  { icon: "gem", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
+  { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
+  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
+  { icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
 ];
 const sideRows = ref<SideRow[]>([
-  { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
-  { icon: "◎", label: "生成记录", url: "/pages/generation-history/index", color: "var(--lavender)" },
-  { icon: "◷", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
-  { icon: "✉", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
-  { icon: "♥", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
-  { icon: "☺", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
+  { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
+  { icon: "rotate-ccw", label: "生成记录", url: "/pages/generation-history/index", color: "var(--lavender)" },
+  { icon: "history", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
+  { icon: "bell", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
+  { icon: "heart", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
+  { icon: "users", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
 ]);
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -180,10 +180,10 @@ const genderIcon = computed(() => {
   return "";
 });
 const emptyInfo = computed(() => {
-  if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
-  if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
-  if (renderedTab.value === "favorite") return { icon: "♡", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
-  return { icon: "□", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
+  if (renderedTab.value === "published") return { icon: "images", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
+  if (renderedTab.value === "draft") return { icon: "file-text", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
+  if (renderedTab.value === "favorite") return { icon: "heart", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
+  return { icon: "images", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
 
 function galleryCacheKey() {
@@ -733,10 +733,10 @@ function displayTitle(work: HomeWork) {
 }
 
 function statusBadgeText(work: HomeWork) {
-  if (work.status === "pending") return "⌛ 审核中";
-  if (work.status === "rejected") return "× 未通过";
-  if (work.status === "offline") return "↓ 已下架";
-  return work.published ? "✓ 已发布" : "▤ 草稿";
+  if (work.status === "pending") return "审核中";
+  if (work.status === "rejected") return "未通过";
+  if (work.status === "offline") return "已下架";
+  return work.published ? "已发布" : "草稿";
 }
 
 function statusBadgeClass(work: HomeWork) {
@@ -792,9 +792,9 @@ function openWork(work: HomeWork) {
                 <text class="profile-id">ID: {{ profile.userNo }}</text>
                 <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender">{{ genderIcon }}</view>
               </view>
-              <view class="role-tag">✦ {{ profile.role }}</view>
+              <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ profile.role }}</view>
             </view>
-            <view class="points-pill" @click="goRecharge"><text class="points-gem">◆</text><text class="points-value">{{ profile.points }}</text></view>
+            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="gem" :size="16" /><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>
@@ -818,10 +818,10 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">关注</text>
               </view>
             </view>
-            <view class="edit-home-btn" @click="goEditProfile"><text class="edit-home-icon">✎</text><text>编辑资料</text></view>
+            <view class="edit-home-btn" @click="goEditProfile"><LumiIcon class="edit-home-icon" name="pencil" :size="16" /><text>编辑资料</text></view>
           </view>
           <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
-            <view class="membership-mark">♕</view>
+            <view class="membership-mark"><LumiIcon name="crown" :size="24" /></view>
             <view class="membership-copy">
               <view class="membership-title">{{ membershipTitle }}</view>
               <view class="membership-subtitle">{{ membershipSubtitle }}</view>
@@ -831,7 +831,7 @@ function openWork(work: HomeWork) {
         </view>
 
         <view v-else-if="isMineMode && isInitialContentReady && !isLoggedIn" class="gallery-login-prompt">
-          <view class="gallery-login-icon">▣</view>
+          <view class="gallery-login-icon"><LumiIcon name="log-in" :size="30" /></view>
           <view class="gallery-login-title">登录查看我的画廊</view>
           <view class="gallery-login-sub">登录后即可管理你的AI作品、草稿与创作记录</view>
           <button class="gallery-login-btn" @click="openLoginSheet">立即登录</button>
@@ -851,10 +851,10 @@ function openWork(work: HomeWork) {
 
       <view v-if="!isMineMode && isInitialContentReady && !isLoggedIn" class="gallery-content guest-empty-wrap">
         <view class="empty-state">
-          <view class="empty-icon">□</view>
+          <view class="empty-icon"><LumiIcon name="images" :size="30" /></view>
           <view class="empty-title">还没有作品哦~</view>
           <view class="empty-sub">登录后可查看和管理全部作品，也可以先去创作</view>
-          <button class="empty-btn" @click="goCreate">✦ 立即去创作</button>
+          <button class="empty-btn" @click="goCreate"><LumiIcon name="sparkles" :size="16" />立即去创作</button>
         </view>
       </view>
 
@@ -874,7 +874,7 @@ function openWork(work: HomeWork) {
         <view v-else class="draft-tools">
           <view class="draft-tool" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
-          <view class="draft-tool" @click="toggleSort">{{ sortDescending ? "↓" : "↑" }}</view>
+          <view class="draft-tool" @click="toggleSort"><LumiIcon :name="sortDescending ? 'arrow-down' : 'arrow-up'" :size="18" /></view>
         </view>
         <view v-if="isMineMode" class="mine-work-tools">
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
@@ -918,7 +918,7 @@ function openWork(work: HomeWork) {
         <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="waterfallAnimationClass">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
-              <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
+              <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
@@ -936,7 +936,7 @@ function openWork(work: HomeWork) {
 
           <view class="waterfall-column">
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
-              <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)">✓</view>
+              <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
@@ -954,10 +954,10 @@ function openWork(work: HomeWork) {
         </view>
 
         <view v-else :key="`empty-${renderedTab}-${renderKey}`" class="empty-state">
-          <view class="empty-icon">{{ emptyInfo.icon }}</view>
+          <view class="empty-icon"><LumiIcon :name="emptyInfo.icon" :size="30" /></view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
-          <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
+          <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate"><LumiIcon name="sparkles" :size="16" />立即去创作</button>
         </view>
 
           <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
@@ -998,7 +998,7 @@ function openWork(work: HomeWork) {
       <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
     </view>
 
-    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish">+</view>
+    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><LumiIcon name="plus" :size="24" /></view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">

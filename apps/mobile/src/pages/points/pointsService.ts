@@ -157,7 +157,7 @@ function toMemberPlan(plan: MemberPlanRow, index: number): MemberPlan {
     totalCredits: plan.giftCredits,
     rights,
     checkinBonus: plan.checkinBonus,
-    icon: index >= 2 ? "♛" : "◆",
+    icon: index >= 2 ? "crown" : "gem",
     accent: planAccent(index),
     badge: index === 1 ? "推荐" : index >= 2 ? "超值" : undefined,
     recommended: index === 1

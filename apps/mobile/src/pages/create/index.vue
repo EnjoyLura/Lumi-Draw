@@ -872,7 +872,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
         <view v-if="!isLoggedIn" class="login-gate">
-          <view class="login-gate-icon">✎</view>
+          <view class="login-gate-icon"><LumiIcon name="pencil" :size="32" /></view>
           <view class="login-gate-title">登录后开始 AI 创作</view>
           <view class="login-gate-sub">登录即可使用模型、上传参考图、保存作品与管理草稿</view>
           <button class="login-gate-btn" @click="openLoginSheet">立即登录</button>
@@ -891,8 +891,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="gameplay-title">{{ selectedGameplay.name }}</text>
               <text class="gameplay-meta">♨ {{ selectedGameplay.uses }}人用过</text>
             </view>
-            <view class="gameplay-clear" @click="clearGameplay">×</view>
-            <text class="chevron">›</text>
+            <view class="gameplay-clear" @click="clearGameplay"><LumiIcon name="x" :size="16" /></view>
+            <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
           <view v-else class="gameplay-card empty" @click="chooseGameplay">
             <view class="gameplay-icon">⌘</view>
@@ -900,7 +900,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="gameplay-title muted">选择玩法模板</text>
               <text class="gameplay-meta">一键应用热门玩法的参数配置</text>
             </view>
-            <text class="chevron">›</text>
+            <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
         </view>
 
@@ -924,7 +924,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="cost-num">{{ selectedModel.cost }}</text>
               <text class="cost-unit">积分起</text>
             </view>
-            <text class="chevron">›</text>
+            <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
         </view>
 
@@ -952,7 +952,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
           </view>
           <view v-if="promptImage" class="prompt-preview" @click="previewPromptImage">
             <image class="prompt-preview-img" :src="promptImage" mode="aspectFill" />
-            <view class="prompt-remove" @click="removePromptImage">×</view>
+            <view class="prompt-remove" @click="removePromptImage"><LumiIcon name="x" :size="14" /></view>
           </view>
         </view>
 
@@ -998,7 +998,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <view class="section">
           <view class="section-title with-more">
             <text>画面比例</text>
-            <text class="more-link" @click="openRatioSheet">全部尺寸 ›</text>
+            <view class="more-link" @click="openRatioSheet"><text>全部尺寸</text><LumiIcon name="chevron-right" :size="14" /></view>
           </view>
           <view class="ratio-grid">
             <view
@@ -1066,12 +1066,12 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="meta-item">{{ selectedModel.name }}</text>
             </view>
             <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
-              <text class="draft-saved-icon">▤</text>
+              <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
               <text>生成作品已自动保存为草稿，可在画廊草稿箱继续发布。</text>
             </view>
             <view class="result-actions">
               <button class="result-action ghost" @click="goPublish">
-                <text class="result-action-icon">✈</text>
+                <LumiIcon class="result-action-icon" name="send" :size="15" />
                 <text>发布作品</text>
               </button>
               <button class="result-action primary" :disabled="isSavingDrafts" @click="saveAllResults">
@@ -1081,7 +1081,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
           </view>
           <view v-else class="empty-result">
-            <text class="empty-icon">□</text>
+            <LumiIcon class="empty-icon" name="images" :size="32" />
             <text>点击「开始创作」生成作品</text>
           </view>
         </view>
@@ -1099,7 +1099,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >
-            {{ isLoggedIn ? `立即生成 · ✦ ${totalCost}` : "登录后创作" }}
+            <text>{{ isLoggedIn ? "立即生成" : "登录后创作" }}</text><template v-if="isLoggedIn"><text>·</text><LumiIcon name="sparkles" :size="16" /><text>{{ totalCost }}</text></template>
           </view>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
@@ -1141,7 +1141,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="drawer-cost-num">{{ model.cost }}</text>
               <text class="drawer-cost-unit">积分起</text>
             </view>
-            <view v-if="selectedModelIndex === index" class="drawer-selected-icon">✓</view>
+            <view v-if="selectedModelIndex === index" class="drawer-selected-icon"><LumiIcon name="check" :size="20" /></view>
           </view>
         </view>
       </scroll-view>
@@ -1156,7 +1156,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <scroll-view class="gameplay-drawer-scroll" scroll-y>
         <view class="gameplay-drawer-grid">
           <view class="gameplay-clear-card" @click="clearGameplayTemplate">
-            <text class="gameplay-clear-icon">×</text>
+            <LumiIcon class="gameplay-clear-icon" name="x" :size="20" />
             <text class="gameplay-clear-label">不使用</text>
           </view>
           <view
@@ -1172,7 +1172,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text class="gameplay-drawer-name">{{ template.name }}</text>
               <text class="gameplay-drawer-uses">♨ {{ template.uses }}</text>
             </view>
-            <view v-if="selectedGameplayName === template.name" class="gameplay-drawer-check">✓</view>
+            <view v-if="selectedGameplayName === template.name" class="gameplay-drawer-check"><LumiIcon name="check" :size="18" /></view>
           </view>
         </view>
       </scroll-view>
@@ -1183,7 +1183,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <view class="sheet-handle" />
       <view class="sheet-title-row">
         <view class="sheet-title">选择尺寸</view>
-        <view class="sheet-close" @click="closeRatioSheet">×</view>
+        <view class="sheet-close" @click="closeRatioSheet"><LumiIcon name="x" :size="20" /></view>
       </view>
       <view class="ratio-sheet-grid">
         <view
@@ -1236,7 +1236,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             <LumiIcon class="preview-btn-icon" name="download" :size="15" />
             <text>{{ isSavingDrafts ? "保存中..." : "保存" }}</text>
           </button>
-          <button class="preview-ghost-btn icon" @click="closePreview">×</button>
+          <button class="preview-ghost-btn icon" @click="closePreview"><LumiIcon name="x" :size="18" /></button>
         </view>
       </view>
       <view v-if="previewData" class="preview-img-wrap" @click="zoomPreview">

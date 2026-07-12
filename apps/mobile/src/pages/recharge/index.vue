@@ -269,7 +269,7 @@ function confirmCustomRecharge() {
           </view>
 
           <view class="tier-card custom-card" @click="openCustomRecharge">
-            <view class="custom-plus">+</view>
+            <view class="custom-plus"><LumiIcon name="plus" :size="18" /></view>
             <view class="custom-title">自定义</view>
             <view class="custom-sub">任意金额</view>
           </view>

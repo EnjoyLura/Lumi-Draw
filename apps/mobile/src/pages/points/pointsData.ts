@@ -93,14 +93,14 @@ export const invitedUsers: InvitedUser[] = [
 ];
 
 export const memberPlans: MemberPlan[] = [
-  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, rights: ["每日20次", "1K无限"], checkinBonus: 5, icon: "◆", accent: "accent" },
-  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, rights: ["每日30次", "2K无限"], checkinBonus: 8, icon: "◆", accent: "lavender", badge: "省 10%", recommended: true },
-  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, rights: ["每日不限", "4K无限", "专属模型"], checkinBonus: 15, icon: "♛", accent: "gold", badge: "省 18%" }
+  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, rights: ["每日20次", "1K无限"], checkinBonus: 5, icon: "gem", accent: "accent" },
+  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, rights: ["每日30次", "2K无限"], checkinBonus: 8, icon: "gem", accent: "lavender", badge: "省 10%", recommended: true },
+  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, rights: ["每日不限", "4K无限", "专属模型"], checkinBonus: 15, icon: "crown", accent: "gold", badge: "省 18%" }
 ];
 
 export const memberBenefits: MemberBenefit[] = [
-  { title: "每日积分", desc: "每天领取 50 积分", icon: "●", tone: "mint" },
-  { title: "签到加成", desc: "签到积分翻倍", icon: "☀", tone: "accent" },
-  { title: "专属徽章", desc: "VIP 身份标识", icon: "♛", tone: "lavender" },
-  { title: "优先生成", desc: "高峰期优先排队", icon: "↗", tone: "peach" }
+  { title: "每日积分", desc: "每天领取 50 积分", icon: "gem", tone: "mint" },
+  { title: "签到加成", desc: "签到积分翻倍", icon: "sun", tone: "accent" },
+  { title: "专属徽章", desc: "VIP 身份标识", icon: "crown", tone: "lavender" },
+  { title: "优先生成", desc: "高峰期优先排队", icon: "sparkles", tone: "peach" }
 ];

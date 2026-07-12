@@ -202,7 +202,7 @@ async function save() {
       />
 
       <view v-else-if="loadFailed" class="edit-empty">
-        <view class="empty-icon">□</view>
+        <view class="empty-icon"><LumiIcon name="user" :size="30" /></view>
         <view class="empty-title">资料加载失败</view>
         <view class="empty-sub">请检查登录状态或稍后重试。</view>
         <button class="empty-btn" @click="loadProfile">重新加载</button>

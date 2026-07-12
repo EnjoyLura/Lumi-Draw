@@ -143,7 +143,7 @@ async function login() {
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">
-          <view class="empty-icon">◎</view>
+          <view class="empty-icon"><LumiIcon name="info" :size="30" /></view>
           <view class="empty-title">登录后查看草稿箱</view>
           <view class="empty-sub">生成完成的作品会自动保存为草稿</view>
           <button class="empty-btn" @click="showLoginSheet = true">立即登录</button>
@@ -157,7 +157,7 @@ async function login() {
           <view class="waterfall">
             <view class="waterfall-column">
               <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
-                <view class="status-badge">▤ 草稿</view>
+                <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
                 <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
@@ -171,7 +171,7 @@ async function login() {
 
             <view class="waterfall-column">
               <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
-                <view class="status-badge">▤ 草稿</view>
+                <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
                 <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
@@ -190,10 +190,10 @@ async function login() {
         </template>
 
         <view v-else class="empty-state">
-          <view class="empty-icon">▤</view>
+          <view class="empty-icon"><LumiIcon name="file-text" :size="30" /></view>
           <view class="empty-title">暂无草稿</view>
           <view class="empty-sub">生成的作品会自动保存到草稿箱</view>
-          <button class="empty-btn" @click="goCreate">✦ 去创作</button>
+          <button class="empty-btn" @click="goCreate"><LumiIcon name="sparkles" :size="16" />去创作</button>
         </view>
       </view>
     </scroll-view>

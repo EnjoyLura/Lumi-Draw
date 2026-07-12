@@ -51,7 +51,7 @@ const isOwn = computed(() => {
   return useMockData.value ? work.value.userId === 1 : work.value.userId === currentUser.value?.id;
 });
 const isPendingReview = computed(() => work.value?.status === "pending");
-const managePrimaryIcon = computed(() => (work.value?.published ? "✎" : isPendingReview.value ? "◷" : "✈"));
+const managePrimaryIcon = computed(() => (work.value?.published ? "pencil" : isPendingReview.value ? "clock-3" : "send"));
 const managePrimaryText = computed(() => {
   if (work.value?.published) return "\u7f16\u8f91\u4fe1\u606f";
   if (isPendingReview.value) return "\u5ba1\u6838\u4e2d";
@@ -638,7 +638,7 @@ function showToast(title: string) {
             <view class="prompt-head">
               <text>提示词</text>
               <button class="copy-btn" @click="copyPrompt">
-                <text class="copy-icon">⧉</text>
+                <LumiIcon class="copy-icon" name="copy" :size="14" />
                 <text>复制</text>
               </button>
             </view>
@@ -675,7 +675,7 @@ function showToast(title: string) {
             <text>下载</text>
           </view>
           <view class="remake-btn" role="button" aria-label="重新生成" hover-class="remake-btn-pressed" @click="remakeWork(work)">
-            <text class="remake-icon">↻</text>
+            <LumiIcon class="remake-icon" name="rotate-ccw" :size="16" />
             <text>重新生成</text>
           </view>
         </template>
@@ -689,7 +689,7 @@ function showToast(title: string) {
             <text>{{ favoriteCount }}</text>
           </view>
           <view class="remake-btn" role="button" aria-label="一键同款" hover-class="remake-btn-pressed" @click="remakeWork(work)">
-            <text class="remake-icon">✦</text>
+            <LumiIcon class="remake-icon" name="sparkles" :size="16" />
             <text>一键同款</text>
           </view>
         </template>
@@ -713,7 +713,7 @@ function showToast(title: string) {
             <text>分享</text>
           </view>
           <view class="long-action" @click="goReport">
-            <view class="long-icon peach">⚑</view>
+            <view class="long-icon peach"><LumiIcon name="flag" :size="24" /></view>
             <text>举报</text>
           </view>
         </view>
@@ -721,7 +721,7 @@ function showToast(title: string) {
 
       <view class="confirm-overlay" :class="{ show: confirmFollowOpen }" @click="closeConfirmFollow" />
       <view class="confirm-dialog" :class="{ show: confirmFollowOpen }">
-        <view class="confirm-icon">♙</view>
+        <view class="confirm-icon"><LumiIcon name="user" :size="24" /></view>
         <view class="confirm-title">取消关注</view>
         <view class="confirm-msg">确定要取消关注该用户吗？</view>
         <view class="confirm-actions">
@@ -736,38 +736,38 @@ function showToast(title: string) {
         <view class="manage-title">管理作品</view>
         <view class="manage-card">
           <view class="manage-row" @click="editOrPublishWork">
-            <view class="manage-icon lavender">{{ managePrimaryIcon }}</view>
+            <view class="manage-icon lavender"><LumiIcon :name="managePrimaryIcon" :size="18" /></view>
             <view class="manage-text">{{ managePrimaryText }}</view>
-            <view class="manage-arrow">›</view>
+            <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
           <view v-if="work.published" class="manage-row" @click="moveOwnWorkToDraft">
-            <view class="manage-icon peach">↓</view>
+            <view class="manage-icon peach"><LumiIcon name="arrow-down" :size="18" /></view>
             <view class="manage-text">下架</view>
-            <view class="manage-arrow">›</view>
+            <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
           <view class="manage-row" @click="saveWorkImage(); closeDetailManage()">
             <view class="manage-icon accent"><LumiIcon name="download" :size="18" /></view>
             <view class="manage-text">保存图片</view>
-            <view class="manage-arrow">›</view>
+            <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
           <view class="manage-row" @click="shareWork">
             <view class="manage-icon mint"><LumiIcon name="share-2" :size="18" /></view>
             <view class="manage-text">分享作品</view>
-            <view class="manage-arrow">›</view>
+            <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
         <view class="manage-card danger-card">
           <view class="manage-row" :class="{ disabled: isDeleting }" @click="removeOwnWork">
             <view class="manage-icon rose"><LumiIcon name="trash-2" :size="18" /></view>
             <view class="manage-text danger">{{ isDeleting ? "处理中" : "删除作品" }}</view>
-            <view class="manage-arrow">›</view>
+            <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
       </view>
     </template>
 
     <view v-else class="empty-state">
-      <view class="empty-icon">▧</view>
+      <view class="empty-icon"><LumiIcon name="images" :size="30" /></view>
       <view class="empty-title">作品不存在</view>
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />

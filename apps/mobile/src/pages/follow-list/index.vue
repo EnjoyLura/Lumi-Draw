@@ -245,7 +245,7 @@ function goPlaza() {
       />
 
       <view v-else-if="isLoading" class="empty-state">
-        <view class="empty-icon">♡</view>
+        <view class="empty-icon"><LumiIcon name="heart" :size="30" /></view>
         <view class="empty-title">正在加载</view>
       </view>
 
@@ -266,10 +266,10 @@ function goPlaza() {
       </view>
 
       <view v-else class="empty-state">
-        <view class="empty-icon">♡</view>
+        <view class="empty-icon"><LumiIcon name="heart" :size="30" /></view>
         <view class="empty-title">{{ type === "following" ? "暂无关注" : "暂无粉丝" }}</view>
         <view class="empty-sub">{{ type === "following" ? "去广场发现有趣的创作者吧" : "创作更多优秀作品来吸引粉丝" }}</view>
-        <button v-if="type === 'following'" class="empty-btn" @click="goPlaza">✦ 去广场</button>
+        <button v-if="type === 'following'" class="empty-btn" @click="goPlaza"><LumiIcon name="sparkles" :size="16" />去广场</button>
       </view>
     </scroll-view>
     </LumiDeferredPageContent>

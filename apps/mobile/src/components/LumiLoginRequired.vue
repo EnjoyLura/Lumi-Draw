@@ -12,7 +12,7 @@ defineEmits<{
 
 <template>
   <view class="login-required">
-    <view class="login-icon">◎</view>
+    <view class="login-icon"><LumiIcon name="log-in" :size="30" /></view>
     <view class="login-title">{{ title }}</view>
     <view class="login-subtitle">{{ subtitle }}</view>
     <button class="login-btn" @click="$emit('login')">{{ buttonText || "立即登录" }}</button>

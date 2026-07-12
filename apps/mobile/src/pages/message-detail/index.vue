@@ -167,19 +167,19 @@ async function login() {
         />
 
         <view v-else-if="isLoading" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
           <view class="empty-title">消息加载中</view>
         </view>
 
         <view v-else-if="loadFailed" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
           <view class="empty-title">消息加载失败</view>
           <view class="empty-sub">请稍后重试，或检查当前登录状态。</view>
           <button class="retry-btn" @click="loadMessages(category.key)">重新加载</button>
         </view>
 
         <view v-else-if="messages.length === 0" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }">{{ category.icon }}</view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
           <view class="empty-title">暂无{{ category.title }}</view>
           <view class="empty-sub">有新消息时会显示在这里</view>
         </view>

@@ -165,10 +165,10 @@ function goPlaza() {
       </template>
 
       <view v-else class="empty-state">
-        <view class="empty-icon">◷</view>
+        <view class="empty-icon"><LumiIcon name="history" :size="30" /></view>
         <view class="empty-title">暂无浏览记录</view>
         <view class="empty-sub">去广场逛逛，发现更多精彩作品</view>
-        <button class="empty-btn" @click="goPlaza">✦ 去逛逛</button>
+        <button class="empty-btn" @click="goPlaza"><LumiIcon name="sparkles" :size="16" />去逛逛</button>
       </view>
     </scroll-view>
     </LumiDeferredPageContent>

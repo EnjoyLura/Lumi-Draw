@@ -40,7 +40,7 @@ const emit = defineEmits<{
   <view class="side-drawer" :class="{ show: open }">
     <view class="side-head">
       <view class="side-user">
-        <view class="side-avatar" :style="{ background: userColor }">{{ userAvatar }}</view>
+        <view class="side-avatar" :style="{ background: userColor }"><text v-if="userAvatar">{{ userAvatar }}</text><LumiIcon v-else name="user" :size="22" /></view>
         <view class="side-info">
           <view class="side-name">{{ userName }}</view>
           <view class="side-points">
@@ -56,7 +56,7 @@ const emit = defineEmits<{
           class="side-quick"
           @click="emit('navigate', item.url)"
         >
-          <view class="side-quick-icon" :style="{ background: item.gradient }">{{ item.icon }}</view>
+          <view class="side-quick-icon" :style="{ background: item.gradient }"><LumiIcon :name="item.icon" :size="20" /></view>
           <text class="side-quick-label">{{ item.label }}</text>
         </view>
       </view>
@@ -69,10 +69,10 @@ const emit = defineEmits<{
         class="side-row"
         @click="emit('navigate', item.url)"
       >
-        <view class="side-row-icon" :style="{ color: item.color }">{{ item.icon }}</view>
+        <view class="side-row-icon" :style="{ color: item.color }"><LumiIcon :name="item.icon" :size="20" /></view>
         <text class="side-row-text">{{ item.label }}</text>
         <text v-if="item.badge" class="side-badge">{{ item.badge }}</text>
-        <text class="side-arrow">›</text>
+        <LumiIcon class="side-arrow" name="chevron-right" :size="18" />
       </view>
     </view>
   </view>

@@ -21,9 +21,9 @@ const isInitialContentReady = ref(false);
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const featureItems = [
-  { label: "消息中心", icon: "✉", colorClass: "rose", url: "/pages/messages/index" },
-  { label: "浏览历史", icon: "◷", colorClass: "mint", url: "/pages/history/index" },
-  { label: "生成记录", icon: "◎", colorClass: "lavender", url: "/pages/generation-history/index" }
+  { label: "消息中心", icon: "bell", colorClass: "rose", url: "/pages/messages/index" },
+  { label: "浏览历史", icon: "history", colorClass: "mint", url: "/pages/history/index" },
+  { label: "生成记录", icon: "rotate-ccw", colorClass: "lavender", url: "/pages/generation-history/index" }
 ];
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
@@ -150,25 +150,25 @@ async function login() {
         <view class="section-title">账号</view>
         <view class="card">
           <view class="list-row" @click="goEditProfile">
-            <view class="lr-icon accent">✎</view>
+            <view class="lr-icon accent"><LumiIcon name="pencil" :size="20" /></view>
             <view class="lr-text">{{ isLoggedIn ? `编辑个人资料${currentUser?.nickname ? ` · ${currentUser.nickname}` : ""}` : "登录后编辑个人资料" }}</view>
-            <view class="lr-arrow">›</view>
+            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
 
         <view class="section-title">功能</view>
         <view class="card">
           <view v-for="item in featureItems" :key="item.label" class="list-row" @click="openFeature(item.url)">
-            <view class="lr-icon" :class="item.colorClass">{{ item.icon }}</view>
+            <view class="lr-icon" :class="item.colorClass"><LumiIcon :name="item.icon" :size="20" /></view>
             <view class="lr-text">{{ item.label }}</view>
-            <view class="lr-arrow">›</view>
+            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
 
         <view class="section-title">外观</view>
         <view class="card">
           <view class="list-row" @click="toggleDarkMode">
-            <view class="lr-icon accent">☀</view>
+            <view class="lr-icon accent"><LumiIcon name="sun" :size="20" /></view>
             <view class="lr-text">深色模式</view>
             <view class="switch" :class="{ active: darkMode }"><view class="knob" /></view>
           </view>
@@ -177,10 +177,10 @@ async function login() {
         <view class="section-title">关于</view>
         <view class="card">
           <view v-for="item in visibleAboutItems" :key="item.key" class="list-row" @click="handleAbout(item)">
-            <view class="lr-icon">{{ item.icon }}</view>
+            <view class="lr-icon"><LumiIcon :name="item.icon" :size="20" /></view>
             <view class="lr-text">{{ item.label }}</view>
             <text v-if="item.meta" class="lr-meta">{{ item.meta }}</text>
-            <view class="lr-arrow">›</view>
+            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
 

@@ -132,7 +132,7 @@ async function login() {
             @click="selectReason(index)"
           >
             <text>{{ reason }}</text>
-            <text class="check-icon">✓</text>
+            <LumiIcon class="check-icon" name="check" :size="16" />
           </view>
         </view>
 

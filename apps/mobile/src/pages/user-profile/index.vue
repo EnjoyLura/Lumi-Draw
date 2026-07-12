@@ -323,12 +323,12 @@ async function confirmUnfollow() {
     <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMoreWorks">
       <view v-if="loading" class="profile-empty">
-        <view class="empty-icon">◎</view>
+        <view class="empty-icon"><LumiIcon name="info" :size="30" /></view>
         <view class="empty-title">正在加载用户主页</view>
       </view>
 
       <view v-else-if="!hasProfile || loadFailed" class="profile-empty">
-        <view class="empty-icon">□</view>
+        <view class="empty-icon"><LumiIcon name="user" :size="30" /></view>
         <view class="empty-title">用户主页加载失败</view>
         <view class="empty-sub">请确认用户存在，或稍后重试。</view>
         <button class="empty-btn" @click="loadProfile">重新加载</button>
@@ -343,7 +343,7 @@ async function confirmUnfollow() {
             <text class="user-id">ID: LUMI{{ user.id }}</text>
             <view v-if="hasGenderIcon" class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
           </view>
-          <view class="role-tag">✦ {{ user.role }}</view>
+          <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ user.role }}</view>
         </view>
       </view>
 
@@ -382,7 +382,7 @@ async function confirmUnfollow() {
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
-                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                    <LumiIcon name="heart" :size="15" />
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
@@ -398,7 +398,7 @@ async function confirmUnfollow() {
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
-                    <text>{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                    <LumiIcon name="heart" :size="15" />
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>

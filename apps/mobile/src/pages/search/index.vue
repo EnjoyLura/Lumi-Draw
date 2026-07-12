@@ -266,7 +266,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="likes" :class="{ liked: work.liked }">{{ work.liked ? "♥" : "♡" }} {{ work.likes }}</view>
+                  <view class="likes" :class="{ liked: work.liked }"><LumiIcon name="heart" :size="14" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -282,7 +282,7 @@ function handleReachBottom() {
                     <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
                     <text class="author-name">{{ getUser(work).name }}</text>
                   </view>
-                  <view class="likes" :class="{ liked: work.liked }">{{ work.liked ? "♥" : "♡" }} {{ work.likes }}</view>
+                  <view class="likes" :class="{ liked: work.liked }"><LumiIcon name="heart" :size="14" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>

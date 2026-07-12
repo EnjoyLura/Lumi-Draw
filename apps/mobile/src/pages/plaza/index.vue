@@ -144,17 +144,17 @@ const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((
 const filterSizes = computed(() => ["全部", ...sizeFilterOptions.value.map((item) => item.label)]);
 const filterQualities = computed(() => ["全部", ...qualityFilterOptions.value.map((item) => item.label)]);
 const sideQuickActions: SideQuick[] = [
-  { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
-  { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
+  { icon: "gem", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
+  { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
+  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
+  { icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
 ];
 const sideRows = ref<SideRow[]>([
-  { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
-  { icon: "◷", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
-  { icon: "✉", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
-  { icon: "♥", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
-  { icon: "☺", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
+  { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
+  { icon: "history", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },
+  { icon: "bell", label: "消息中心", url: "/pages/messages/index", color: "var(--rose)", badge: "5" },
+  { icon: "heart", label: "我的关注", url: "/pages/follow-list/index?type=following", color: "var(--peach)" },
+  { icon: "users", label: "我的粉丝", url: "/pages/follow-list/index?type=followers", color: "var(--lemon)" }
 ]);
 
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
@@ -798,14 +798,14 @@ function handleReachBottom() {
         />
 
         <view v-else-if="!useMockData && loadFailed" class="empty-state">
-          <view class="empty-icon">!</view>
+          <view class="empty-icon"><LumiIcon name="info" :size="30" /></view>
           <view class="empty-title">广场数据加载失败</view>
           <view class="empty-sub">请检查网络或稍后重试，当前不会显示模拟作品。</view>
           <button class="empty-action" @click="reloadPlazaData">重新加载</button>
         </view>
 
         <view v-else class="empty-state">
-          <view class="empty-icon">{{ renderedTab === "favorite" ? "♡" : "⌕" }}</view>
+          <view class="empty-icon"><LumiIcon :name="renderedTab === 'favorite' ? 'heart' : 'search'" :size="30" /></view>
           <view class="empty-title">{{ renderedTab === "favorite" ? "暂无收藏" : "暂无作品" }}</view>
           <view class="empty-sub">{{ renderedTab === "favorite" ? "在作品详情页收藏喜欢的创作" : "换个分类看看更多作品" }}</view>
         </view>
@@ -849,7 +849,7 @@ function handleReachBottom() {
       v-if="sideDrawerMounted"
       :open="sideOpen"
       :user-name="isLoggedIn ? drawerDisplay.name : '点击登录'"
-      :user-avatar="isLoggedIn ? drawerDisplay.avatar : '♙'"
+      :user-avatar="isLoggedIn ? drawerDisplay.avatar : ''"
       :user-color="isLoggedIn ? drawerDisplay.color : 'var(--bg-soft)'"
       :user-points="String(drawerDisplay.credits)"
       :quick-actions="sideQuickActions"

@@ -263,7 +263,7 @@ async function submit() {
           <view class="field-title">选择作品</view>
           <view class="draft-card" @click="openPicker">
             <template v-if="!selectedDraft">
-              <view class="draft-empty-icon">＋</view>
+              <view class="draft-empty-icon"><LumiIcon name="plus" :size="28" /></view>
               <view class="draft-empty-text">
                 <view class="draft-empty-title">从草稿箱选择</view>
                 <view class="draft-empty-sub">点击浏览全部草稿作品</view>
@@ -276,7 +276,7 @@ async function submit() {
                 <view class="draft-selected-sub">{{ selectedDraft.resolution }}</view>
               </view>
             </template>
-            <view class="draft-arrow">›</view>
+            <LumiIcon class="draft-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
 
@@ -319,7 +319,8 @@ async function submit() {
         </view>
 
         <button class="submit-btn" :disabled="isSubmitting" @click="submit">
-          {{ isSubmitting ? "发布中..." : "✈ 发布作品" }}
+          <LumiIcon v-if="!isSubmitting" name="send" :size="16" />
+          <text>{{ isSubmitting ? "发布中..." : "发布作品" }}</text>
         </button>
       </view>
     </scroll-view>
@@ -347,7 +348,7 @@ async function submit() {
               <view class="picker-name">{{ draft.title }}</view>
               <view class="picker-res">{{ draft.resolution }}</view>
             </view>
-            <view v-if="selectedDraft && selectedDraft.id === draft.id" class="picker-check">✓</view>
+            <view v-if="selectedDraft && selectedDraft.id === draft.id" class="picker-check"><LumiIcon name="check" :size="16" /></view>
           </view>
         </view>
       </scroll-view>
@@ -528,13 +529,17 @@ async function submit() {
 }
 
 .submit-btn {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 50px;
   margin-top: 8px;
   margin-bottom: 20px;
   font-size: 16px;
   font-weight: 700;
-  line-height: 50px;
+  line-height: 1;
   color: #fff;
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;

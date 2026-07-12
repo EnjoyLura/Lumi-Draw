@@ -32,7 +32,7 @@ const { useMockData } = useDataMode();
 const feedbackTypes: FeedbackType[] = [
   { key: "bug", label: "Bug反馈", icon: "!" },
   { key: "experience", label: "体验反馈", icon: "●" },
-  { key: "suggestion", label: "优化建议", icon: "✓" }
+  { key: "suggestion", label: "优化建议", icon: "check" }
 ];
 
 const activeType = ref("bug");
@@ -214,7 +214,7 @@ async function submit() {
               :class="{ active: activeType === item.key }"
               @click="activeType = item.key"
             >
-              <view class="type-icon">{{ item.icon }}</view>
+              <view class="type-icon"><LumiIcon :name="item.icon" :size="20" /></view>
               <view class="type-label">{{ item.label }}</view>
             </view>
           </view>
@@ -238,10 +238,10 @@ async function submit() {
           <view class="image-row">
             <view v-for="(img, index) in images" :key="img.id" class="image-item">
               <image class="image-thumb" :src="img.previewUrl" mode="aspectFill" />
-              <view class="image-remove" @click="removeImage(index)">×</view>
+              <view class="image-remove" @click="removeImage(index)"><LumiIcon name="x" :size="14" /></view>
             </view>
             <view v-if="images.length < 2" class="image-add" @click="addImage">
-              <view class="image-add-icon">{{ isUploading ? "..." : "+" }}</view>
+              <view class="image-add-icon"><text v-if="isUploading">...</text><LumiIcon v-else name="image-plus" :size="24" /></view>
               <view class="image-add-text">{{ isUploading ? "选择中" : "添加图片" }}</view>
             </view>
           </view>

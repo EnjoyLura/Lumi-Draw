@@ -681,7 +681,7 @@ function getRatioClass(ratio: string) {
 
       <view class="home-content">
         <view v-if="!useMockData && loadFailed" class="home-failure">
-          <view class="failure-icon">!</view>
+          <view class="failure-icon"><LumiIcon name="info" :size="30" /></view>
           <view class="failure-title">首页数据加载失败</view>
           <view class="failure-sub">请检查网络或稍后重试，当前不会显示模拟内容。</view>
           <button class="failure-action" @click="refreshHomeData">重新加载</button>
@@ -727,7 +727,7 @@ function getRatioClass(ratio: string) {
           <text>热门玩法</text>
           <view class="more-link" @click="goAllGameplays">
             <text>全部</text>
-            <text class="chevron">›</text>
+            <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
         </view>
 
@@ -887,7 +887,7 @@ function getRatioClass(ratio: string) {
           <view class="announcement-dismiss" @click="dismissAnnouncementWeek">知道了</view>
         </view>
       </view>
-      <view class="announcement-close" @click="closeAnnouncement">×</view>
+      <view class="announcement-close" @click="closeAnnouncement"><LumiIcon name="x" :size="20" /></view>
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>

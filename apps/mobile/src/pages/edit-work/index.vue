@@ -245,7 +245,7 @@ async function submit() {
       />
 
       <view v-else-if="loadFailed" class="edit-empty">
-        <view class="empty-icon">□</view>
+        <view class="empty-icon"><LumiIcon name="images" :size="30" /></view>
         <view class="empty-title">作品信息加载失败</view>
         <view class="empty-sub">请确认作品存在且属于当前账号后重试。</view>
         <button class="empty-btn" @click="loadWork">重新加载</button>
@@ -302,7 +302,7 @@ async function submit() {
         </view>
 
         <button class="submit-btn" :disabled="isSaving || isLoading || loadFailed" @click="submit">
-          {{ isSaving ? "保存中..." : "✓ 保存修改" }}
+          <LumiIcon v-if="!isSaving" name="check" :size="16" />{{ isSaving ? "保存中..." : "保存修改" }}
         </button>
       </view>
     </scroll-view>

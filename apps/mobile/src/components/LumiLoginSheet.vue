@@ -13,10 +13,10 @@ const emit = defineEmits<{
   <view v-if="open" class="login-overlay" @click="emit('close')" />
   <view class="login-sheet" :class="{ 'login-sheet-show': open }">
     <view class="sheet-handle" />
-    <view class="login-logo">✎</view>
+    <view class="login-logo"><LumiIcon name="pencil" :size="30" /></view>
     <view class="login-title">登录露米绘画</view>
     <view class="login-sub">登录后即可体验AI创作、收藏作品等功能</view>
-    <button class="login-primary" @click="emit('login')">▣ 微信一键登录</button>
+    <button class="login-primary" @click="emit('login')"><LumiIcon name="log-in" :size="18" />微信一键登录</button>
     <view class="login-agree">
       登录即代表同意 <text class="agree-link">用户协议</text> 和 <text class="agree-link">隐私政策</text>
     </view>
@@ -87,6 +87,10 @@ const emit = defineEmits<{
 }
 
 .login-primary {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 44px;
   margin-bottom: 12px;

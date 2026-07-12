@@ -30,12 +30,12 @@ const users: MessageUser[] = [
 ];
 
 export const messageCategories: MessageCategory[] = [
-  { key: "like", title: "点赞", icon: "♡", gradient: "linear-gradient(135deg,#FFB3C1,#FF8FA3)", color: "#ff8fa3" },
-  { key: "favorite", title: "收藏", icon: "☆", gradient: "linear-gradient(135deg,#A8D8F0,#7CC4E8)", color: "#7cc4e8" },
-  { key: "remake", title: "一键同款", icon: "↻", gradient: "linear-gradient(135deg,#A3E4CC,#7DD4B0)", color: "#7dd4b0" },
-  { key: "follow", title: "关注", icon: "+", gradient: "linear-gradient(135deg,#FFD4A8,#FFC088)", color: "#ffc088" },
-  { key: "system", title: "系统通知", icon: "!", gradient: "linear-gradient(135deg,#B4C8F5,#96B0E8)", color: "#96b0e8" },
-  { key: "service", title: "客服消息", icon: "?", gradient: "linear-gradient(135deg,#C8B5E8,#B09DD8)", color: "#b09dd8" }
+  { key: "like", title: "点赞", icon: "heart", gradient: "linear-gradient(135deg,#FFB3C1,#FF8FA3)", color: "#ff8fa3" },
+  { key: "favorite", title: "收藏", icon: "star", gradient: "linear-gradient(135deg,#A8D8F0,#7CC4E8)", color: "#7cc4e8" },
+  { key: "remake", title: "一键同款", icon: "rotate-ccw", gradient: "linear-gradient(135deg,#A3E4CC,#7DD4B0)", color: "#7dd4b0" },
+  { key: "follow", title: "关注", icon: "user", gradient: "linear-gradient(135deg,#FFD4A8,#FFC088)", color: "#ffc088" },
+  { key: "system", title: "系统通知", icon: "bell", gradient: "linear-gradient(135deg,#B4C8F5,#96B0E8)", color: "#96b0e8" },
+  { key: "service", title: "客服消息", icon: "message-circle", gradient: "linear-gradient(135deg,#C8B5E8,#B09DD8)", color: "#b09dd8" }
 ];
 
 export const messageMap: Record<MessageCategoryKey, MessageItem[]> = {

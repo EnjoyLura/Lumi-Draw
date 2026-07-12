@@ -349,7 +349,7 @@ async function login() {
       </view>
 
       <view v-if="!useMockData && !isLoggedIn" class="empty-state">
-        <view class="empty-icon">◎</view>
+        <view class="empty-icon"><LumiIcon name="rotate-ccw" :size="30" /></view>
         <view class="empty-title">登录后查看生成记录</view>
         <view class="empty-sub">这里会保存你的生成进度、结果和失败记录</view>
         <button class="primary-btn" @click="showLoginSheet = true">立即登录</button>
@@ -412,7 +412,7 @@ async function login() {
       </view>
 
       <view v-else class="empty-state">
-        <view class="empty-icon">◎</view>
+        <view class="empty-icon"><LumiIcon name="rotate-ccw" :size="30" /></view>
         <view class="empty-title">{{ emptyTitle }}</view>
         <view class="empty-sub">完成一次创作后，生成进度和结果会展示在这里</view>
         <button class="primary-btn" @click="goCreate">去创作</button>
