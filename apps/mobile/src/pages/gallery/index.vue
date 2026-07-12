@@ -414,6 +414,11 @@ function goEditProfile() {
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
+function goRecharge() {
+  if (!ensureLogin()) return;
+  uni.navigateTo({ url: "/pages/recharge/index" });
+}
+
 function goPublish() {
   if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/publish/index" });
@@ -723,6 +728,7 @@ function openWork(work: HomeWork) {
               </view>
               <view class="role-tag">✦ {{ profile.role }}</view>
             </view>
+            <view class="points-pill" @click="goRecharge"><text class="points-gem">◆</text><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>
@@ -771,7 +777,7 @@ function openWork(work: HomeWork) {
         </view>
       </view>
 
-      <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row">
+      <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row" :class="{ 'draft-toolbar-row': !isMineMode }">
         <view v-if="isMineMode" class="gallery-tabs">
           <view
             v-for="(tab, index) in workspaceTabs"
@@ -1111,9 +1117,13 @@ function openWork(work: HomeWork) {
 .profile-row {
   display: flex;
   gap: 14px;
-  align-items: flex-start;
+  align-items: center;
   padding: 12px 16px 0;
 }
+
+.points-pill { display: flex; flex: 0 0 auto; gap: 7px; align-items: center; align-self: center; padding: 9px 13px; color: var(--fg-primary); background: var(--bg-soft); border-radius: 999px; }
+.points-gem { font-size: 17px; color: var(--lavender); }
+.points-value { font-size: 17px; font-weight: 600; }
 
 .avatar-wrap {
   position: relative;
@@ -1295,7 +1305,11 @@ function openWork(work: HomeWork) {
   align-items: center;
   padding: 0 16px;
   margin-bottom: 8px;
+  box-sizing: border-box;
+  width: 100%;
 }
+
+.gallery-tabs-row.draft-toolbar-row { justify-content: flex-end; }
 
 .gallery-tabs {
   position: relative;
