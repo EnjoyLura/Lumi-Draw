@@ -1168,7 +1168,7 @@ function getRatioClass(ratio: string) {
   padding: 6px 16px;
   font-size: 11px;
   font-weight: 600;
-  color: #182334;
+  color: var(--accent);
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.92);

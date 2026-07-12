@@ -1001,7 +1001,7 @@ function openWork(work: HomeWork) {
       <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
     </view>
 
-    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><view class="publish-icon"><LumiIcon class="publish-plus-icon" name="plus" :size="22" /></view></view>
+    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><view class="publish-plus" /></view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -1982,8 +1982,7 @@ function openWork(work: HomeWork) {
   margin: auto;
 }
 
-.empty-glyph,
-.publish-plus-icon {
+.empty-glyph {
   display: block;
   margin: auto;
   line-height: 1;
@@ -2090,17 +2089,34 @@ function openWork(work: HomeWork) {
   backdrop-filter: blur(16px) saturate(180%);
 }
 
-.publish-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
+.publish-plus {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%, -50%);
 }
 
-.publish-icon :deep(.lumi-icon) {
-  display: block;
-  margin: auto;
+.publish-plus::before,
+.publish-plus::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  content: "";
+  background: currentColor;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+}
+
+.publish-plus::before {
+  width: 22px;
+  height: 2px;
+}
+
+.publish-plus::after {
+  width: 2px;
+  height: 22px;
 }
 
 .tab-bar {
