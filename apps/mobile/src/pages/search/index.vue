@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, reactive, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { homeUsers as mockHomeUsers, homeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searchData";
 import { fetchHotSearches, searchWorks } from "./searchService";
 import { useTheme } from "../../services/theme";
+import { galleryUser, galleryWorks } from "../gallery/galleryData";
 
 const { themeClass } = useTheme();
 
@@ -15,6 +16,10 @@ const PAGE_SIZE = 12;
 const SEARCH_HISTORY_KEY = "lumi-search-history";
 const { useMockData } = useDataMode();
 const { isLoggedIn } = useAuth();
+const searchScope = ref<"all" | "gallery" | "mine">("all");
+const isPersonalScope = computed(() => searchScope.value !== "all");
+const searchTitle = computed(() => (searchScope.value === "mine" ? "搜索我的作品" : searchScope.value === "gallery" ? "搜索画廊作品" : "搜索"));
+const searchPlaceholder = computed(() => (isPersonalScope.value ? "搜索作品标题、提示词或模型" : "搜索作品、提示词或用户"));
 const keyword = ref("");
 const submittedKeyword = ref("");
 const searchHistory = ref([...initialSearchHistory]);
@@ -34,9 +39,10 @@ const results = computed(() => {
 
   const terms = [query, ...(searchKeywordAliases[submittedKeyword.value.trim()] || [])].map((item) => item.toLowerCase());
 
-  return homeWorks.filter((work) => {
+  const sourceWorks = isPersonalScope.value ? galleryWorks : homeWorks;
+  return sourceWorks.filter((work) => {
     const user = getUser(work);
-    const searchableText = `${work.title} ${work.prompt} ${user.name}`.toLowerCase();
+    const searchableText = `${work.title} ${work.prompt} ${work.modelName || ""} ${isPersonalScope.value ? "" : user.name}`.toLowerCase();
     return terms.some((term) => searchableText.includes(term));
   });
 });
@@ -44,6 +50,11 @@ const results = computed(() => {
 const leftColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 1));
 const hasMore = computed(() => !useMockData.value && pageState.hasMore);
+
+onLoad((query) => {
+  const scope = query?.scope;
+  searchScope.value = scope === "gallery" || scope === "mine" ? scope : "all";
+});
 
 onShow(() => {
   loadSearchHistory();
@@ -53,14 +64,16 @@ onShow(() => {
   }
   lastMockMode = useMockData.value;
   if (useMockData.value) {
-    userList.value = mockHomeUsers;
+    userList.value = isPersonalScope.value
+      ? [{ id: galleryUser.id, name: galleryUser.name, avatar: galleryUser.avatar, color: galleryUser.color }]
+      : mockHomeUsers;
   } else {
     userList.value = [];
     backendResults.value = [];
     pageState.page = 1;
     pageState.hasMore = false;
   }
-  void loadHotSearches();
+  if (!isPersonalScope.value) void loadHotSearches();
   if (!useMockData.value && submittedKeyword.value) void runBackendSearch(submittedKeyword.value, 1, false);
 });
 
@@ -113,7 +126,10 @@ async function runBackendSearch(query: string, page = 1, append = false) {
   isLoading.value = !append;
   isLoadingMore.value = append;
   try {
-    const result = await searchWorks(query, page, PAGE_SIZE, { skipAuth: !isLoggedIn.value });
+    const result = await searchWorks(query, page, PAGE_SIZE, {
+      skipAuth: !isLoggedIn.value,
+      scope: searchScope.value === "gallery" || searchScope.value === "mine" ? searchScope.value : undefined
+    });
     backendResults.value = append ? [...backendResults.value, ...result.works] : result.works;
     mergeUsers(result.users);
     pageState.page = result.page;
@@ -185,7 +201,7 @@ function handleReachBottom() {
 
 <template>
   <view class="search-page" :class="themeClass">
-    <LumiPageHeader title="搜索" />
+    <LumiPageHeader :title="searchTitle" />
     <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
@@ -195,7 +211,7 @@ function handleReachBottom() {
             <input
               v-model="keyword"
               class="search-input"
-              placeholder="搜索作品、提示词或用户"
+              :placeholder="searchPlaceholder"
               confirm-type="search"
               @input="handleTyping"
               @confirm="doSearch()"
@@ -216,7 +232,7 @@ function handleReachBottom() {
             <view v-else class="empty-history">暂无搜索历史</view>
           </view>
 
-          <view class="section">
+          <view v-if="!isPersonalScope" class="section">
             <view class="section-title hot-title">
               <text class="fire">♨</text>
               <text>热门搜索</text>

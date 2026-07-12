@@ -25,6 +25,7 @@ const EMPTY_PROFILE: GalleryUser = {
   role: "创作者",
   works: 0,
   followers: "0",
+  following: "0",
   likes: "0"
 };
 

@@ -6,7 +6,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
-import { fetchFavorites, toHomeWork as toFavoriteWork } from "../../services/social";
+import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -18,7 +18,9 @@ import {
   removeActiveGenerateJobIds,
   syncActiveGenerateJobIds
 } from "../../services/generateTaskState";
-import type { HomeWork } from "../home/homeData";
+import { homeUsers, homeWorks, type HomeUser, type HomeWork } from "../home/homeData";
+import { createModels } from "../create/createData";
+import { fetchCreateConfig } from "../create/createService";
 import { galleryGenTasks, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab, type GalleryUser } from "./galleryData";
 import {
   deleteGalleryWorks,
@@ -58,6 +60,7 @@ const EMPTY_PROFILE: GalleryUser = {
   role: "创作者",
   works: 0,
   followers: "0",
+  following: "0",
   likes: "0",
   gender: "unknown"
 };
@@ -100,12 +103,12 @@ const isInitialContentReady = ref(false);
 const sideDrawerMounted = ref(false);
 const loginSheetMounted = ref(false);
 const filterOpen = ref(false);
-const searchOpen = ref(false);
-const searchKeyword = ref("");
 const selectedModel = ref("all");
 const selectedStatus = ref("all");
 const sortDescending = ref(true);
 const unreadMessageCount = ref(0);
+const availableModels = ref<string[]>(useMockData.value ? createModels.map((model) => model.name) : []);
+const workAuthors = ref<HomeUser[]>(useMockData.value ? homeUsers : []);
 const visibleCount = ref(PAGE_SIZE);
 const renderKey = ref(0);
 const waterfallAnimationClass = ref("");
@@ -135,9 +138,11 @@ let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}`
 let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
-const modelOptions = computed(() => Array.from(new Set(works.value.map((work) => work.modelName).filter(Boolean))) as string[]);
+const modelOptions = computed(() => availableModels.value);
 const filteredWorks = computed(() => {
-  let result = works.value;
+  let result = useMockData.value && renderedTab.value === "favorite"
+    ? homeWorks.filter((work) => [1, 2, 4].includes(work.id)).map((work) => ({ ...work, favorited: true }))
+    : works.value;
   if (renderedTab.value === "published") result = result.filter((work) => work.published);
   if (renderedTab.value === "draft") result = result.filter((work) => !work.published);
   if (renderedTab.value === "favorite") {
@@ -147,16 +152,6 @@ const filteredWorks = computed(() => {
   if (selectedStatus.value === "published") result = result.filter((work) => work.published);
   if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
   if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
-  const keyword = searchKeyword.value.trim().toLowerCase();
-  if (keyword) {
-    result = result.filter((work) =>
-      [work.title, work.prompt, work.modelName]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(keyword)
-    );
-  }
   return [...result].sort((a, b) => {
     const diff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     return sortDescending.value ? diff : -diff;
@@ -180,7 +175,6 @@ const genderIcon = computed(() => {
   return "";
 });
 const emptyInfo = computed(() => {
-  if (searchKeyword.value.trim()) return { icon: "⌕", title: "没有找到相关作品", sub: "换个关键词试试" };
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
   if (renderedTab.value === "favorite") return { icon: "♡", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
@@ -206,8 +200,22 @@ onShow(refreshGalleryPage);
 
 onMounted(() => {
   refreshGalleryPage();
+  void loadModelOptions();
   markInitialContentReady();
 });
+
+async function loadModelOptions() {
+  if (useMockData.value) {
+    availableModels.value = createModels.map((model) => model.name);
+    return;
+  }
+  try {
+    const config = await fetchCreateConfig();
+    availableModels.value = config.models.map((model) => model.name);
+  } catch {
+    availableModels.value = Array.from(new Set(works.value.map((work) => work.modelName).filter(Boolean))) as string[];
+  }
+}
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
   if (tab === props.pageMode) refreshGalleryPage();
@@ -251,6 +259,7 @@ function resetRealGalleryData() {
   works.value = [];
   genTasks.value = [];
   unreadMessageCount.value = 0;
+  workAuthors.value = [];
   syncSideMessageBadge();
   manageMode.value = false;
   selectedIds.value = new Set();
@@ -356,6 +365,10 @@ async function loadGalleryPage(page = 1, append = false) {
   if (renderedTab.value === "favorite") {
     const result = await fetchFavorites(page, PAGE_SIZE);
     const favorites = result.items.map(toFavoriteWork);
+    const nextAuthors = result.items.map((item) => toFavoriteUser(item.author));
+    const authorMap = new Map(workAuthors.value.map((user) => [user.id, user]));
+    nextAuthors.forEach((user) => authorMap.set(user.id, user));
+    workAuthors.value = Array.from(authorMap.values());
     works.value = append ? [...works.value, ...favorites] : favorites;
     pageState.page = result.page;
     pageState.hasMore = result.hasMore;
@@ -417,14 +430,24 @@ function goMine() {
 }
 
 function goSearch() {
-  searchOpen.value = !searchOpen.value;
-  if (!searchOpen.value) searchKeyword.value = "";
-  visibleCount.value = PAGE_SIZE;
+  if (!ensureLogin()) return;
+  uni.navigateTo({ url: `/pages/search/index?scope=${isMineMode.value ? "mine" : "gallery"}` });
 }
 
-function clearSearch() {
-  searchKeyword.value = "";
-  visibleCount.value = PAGE_SIZE;
+function goGallery() {
+  goRootTab("/pages/gallery/index");
+}
+
+function getWorkAuthor(work: HomeWork) {
+  if (work.userId === profile.value.id || renderedTab.value !== "favorite") {
+    return { id: profile.value.id, name: profile.value.name, avatar: profile.value.avatar, color: profile.value.color };
+  }
+  return workAuthors.value.find((user) => user.id === work.userId) || homeUsers.find((user) => user.id === work.userId) || {
+    id: work.userId,
+    name: `用户${work.userId}`,
+    avatar: "U",
+    color: "var(--accent)"
+  };
 }
 
 function goEditProfile() {
@@ -726,7 +749,7 @@ function openWork(work: HomeWork) {
           <view class="nav-row">
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
-              <view v-if="isMineMode" class="icon-btn search" :class="{ active: searchOpen }" @click="goSearch">⌕</view>
+              <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
             </view>
             <text class="nav-title">{{ isMineMode ? "我的" : "画廊" }}</text>
             <view class="nav-right-spacer" />
@@ -764,6 +787,10 @@ function openWork(work: HomeWork) {
               <view class="stat">
                 <text class="stat-num lavender">{{ profile.likes }}</text>
                 <text class="stat-label">获赞</text>
+              </view>
+              <view class="stat" @click="navigateSide('/pages/follow-list/index?type=following')">
+                <text class="stat-num mint">{{ profile.following }}</text>
+                <text class="stat-label">关注</text>
               </view>
             </view>
             <button class="edit-btn" @click="goEditProfile">编辑资料</button>
@@ -818,7 +845,7 @@ function openWork(work: HomeWork) {
           <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
         </view>
         <view v-else class="draft-tools">
-          <view class="draft-tool" :class="{ active: searchOpen }" @click="goSearch">⌕</view>
+          <view class="draft-tool" @click="goSearch">⌕</view>
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
           <view class="draft-tool" @click="toggleSort">{{ sortDescending ? "↓" : "↑" }}</view>
         </view>
@@ -828,15 +855,6 @@ function openWork(work: HomeWork) {
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
           {{ manageMode ? "✓ 完成" : "☷ 管理" }}
         </button>
-      </view>
-
-      <view v-if="isInitialContentReady && isLoggedIn && searchOpen" class="collection-search-wrap">
-        <view class="collection-search">
-          <text class="collection-search-icon">⌕</text>
-          <input v-model="searchKeyword" class="collection-search-input" :placeholder="isMineMode ? '搜索我的作品' : '搜索画廊作品'" confirm-type="search" />
-          <text v-if="searchKeyword" class="collection-search-clear" @click="clearSearch">×</text>
-        </view>
-        <text class="collection-search-cancel" @click="goSearch">取消</text>
       </view>
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
@@ -880,8 +898,8 @@ function openWork(work: HomeWork) {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="author">
-                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
-                    <text class="author-name">{{ profile.name }}</text>
+                    <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
+                    <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
                   <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
                 </view>
@@ -898,8 +916,8 @@ function openWork(work: HomeWork) {
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
                   <view class="author">
-                    <view class="mini-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
-                    <text class="author-name">{{ profile.name }}</text>
+                    <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
+                    <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
                   <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
                 </view>
@@ -912,7 +930,7 @@ function openWork(work: HomeWork) {
           <view class="empty-icon">{{ emptyInfo.icon }}</view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
-          <button v-if="!searchKeyword.trim() && (renderedTab === 'all' || renderedTab === 'draft')" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
+          <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
         </view>
 
           <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
@@ -942,7 +960,7 @@ function openWork(work: HomeWork) {
       <view class="filter-options">
         <view class="filter-chip" :class="{ active: selectedModel === 'all' }" @click="selectedModel = 'all'">全部模型</view>
         <view v-for="model in modelOptions" :key="model" class="filter-chip" :class="{ active: selectedModel === model }" @click="selectedModel = model">{{ model }}</view>
-        <view v-if="!modelOptions.length" class="filter-chip" :class="{ active: selectedModel === '未标注模型' }" @click="selectedModel = '未标注模型'">未标注模型</view>
+        <view class="filter-chip" :class="{ active: selectedModel === '未标注模型' }" @click="selectedModel = '未标注模型'">未标注模型</view>
       </view>
 
       <view class="filter-section-title">发布状态</view>
@@ -967,7 +985,7 @@ function openWork(work: HomeWork) {
         <text class="tab-icon">✦</text>
         <text class="tab-label">创作</text>
       </view>
-      <view class="tab-item" :class="{ active: !isMineMode }">
+      <view class="tab-item" :class="{ active: !isMineMode }" @click="goGallery">
         <text class="tab-icon">□</text>
         <text class="tab-label">画廊</text>
       </view>
@@ -1331,6 +1349,10 @@ function openWork(work: HomeWork) {
   color: var(--lavender);
 }
 
+.stat-num.mint {
+  color: var(--mint);
+}
+
 .stat-label {
   margin-left: 4px;
   font-size: 13px;
@@ -1442,60 +1464,6 @@ function openWork(work: HomeWork) {
   margin-left: auto;
 }
 
-.collection-search-wrap {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  padding: 0 16px 10px;
-}
-
-.collection-search {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  min-width: 0;
-  height: 36px;
-  padding: 0 10px;
-  background: var(--bg-soft);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
-}
-
-.collection-search:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
-.collection-search-icon,
-.collection-search-clear {
-  flex: 0 0 auto;
-  color: var(--fg-muted);
-}
-
-.collection-search-input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  padding: 0 8px;
-  font-size: 13px;
-  color: var(--fg-primary);
-}
-
-.collection-search-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 18px;
-}
-
-.collection-search-cancel {
-  flex: 0 0 auto;
-  font-size: 13px;
-  color: var(--accent);
-}
-
 .draft-tool {
   display: flex;
   align-items: center;
@@ -1545,7 +1513,6 @@ function openWork(work: HomeWork) {
   gap: 10px;
   padding-top: 16px;
   margin-top: 16px;
-  border-top: 0.5px solid var(--border);
 }
 
 .profile-quick-item {
@@ -1944,7 +1911,7 @@ function openWork(work: HomeWork) {
   overflow: hidden;
   pointer-events: none;
   background: var(--bg-glass);
-  border-top: 0.5px solid var(--border);
+  border-top: 0;
   opacity: 0;
   transition:
     max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
@@ -2025,8 +1992,8 @@ function openWork(work: HomeWork) {
   padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box;
   background: var(--bg-glass);
-  border-top: 0.5px solid var(--border);
-  box-shadow: 0 -2px 20px rgba(60, 120, 200, 0.06);
+  border-top: 0;
+  box-shadow: none;
   backdrop-filter: blur(24px) saturate(180%);
 }
 

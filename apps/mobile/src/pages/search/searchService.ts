@@ -76,12 +76,13 @@ export async function fetchHotSearches() {
   return rows.map((item) => item.keyword).filter(Boolean);
 }
 
-export async function searchWorks(keyword: string, page: number, pageSize: number, options?: { skipAuth?: boolean }): Promise<SearchResultPage> {
+export async function searchWorks(keyword: string, page: number, pageSize: number, options?: { skipAuth?: boolean; scope?: "gallery" | "mine" }): Promise<SearchResultPage> {
   const query = [
     `keyword=${encodeURIComponent(keyword)}`,
     `page=${page}`,
-    `pageSize=${pageSize}`
-  ].join("&");
+    `pageSize=${pageSize}`,
+    options?.scope ? `scope=${options.scope}` : ""
+  ].filter(Boolean).join("&");
   const result = await api.get<PageResult<BackendWork>>(`/works/search?${query}`, options);
   const users = result.items.map((item) => toUser(item.author));
   return {

@@ -14,6 +14,7 @@ interface BackendUser {
   worksCount: number;
   likesCount?: number;
   followers: number;
+  following?: number;
 }
 
 interface BackendWork {
@@ -75,6 +76,7 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     role: user.memberPlan || "创作者",
     works: user.worksCount,
     followers: `${user.followers}`,
+    following: `${user.following ?? 0}`,
     likes: `${user.likesCount ?? 0}`,
     gender: user.gender === "male" || user.gender === "female" ? user.gender : "unknown"
   };

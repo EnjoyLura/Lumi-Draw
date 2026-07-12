@@ -20,6 +20,7 @@ export interface GalleryUser {
   role: string;
   works: number;
   followers: string;
+  following: string;
   likes: string;
   gender?: "male" | "female" | "unknown";
 }
@@ -35,6 +36,7 @@ export const galleryUser: GalleryUser = {
   role: "AI创作者",
   works: 48,
   followers: "326",
+  following: "128",
   likes: "1.2k",
   gender: "female"
 };
@@ -80,7 +82,8 @@ export const galleryWorks: HomeWork[] = [
     prompt: "anime girl with cat, soft colors, studio ghibli style, warm lighting",
     ratio: "2:3",
     likes: 680,
-    published: true
+    published: true,
+    modelName: "GPT Image 2"
   },
   {
     id: 5,
@@ -90,7 +93,8 @@ export const galleryWorks: HomeWork[] = [
     prompt: "ancient chinese girl, hanfu, peach blossom, spring, elegant",
     ratio: "9:16",
     likes: 892,
-    published: true
+    published: true,
+    modelName: "GPT Image 2"
   },
   {
     id: 11,
@@ -100,7 +104,8 @@ export const galleryWorks: HomeWork[] = [
     prompt: "oil painting landscape, golden field, sunset, impressionist",
     ratio: "3:4",
     likes: 489,
-    published: true
+    published: true,
+    modelName: "Flux Pro"
   },
   {
     id: 13,
@@ -110,7 +115,8 @@ export const galleryWorks: HomeWork[] = [
     prompt: "花园里的可爱机器人，鲜花蝴蝶环绕，柔和阳光，梦幻氛围",
     ratio: "3:4",
     likes: 0,
-    published: false
+    published: false,
+    modelName: "SDXL"
   },
   {
     id: 14,
@@ -120,7 +126,8 @@ export const galleryWorks: HomeWork[] = [
     prompt: "发光蘑菇的魔法森林，仙灯闪烁，奇幻魔法世界",
     ratio: "1:1",
     likes: 0,
-    published: false
+    published: false,
+    modelName: "Nano Banana 2"
   },
   {
     id: 15,
