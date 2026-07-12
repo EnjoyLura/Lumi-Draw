@@ -234,7 +234,7 @@ function handleReachBottom() {
 
           <view v-if="!isPersonalScope" class="section">
             <view class="section-title hot-title">
-              <text class="fire">♨</text>
+              <LumiIcon class="fire" name="flame-filled" :size="18" />
               <text>热门搜索</text>
             </view>
             <view class="hot-list">

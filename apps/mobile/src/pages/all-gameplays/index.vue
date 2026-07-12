@@ -71,11 +71,11 @@ function applyGameplay(gameplay: Gameplay) {
         <view v-for="gameplay in gameplayList" :key="gameplay.name" class="gameplay-card" @click="applyGameplay(gameplay)">
           <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
           <view class="gameplay-overlay" />
-          <view v-if="gameplay.hot" class="hot-badge">HOT</view>
+          <view v-if="gameplay.hot" class="hot-badge"><LumiIcon name="flame-filled" :size="10" /><text>热门</text></view>
           <view class="gameplay-info">
             <view class="gameplay-name">{{ gameplay.name }}</view>
             <view class="gameplay-meta">
-              <text>♨ {{ gameplay.uses }}人用过</text>
+              <view class="gameplay-uses"><LumiIcon name="flame-filled" :size="10" /><text>{{ gameplay.uses }}人用过</text></view>
               <LumiIcon name="chevron-right" :size="16" />
             </view>
           </view>
@@ -249,6 +249,13 @@ function applyGameplay(gameplay: Gameplay) {
 .all-gameplays-page {
   display: flex;
   flex-direction: column;
+}
+
+.gameplay-uses,
+.hot-badge {
+  display: flex;
+  gap: 2px;
+  align-items: center;
 }
 
 .all-gameplays-page > .page-scroll {

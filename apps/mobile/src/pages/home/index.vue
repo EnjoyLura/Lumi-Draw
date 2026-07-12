@@ -756,10 +756,10 @@ function getRatioClass(ratio: string) {
             >
               <image class="gameplay-img" :src="gameplay.image" mode="aspectFill" />
               <view class="gameplay-overlay" />
-              <view v-if="gameplay.hot" class="hot-badge">HOT</view>
+              <view v-if="gameplay.hot" class="hot-badge"><LumiIcon name="flame-filled" :size="10" /><text>热门</text></view>
               <view class="gameplay-info">
                 <text class="gameplay-name">{{ gameplay.name }}</text>
-                <text class="gameplay-uses">♨ {{ gameplay.uses }}人用过</text>
+                <view class="gameplay-uses"><LumiIcon name="flame-filled" :size="10" /><text>{{ gameplay.uses }}人用过</text></view>
               </view>
             </view>
           </view>
@@ -1271,6 +1271,9 @@ function getRatioClass(ratio: string) {
   top: 8px;
   right: 8px;
   z-index: 2;
+  display: flex;
+  gap: 2px;
+  align-items: center;
   padding: 2px 6px;
   font-size: 9px;
   font-weight: 700;
@@ -1299,6 +1302,9 @@ function getRatioClass(ratio: string) {
 }
 
 .gameplay-uses {
+  display: flex;
+  gap: 2px;
+  align-items: center;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.75);
 }

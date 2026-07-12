@@ -44,7 +44,7 @@ const emit = defineEmits<{
         <view class="side-info">
           <view class="side-name">{{ userName }}</view>
           <view class="side-points">
-            <LumiIcon name="sparkles" :size="15" />
+            <LumiIcon name="sparkles-filled" :size="15" />
             <text class="side-points-num">{{ userPoints }}</text>
           </view>
         </view>

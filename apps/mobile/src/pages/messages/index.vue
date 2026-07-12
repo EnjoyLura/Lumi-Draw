@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import LumiMessageCategoryIcon from "../../components/LumiMessageCategoryIcon.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -111,7 +110,12 @@ function openCategory(key: MessageCategoryKey) {
         </view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
           <view class="category-icon" :style="{ background: category.gradient }">
-            <LumiMessageCategoryIcon :type="category.key" :size="23" />
+            <LumiIcon v-if="category.key === 'like'" name="heart-filled" :size="23" />
+            <LumiIcon v-else-if="category.key === 'favorite'" name="star-filled" :size="23" />
+            <LumiIcon v-else-if="category.key === 'remake'" name="rotate-ccw" :size="23" />
+            <LumiIcon v-else-if="category.key === 'follow'" name="user" :size="23" />
+            <LumiIcon v-else-if="category.key === 'system'" name="bell" :size="23" />
+            <LumiIcon v-else name="message-circle" :size="23" />
           </view>
           <view class="category-main">
             <view class="category-head">
