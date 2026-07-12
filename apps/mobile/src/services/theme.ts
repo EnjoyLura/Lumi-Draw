@@ -7,10 +7,6 @@ const THEME_BACKGROUNDS: Record<ThemeMode, string> = {
   light: "#eef4fc",
   dark: "#141416"
 };
-const THEME_BOTTOM_BACKGROUNDS: Record<ThemeMode, string> = {
-  light: "#ffffff",
-  dark: "#000000"
-};
 const theme = ref<ThemeMode>("light");
 const themeClass = computed(() => `theme-${theme.value}`);
 export function applyPageBackground(mode: ThemeMode = theme.value) {
@@ -26,7 +22,7 @@ export function applyPageBackground(mode: ThemeMode = theme.value) {
   setBackgroundColor?.({
     backgroundColor,
     backgroundColorTop: backgroundColor,
-    backgroundColorBottom: THEME_BOTTOM_BACKGROUNDS[mode]
+    backgroundColorBottom: backgroundColor
   });
 }
 

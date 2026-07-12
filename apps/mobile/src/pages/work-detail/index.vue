@@ -773,6 +773,7 @@ function showToast(title: string) {
 
 <style scoped>
 .detail-page {
+  --lumi-detail-action-height: calc(72px + env(safe-area-inset-bottom));
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
@@ -788,7 +789,7 @@ function showToast(title: string) {
 
 .detail-scroll {
   position: absolute;
-  inset: 0 0 76px;
+  inset: 0 0 var(--lumi-detail-action-height);
 }
 
 .detail-image {
@@ -1045,14 +1046,17 @@ function showToast(title: string) {
   right: 0;
   bottom: 0;
   left: 0;
+  z-index: 20;
   display: flex;
   gap: 16px;
   align-items: center;
-  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
-  background: var(--bottom-bar-bg);
+  height: var(--lumi-detail-action-height);
+  padding: 14px 16px env(safe-area-inset-bottom);
+  box-sizing: border-box;
+  background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: none;
-  backdrop-filter: none;
+  backdrop-filter: blur(20px) saturate(180%);
 }
 
 .detail-bottom.own {
