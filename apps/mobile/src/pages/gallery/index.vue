@@ -36,6 +36,8 @@ import {
 } from "../../services/waterfallTransition";
 
 const PAGE_SIZE = 10;
+const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine" }>(), { pageMode: "gallery" });
+const isMineMode = computed(() => props.pageMode === "mine");
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
@@ -76,8 +78,8 @@ try {
   statusBarHeight.value = 0;
 }
 
-const activeTab = ref<GalleryTab>("all");
-const renderedTab = ref<GalleryTab>("all");
+const activeTab = ref<GalleryTab>(props.pageMode === "mine" ? "all" : "draft");
+const renderedTab = ref<GalleryTab>(props.pageMode === "mine" ? "all" : "draft");
 const works = ref<HomeWork[]>(useMockData.value ? galleryWorks : []);
 const profile = ref(useMockData.value ? galleryUser : EMPTY_PROFILE);
 const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : []);
@@ -173,7 +175,7 @@ onMounted(() => {
 });
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === "gallery") refreshGalleryPage();
+  if (tab === props.pageMode) refreshGalleryPage();
 });
 
 onBeforeUnmount(() => {
@@ -425,6 +427,14 @@ function navigateSide(url: string) {
   uni.navigateTo({ url });
 }
 
+function goSettings() {
+  uni.navigateTo({ url: "/pages/settings/index" });
+}
+
+function showDraftTool(title: string) {
+  uni.showToast({ title, icon: "none" });
+}
+
 function clearWaterfallAnimation() {
   if (waterfallAnimationTimer) clearTimeout(waterfallAnimationTimer);
   waterfallAnimationTimer = undefined;
@@ -654,13 +664,13 @@ function openWork(work: HomeWork) {
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
           <view class="nav-row">
-            <view class="icon-btn nav-menu" @click="openSideMenu">☰</view>
-            <text class="nav-title">画廊</text>
+            <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
+            <text class="nav-title">{{ isMineMode ? "我的" : "草稿箱" }}</text>
             <view class="icon-btn search nav-search" @click="goSearch">⌕</view>
           </view>
         </view>
 
-        <view v-if="isInitialContentReady && isLoggedIn" class="profile-area">
+        <view v-if="isMineMode && isInitialContentReady && isLoggedIn" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
               <view class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
@@ -694,16 +704,22 @@ function openWork(work: HomeWork) {
             </view>
             <button class="edit-btn" @click="goEditProfile">编辑资料</button>
           </view>
+          <view class="profile-quick-grid">
+            <view v-for="item in sideQuickActions" :key="item.label" class="profile-quick-item" @click="navigateSide(item.url)">
+              <view class="profile-quick-icon" :style="{ background: item.gradient }">{{ item.icon }}</view>
+              <text>{{ item.label }}</text>
+            </view>
+          </view>
         </view>
 
-        <view v-else-if="isInitialContentReady" class="gallery-login-prompt">
+        <view v-else-if="isMineMode && isInitialContentReady" class="gallery-login-prompt">
           <view class="gallery-login-icon">▣</view>
           <view class="gallery-login-title">登录查看我的画廊</view>
           <view class="gallery-login-sub">登录后即可管理你的AI作品、草稿与创作记录</view>
           <button class="gallery-login-btn" @click="openLoginSheet">立即登录</button>
         </view>
 
-        <view v-else class="gallery-initial-placeholder">
+        <view v-else-if="isMineMode" class="gallery-initial-placeholder">
           <view class="profile-placeholder-row">
             <view class="profile-placeholder-avatar" />
             <view class="profile-placeholder-lines">
@@ -716,7 +732,7 @@ function openWork(work: HomeWork) {
       </view>
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row">
-        <view class="gallery-tabs">
+        <view v-if="isMineMode" class="gallery-tabs">
           <view
             v-for="(tab, index) in galleryTabs"
             :key="tab.key"
@@ -727,6 +743,12 @@ function openWork(work: HomeWork) {
             {{ tab.label }}
           </view>
           <view class="tab-indicator" :style="{ transform: `translateX(${galleryTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
+        </view>
+        <view v-else class="draft-tools">
+          <view class="draft-tool" @click="goSearch">⌕</view>
+          <view class="draft-tool" @click="showDraftTool('筛选功能开发中')">▽</view>
+          <view class="draft-tool" @click="showDraftTool('已按最新排序')">⇅</view>
+          <view class="draft-tool" @click="showDraftTool('当前为宫格视图')">▦</view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
           {{ manageMode ? "✓ 完成" : "☷ 管理" }}
@@ -806,7 +828,7 @@ function openWork(work: HomeWork) {
           <view class="empty-icon">{{ emptyInfo.icon }}</view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
-          <button v-if="renderedTab === 'all'" class="empty-btn" @click="goCreate">✦ 去创作</button>
+          <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
         </view>
 
           <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
@@ -843,11 +865,11 @@ function openWork(work: HomeWork) {
         <text class="tab-icon">✦</text>
         <text class="tab-label">创作</text>
       </view>
-      <view class="tab-item active">
+      <view class="tab-item" :class="{ active: !isMineMode }">
         <text class="tab-icon">□</text>
         <text class="tab-label">画廊</text>
       </view>
-      <view class="tab-item" @click="goMine">
+      <view class="tab-item" :class="{ active: isMineMode }" @click="goMine">
         <text class="tab-icon">☺</text>
         <text class="tab-label">我的</text>
       </view>
@@ -1241,6 +1263,50 @@ function openWork(work: HomeWork) {
   flex: 0 0 auto;
   color: var(--fg-secondary);
   background: transparent;
+}
+
+.draft-tools {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.draft-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 22px;
+  color: var(--fg-muted);
+}
+
+.profile-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 0.5px solid var(--border);
+}
+
+.profile-quick-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--fg-secondary);
+}
+
+.profile-quick-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: #fff;
+  border-radius: 12px;
 }
 
 .manage-btn::after {

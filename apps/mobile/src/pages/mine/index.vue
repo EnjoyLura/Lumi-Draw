@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import GalleryPage from "../gallery/index.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
@@ -41,8 +42,9 @@ function resetRealMineUser() {
 }
 
 const accountRows = computed(() => {
-  if (useMockData.value) return accountItems;
-  return accountItems.map((item) => {
+  const items = accountItems.filter((item) => item.key !== "settings");
+  if (useMockData.value) return items;
+  return items.map((item) => {
     if (item.key !== "messages") return item;
     return {
       ...item,
@@ -116,6 +118,10 @@ function goCreate() {
 
 function goGallery() {
   goRootTab("/pages/gallery/index");
+}
+
+function goSettings() {
+  uni.navigateTo({ url: "/pages/settings/index" });
 }
 
 function handleProfileTap() {
@@ -210,9 +216,11 @@ async function login() {
 </script>
 
 <template>
-  <view class="mine-page" :class="themeClass">
+  <GalleryPage page-mode="mine" />
+  <view v-if="false" class="mine-page" :class="themeClass">
     <view class="mine-header">
       <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
+      <view class="mine-settings" @click="goSettings">⚙</view>
       <view class="mine-title">我的</view>
     </view>
     <scroll-view class="mine-scroll" scroll-y :style="{ top: statusBarHeight + 50 + 'px' }">
@@ -562,6 +570,20 @@ async function login() {
 
 .tab-item.center {
   margin-top: 0;
+}
+
+.mine-settings {
+  position: absolute;
+  bottom: 3px;
+  left: 10px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 25px;
+  color: var(--fg-primary);
 }
 
 .tab-item.center .tab-icon {
