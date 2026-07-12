@@ -42,6 +42,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const activeRecordState = computed(() => recordState[activeTab.value]);
+const selectedTier = computed(() => tiers.value[selectedTierIdx.value]);
 const customValue = computed(() => Number.parseFloat(customAmount.value));
 const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 0.1 ? 0 : Math.floor(customValue.value * 10)));
 const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
@@ -235,12 +236,18 @@ function confirmCustomRecharge() {
 
       <view v-else class="page-content">
         <view class="balance-card">
-          <view class="balance-label"><LumiIcon class="credits-symbol" name="sparkles-filled" :size="16" /><text>当前余额</text></view>
-          <view class="balance-num"><LumiIcon class="credits-symbol" name="sparkles-filled" :size="24" />{{ balance }}</view>
-          <view v-if="isLoading" class="balance-sub">同步中...</view>
+          <view class="balance-copy">
+            <view class="balance-label">当前积分余额</view>
+            <view class="balance-num"><LumiIcon class="credits-symbol" name="sparkles-filled" :size="22" />{{ balance }}</view>
+            <view class="balance-sub">积分可用于图片生成与增值功能</view>
+          </view>
+          <view class="balance-mark"><LumiIcon name="gem" :size="28" /></view>
         </view>
 
-        <view class="section-title">充值档位</view>
+        <view class="section-head">
+          <view class="section-title">选择充值金额</view>
+          <view v-if="isLoading" class="section-state">同步中...</view>
+        </view>
         <view v-if="!useMockData && loadFailed" class="empty-config">
           <view class="empty-title">充值配置加载失败</view>
           <view class="empty-sub">请稍后重试，当前不会显示模拟档位。</view>
@@ -262,8 +269,12 @@ function confirmCustomRecharge() {
             @click="selectTier(index)"
           >
             <view v-if="tier.popular" class="recommend-tag">推荐</view>
-            <view class="tier-credits">{{ tier.credits }}</view>
-            <view class="tier-unit"><LumiIcon name="sparkles-filled" :size="13" /></view>
+            <view v-if="selectedTierIdx === index" class="selected-check"><LumiIcon name="check" :size="11" /></view>
+            <view class="tier-credits-row">
+              <LumiIcon name="sparkles-filled" :size="14" />
+              <view class="tier-credits">{{ tier.credits }}</view>
+            </view>
+            <view class="tier-unit">积分</view>
             <view class="tier-bonus">{{ tier.bonus > 0 ? `送${tier.bonus}积分` : "" }}</view>
             <view class="tier-price">¥{{ tier.price }}</view>
           </view>
@@ -275,7 +286,16 @@ function confirmCustomRecharge() {
           </view>
         </view>
 
-        <button v-if="tiers.length" class="pay-btn" :disabled="isPaying" @click="() => startRecharge()">{{ isPaying ? "支付处理中..." : "微信支付充值" }}</button>
+        <view v-if="tiers.length && selectedTier" class="checkout-bar">
+          <view class="checkout-copy">
+            <view class="checkout-price">¥{{ selectedTier.price }}</view>
+            <view class="checkout-desc">到账 {{ selectedTier.credits + selectedTier.bonus }} 积分</view>
+          </view>
+          <button class="pay-btn" :disabled="isPaying" @click="() => startRecharge()">
+            <LumiIcon name="credit-card" :size="16" />
+            <text>{{ isPaying ? "处理中..." : "立即充值" }}</text>
+          </button>
+        </view>
 
         <view class="sub-tabs">
           <view class="sub-tab" :class="{ active: activeTab === 'earn' }" @click="switchTab('earn')">积分获得</view>
@@ -285,7 +305,9 @@ function confirmCustomRecharge() {
         <view class="record-card">
           <view v-if="!records.length" class="empty-row">暂无积分记录</view>
           <view v-for="record in records" :key="`${record.title}-${record.time}-${record.amount}`" class="record-row">
-            <view class="record-icon" :class="activeTab">{{ activeTab === "earn" ? "+" : "-" }}</view>
+            <view class="record-icon" :class="activeTab">
+              <LumiIcon :name="activeTab === 'earn' ? 'circle-plus' : 'sparkles-filled'" :size="16" />
+            </view>
             <view class="record-main">
               <view class="record-title">{{ record.title }}</view>
               <view class="record-sub">{{ activeTab === "earn" ? record.source : record.model }} · {{ record.time }}</view>
@@ -362,7 +384,11 @@ function confirmCustomRecharge() {
 }
 
 .balance-card {
-  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 112px;
+  padding: 20px 18px 18px 20px;
   margin-bottom: 16px;
   background: var(--gradient-dream);
 }
@@ -373,7 +399,6 @@ function confirmCustomRecharge() {
   color: rgba(255, 255, 255, 0.75);
 }
 
-.balance-label,
 .balance-num {
   display: flex;
   gap: 5px;
@@ -381,7 +406,7 @@ function confirmCustomRecharge() {
 }
 
 .credits-symbol {
-  color: var(--accent);
+  color: #fff;
 }
 
 .balance-num {
@@ -391,8 +416,31 @@ function confirmCustomRecharge() {
   color: #fff;
 }
 
-.section-title {
+.balance-sub {
+  margin-top: 9px;
+  font-size: 11px;
+}
+
+.balance-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.section-title {
   font-size: 18px;
   font-weight: 700;
 }
@@ -449,8 +497,8 @@ function confirmCustomRecharge() {
 
 .tier-card {
   position: relative;
-  min-height: 104px;
-  padding: 14px 8px 12px;
+  min-height: 112px;
+  padding: 16px 8px 12px;
   text-align: center;
   border: 2px solid var(--border);
   border-radius: 10px;
@@ -486,6 +534,33 @@ function confirmCustomRecharge() {
   color: var(--fg-muted);
 }
 
+.tier-credits-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+
+.selected-check {
+  position: absolute;
+  top: 7px;
+  left: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.section-state {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
 .tier-unit {
   display: flex;
   align-items: center;
@@ -516,10 +591,38 @@ function confirmCustomRecharge() {
   border-style: dashed;
 }
 
-.pay-btn {
-  width: 100%;
-  height: 46px;
+.checkout-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 8px 8px 8px 14px;
   margin-bottom: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.checkout-price {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--fg-primary);
+}
+
+.checkout-desc {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.pay-btn {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  width: 132px;
+  height: 44px;
+  margin: 0;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
@@ -593,8 +696,6 @@ function confirmCustomRecharge() {
   justify-content: center;
   width: 32px;
   height: 32px;
-  font-size: 16px;
-  font-weight: 700;
   border-radius: 10px;
 }
 
