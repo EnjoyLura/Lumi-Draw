@@ -161,6 +161,7 @@ let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
+let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastLoadedAt = 0;
 
@@ -236,6 +237,7 @@ onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);
+  if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
   clearWaterfallAnimation();
 });
 
@@ -656,11 +658,21 @@ function closeFilter() {
 }
 
 function openSideMenu() {
+  if (sideDrawerMounted.value) {
+    sideOpen.value = true;
+    return;
+  }
+  sideOpen.value = false;
   sideDrawerMounted.value = true;
-  sideOpen.value = true;
+  drawerOpenTimer = setTimeout(() => {
+    sideOpen.value = true;
+    drawerOpenTimer = undefined;
+  }, 16);
 }
 
 function closeSideMenu() {
+  if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
+  drawerOpenTimer = undefined;
   sideOpen.value = false;
 }
 

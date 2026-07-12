@@ -1313,7 +1313,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   text-align: center;
 }
 
-.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); box-shadow: none; backdrop-filter: blur(24px) saturate(180%); }
+.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-base); box-shadow: none; backdrop-filter: none; }
 .tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
@@ -2046,10 +2046,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
   left: 0;
   z-index: 5;
   padding: 4px 16px 3px;
-  background: var(--bg-glass);
+  background: var(--bg-base);
   border-top: 0.5px solid var(--border);
   box-shadow: none;
-  backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: none;
 }
 
 .create-bottom-inner {

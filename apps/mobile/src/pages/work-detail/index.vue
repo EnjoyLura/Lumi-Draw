@@ -1048,11 +1048,11 @@ function showToast(title: string) {
   display: flex;
   gap: 16px;
   align-items: center;
-  padding: 14px 16px 30px;
-  background: var(--bg-glass);
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  background: var(--bg-base);
   border-top: 0.5px solid var(--border);
   box-shadow: none;
-  backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: none;
 }
 
 .detail-bottom.own {

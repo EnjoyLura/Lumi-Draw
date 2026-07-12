@@ -138,6 +138,7 @@ let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
+let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
 let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
@@ -233,6 +234,7 @@ onBeforeUnmount(() => {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);
+  if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
   clearWaterfallAnimation();
 });
 
@@ -498,11 +500,21 @@ async function login() {
 }
 
 function openSideMenu() {
+  if (sideDrawerMounted.value) {
+    sideOpen.value = true;
+    return;
+  }
+  sideOpen.value = false;
   sideDrawerMounted.value = true;
-  sideOpen.value = true;
+  drawerOpenTimer = setTimeout(() => {
+    sideOpen.value = true;
+    drawerOpenTimer = undefined;
+  }, 16);
 }
 
 function closeSideMenu() {
+  if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
+  drawerOpenTimer = undefined;
   sideOpen.value = false;
 }
 
