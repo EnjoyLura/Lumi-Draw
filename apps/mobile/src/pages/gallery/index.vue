@@ -768,7 +768,10 @@ function openWork(work: HomeWork) {
                 <text class="profile-id">ID: {{ profile.userNo }}</text>
                 <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender">{{ genderIcon }}</view>
               </view>
-              <view class="role-tag">✦ {{ profile.role }}</view>
+              <view class="role-actions">
+                <view class="role-tag">✦ {{ profile.role }}</view>
+                <view class="edit-profile-link" @click="goEditProfile"><text>✎</text><text>编辑</text></view>
+              </view>
             </view>
             <view class="points-pill" @click="goRecharge"><text class="points-gem">◆</text><text class="points-value">{{ profile.points }}</text></view>
           </view>
@@ -794,7 +797,6 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">关注</text>
               </view>
             </view>
-            <button class="edit-btn" @click="goEditProfile"><text class="edit-icon">✎</text>编辑资料</button>
           </view>
           <view class="profile-quick-grid">
             <view v-for="item in sideQuickActions" :key="item.label" class="profile-quick-item" @click="navigateSide(item.url)">
@@ -1159,7 +1161,6 @@ function openWork(work: HomeWork) {
 }
 
 .manage-btn,
-.edit-btn,
 .select-all-btn,
 .draft-btn,
 .delete-btn,
@@ -1256,7 +1257,6 @@ function openWork(work: HomeWork) {
 
 .role-tag {
   display: inline-flex;
-  margin-top: 6px;
   padding: 3px 9px;
   font-size: 12px;
   color: #8470c7;
@@ -1267,7 +1267,7 @@ function openWork(work: HomeWork) {
 .stats-row {
   display: flex;
   align-items: center;
-  padding: 16px 16px 8px;
+  padding: 14px 16px 10px;
 }
 
 .gallery-login-prompt {
@@ -1324,13 +1324,17 @@ function openWork(work: HomeWork) {
 }
 
 .stats {
-  display: flex;
+  display: grid;
   flex: 1;
-  gap: 28px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
 }
 
 .stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
   text-align: center;
 }
 
@@ -1356,27 +1360,29 @@ function openWork(work: HomeWork) {
 }
 
 .stat-label {
-  margin-left: 4px;
-  font-size: 13px;
+  margin-left: 0;
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.role-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.edit-profile-link {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 11px;
   color: var(--fg-muted);
 }
 
-.edit-btn {
-  min-height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  color: var(--fg-secondary);
-  background: var(--bg-soft);
-  border: 1px solid var(--card-border);
-  border-radius: 999px;
-}
-
-.edit-btn::after {
-  border: 0;
-}
-
-.edit-icon {
-  font-size: 14px;
+.edit-profile-link text:first-child {
   color: var(--accent);
 }
 
@@ -1525,30 +1531,44 @@ function openWork(work: HomeWork) {
 .profile-quick-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding-top: 4px;
-  margin-top: 4px;
+  gap: 0;
+  padding: 8px 4px;
+  margin: 0 16px 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
 }
 
 .profile-quick-item {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   font-size: 11px;
   color: var(--fg-secondary);
+}
+
+.profile-quick-item:not(:last-child)::after {
+  position: absolute;
+  top: 7px;
+  right: 0;
+  width: 1px;
+  height: 28px;
+  content: "";
+  background: var(--border);
 }
 
 .profile-quick-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  font-size: 15px;
-  background: var(--bg-soft);
-  border: 1px solid var(--card-border);
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
 }
 
 .manage-btn::after {
