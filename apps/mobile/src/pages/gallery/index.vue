@@ -957,7 +957,7 @@ function openWork(work: HomeWork) {
         </view>
 
         <view v-else :key="`empty-${renderedTab}-${renderKey}`" class="empty-state">
-          <view class="empty-icon"><LumiIcon :name="emptyInfo.icon" :size="30" /></view>
+          <view class="empty-icon"><LumiIcon class="empty-glyph" :name="emptyInfo.icon" :size="30" /></view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
           <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate"><LumiIcon name="sparkles" :size="16" />立即去创作</button>
@@ -1001,7 +1001,7 @@ function openWork(work: HomeWork) {
       <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
     </view>
 
-    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><view class="publish-icon"><LumiIcon name="plus" :size="24" /></view></view>
+    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><view class="publish-icon"><LumiIcon class="publish-plus-icon" name="plus" :size="22" /></view></view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -1453,10 +1453,8 @@ function openWork(work: HomeWork) {
   top: 5px;
   right: 10px;
   min-width: 76px;
-  padding-left: 14px;
+  padding-left: 10px;
   margin: 0;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
 }
 
 .guest-empty-wrap {
@@ -1538,10 +1536,8 @@ function openWork(work: HomeWork) {
 }
 
 .gallery-tabs-row > .manage-btn:not(:first-child) {
-  padding-left: 14px;
+  padding-left: 10px;
   margin-left: 2px;
-  border-left: 1px solid var(--border);
-  border-radius: 0;
 }
 
 .filter-overlay {
@@ -1981,6 +1977,18 @@ function openWork(work: HomeWork) {
   border-radius: 16px;
 }
 
+.empty-icon :deep(.lumi-icon) {
+  display: block;
+  margin: auto;
+}
+
+.empty-glyph,
+.publish-plus-icon {
+  display: block;
+  margin: auto;
+  line-height: 1;
+}
+
 .empty-title {
   margin-bottom: 4px;
   font-size: 15px;
@@ -1997,6 +2005,10 @@ function openWork(work: HomeWork) {
   color: #fff;
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border-radius: 8px;
+}
+
+.empty-btn::after {
+  border: none;
 }
 
 .manage-bar {
@@ -2084,6 +2096,11 @@ function openWork(work: HomeWork) {
   justify-content: center;
   width: 24px;
   height: 24px;
+}
+
+.publish-icon :deep(.lumi-icon) {
+  display: block;
+  margin: auto;
 }
 
 .tab-bar {

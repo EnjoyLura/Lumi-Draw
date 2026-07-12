@@ -652,7 +652,7 @@ function confirmCustomRecharge() {
   font-size: 13px;
   font-weight: 600;
   line-height: 34px;
-  color: var(--fg-muted);
+  color: var(--fg-secondary);
   text-align: center;
   border-radius: 9px;
 }
@@ -697,6 +697,10 @@ function confirmCustomRecharge() {
   width: 32px;
   height: 32px;
   border-radius: 10px;
+}
+
+.recharge-page.theme-dark .sub-tab:not(.active) {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .record-icon.earn,

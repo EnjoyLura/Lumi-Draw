@@ -29,8 +29,19 @@ function saveImageToAlbum(filePath: string) {
   });
 }
 
+function authorizePhotoAlbum() {
+  return new Promise<void>((resolve, reject) => {
+    uni.authorize({
+      scope: "scope.writePhotosAlbum",
+      success: () => resolve(),
+      fail: reject
+    });
+  });
+}
+
 export async function saveImageToDevice(url: string, filename = `lumi-${Date.now()}.jpg`) {
   if (saveImageInBrowser(url, filename)) return;
+  await authorizePhotoAlbum();
   const filePath = await downloadImage(url);
   await saveImageToAlbum(filePath);
 }

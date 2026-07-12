@@ -9,7 +9,6 @@ import {
   fetchWorkState,
   followUser,
   formatCompactNumber,
-  recordWorkRemake,
   recordWorkView,
   toggleWorkFavorite,
   toggleWorkLike,
@@ -20,7 +19,7 @@ import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from 
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { saveImageToDevice } from "../../services/imageSave";
-import { goRootTab } from "../../services/tabNavigation";
+import { openEmbeddedCreate } from "../../services/primaryShell";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -393,24 +392,15 @@ async function saveWorkImage() {
 }
 
 async function remakeWork(current: DetailWork) {
-  if (!useMockData.value && isLoggedIn.value) {
-    try {
-      const result = await recordWorkRemake(current.id);
-      current.remakes = result.remakes;
-    } catch {
-      // Counter update should not block users from starting a remake.
-    }
-  }
-  const query = [
-    `prompt=${encodeURIComponent(current.prompt)}`,
-    current.modelId ? `model=${encodeURIComponent(current.modelId)}` : "",
-    current.ratio ? `ratio=${encodeURIComponent(current.ratio)}` : "",
-    current.quality ? `quality=${encodeURIComponent(current.quality)}` : "",
-    current.styleName ? `style=${encodeURIComponent(current.styleName)}` : ""
-  ]
-    .filter(Boolean)
-    .join("&");
-  goRootTab(`/pages/create/index?${query}`);
+  openEmbeddedCreate({
+    prompt: current.prompt,
+    model: current.modelId || "",
+    ratio: current.ratio || "",
+    quality: current.quality || "",
+    style: current.styleName || ""
+  });
+  if (getCurrentPages().length > 1) uni.navigateBack();
+  else uni.reLaunch({ url: "/pages/home/index" });
 }
 
 function openDetailManage() {

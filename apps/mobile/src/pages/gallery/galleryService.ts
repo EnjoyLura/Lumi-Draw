@@ -28,6 +28,7 @@ interface BackendWork {
   likes: number;
   modelId?: string;
   modelName?: string;
+  createdAt?: string;
 }
 
 interface PageResult<T> {
@@ -94,7 +95,8 @@ function toHomeWork(item: BackendWork): HomeWork {
     likes: item.likes,
     published: item.status === "published" && item.isPublic,
     status: item.status,
-    modelName: item.modelName || item.modelId
+    modelName: item.modelName || item.modelId,
+    createdAt: item.createdAt
   };
 }
 

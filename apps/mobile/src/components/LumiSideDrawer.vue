@@ -56,7 +56,7 @@ const emit = defineEmits<{
           class="side-quick"
           @click="emit('navigate', item.url)"
         >
-          <view class="side-quick-icon" :style="{ background: item.gradient }"><LumiIcon :name="item.icon" :size="20" /></view>
+          <view class="side-quick-icon" :style="{ background: item.gradient }"><LumiIcon class="side-quick-glyph" :name="item.icon" :size="20" /></view>
           <text class="side-quick-label">{{ item.label }}</text>
         </view>
       </view>
@@ -199,6 +199,17 @@ const emit = defineEmits<{
   font-size: 20px;
   color: #fff;
   border-radius: 12px;
+}
+
+.side-quick-icon :deep(.lumi-icon) {
+  display: block;
+  margin: auto;
+}
+
+.side-quick-glyph {
+  display: block;
+  margin: auto;
+  line-height: 1;
 }
 
 .side-quick-label {

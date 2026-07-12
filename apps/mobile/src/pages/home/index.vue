@@ -1168,12 +1168,12 @@ function getRatioClass(ratio: string) {
   padding: 6px 16px;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
+  color: #182334;
   white-space: nowrap;
-  background: rgba(18, 36, 62, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.58);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.92);
   border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 3px 12px rgba(15, 31, 58, 0.18);
   transform: translateY(-50%);
   backdrop-filter: blur(12px) saturate(140%);
 }

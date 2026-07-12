@@ -930,10 +930,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
             <textarea
               v-model="promptText"
               class="prompt-input"
-              maxlength="500"
+              maxlength="1200"
               placeholder="描述你想要生成的图片，越详细效果越好..."
             />
-            <text class="prompt-count">{{ promptText.length }}/500</text>
+            <text class="prompt-count">{{ promptText.length }}/1200</text>
           </view>
           <view class="prompt-actions">
             <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
