@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { computed, onBeforeUnmount, ref } from "vue";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -23,7 +23,9 @@ const isLoading = ref(false);
 const isPaying = ref(false);
 const showLoginSheet = ref(false);
 const loadFailed = ref(false);
+const isInitialContentReady = ref(false);
 let lastMockMode: boolean | null = null;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 function resetMemberStatus() {
   isMember.value = false;
@@ -84,6 +86,17 @@ onShow(() => {
     selectedPlanIdx.value = 1;
   }
   void loadMembership();
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
+});
+
+onBeforeUnmount(() => {
+  if (initialContentTimer) clearTimeout(initialContentTimer);
 });
 
 async function loadMembership() {
@@ -190,8 +203,8 @@ function showAgreement() {
 <template>
   <view class="membership-page" :class="themeClass">
     <LumiPageHeader title="会员中心" />
-    <LumiDeferredPageContent>
-    <scroll-view class="page-scroll" scroll-y>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y>
       <view class="page-content">
         <view class="member-card">
           <view class="member-head">
@@ -267,7 +280,6 @@ function showAgreement() {
         </view>
       </view>
     </scroll-view>
-    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
@@ -282,7 +294,14 @@ function showAgreement() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .page-content {

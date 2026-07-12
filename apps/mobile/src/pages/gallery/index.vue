@@ -802,7 +802,7 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">关注</text>
               </view>
             </view>
-            <button class="edit-home-btn" @click="goEditProfile">编辑主页</button>
+            <view class="edit-home-btn" @click="goEditProfile"><text class="edit-home-icon">✎</text><text>编辑资料</text></view>
           </view>
           <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
             <view class="membership-mark">♕</view>
@@ -810,7 +810,7 @@ function openWork(work: HomeWork) {
               <view class="membership-title">{{ membershipTitle }}</view>
               <view class="membership-subtitle">{{ membershipSubtitle }}</view>
             </view>
-            <button class="membership-action">{{ hasMembership ? "查看权益" : "升级 PRO" }}</button>
+            <button class="membership-action">{{ hasMembership ? "查看权益" : "升级会员" }}</button>
           </view>
         </view>
 
@@ -1208,7 +1208,7 @@ function openWork(work: HomeWork) {
 }
 
 .points-pill { display: flex; flex: 0 0 auto; gap: 7px; align-items: center; align-self: center; padding: 9px 13px; color: var(--fg-primary); background: var(--bg-soft); border-radius: 999px; }
-.points-gem { font-size: 17px; color: var(--lavender); }
+.points-gem { font-size: 17px; color: var(--accent); }
 .points-value { font-size: 17px; font-weight: 600; }
 
 .avatar-wrap {
@@ -1354,22 +1354,21 @@ function openWork(work: HomeWork) {
 }
 
 .edit-home-btn {
+  display: flex;
   flex: 0 0 auto;
-  width: 86px;
-  height: 42px;
-  padding: 0;
-  margin: 0;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-width: 86px;
+  height: 32px;
   font-size: 13px;
-  font-weight: 700;
-  line-height: 42px;
-  color: var(--fg-primary);
-  background: var(--bg-soft);
-  border: 0;
-  border-radius: 8px;
+  font-weight: 600;
+  color: var(--fg-secondary);
 }
 
-.edit-home-btn::after {
-  border: 0;
+.edit-home-icon {
+  font-size: 15px;
+  color: var(--accent);
 }
 
 .stat {
@@ -1605,8 +1604,8 @@ function openWork(work: HomeWork) {
   font-size: 12px;
   font-weight: 600;
   line-height: 36px;
-  color: var(--fg-primary);
-  background: var(--bg-soft);
+  color: #fff;
+  background: var(--accent);
   border: 0;
   border-radius: 8px;
 }

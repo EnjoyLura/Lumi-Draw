@@ -61,6 +61,25 @@ export function setTheme(mode: ThemeMode) {
     // Theme still applies for the current session when storage is unavailable.
   }
   applyNavigationBar();
+  syncHiddenPageThemes(mode);
+}
+
+function syncHiddenPageThemes(mode: ThemeMode) {
+  try {
+    const pages = getCurrentPages() as Array<{
+      setData?: (data: Record<string, unknown>) => void;
+      $vm?: { $forceUpdate?: () => void };
+    }>;
+    pages.slice(0, -1).forEach((page) => {
+      page.$vm?.$forceUpdate?.();
+      page.setData?.({ __lumiThemeRevision: `${mode}-${Date.now()}` });
+    });
+    setTimeout(() => {
+      pages.slice(0, -1).forEach((page) => page.$vm?.$forceUpdate?.());
+    }, 16);
+  } catch {
+    // A single-page runtime has no hidden page stack to synchronize.
+  }
 }
 
 export function useTheme() {
