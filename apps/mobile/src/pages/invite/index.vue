@@ -179,7 +179,9 @@ function shareInvite() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 0;
 }
 
 .page-content {
@@ -389,9 +391,4 @@ function shareInvite() {
   color: var(--accent);
 }
 
-.invite-page > .page-scroll {
-  flex: 1;
-  min-height: 0;
-  height: auto;
-}
 </style>

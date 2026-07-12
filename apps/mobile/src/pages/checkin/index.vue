@@ -397,6 +397,12 @@ function claimMilestone(item: Milestone) {
   border-radius: 999px;
 }
 
+.checkin-page.theme-dark .streak-label {
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
 .streak-num {
   position: relative;
   z-index: 1;

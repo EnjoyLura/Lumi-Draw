@@ -219,8 +219,8 @@ onMounted(() => {
   markInitialContentReady();
 });
 const hasMembership = computed(() => !["创作者", "AI创作者", "体验用户"].includes(profile.value.role));
-const membershipTitle = computed(() => (hasMembership.value ? profile.value.role : "未开通 PRO"));
-const membershipSubtitle = computed(() => (hasMembership.value ? "会员权益已生效" : "加入 PRO 会员解锁所有权益"));
+const membershipTitle = computed(() => (hasMembership.value ? profile.value.role : "未开通会员"));
+const membershipSubtitle = computed(() => (hasMembership.value ? "会员权益已生效" : "开通会员解锁权益"));
 
 async function loadModelOptions() {
   if (useMockData.value) {

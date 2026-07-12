@@ -29,6 +29,13 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
+.deferred-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .first-frame {
   background: var(--page-bg);
 }

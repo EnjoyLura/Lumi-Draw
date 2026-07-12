@@ -5,6 +5,12 @@ export function invalidateTabPage(key: string) {
   loadedAt.delete(key);
 }
 
+export function invalidateTabPages(prefix: string) {
+  for (const key of loadedAt.keys()) {
+    if (key.startsWith(prefix)) loadedAt.delete(key);
+  }
+}
+
 export async function refreshTabPage(key: string, loader: () => Promise<void>, options?: { force?: boolean; ttl?: number }) {
   const ttl = options?.ttl ?? 60_000;
   const timestamp = loadedAt.get(key);

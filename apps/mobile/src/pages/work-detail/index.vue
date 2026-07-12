@@ -20,6 +20,7 @@ import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { saveImageToDevice } from "../../services/imageSave";
 import { openEmbeddedCreate } from "../../services/primaryShell";
+import { invalidateTabPages } from "../../services/tabPageCache";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -509,6 +510,7 @@ async function removeOwnWork() {
   isDeleting.value = true;
   try {
     await deleteWork(work.value.id);
+    invalidateTabPages("gallery:");
     uni.showToast({ title: "已删除作品", icon: "none" });
     leaveAfterDelete();
   } catch {
