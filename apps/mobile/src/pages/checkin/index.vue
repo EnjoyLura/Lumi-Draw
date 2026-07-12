@@ -53,7 +53,13 @@ function buildVisibleSignedDays(streak: number, checkedToday: boolean) {
 }
 
 const calendarDays = computed(() => {
-  const milestoneDays = new Set(milestones.map((item) => item.days).filter((day) => day <= daysInCurrentMonth));
+  const endDay = checkinDone.value ? currentDay : currentDay - 1;
+  const startDay = checkinStreak.value > 0 ? Math.max(1, endDay - checkinStreak.value + 1) : 0;
+  const milestoneDays = new Set(
+    milestones
+      .map((item) => startDay + item.days - 1)
+      .filter((day) => startDay > 0 && day >= startDay && day <= endDay && day <= daysInCurrentMonth)
+  );
 
   return Array.from({ length: daysInCurrentMonth }, (_, index) => {
     const day = index + 1;

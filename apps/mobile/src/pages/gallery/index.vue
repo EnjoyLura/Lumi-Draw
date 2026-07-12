@@ -1243,6 +1243,10 @@ function openWork(work: HomeWork) {
   background: transparent;
 }
 
+.manage-btn::after {
+  border: 0;
+}
+
 .manage-btn.active {
   color: var(--accent);
   background: var(--accent-soft);
