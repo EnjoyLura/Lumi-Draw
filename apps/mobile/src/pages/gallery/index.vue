@@ -1009,7 +1009,7 @@ function openWork(work: HomeWork) {
         <LumiIcon class="tab-icon" name="compass" :size="24" />
         <text class="tab-label">广场</text>
       </view>
-      <view class="tab-item center" @click="goCreate">
+      <view class="tab-item" @click="goCreate">
         <LumiIcon class="tab-icon" name="sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
@@ -2102,7 +2102,10 @@ function openWork(work: HomeWork) {
   flex-direction: column;
   gap: 2px;
   align-items: center;
-  padding: 4px 8px;
+  justify-content: center;
+  height: 44px;
+  padding: 2px 8px;
+  box-sizing: border-box;
 }
 
 .tab-icon {
@@ -2123,24 +2126,6 @@ function openWork(work: HomeWork) {
 .tab-item.active .tab-icon,
 .tab-item.active .tab-label {
   color: var(--tab-active);
-}
-
-.tab-item.center {
-  margin-top: 0;
-}
-
-.tab-item.center .tab-icon {
-  width: 24px;
-  height: 24px;
-  font-size: 22px;
-  color: var(--tab-active);
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.tab-item.center .tab-label {
-  margin-top: 2px;
 }
 
 @keyframes spin {

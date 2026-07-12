@@ -1324,7 +1324,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 .tab-bar { position: absolute; right: 0; bottom: var(--lumi-safe-bottom, 0px); left: 0; z-index: 80; display: flex; align-items: center; justify-content: space-around; height: 56px; padding-bottom: 0; box-sizing: border-box; background: var(--bg-base); border-top: 0; box-shadow: none; backdrop-filter: none; }
 .bottom-safe-area { position: absolute; right: 0; bottom: 0; left: 0; z-index: 80; height: var(--lumi-safe-bottom, 0px); pointer-events: none; background: var(--bg-base); box-shadow: none; }
-.tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
+.tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; justify-content: center; height: 44px; padding: 2px 8px; box-sizing: border-box; }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
 .tab-item.active .tab-icon, .tab-item.active .tab-label { color: var(--tab-active); }
