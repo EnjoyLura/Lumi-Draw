@@ -957,8 +957,12 @@ function openWork(work: HomeWork) {
 .gallery-page {
   --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
   position: relative;
+  display: block;
+  width: 100vw;
+  max-width: 100vw;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
+  box-sizing: border-box;
   overflow: hidden;
   color: var(--fg-primary);
   background: var(--page-bg);
