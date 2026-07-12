@@ -745,7 +745,7 @@ function handleReachBottom() {
             </view>
             <view class="tab-indicator" :style="{ transform: `translateX(${plazaTabs.findIndex((tab) => tab.key === activeTab) * 56}px)` }" />
           </view>
-          <view class="search-btn" @click="goSearch">⌕</view>
+          <view class="search-btn" @click="goSearch"><LumiIcon name="search" :size="22" /></view>
         </view>
 
         <view class="category-row">
@@ -824,23 +824,23 @@ function handleReachBottom() {
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
-        <text class="tab-icon">⌂</text>
+        <LumiIcon class="tab-icon" name="house" :size="24" />
         <text class="tab-label">首页</text>
       </view>
       <view class="tab-item active">
-        <text class="tab-icon">◇</text>
+        <LumiIcon class="tab-icon" name="compass" :size="24" />
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item center" @click="goCreate">
-        <text class="tab-icon">✦</text>
+        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">
-        <text class="tab-icon">□</text>
+        <LumiIcon class="tab-icon" name="images" :size="24" />
         <text class="tab-label">画廊</text>
       </view>
       <view class="tab-item" @click="goMine">
-        <text class="tab-icon">☺</text>
+        <LumiIcon class="tab-icon" name="circle-user-round" :size="24" />
         <text class="tab-label">我的</text>
       </view>
     </view>

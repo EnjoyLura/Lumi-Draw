@@ -118,7 +118,7 @@ function shareInvite() {
 
       <view v-else class="page-content">
         <view class="hero-card">
-          <view class="hero-icon">◆</view>
+          <view class="hero-icon"><LumiIcon name="gift" :size="40" /></view>
           <view class="hero-title">邀请好友，双方得积分</view>
           <view class="hero-desc">好友填写你的邀请码注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
         </view>

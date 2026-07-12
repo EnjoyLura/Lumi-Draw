@@ -946,7 +946,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="action-spacer" />
             <view v-if="promptText" class="prompt-action neutral has-icon" @click="clearPrompt">
-              <text class="prompt-action-icon">⌫</text>
+              <LumiIcon class="prompt-action-icon" name="trash-2" :size="14" />
               <text>清除</text>
             </view>
           </view>
@@ -1075,7 +1075,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
                 <text>发布作品</text>
               </button>
               <button class="result-action primary" :disabled="isSavingDrafts" @click="saveAllResults">
-                <text class="result-action-icon">⇩</text>
+                <LumiIcon class="result-action-icon" name="download" :size="15" />
                 <text>{{ isSavingDrafts ? "保存中..." : allSuccessfulResultsSaved ? "已存草稿" : "全部保存" }}</text>
               </button>
             </view>
@@ -1233,7 +1233,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <text class="preview-title">图片预览</text>
         <view class="preview-head-actions">
           <button class="preview-ghost-btn" :disabled="isSavingDrafts" @click="savePreview">
-            <text class="preview-btn-icon">⇩</text>
+            <LumiIcon class="preview-btn-icon" name="download" :size="15" />
             <text>{{ isSavingDrafts ? "保存中..." : "保存" }}</text>
           </button>
           <button class="preview-ghost-btn icon" @click="closePreview">×</button>
@@ -1250,11 +1250,11 @@ function goMine() { goRootTab("/pages/mine/index"); }
       </view>
     </view>
     <view class="tab-bar">
-      <view class="tab-item" @click="goHome"><text class="tab-icon">⌂</text><text class="tab-label">首页</text></view>
-      <view class="tab-item" @click="goPlaza"><text class="tab-icon">◇</text><text class="tab-label">广场</text></view>
-      <view class="tab-item active"><text class="tab-icon">✦</text><text class="tab-label">创作</text></view>
-      <view class="tab-item" @click="goGallery"><text class="tab-icon">□</text><text class="tab-label">画廊</text></view>
-      <view class="tab-item" @click="goMine"><text class="tab-icon">☺</text><text class="tab-label">我的</text></view>
+      <view class="tab-item" @click="goHome"><LumiIcon class="tab-icon" name="house" :size="24" /><text class="tab-label">首页</text></view>
+      <view class="tab-item" @click="goPlaza"><LumiIcon class="tab-icon" name="compass" :size="24" /><text class="tab-label">广场</text></view>
+      <view class="tab-item active"><LumiIcon class="tab-icon" name="sparkles" :size="24" /><text class="tab-label">创作</text></view>
+      <view class="tab-item" @click="goGallery"><LumiIcon class="tab-icon" name="images" :size="24" /><text class="tab-label">画廊</text></view>
+      <view class="tab-item" @click="goMine"><LumiIcon class="tab-icon" name="circle-user-round" :size="24" /><text class="tab-label">我的</text></view>
     </view>
     <view class="bottom-safe-area" />
   </view>

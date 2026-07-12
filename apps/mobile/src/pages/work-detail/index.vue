@@ -613,7 +613,7 @@ function showToast(title: string) {
               </view>
             </view>
             <button v-if="isOwn" class="small-btn muted" @click="openDetailManage">
-              <text class="btn-icon">⚙</text>
+              <LumiIcon class="btn-icon" name="settings" :size="14" />
               <text>管理</text>
             </button>
             <button v-else class="small-btn" :class="following ? 'muted' : 'primary'" @click="toggleFollow">
@@ -667,11 +667,11 @@ function showToast(title: string) {
       <view class="detail-bottom" :class="{ own: isOwn }">
         <template v-if="isOwn">
           <view class="bottom-icon danger" :class="{ disabled: isDeleting }" @click="removeOwnWork">
-            <text>⌫</text>
+            <LumiIcon name="trash-2" :size="24" />
             <text>{{ isDeleting ? "删除中" : "删除" }}</text>
           </view>
           <view class="bottom-icon" @click="saveWorkImage">
-            <text>⇩</text>
+            <LumiIcon name="download" :size="24" />
             <text>下载</text>
           </view>
           <view class="remake-btn" role="button" aria-label="重新生成" hover-class="remake-btn-pressed" @click="remakeWork(work)">
@@ -681,11 +681,11 @@ function showToast(title: string) {
         </template>
         <template v-else>
           <view class="bottom-action" :class="{ active: liked, pulse: likePulse }" @click="toggleLike">
-            <text>{{ liked ? "♥" : "♡" }}</text>
+            <LumiIcon name="heart" :size="26" />
             <text>{{ likeCount }}</text>
           </view>
           <view class="bottom-action favorite" :class="{ active: favorited, pulse: favoritePulse }" @click="toggleFavorite">
-            <text>{{ favorited ? "★" : "☆" }}</text>
+            <LumiIcon name="star" :size="26" />
             <text>{{ favoriteCount }}</text>
           </view>
           <view class="remake-btn" role="button" aria-label="一键同款" hover-class="remake-btn-pressed" @click="remakeWork(work)">
@@ -701,15 +701,15 @@ function showToast(title: string) {
         <view class="sheet-handle" />
         <view class="long-actions">
           <view class="long-action" @click="toggleLike(); closeLongPressSheet()">
-            <view class="long-icon rose">♡</view>
+            <view class="long-icon rose"><LumiIcon name="heart" :size="24" /></view>
             <text>点赞</text>
           </view>
           <view class="long-action" @click="toggleFavorite(); closeLongPressSheet()">
-            <view class="long-icon lemon">☆</view>
+            <view class="long-icon lemon"><LumiIcon name="star" :size="24" /></view>
             <text>收藏</text>
           </view>
           <view class="long-action" @click="shareWork">
-            <view class="long-icon accent">⇪</view>
+            <view class="long-icon accent"><LumiIcon name="share-2" :size="24" /></view>
             <text>分享</text>
           </view>
           <view class="long-action" @click="goReport">
@@ -746,19 +746,19 @@ function showToast(title: string) {
             <view class="manage-arrow">›</view>
           </view>
           <view class="manage-row" @click="saveWorkImage(); closeDetailManage()">
-            <view class="manage-icon accent">⇩</view>
+            <view class="manage-icon accent"><LumiIcon name="download" :size="18" /></view>
             <view class="manage-text">保存图片</view>
             <view class="manage-arrow">›</view>
           </view>
           <view class="manage-row" @click="shareWork">
-            <view class="manage-icon mint">⇪</view>
+            <view class="manage-icon mint"><LumiIcon name="share-2" :size="18" /></view>
             <view class="manage-text">分享作品</view>
             <view class="manage-arrow">›</view>
           </view>
         </view>
         <view class="manage-card danger-card">
           <view class="manage-row" :class="{ disabled: isDeleting }" @click="removeOwnWork">
-            <view class="manage-icon rose">⌫</view>
+            <view class="manage-icon rose"><LumiIcon name="trash-2" :size="18" /></view>
             <view class="manage-text danger">{{ isDeleting ? "处理中" : "删除作品" }}</view>
             <view class="manage-arrow">›</view>
           </view>

@@ -772,12 +772,12 @@ function openWork(work: HomeWork) {
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
           <view class="nav-row" :style="{ height: `${navigationBarHeight}px` }">
             <view class="nav-left-actions">
-              <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
-              <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
-              <view v-if="isMineMode" class="icon-btn checkin" @click="navigateSide('/pages/checkin/index')">◷</view>
+              <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()"><LumiIcon :name="isMineMode ? 'settings' : 'menu'" :size="22" /></view>
+              <view v-if="isMineMode" class="icon-btn search" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
+              <view v-if="isMineMode" class="icon-btn checkin" @click="navigateSide('/pages/checkin/index')"><LumiIcon name="calendar-check" :size="18" /></view>
             </view>
             <text v-if="!isMineMode" class="nav-title">画廊</text>
-            <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><text>🎁</text><text>邀请有礼</text></view>
+            <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><LumiIcon name="gift" :size="16" /><text>邀请有礼</text></view>
           </view>
         </view>
 
@@ -872,15 +872,15 @@ function openWork(work: HomeWork) {
           <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 84}px)` }" />
         </view>
         <view v-else class="draft-tools">
-          <view class="draft-tool" @click="goSearch">⌕</view>
-          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
+          <view class="draft-tool" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
+          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
           <view class="draft-tool" @click="toggleSort">{{ sortDescending ? "↓" : "↑" }}</view>
         </view>
         <view v-if="isMineMode" class="mine-work-tools">
-          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
+          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
-          <text class="secondary-icon">{{ manageMode ? "✓" : "☷" }}</text><text>{{ manageMode ? "完成" : "管理" }}</text>
+          <LumiIcon class="secondary-icon" name="list-checks" :size="18" /><text>{{ manageMode ? "完成" : "管理" }}</text>
         </button>
       </view>
 
@@ -928,7 +928,7 @@ function openWork(work: HomeWork) {
                     <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
                     <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
-                  <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
+                  <view v-if="work.published" class="likes"><LumiIcon name="heart" :size="13" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -946,7 +946,7 @@ function openWork(work: HomeWork) {
                     <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
                     <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
-                  <view v-if="work.published" class="likes">♡ {{ work.likes }}</view>
+                  <view v-if="work.published" class="likes"><LumiIcon name="heart" :size="13" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -1002,23 +1002,23 @@ function openWork(work: HomeWork) {
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
-        <text class="tab-icon">⌂</text>
+        <LumiIcon class="tab-icon" name="house" :size="24" />
         <text class="tab-label">首页</text>
       </view>
       <view class="tab-item" @click="goPlaza">
-        <text class="tab-icon">◇</text>
+        <LumiIcon class="tab-icon" name="compass" :size="24" />
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item center" @click="goCreate">
-        <text class="tab-icon">✦</text>
+        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" :class="{ active: !isMineMode }" @click="goGallery">
-        <text class="tab-icon">□</text>
+        <LumiIcon class="tab-icon" name="images" :size="24" />
         <text class="tab-label">画廊</text>
       </view>
       <view class="tab-item" :class="{ active: isMineMode }" @click="goMine">
-        <text class="tab-icon">☺</text>
+        <LumiIcon class="tab-icon" name="circle-user-round" :size="24" />
         <text class="tab-label">我的</text>
       </view>
     </view>

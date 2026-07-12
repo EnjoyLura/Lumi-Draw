@@ -800,7 +800,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                      <LumiIcon class="like-heart" name="heart" :size="16" />
                       <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
@@ -827,7 +827,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <text class="like-heart">{{ likedWorkIds.has(work.id) ? "♥" : "♡" }}</text>
+                      <LumiIcon class="like-heart" name="heart" :size="16" />
                       <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
@@ -853,23 +853,23 @@ function getRatioClass(ratio: string) {
 
     <view class="tab-bar">
       <view class="tab-item active">
-        <text class="tab-icon">⌂</text>
+        <LumiIcon class="tab-icon" name="house" :size="24" />
         <text class="tab-label">首页</text>
       </view>
       <view class="tab-item" @click="goPlaza">
-        <text class="tab-icon">◇</text>
+        <LumiIcon class="tab-icon" name="compass" :size="24" />
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item center" @click="goCreate">
-        <text class="tab-icon">✦</text>
+        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">
-        <text class="tab-icon">□</text>
+        <LumiIcon class="tab-icon" name="images" :size="24" />
         <text class="tab-label">画廊</text>
       </view>
       <view class="tab-item" @click="goMine">
-        <text class="tab-icon">☺</text>
+        <LumiIcon class="tab-icon" name="circle-user-round" :size="24" />
         <text class="tab-label">我的</text>
       </view>
     </view>

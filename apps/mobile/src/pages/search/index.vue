@@ -207,7 +207,7 @@ function handleReachBottom() {
       <view class="search-wrap">
         <view class="search-row">
           <view class="input-wrap">
-            <text class="search-icon">⌕</text>
+            <LumiIcon class="search-icon" name="search" :size="18" />
             <input
               v-model="keyword"
               class="search-input"
@@ -295,7 +295,7 @@ function handleReachBottom() {
         </view>
 
         <view v-if="submittedKeyword && !isLoading && !results.length" class="empty-state">
-          <view class="empty-icon">⌕</view>
+          <view class="empty-icon"><LumiIcon name="search" :size="30" /></view>
           <view class="empty-title">没有找到相关作品</view>
           <view class="empty-sub">试试其他关键词吧</view>
         </view>

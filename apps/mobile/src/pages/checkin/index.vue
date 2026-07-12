@@ -223,7 +223,7 @@ function claimMilestone(item: Milestone) {
         </view>
 
         <view class="section-title">
-          <text class="gift-icon">◆</text>
+          <LumiIcon class="gift-icon" name="gift" :size="18" />
           <text>里程碑奖励</text>
         </view>
         <view class="milestone-grid">
