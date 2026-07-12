@@ -939,7 +939,7 @@ function handleReachBottom() {
 
 .plaza-scroll {
   position: absolute;
-  inset: 0 0 80px;
+  inset: 0 0 var(--lumi-tabbar-height);
   z-index: 1;
   box-sizing: border-box;
   -ms-overflow-style: none;
