@@ -1820,7 +1820,7 @@ function openWork(work: HomeWork) {
   font-size: 10px;
   font-weight: 600;
   color: var(--accent);
-  background: rgba(255, 255, 255, 0.85);
+  background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(8px);
@@ -1832,7 +1832,7 @@ function openWork(work: HomeWork) {
 
 .status-badge.pending {
   color: #5b9fe8;
-  background: rgba(91, 159, 232, 0.14);
+  background: #fff;
 }
 
 .status-badge.rejected {
