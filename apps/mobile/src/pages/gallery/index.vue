@@ -789,7 +789,7 @@ function openWork(work: HomeWork) {
               </view>
               <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ profile.role }}</view>
             </view>
-            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles-filled" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
+            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>

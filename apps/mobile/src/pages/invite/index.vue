@@ -139,7 +139,7 @@ function shareInvite() {
           </view>
           <view class="summary-card">
             <view class="summary-num">{{ totalReward }}</view>
-            <view class="summary-label credits-label"><LumiIcon name="sparkles-filled" :size="13" /><text>累计</text></view>
+            <view class="summary-label credits-label"><LumiIcon name="sparkles" :size="13" /><text>累计</text></view>
           </view>
         </view>
 

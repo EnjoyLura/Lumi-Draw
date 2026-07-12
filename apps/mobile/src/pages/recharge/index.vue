@@ -235,8 +235,8 @@ function confirmCustomRecharge() {
 
       <view v-else class="page-content">
         <view class="balance-card">
-          <view class="balance-label"><LumiIcon name="sparkles-filled" :size="16" /><text>当前余额</text></view>
-          <view class="balance-num"><LumiIcon name="sparkles-filled" :size="24" />{{ balance }}</view>
+          <view class="balance-label"><LumiIcon class="credits-symbol" name="sparkles" :size="16" /><text>当前余额</text></view>
+          <view class="balance-num"><LumiIcon class="credits-symbol" name="sparkles" :size="24" />{{ balance }}</view>
           <view v-if="isLoading" class="balance-sub">同步中...</view>
         </view>
 
@@ -263,7 +263,7 @@ function confirmCustomRecharge() {
           >
             <view v-if="tier.popular" class="recommend-tag">推荐</view>
             <view class="tier-credits">{{ tier.credits }}</view>
-            <view class="tier-unit"><LumiIcon name="sparkles-filled" :size="13" /></view>
+            <view class="tier-unit"><LumiIcon name="sparkles" :size="13" /></view>
             <view class="tier-bonus">{{ tier.bonus > 0 ? `送${tier.bonus}积分` : "" }}</view>
             <view class="tier-price">¥{{ tier.price }}</view>
           </view>
@@ -378,6 +378,10 @@ function confirmCustomRecharge() {
   display: flex;
   gap: 5px;
   align-items: center;
+}
+
+.credits-symbol {
+  color: var(--accent);
 }
 
 .balance-num {

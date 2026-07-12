@@ -922,7 +922,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="model-cost">
               <text class="cost-num">{{ selectedModel.cost }}</text>
-              <view class="cost-unit"><LumiIcon name="sparkles-filled" :size="14" /><text>起</text></view>
+              <view class="cost-unit"><LumiIcon name="sparkles" :size="14" /><text>起</text></view>
             </view>
             <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
@@ -1099,7 +1099,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >
-            <text>{{ isLoggedIn ? "立即生成" : "登录后创作" }}</text><template v-if="isLoggedIn"><text>·</text><LumiIcon name="sparkles-filled" :size="15" /><text>{{ totalCost }}</text></template>
+            <text>{{ isLoggedIn ? "立即生成" : "登录后创作" }}</text><template v-if="isLoggedIn"><text>·</text><LumiIcon name="sparkles" :size="15" /><text>{{ totalCost }}</text></template>
           </view>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
@@ -1139,7 +1139,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="drawer-model-cost">
               <text class="drawer-cost-num">{{ model.cost }}</text>
-              <view class="drawer-cost-unit"><LumiIcon name="sparkles-filled" :size="14" /><text>起</text></view>
+              <view class="drawer-cost-unit"><LumiIcon name="sparkles" :size="14" /><text>起</text></view>
             </view>
             <view v-if="selectedModelIndex === index" class="drawer-selected-icon"><LumiIcon name="check" :size="20" /></view>
           </view>

@@ -250,7 +250,7 @@ function showAgreement() {
                   <text class="plan-name">{{ plan.name }}</text>
                   <text v-if="plan.badge" class="save-tag">{{ plan.badge }}</text>
                 </view>
-                <view class="plan-desc"><text>赠送 {{ plan.totalCredits }}</text><LumiIcon name="sparkles-filled" :size="12" /><text>· {{ plan.unitPrice }}</text></view>
+                <view class="plan-desc"><text>赠送 {{ plan.totalCredits }}</text><LumiIcon name="sparkles" :size="12" /><text>· {{ plan.unitPrice }}</text></view>
               </view>
             </view>
             <view class="plan-price">
