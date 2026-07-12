@@ -8,30 +8,23 @@ import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { currentVersion } from "../changelog/changelogData";
 import { aboutItems, type SettingsLink } from "./settingsData";
-import { fetchChangelog, fetchSettingsProfile, updateSettingsPhone } from "./settingsService";
+import { fetchChangelog } from "./settingsService";
 
 const { useMockData } = useDataMode();
-const { theme, themeClass } = useTheme();
-const { isLoggedIn, currentUser, login: commitLogin, logout, updateCurrentUser } = useAuth();
+const { theme, themeClass, setTheme } = useTheme();
+const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
-const phone = ref(currentUser.value?.phone || "");
 const versionMeta = ref(currentVersion);
 const cacheMeta = ref("12.5MB");
-const isSavingPhone = ref(false);
 const isInitialContentReady = ref(false);
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
-const phoneText = computed(() => {
-  if (!isLoggedIn.value) return "手机号 --";
-  if (!phone.value) return "手机号 未绑定";
-  return `手机号 ${phone.value.slice(0, 3)}****${phone.value.slice(-4)}`;
-});
-const phoneTagText = computed(() => {
-  if (!isLoggedIn.value) return "未登录";
-  return phone.value ? "已绑定" : "未绑定";
-});
-const phoneTagClass = computed(() => (isLoggedIn.value && phone.value ? "tag-mint" : "tag-muted"));
+const featureItems = [
+  { label: "消息中心", icon: "✉", colorClass: "rose", url: "/pages/messages/index" },
+  { label: "浏览历史", icon: "◷", colorClass: "mint", url: "/pages/history/index" },
+  { label: "生成记录", icon: "◎", colorClass: "lavender", url: "/pages/generation-history/index" }
+];
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
     if (item.key === "version") return { ...item, meta: versionMeta.value };
@@ -41,7 +34,6 @@ const visibleAboutItems = computed(() =>
 );
 
 onShow(() => {
-  void loadSettingsProfile();
   void loadVersionMeta();
 });
 
@@ -63,24 +55,6 @@ function goEditProfile() {
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
-async function loadSettingsProfile() {
-  if (!isLoggedIn.value) {
-    phone.value = "";
-    return;
-  }
-  if (useMockData.value) {
-    phone.value = currentUser.value?.phone || "";
-    return;
-  }
-
-  try {
-    const profile = await fetchSettingsProfile();
-    phone.value = profile.phone || "";
-  } catch {
-    phone.value = currentUser.value?.phone || "";
-  }
-}
-
 async function loadVersionMeta() {
   if (useMockData.value) {
     versionMeta.value = currentVersion;
@@ -95,53 +69,13 @@ async function loadVersionMeta() {
   }
 }
 
-function showPhoneInput() {
-  return new Promise<string | null>((resolve) => {
-    uni.showModal({
-      title: phone.value ? "修改手机号" : "绑定手机号",
-      content: phone.value,
-      editable: true,
-      placeholderText: "请输入 11 位手机号",
-      confirmText: "保存",
-      success(result) {
-        const nextValue = "content" in result && typeof result.content === "string" ? result.content : "";
-        resolve(result.confirm ? nextValue.trim() : null);
-      },
-      fail() {
-        resolve(null);
-      }
-    } as UniApp.ShowModalOptions & { editable: boolean; placeholderText: string });
-  });
+function toggleDarkMode() {
+  setTheme(darkMode.value ? "light" : "dark");
 }
 
-async function tapPhone() {
+function openFeature(url: string) {
   if (!requireSession()) return;
-  if (isSavingPhone.value) return;
-  const nextPhone = await showPhoneInput();
-  if (nextPhone === null) return;
-  if (!/^1[3-9]\d{9}$/.test(nextPhone)) {
-    uni.showToast({ title: "请输入正确的手机号", icon: "none" });
-    return;
-  }
-
-  if (useMockData.value) {
-    phone.value = nextPhone;
-    updateCurrentUser({ phone: nextPhone });
-    uni.showToast({ title: "手机号已保存", icon: "none" });
-    return;
-  }
-
-  isSavingPhone.value = true;
-  try {
-    const profile = await updateSettingsPhone(nextPhone);
-    phone.value = profile.phone || nextPhone;
-    updateCurrentUser({ phone: phone.value });
-    uni.showToast({ title: "手机号已保存", icon: "none" });
-  } catch {
-    uni.showToast({ title: "手机号保存失败", icon: "none" });
-  } finally {
-    isSavingPhone.value = false;
-  }
+  uni.navigateTo({ url });
 }
 
 function clearAppCache() {
@@ -193,7 +127,6 @@ async function handleLoginAction() {
   }
 
   await logout();
-  phone.value = "";
   uni.showToast({ title: "已退出登录", icon: "none" });
 }
 
@@ -201,7 +134,6 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await loadSettingsProfile();
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -222,19 +154,22 @@ async function login() {
             <view class="lr-text">{{ isLoggedIn ? `编辑个人资料${currentUser?.nickname ? ` · ${currentUser.nickname}` : ""}` : "登录后编辑个人资料" }}</view>
             <view class="lr-arrow">›</view>
           </view>
-          <view class="list-row" @click="tapPhone">
-            <view class="lr-icon mint">●</view>
-            <view class="lr-text">{{ phoneText }}</view>
-            <view class="tag" :class="phoneTagClass">{{ isSavingPhone ? "保存中" : phoneTagText }}</view>
+        </view>
+
+        <view class="section-title">功能</view>
+        <view class="card">
+          <view v-for="item in featureItems" :key="item.label" class="list-row" @click="openFeature(item.url)">
+            <view class="lr-icon" :class="item.colorClass">{{ item.icon }}</view>
+            <view class="lr-text">{{ item.label }}</view>
+            <view class="lr-arrow">›</view>
           </view>
         </view>
 
         <view class="section-title">外观</view>
         <view class="card">
-          <view class="list-row">
+          <view class="list-row" @click="toggleDarkMode">
             <view class="lr-icon accent">☀</view>
             <view class="lr-text">深色模式</view>
-            <text class="lr-meta">跟随系统</text>
             <view class="switch" :class="{ active: darkMode }"><view class="knob" /></view>
           </view>
         </view>
@@ -333,6 +268,10 @@ async function login() {
 
 .lr-icon.lavender {
   color: var(--lavender);
+}
+
+.lr-icon.rose {
+  color: var(--rose);
 }
 
 .lr-text {

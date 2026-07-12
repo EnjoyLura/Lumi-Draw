@@ -9,27 +9,6 @@ const THEME_BACKGROUNDS: Record<ThemeMode, string> = {
 };
 const theme = ref<ThemeMode>("light");
 const themeClass = computed(() => `theme-${theme.value}`);
-let themeListenerInitialized = false;
-
-type ThemeRuntime = UniApp.Uni & {
-  onThemeChange?: (callback: (result: { theme: ThemeMode }) => void) => void;
-};
-
-function normalizeTheme(value: unknown): ThemeMode {
-  return value === "dark" ? "dark" : "light";
-}
-
-function readSystemTheme(): ThemeMode {
-  // #ifdef H5
-  if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
-  // #endif
-  try {
-    return normalizeTheme((uni.getSystemInfoSync() as UniApp.GetSystemInfoResult & { theme?: ThemeMode }).theme);
-  } catch {
-    return "light";
-  }
-}
-
 export function applyPageBackground(mode: ThemeMode = theme.value) {
   const backgroundColor = THEME_BACKGROUNDS[mode];
   // #ifdef H5
@@ -65,27 +44,29 @@ export function applyNavigationBar() {
 }
 
 export function initTheme() {
-  uni.removeStorageSync(THEME_STORAGE_KEY);
-  applyTheme(readSystemTheme());
-  if (themeListenerInitialized) return;
-  themeListenerInitialized = true;
+  let savedTheme: unknown;
+  try {
+    savedTheme = uni.getStorageSync(THEME_STORAGE_KEY);
+  } catch {
+    savedTheme = undefined;
+  }
+  applyTheme(savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light");
+}
 
-  // #ifdef H5
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
-    applyTheme(event.matches ? "dark" : "light");
-    applyNavigationBar();
-  });
-  // #endif
-
-  (uni as ThemeRuntime).onThemeChange?.((result) => {
-    applyTheme(normalizeTheme(result.theme));
-    applyNavigationBar();
-  });
+export function setTheme(mode: ThemeMode) {
+  applyTheme(mode);
+  try {
+    uni.setStorageSync(THEME_STORAGE_KEY, mode);
+  } catch {
+    // Theme still applies for the current session when storage is unavailable.
+  }
+  applyNavigationBar();
 }
 
 export function useTheme() {
   return {
     theme,
-    themeClass
+    themeClass,
+    setTheme
   };
 }

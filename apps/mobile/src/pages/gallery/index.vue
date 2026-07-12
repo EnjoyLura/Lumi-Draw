@@ -100,6 +100,8 @@ const isInitialContentReady = ref(false);
 const sideDrawerMounted = ref(false);
 const loginSheetMounted = ref(false);
 const filterOpen = ref(false);
+const searchOpen = ref(false);
+const searchKeyword = ref("");
 const selectedModel = ref("all");
 const selectedStatus = ref("all");
 const sortDescending = ref(true);
@@ -141,11 +143,19 @@ const filteredWorks = computed(() => {
   if (renderedTab.value === "favorite") {
     result = result.filter((work) => work.favorited || work.liked || (useMockData.value && [3, 11].includes(work.id)));
   }
-  if (!isMineMode.value) {
-    if (selectedModel.value !== "all") result = result.filter((work) => (work.modelName || "未标注模型") === selectedModel.value);
-    if (selectedStatus.value === "published") result = result.filter((work) => work.published);
-    if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
-    if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
+  if (selectedModel.value !== "all") result = result.filter((work) => (work.modelName || "未标注模型") === selectedModel.value);
+  if (selectedStatus.value === "published") result = result.filter((work) => work.published);
+  if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
+  if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
+  const keyword = searchKeyword.value.trim().toLowerCase();
+  if (keyword) {
+    result = result.filter((work) =>
+      [work.title, work.prompt, work.modelName]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword)
+    );
   }
   return [...result].sort((a, b) => {
     const diff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
@@ -170,6 +180,7 @@ const genderIcon = computed(() => {
   return "";
 });
 const emptyInfo = computed(() => {
+  if (searchKeyword.value.trim()) return { icon: "⌕", title: "没有找到相关作品", sub: "换个关键词试试" };
   if (renderedTab.value === "published") return { icon: "□", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "▤", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
   if (renderedTab.value === "favorite") return { icon: "♡", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
@@ -406,7 +417,14 @@ function goMine() {
 }
 
 function goSearch() {
-  uni.navigateTo({ url: "/pages/search/index" });
+  searchOpen.value = !searchOpen.value;
+  if (!searchOpen.value) searchKeyword.value = "";
+  visibleCount.value = PAGE_SIZE;
+}
+
+function clearSearch() {
+  searchKeyword.value = "";
+  visibleCount.value = PAGE_SIZE;
 }
 
 function goEditProfile() {
@@ -708,7 +726,7 @@ function openWork(work: HomeWork) {
           <view class="nav-row">
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
-              <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
+              <view v-if="isMineMode" class="icon-btn search" :class="{ active: searchOpen }" @click="goSearch">⌕</view>
             </view>
             <text class="nav-title">{{ isMineMode ? "我的" : "画廊" }}</text>
             <view class="nav-right-spacer" />
@@ -800,13 +818,25 @@ function openWork(work: HomeWork) {
           <view class="tab-indicator" :style="{ transform: `translateX(${workspaceTabs.findIndex((tab) => tab.key === activeTab) * 61}px)` }" />
         </view>
         <view v-else class="draft-tools">
-          <view class="draft-tool" @click="goSearch">⌕</view>
+          <view class="draft-tool" :class="{ active: searchOpen }" @click="goSearch">⌕</view>
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
           <view class="draft-tool" @click="toggleSort">{{ sortDescending ? "↓" : "↑" }}</view>
+        </view>
+        <view v-if="isMineMode" class="mine-work-tools">
+          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
           {{ manageMode ? "✓ 完成" : "☷ 管理" }}
         </button>
+      </view>
+
+      <view v-if="isInitialContentReady && isLoggedIn && searchOpen" class="collection-search-wrap">
+        <view class="collection-search">
+          <text class="collection-search-icon">⌕</text>
+          <input v-model="searchKeyword" class="collection-search-input" :placeholder="isMineMode ? '搜索我的作品' : '搜索画廊作品'" confirm-type="search" />
+          <text v-if="searchKeyword" class="collection-search-clear" @click="clearSearch">×</text>
+        </view>
+        <text class="collection-search-cancel" @click="goSearch">取消</text>
       </view>
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
@@ -882,7 +912,7 @@ function openWork(work: HomeWork) {
           <view class="empty-icon">{{ emptyInfo.icon }}</view>
           <view class="empty-title">{{ emptyInfo.title }}</view>
           <view class="empty-sub">{{ emptyInfo.sub }}</view>
-          <button v-if="renderedTab === 'all' || renderedTab === 'draft'" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
+          <button v-if="!searchKeyword.trim() && (renderedTab === 'all' || renderedTab === 'draft')" class="empty-btn" @click="goCreate">✦ 立即去创作</button>
         </view>
 
           <view class="switch-loading-card" :class="{ show: isWaterfallSwitching }">
@@ -904,8 +934,8 @@ function openWork(work: HomeWork) {
       </view>
     </scroll-view>
 
-    <view v-if="!isMineMode" class="filter-overlay" :class="{ show: filterOpen }" @click="filterOpen = false" />
-    <view v-if="!isMineMode" class="filter-sheet" :class="{ show: filterOpen }">
+    <view class="filter-overlay" :class="{ show: filterOpen }" @click="filterOpen = false" />
+    <view class="filter-sheet" :class="{ show: filterOpen }">
       <view class="sheet-handle" />
       <view class="filter-title">筛选作品</view>
       <view class="filter-section-title">模型</view>
@@ -914,6 +944,7 @@ function openWork(work: HomeWork) {
         <view v-for="model in modelOptions" :key="model" class="filter-chip" :class="{ active: selectedModel === model }" @click="selectedModel = model">{{ model }}</view>
         <view v-if="!modelOptions.length" class="filter-chip" :class="{ active: selectedModel === '未标注模型' }" @click="selectedModel = '未标注模型'">未标注模型</view>
       </view>
+
       <view class="filter-section-title">发布状态</view>
       <view class="filter-options">
         <view v-for="item in [{ key: 'all', label: '全部' }, { key: 'published', label: '已发布' }, { key: 'draft', label: '草稿' }, { key: 'pending', label: '审核中' }]" :key="item.key" class="filter-chip" :class="{ active: selectedStatus === item.key }" @click="selectedStatus = item.key">{{ item.label }}</view>
@@ -1402,6 +1433,67 @@ function openWork(work: HomeWork) {
   align-items: center;
   justify-content: flex-end;
   margin-left: auto;
+}
+
+.mine-work-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  margin-left: auto;
+}
+
+.collection-search-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 0 16px 10px;
+}
+
+.collection-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+}
+
+.collection-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.collection-search-icon,
+.collection-search-clear {
+  flex: 0 0 auto;
+  color: var(--fg-muted);
+}
+
+.collection-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--fg-primary);
+}
+
+.collection-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 18px;
+}
+
+.collection-search-cancel {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--accent);
 }
 
 .draft-tool {
