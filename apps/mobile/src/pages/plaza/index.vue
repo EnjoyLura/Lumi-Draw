@@ -762,7 +762,7 @@ function handleReachBottom() {
               </view>
             </view>
           </scroll-view>
-          <view class="filter-btn" @click="openFilter">≡</view>
+          <view class="filter-btn" @click="openFilter"><LumiIcon name="sliders-horizontal" :size="22" /></view>
         </view>
 
         <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
@@ -832,7 +832,7 @@ function handleReachBottom() {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">

@@ -218,12 +218,13 @@ function claimMilestone(item: Milestone) {
           </view>
           <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone || isSubmitting" @click="doCheckin">
             <LumiIcon v-if="checkinDone" class="check-icon" name="check" :size="16" />
-            <text>{{ checkinDone ? "今日已签到" : `今日签到 +${nextCredits}积分` }}</text>
+            <text>{{ checkinDone ? "今日已签到" : `今日签到 +${nextCredits}` }}</text>
+            <LumiIcon v-if="!checkinDone" class="credits-icon" name="sparkles" :size="15" />
           </button>
         </view>
 
         <view class="section-title">
-          <LumiIcon class="gift-icon" name="gift" :size="18" />
+          <LumiIcon class="gift-icon" name="gift-filled" :size="18" />
           <text>里程碑奖励</text>
         </view>
         <view class="milestone-grid">
@@ -267,7 +268,7 @@ function claimMilestone(item: Milestone) {
               }"
             >
               <text>{{ item.day }}</text>
-              <LumiIcon v-if="item.milestone" class="cal-gift" name="gift" :size="11" />
+              <LumiIcon v-if="item.milestone" class="cal-gift" name="gift-filled" :size="11" />
             </view>
           </view>
         </view>
@@ -553,7 +554,12 @@ function claimMilestone(item: Milestone) {
   z-index: 1;
   font-size: 11px;
   line-height: 1;
+  color: var(--peach);
   pointer-events: none;
+}
+
+.credits-icon {
+  color: currentColor;
 }
 
 /* Lumi custom page header layout */

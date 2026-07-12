@@ -33,7 +33,7 @@ const emit = defineEmits<{
               <text class="author-name">{{ getUser(work).name }}</text>
             </view>
             <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="emit('toggleLike', $event, work.id)">
-              <LumiIcon name="heart" :size="15" />
+              <LumiIcon :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="15" />
               <text>{{ displayLikeCount(work) }}</text>
             </view>
           </view>
@@ -52,7 +52,7 @@ const emit = defineEmits<{
               <text class="author-name">{{ getUser(work).name }}</text>
             </view>
             <view class="like" :class="{ liked: likedWorkIds.has(work.id) }" @click.stop="emit('toggleLike', $event, work.id)">
-              <LumiIcon name="heart" :size="15" />
+              <LumiIcon :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="15" />
               <text>{{ displayLikeCount(work) }}</text>
             </view>
           </view>

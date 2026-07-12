@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
+import LumiMessageCategoryIcon from "../../components/LumiMessageCategoryIcon.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -167,19 +168,19 @@ async function login() {
         />
 
         <view v-else-if="isLoading" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiMessageCategoryIcon :type="category.key" :size="30" /></view>
           <view class="empty-title">消息加载中</view>
         </view>
 
         <view v-else-if="loadFailed" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiMessageCategoryIcon :type="category.key" :size="30" /></view>
           <view class="empty-title">消息加载失败</view>
           <view class="empty-sub">请稍后重试，或检查当前登录状态。</view>
           <button class="retry-btn" @click="loadMessages(category.key)">重新加载</button>
         </view>
 
         <view v-else-if="messages.length === 0" class="empty-state">
-          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiIcon :name="category.icon" :size="30" /></view>
+          <view class="empty-icon" :style="{ color: category.color, background: `${category.color}22` }"><LumiMessageCategoryIcon :type="category.key" :size="30" /></view>
           <view class="empty-title">暂无{{ category.title }}</view>
           <view class="empty-sub">有新消息时会显示在这里</view>
         </view>
@@ -196,7 +197,9 @@ async function login() {
             </view>
           </template>
           <template v-else>
-            <view class="system-icon" :style="{ background: category.gradient }">{{ category.icon }}</view>
+            <view class="system-icon" :style="{ background: category.gradient }">
+              <LumiMessageCategoryIcon :type="category.key" :size="22" />
+            </view>
             <view class="message-main">
               <view class="message-head">
                 <text class="sender-name">{{ category.title }}</text>

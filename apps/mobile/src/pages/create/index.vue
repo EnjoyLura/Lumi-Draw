@@ -922,7 +922,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="model-cost">
               <text class="cost-num">{{ selectedModel.cost }}</text>
-              <text class="cost-unit">积分起</text>
+              <view class="cost-unit"><LumiIcon name="sparkles" :size="13" /><text>起</text></view>
             </view>
             <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
@@ -1139,7 +1139,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="drawer-model-cost">
               <text class="drawer-cost-num">{{ model.cost }}</text>
-              <text class="drawer-cost-unit">积分起</text>
+              <view class="drawer-cost-unit"><LumiIcon name="sparkles" :size="13" /><text>起</text></view>
             </view>
             <view v-if="selectedModelIndex === index" class="drawer-selected-icon"><LumiIcon name="check" :size="20" /></view>
           </view>
@@ -1252,7 +1252,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <view class="tab-bar">
       <view class="tab-item" @click="goHome"><LumiIcon class="tab-icon" name="house" :size="24" /><text class="tab-label">首页</text></view>
       <view class="tab-item" @click="goPlaza"><LumiIcon class="tab-icon" name="compass" :size="24" /><text class="tab-label">广场</text></view>
-      <view class="tab-item active"><LumiIcon class="tab-icon" name="sparkles" :size="24" /><text class="tab-label">创作</text></view>
+      <view class="tab-item active"><LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" /><text class="tab-label">创作</text></view>
       <view class="tab-item" @click="goGallery"><LumiIcon class="tab-icon" name="images" :size="24" /><text class="tab-label">画廊</text></view>
       <view class="tab-item" @click="goMine"><LumiIcon class="tab-icon" name="circle-user-round" :size="24" /><text class="tab-label">我的</text></view>
     </view>
@@ -1598,8 +1598,11 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .cost-unit {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
   font-size: 10px;
-  color: var(--fg-muted);
+  color: var(--accent);
 }
 
 .prompt-box {
@@ -2302,8 +2305,11 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .drawer-cost-unit {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
   font-size: 10px;
-  color: var(--fg-muted);
+  color: var(--accent);
 }
 
 .drawer-selected-icon {

@@ -681,11 +681,11 @@ function showToast(title: string) {
         </template>
         <template v-else>
           <view class="bottom-action" :class="{ active: liked, pulse: likePulse }" @click="toggleLike">
-            <LumiIcon name="heart" :size="26" />
+            <LumiIcon :name="liked ? 'heart-filled' : 'heart'" :size="26" />
             <text>{{ likeCount }}</text>
           </view>
           <view class="bottom-action favorite" :class="{ active: favorited, pulse: favoritePulse }" @click="toggleFavorite">
-            <LumiIcon name="star" :size="26" />
+            <LumiIcon :name="favorited ? 'star-filled' : 'star'" :size="26" />
             <text>{{ favoriteCount }}</text>
           </view>
           <view class="remake-btn" role="button" aria-label="一键同款" hover-class="remake-btn-pressed" @click="remakeWork(work)">
@@ -701,11 +701,11 @@ function showToast(title: string) {
         <view class="sheet-handle" />
         <view class="long-actions">
           <view class="long-action" @click="toggleLike(); closeLongPressSheet()">
-            <view class="long-icon rose"><LumiIcon name="heart" :size="24" /></view>
+            <view class="long-icon rose"><LumiIcon :name="liked ? 'heart-filled' : 'heart'" :size="24" /></view>
             <text>点赞</text>
           </view>
           <view class="long-action" @click="toggleFavorite(); closeLongPressSheet()">
-            <view class="long-icon lemon"><LumiIcon name="star" :size="24" /></view>
+            <view class="long-icon lemon"><LumiIcon :name="favorited ? 'star-filled' : 'star'" :size="24" /></view>
             <text>收藏</text>
           </view>
           <view class="long-action" @click="shareWork">

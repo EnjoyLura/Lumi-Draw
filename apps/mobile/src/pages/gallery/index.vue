@@ -174,11 +174,6 @@ const canMoveSelectedToDraft = computed(() => selectedPublishedWorks.value.lengt
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const hasGenderIcon = computed(() => profile.value.gender === "female" || profile.value.gender === "male");
 const hasProfileData = computed(() => useMockData.value || profile.value.id > 0);
-const genderIcon = computed(() => {
-  if (profile.value.gender === "female") return "♀";
-  if (profile.value.gender === "male") return "♂";
-  return "";
-});
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "images", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
   if (renderedTab.value === "draft") return { icon: "file-text", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
@@ -790,11 +785,11 @@ function openWork(work: HomeWork) {
               <view class="profile-name">{{ profile.name }}</view>
               <view class="id-row">
                 <text class="profile-id">ID: {{ profile.userNo }}</text>
-                <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender">{{ genderIcon }}</view>
+                <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender"><LumiIcon :name="profile.gender === 'male' ? 'mars' : 'venus'" :size="15" /></view>
               </view>
               <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ profile.role }}</view>
             </view>
-            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="gem" :size="16" /><text class="points-value">{{ profile.points }}</text></view>
+            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>
@@ -874,7 +869,7 @@ function openWork(work: HomeWork) {
         <view v-else class="draft-tools">
           <view class="draft-tool" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
-          <view class="draft-tool" @click="toggleSort"><LumiIcon :name="sortDescending ? 'arrow-down' : 'arrow-up'" :size="18" /></view>
+          <view class="draft-tool" @click="toggleSort"><LumiIcon name="arrow-down-up" :size="19" /></view>
         </view>
         <view v-if="isMineMode" class="mine-work-tools">
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
@@ -928,7 +923,7 @@ function openWork(work: HomeWork) {
                     <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
                     <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
-                  <view v-if="work.published" class="likes"><LumiIcon name="heart" :size="13" />{{ work.likes }}</view>
+                  <view v-if="work.published" class="likes"><LumiIcon :name="work.liked ? 'heart-filled' : 'heart'" :size="13" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -946,7 +941,7 @@ function openWork(work: HomeWork) {
                     <view class="mini-avatar" :style="{ background: getWorkAuthor(work).color }">{{ getWorkAuthor(work).avatar }}</view>
                     <text class="author-name">{{ getWorkAuthor(work).name }}</text>
                   </view>
-                  <view v-if="work.published" class="likes"><LumiIcon name="heart" :size="13" />{{ work.likes }}</view>
+                  <view v-if="work.published" class="likes"><LumiIcon :name="work.liked ? 'heart-filled' : 'heart'" :size="13" />{{ work.likes }}</view>
                 </view>
               </view>
             </view>
@@ -998,7 +993,7 @@ function openWork(work: HomeWork) {
       <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
     </view>
 
-    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><LumiIcon name="plus" :size="24" /></view>
+    <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish"><view class="publish-icon"><LumiIcon name="plus" :size="24" /></view></view>
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">
@@ -1010,7 +1005,7 @@ function openWork(work: HomeWork) {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" :class="{ active: !isMineMode }" @click="goGallery">
@@ -2080,6 +2075,14 @@ function openWork(work: HomeWork) {
     0 4px 20px rgba(91, 159, 232, 0.32),
     0 2px 8px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(16px) saturate(180%);
+}
+
+.publish-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .tab-bar {

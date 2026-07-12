@@ -250,7 +250,7 @@ function showAgreement() {
                   <text class="plan-name">{{ plan.name }}</text>
                   <text v-if="plan.badge" class="save-tag">{{ plan.badge }}</text>
                 </view>
-                <view class="plan-desc">赠送 {{ plan.totalCredits }} 积分 · {{ plan.unitPrice }}</view>
+                <view class="plan-desc"><text>赠送 {{ plan.totalCredits }}</text><LumiIcon name="sparkles" :size="12" /><text>· {{ plan.unitPrice }}</text></view>
               </view>
             </view>
             <view class="plan-price">
@@ -539,6 +539,16 @@ function showAgreement() {
   margin-top: 2px;
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+.plan-desc {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.plan-desc .lumi-icon {
+  color: var(--accent);
 }
 
 .price {

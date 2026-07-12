@@ -77,12 +77,6 @@ const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) 
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
 const hasGenderIcon = computed(() => user.value.gender === "female" || user.value.gender === "male");
-const genderIcon = computed(() => {
-  if (user.value.gender === "female") return "♀";
-  if (user.value.gender === "male") return "♂";
-  return "";
-});
-
 onLoad((query) => {
   userId.value = resolveRouteId(query);
   lastMode = null;
@@ -341,7 +335,7 @@ async function confirmUnfollow() {
           <view class="user-name">{{ user.name }}</view>
           <view class="id-row">
             <text class="user-id">ID: LUMI{{ user.id }}</text>
-            <view v-if="hasGenderIcon" class="gender-tag" :class="user.gender">{{ genderIcon }}</view>
+            <view v-if="hasGenderIcon" class="gender-tag" :class="user.gender"><LumiIcon :name="user.gender === 'male' ? 'mars' : 'venus'" :size="15" /></view>
           </view>
           <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ user.role }}</view>
         </view>
@@ -382,7 +376,7 @@ async function confirmUnfollow() {
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
-                    <LumiIcon name="heart" :size="15" />
+                    <LumiIcon :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="15" />
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>
@@ -398,7 +392,7 @@ async function confirmUnfollow() {
                   <view class="mini-avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
                   <text class="work-author">{{ user.name }}</text>
                   <view class="like" :class="{ liked: likedWorkIds.has(work.id), pulse: pulseId === work.id }" @click="toggleLike($event, work.id)">
-                    <LumiIcon name="heart" :size="15" />
+                    <LumiIcon :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="15" />
                     <text>{{ displayLikeCount(work) }}</text>
                   </view>
                 </view>

@@ -213,7 +213,7 @@ async function save() {
           <view class="avatar-wrap" @click="pickAvatar">
             <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
             <view v-else class="avatar" :style="{ background: avatarColor }">{{ avatarText }}</view>
-            <view class="avatar-cam">{{ isUploading ? "..." : "●" }}</view>
+            <view class="avatar-cam"><text v-if="isUploading">...</text><LumiIcon v-else name="camera" :size="15" /></view>
           </view>
           <view class="avatar-tip">点击更换头像</view>
         </view>
@@ -260,7 +260,7 @@ async function save() {
           <view class="field-label">账号ID</view>
           <view class="lock-row">
             <input class="input locked" type="text" :value="accountId" disabled />
-            <view class="lock-icon">●</view>
+            <view class="lock-icon"><LumiIcon name="lock" :size="17" /></view>
           </view>
           <view class="lock-tip">账号ID不可修改</view>
         </view>
@@ -356,7 +356,9 @@ async function save() {
 
 .avatar-wrap {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .avatar {
@@ -378,8 +380,8 @@ async function save() {
 
 .avatar-cam {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: -5px;
+  bottom: -3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -488,6 +490,15 @@ async function save() {
 .lock-icon,
 .lock-tip {
   color: var(--fg-muted);
+}
+
+.lock-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
 }
 
 .lock-tip {

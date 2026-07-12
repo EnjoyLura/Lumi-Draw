@@ -800,7 +800,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <LumiIcon class="like-heart" name="heart" :size="16" />
+                      <LumiIcon class="like-heart" :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="16" />
                       <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
@@ -827,7 +827,7 @@ function getRatioClass(ratio: string) {
                       :class="{ liked: likedWorkIds.has(work.id) }"
                       @click.stop="toggleLike(work)"
                     >
-                      <LumiIcon class="like-heart" name="heart" :size="16" />
+                      <LumiIcon class="like-heart" :name="likedWorkIds.has(work.id) ? 'heart-filled' : 'heart'" :size="16" />
                       <text>{{ displayLikeCount(work) }}</text>
                     </view>
                   </view>
@@ -861,7 +861,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">

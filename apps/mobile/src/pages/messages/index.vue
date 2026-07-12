@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
+import LumiMessageCategoryIcon from "../../components/LumiMessageCategoryIcon.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
@@ -109,7 +110,9 @@ function openCategory(key: MessageCategoryKey) {
           <button class="retry-btn" @click.stop="loadMessages">重新加载</button>
         </view>
         <view v-for="category in categoryRows" :key="category.key" class="category-card" @click="openCategory(category.key)">
-          <view class="category-icon" :style="{ background: category.gradient }"><LumiIcon :name="category.icon" :size="22" /></view>
+          <view class="category-icon" :style="{ background: category.gradient }">
+            <LumiMessageCategoryIcon :type="category.key" :size="23" />
+          </view>
           <view class="category-main">
             <view class="category-head">
               <text class="category-title">{{ category.title }}</text>
