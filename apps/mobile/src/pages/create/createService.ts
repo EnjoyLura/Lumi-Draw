@@ -117,6 +117,11 @@ export interface CreateGenerateJobPayload {
   count: number;
 }
 
+const CREATE_CONFIG_TTL = 5 * 60_000;
+let cachedCreateConfig: CreateConfigView | undefined;
+let cachedCreateConfigAt = 0;
+let pendingCreateConfig: Promise<CreateConfigView> | undefined;
+
 export interface CreateGenerateJobResponse {
   jobId: string;
   status: BackendGenerateJob["status"];
@@ -155,8 +160,10 @@ function parseRatio(label: string, fallback: RatioOption): RatioOption {
 }
 
 export async function fetchCreateConfig(): Promise<CreateConfigView> {
-  const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
-  return {
+  if (cachedCreateConfig && Date.now() - cachedCreateConfigAt < CREATE_CONFIG_TTL) return cachedCreateConfig;
+  if (pendingCreateConfig) return pendingCreateConfig;
+
+  pendingCreateConfig = api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true }).then((data) => ({
     models: data.models.map((item, index) => {
       const fallback = mockModels.find((model) => model.name === item.name) ?? fallbackByIndex(mockModels, index);
       return {
@@ -194,7 +201,15 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
         uses: formatUses(item.uses, fallback.uses)
       };
     })
-  };
+  }));
+
+  try {
+    cachedCreateConfig = await pendingCreateConfig;
+    cachedCreateConfigAt = Date.now();
+    return cachedCreateConfig;
+  } finally {
+    pendingCreateConfig = undefined;
+  }
 }
 
 export function createDraftWork(payload: CreateDraftWorkPayload) {

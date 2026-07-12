@@ -11,6 +11,7 @@ import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteW
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
+import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -47,7 +48,7 @@ const workspaceTabs = computed(() =>
     ? ([{ key: "all", label: "全部" }, { key: "published", label: "已发布" }, { key: "favorite", label: "收藏" }] as const)
     : ([{ key: "draft", label: "草稿箱" }] as const)
 );
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const EMPTY_PROFILE: GalleryUser = {
@@ -139,8 +140,6 @@ let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
-let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}` : "";
-let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
 const modelOptions = computed(() => availableModels.value);
@@ -174,6 +173,7 @@ const selectedPublishedWorks = computed(() => selectedWorks.value.filter((work) 
 const canMoveSelectedToDraft = computed(() => selectedPublishedWorks.value.length > 0);
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const hasGenderIcon = computed(() => profile.value.gender === "female" || profile.value.gender === "male");
+const hasProfileData = computed(() => useMockData.value || profile.value.id > 0);
 const genderIcon = computed(() => {
   if (profile.value.gender === "female") return "♀";
   if (profile.value.gender === "male") return "♂";
@@ -186,11 +186,14 @@ const emptyInfo = computed(() => {
   return { icon: "□", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
 
-function refreshGalleryPage() {
-  const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
-  const changed = lastLoadKey !== loadKey;
-  lastLoadKey = loadKey;
-  if (changed || Date.now() - lastLoadedAt > 60_000) void reloadGalleryData();
+function galleryCacheKey() {
+  return `gallery:${props.pageMode}:${useMockData.value}:${isLoggedIn.value}:${currentUser.value?.id || 0}`;
+}
+
+function refreshGalleryPage(force = false) {
+  const key = galleryCacheKey();
+  if (force) invalidateTabPage(key);
+  return refreshTabPage(key, reloadGalleryData, { force, ttl: 60_000 });
 }
 
 function markInitialContentReady() {
@@ -201,10 +204,12 @@ function markInitialContentReady() {
   }, 0);
 }
 
-onShow(refreshGalleryPage);
+onShow(() => {
+  void refreshGalleryPage().catch(() => undefined);
+});
 
 onMounted(() => {
-  refreshGalleryPage();
+  void refreshGalleryPage().catch(() => undefined);
   void loadModelOptions();
   markInitialContentReady();
 });
@@ -226,7 +231,7 @@ async function loadModelOptions() {
 }
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === props.pageMode) refreshGalleryPage();
+  if (tab === props.pageMode) void refreshGalleryPage().catch(() => undefined);
 });
 
 onBeforeUnmount(() => {
@@ -412,10 +417,10 @@ async function reloadGalleryData() {
     profile.value = nextProfile;
     visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;
-    lastLoadedAt = Date.now();
-  } catch {
+  } catch (error) {
     if (!works.value.length) resetRealGalleryData();
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
+    throw error;
   } finally {
     isLoading.value = false;
     isPageRequesting.value = false;
@@ -492,7 +497,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await reloadGalleryData();
+    await refreshGalleryPage(true);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -776,7 +781,7 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-if="isMineMode && isInitialContentReady && isLoggedIn" class="profile-area">
+        <view v-if="isMineMode && isInitialContentReady && isLoggedIn && hasProfileData" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
               <view class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
@@ -825,7 +830,7 @@ function openWork(work: HomeWork) {
           </view>
         </view>
 
-        <view v-else-if="isMineMode && isInitialContentReady" class="gallery-login-prompt">
+        <view v-else-if="isMineMode && isInitialContentReady && !isLoggedIn" class="gallery-login-prompt">
           <view class="gallery-login-icon">▣</view>
           <view class="gallery-login-title">登录查看我的画廊</view>
           <view class="gallery-login-sub">登录后即可管理你的AI作品、草稿与创作记录</view>
