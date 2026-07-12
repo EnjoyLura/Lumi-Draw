@@ -1315,6 +1315,32 @@ function openWork(work: HomeWork) {
 
 .gallery-tabs-row.draft-toolbar-row { justify-content: flex-end; }
 
+.gallery-tabs-row.draft-toolbar-row {
+  position: relative;
+  width: 100vw;
+  max-width: 100vw;
+  height: 40px;
+  padding: 0;
+}
+
+.draft-toolbar-row .draft-tools {
+  position: absolute;
+  top: 4px;
+  right: 104px;
+  margin: 0;
+}
+
+.draft-toolbar-row .manage-btn {
+  position: absolute;
+  top: 5px;
+  right: 16px;
+  min-width: 76px;
+  padding-left: 14px;
+  margin: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
 .gallery-tabs {
   position: relative;
   display: flex;
