@@ -1733,20 +1733,17 @@ function openWork(work: HomeWork) {
 }
 
 .tab-item.center {
-  margin-top: -10px;
+  margin-top: 0;
 }
 
 .tab-item.center .tab-icon {
-  width: 40px;
-  height: 40px;
-  font-size: 24px;
-  color: #fff;
-  background: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 50%, #6fd4b0 100%);
-  border-radius: 50%;
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    inset 0 2px 4px rgba(255, 255, 255, 0.6),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.08);
+  width: 24px;
+  height: 24px;
+  font-size: 22px;
+  color: var(--tab-active);
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .tab-item.center .tab-label {

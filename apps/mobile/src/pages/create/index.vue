@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -858,10 +857,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 <template>
   <view class="create-page" :class="themeClass">
-    <LumiPageHeader title="创作" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
+        <view class="create-page-title">创作</view>
         <view v-if="!isLoggedIn" class="login-gate">
           <view class="login-gate-icon">✎</view>
           <view class="login-gate-title">登录后开始 AI 创作</view>
@@ -1282,7 +1281,15 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-content {
-  padding: 12px 0 calc(150px + env(safe-area-inset-bottom));
+  padding: 22px 0 calc(132px + env(safe-area-inset-bottom));
+}
+
+.create-page-title {
+  padding: 0 16px;
+  margin-bottom: 14px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--fg-primary);
 }
 
 .tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); border-top: 0.5px solid var(--border); backdrop-filter: blur(24px) saturate(180%); }
@@ -2017,7 +2024,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   bottom: var(--lumi-tabbar-height);
   left: 0;
   z-index: 5;
-  padding: 8px 16px 6px;
+  padding: 4px 16px 3px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
@@ -2027,7 +2034,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .create-bottom-inner {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
 .create-bottom-row {
@@ -2037,7 +2044,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .create-btn {
   flex: 1;
   width: 100%;
-  height: 42px;
+  height: 37px;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
