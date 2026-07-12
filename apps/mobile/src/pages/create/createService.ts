@@ -94,7 +94,7 @@ export interface BackendGenerateJob {
   ratio: string;
   quality: string;
   count: number;
-  status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
+  status: "queued" | "running" | "finalizing" | "succeeded" | "partial_failed" | "failed" | "cancelled";
   progress: number;
   stageText: string;
   costCredits: number;

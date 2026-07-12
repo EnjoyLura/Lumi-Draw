@@ -143,16 +143,26 @@ let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
 const modelOptions = computed(() => availableModels.value);
+function normalizeModelName(value?: string) {
+  return (value || "").toLowerCase().replace(/[\s_-]+/g, "");
+}
+
 const filteredWorks = computed(() => {
   let result = useMockData.value && renderedTab.value === "favorite"
     ? homeWorks.filter((work) => [1, 2, 4].includes(work.id)).map((work) => ({ ...work, favorited: true }))
     : works.value;
   if (renderedTab.value === "published") result = result.filter((work) => work.published);
+  if (isMineMode.value && renderedTab.value === "all") result = result.filter((work) => work.published);
   if (renderedTab.value === "draft") result = result.filter((work) => !work.published);
   if (renderedTab.value === "favorite") {
     result = result.filter((work) => work.favorited || work.liked || (useMockData.value && [3, 11].includes(work.id)));
   }
-  if (selectedModel.value !== "all") result = result.filter((work) => (work.modelName || "未标注模型") === selectedModel.value);
+  if (selectedModel.value !== "all") {
+    result = result.filter((work) => {
+      if (selectedModel.value === "未标注模型") return !work.modelName;
+      return normalizeModelName(work.modelName) === normalizeModelName(selectedModel.value);
+    });
+  }
   if (selectedStatus.value === "published") result = result.filter((work) => work.published);
   if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
   if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
@@ -176,7 +186,7 @@ const hasGenderIcon = computed(() => profile.value.gender === "female" || profil
 const hasProfileData = computed(() => useMockData.value || profile.value.id > 0);
 const emptyInfo = computed(() => {
   if (renderedTab.value === "published") return { icon: "images", title: "暂无已发布作品", sub: "创作完成后点击发布，让更多人看到" };
-  if (renderedTab.value === "draft") return { icon: "file-text", title: "暂无草稿", sub: "生成的作品会自动保存到草稿箱" };
+  if (renderedTab.value === "draft") return { icon: "images", title: "画廊暂无作品", sub: "生成的作品会自动保存到画廊" };
   if (renderedTab.value === "favorite") return { icon: "heart", title: "暂无收藏", sub: "收藏的优秀作品会显示在这里" };
   return { icon: "images", title: "还没有作品", sub: "去创作页生成你的第一幅AI画作吧" };
 });
@@ -200,7 +210,7 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
-  void refreshGalleryPage().catch(() => undefined);
+  void refreshGalleryPage(isMineMode.value).catch(() => undefined);
 });
 
 onMounted(() => {
@@ -226,7 +236,7 @@ async function loadModelOptions() {
 }
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === props.pageMode) void refreshGalleryPage().catch(() => undefined);
+  if (tab === props.pageMode) void refreshGalleryPage(isMineMode.value).catch(() => undefined);
 });
 
 onBeforeUnmount(() => {
@@ -239,6 +249,7 @@ onBeforeUnmount(() => {
 });
 
 function getStatusForTab(tab = renderedTab.value) {
+  if (isMineMode.value && tab === "all") return "published";
   if (tab === "published") return "published";
   if (tab === "draft") return "draft";
   return undefined;
@@ -300,7 +311,7 @@ async function loadUnreadMessages() {
 }
 
 async function loadGenerateTasks(scheduleNext = false) {
-  if (useMockData.value || !isLoggedIn.value) {
+  if (isMineMode.value || useMockData.value || !isLoggedIn.value) {
     if (genTaskTimer) clearTimeout(genTaskTimer);
     activeGenerateTaskIds = new Set();
     return;
@@ -354,7 +365,7 @@ async function handleGenerateTasksCompleted(ids: string[]) {
       renderKey.value += 1;
       uni.showModal({
         title: "生成完成",
-        content: "生成的作品已自动保存到草稿箱，可回到创作页查看结果，或在画廊草稿箱继续发布。",
+        content: "生成作品已自动保存到画廊，可在画廊发布和下载作品。",
         confirmText: "去创作页",
         cancelText: "留在画廊",
         success(result) {
@@ -877,7 +888,7 @@ function openWork(work: HomeWork) {
       </view>
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
-        <view v-if="genTasks.length" class="gen-cards">
+        <view v-if="!isMineMode && genTasks.length" class="gen-cards">
           <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
             <view class="shimmer-bg" />
             <view class="gen-inner">

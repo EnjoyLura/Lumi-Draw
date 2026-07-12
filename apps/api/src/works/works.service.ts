@@ -281,6 +281,11 @@ export class WorksService {
       this.prisma.work.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
+    const modelIds = Array.from(new Set(rows.map((work) => work.modelId).filter(Boolean)));
+    const models = modelIds.length
+      ? await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
+      : [];
+    const modelNames = new Map(models.map((model) => [model.id, model.name]));
     const items = rows.map((w) => ({
       id: w.id,
       imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
@@ -290,6 +295,8 @@ export class WorksService {
       isPublic: w.isPublic,
       likes: w.likes,
       favorites: w.favorites,
+      modelId: w.modelId,
+      modelName: modelNames.get(w.modelId) ?? w.modelId,
       createdAt: w.createdAt.toISOString()
     }));
     return buildPage(items, total, page, pageSize);

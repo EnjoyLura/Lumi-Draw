@@ -24,6 +24,7 @@ import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { goRootTab } from "../../services/tabNavigation";
+import { saveImageToDevice } from "../../services/imageSave";
 
 const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
@@ -133,15 +134,15 @@ const generationStages = [
   "构建画面：规划主体位置和背景层次",
   "生成图像：绘制主体内容与关键细节",
   "精修增强：优化光影、色彩和质感",
-  "保存草稿：同步生成结果到草稿箱"
+  "保存作品：同步生成结果到画廊"
 ];
 
 function generationStageText(progressValue: number, status?: BackendGenerateJob["status"]) {
   if (status === "queued") return generationStages[0];
   if (status === "failed") return "生成失败：积分已按规则退回";
   if (status === "cancelled") return "任务已取消：未消耗积分将退回";
-  if (status === "succeeded") return "生成完成：作品已保存到草稿箱";
-  if (status === "partial_failed") return "部分完成：成功结果已保存到草稿箱";
+  if (status === "succeeded") return "生成完成：作品已保存到画廊";
+  if (status === "partial_failed") return "部分完成：成功结果已保存到画廊";
 
   if (progressValue < 12) return generationStages[0];
   if (progressValue < 30) return generationStages[1];
@@ -609,8 +610,8 @@ function applyBackendJob(job: BackendGenerateJob) {
   };
 
   const autoSaved = job.results.some((item) => item.workId);
-  if (job.status === "succeeded") showToast(autoSaved ? "生成成功，已自动保存到草稿箱" : "生成成功");
-  else if (job.status === "partial_failed") showToast(autoSaved ? "部分图片已自动保存到草稿箱" : "部分图片生成成功");
+  if (job.status === "succeeded") showToast(autoSaved ? "生成成功，已自动保存到画廊" : "生成成功");
+  else if (job.status === "partial_failed") showToast(autoSaved ? "部分图片已自动保存到画廊" : "部分图片生成成功");
   else showToast(job.errorMessage || job.stageText || "生成失败，积分已按规则退回");
 }
 
@@ -802,21 +803,16 @@ function zoomPreview() {
 
 async function savePreview() {
   if (!previewData.value || isSavingDrafts.value) return;
-
-  if (useMockData.value) {
-    showToast("图片已保存到草稿箱");
+  isSavingDrafts.value = true;
+  try {
+    await saveImageToDevice(previewData.value.src, `lumi-generation-${Date.now()}.jpg`);
+    showToast("已保存到手机相册");
     closePreview();
-    return;
+  } catch {
+    showToast("保存失败，请检查相册权限");
+  } finally {
+    isSavingDrafts.value = false;
   }
-
-  if (!ensureLogin()) return;
-  if (previewData.value.savedWorkId) {
-    showToast("图片已在草稿箱");
-    closePreview();
-    return;
-  }
-
-  showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
 }
 
 async function saveAllResults() {
@@ -830,15 +826,15 @@ async function saveAllResults() {
   }
 
   if (useMockData.value) {
-    showToast("全部图片已保存到草稿箱");
+    showToast("图片已在画廊");
     return;
   }
 
   if (successfulResults.some((item) => !item.savedWorkId)) {
-    showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
+    showToast("生成结果正在同步到画廊，请稍后刷新查看");
     return;
   }
-  showToast("图片已在草稿箱");
+  showToast("图片已在画廊");
 }
 
 async function goPublish() {
@@ -848,7 +844,7 @@ async function goPublish() {
   }
   const draftId = generatedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
   if (!useMockData.value && !draftId) {
-    showToast("生成结果正在同步到草稿箱，请稍后刷新查看");
+    showToast("生成结果正在同步到画廊，请稍后刷新查看");
     return;
   }
   uni.navigateTo({ url: draftId ? `/pages/publish/index?draftId=${draftId}` : "/pages/publish/index" });
@@ -1067,7 +1063,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
               <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
-              <text>生成作品已自动保存为草稿，可在画廊草稿箱继续发布。</text>
+              <text>生成作品已自动保存到画廊，可在画廊发布和下载作品。</text>
             </view>
             <view class="result-actions">
               <button class="result-action ghost" @click="goPublish">
@@ -1076,7 +1072,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               </button>
               <button class="result-action primary" :disabled="isSavingDrafts" @click="saveAllResults">
                 <LumiIcon class="result-action-icon" name="download" :size="15" />
-                <text>{{ isSavingDrafts ? "保存中..." : allSuccessfulResultsSaved ? "已存草稿" : "全部保存" }}</text>
+                <text>{{ isSavingDrafts ? "保存中..." : allSuccessfulResultsSaved ? "已存画廊" : "全部保存" }}</text>
               </button>
             </view>
           </view>

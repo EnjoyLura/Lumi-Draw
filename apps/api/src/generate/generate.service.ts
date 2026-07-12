@@ -324,7 +324,7 @@ export class GenerateService {
       data: {
         status: event.status,
         progress: event.progress ?? (event.status === "running" ? Math.max(job.progress, 30) : job.progress),
-        stageText: event.stageText || "Generation is processing",
+        stageText: event.stageText || "AI 正在生成中",
         startedAt: job.startedAt ?? new Date()
       },
       include: { results: true }
@@ -448,6 +448,13 @@ export class GenerateService {
 
   private async finishJobWithDrafts(job: JobWithResults, results: GeneratedImage[], stageText: string) {
     return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.generateJob.updateMany({
+        where: { id: job.id, status: { in: ["queued", "running"] } },
+        data: { status: "finalizing", stageText: "正在保存作品" }
+      });
+      if (!claimed.count) {
+        return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+      }
       await tx.generateResult.deleteMany({ where: { jobId: job.id } });
       for (const [index, result] of results.entries()) {
         const work = await tx.work.create({
@@ -512,7 +519,7 @@ export class GenerateService {
       });
       const { balance } =
         refundCredits > 0
-          ? await this.credits.addTransactionInTx(tx, job.userId, "refund", refundCredits, "AI generation failed refund", job.id)
+          ? await this.credits.addTransactionInTx(tx, job.userId, "refund", refundCredits, "AI生成任务失败返还", job.id)
           : { balance: (await tx.user.findUniqueOrThrow({ where: { id: job.userId }, select: { credits: true } })).credits };
       return { job: updated, balance };
     });

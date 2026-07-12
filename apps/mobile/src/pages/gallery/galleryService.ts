@@ -26,6 +26,7 @@ interface BackendWork {
   status: string;
   isPublic: boolean;
   likes: number;
+  modelId?: string;
   modelName?: string;
 }
 
@@ -45,7 +46,7 @@ interface BackendGenerateJob {
   count: number;
   ratio: string;
   quality: string;
-  status: "queued" | "running" | "succeeded" | "partial_failed" | "failed" | "cancelled";
+  status: "queued" | "running" | "finalizing" | "succeeded" | "partial_failed" | "failed" | "cancelled";
   progress: number;
   stageText: string;
   createdAt: string;
@@ -93,7 +94,7 @@ function toHomeWork(item: BackendWork): HomeWork {
     likes: item.likes,
     published: item.status === "published" && item.isPublic,
     status: item.status,
-    modelName: item.modelName
+    modelName: item.modelName || item.modelId
   };
 }
 
@@ -133,6 +134,7 @@ function elapsedSeconds(createdAt: string) {
 }
 
 function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
+  const stage = job.stageText === "Generation is processing" ? "AI 正在生成中" : job.stageText;
   return {
     id: job.id,
     prompt: job.prompt,
@@ -142,7 +144,7 @@ function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
     quality: job.quality,
     percent: Math.max(0, Math.min(job.progress || (job.status === "queued" ? 2 : 10), 99)),
     elapsed: elapsedSeconds(job.createdAt),
-    stage: job.stageText || (job.status === "queued" ? "排队中..." : "AI绘制中...")
+    stage: stage || (job.status === "queued" ? "排队中..." : job.status === "finalizing" ? "正在保存作品..." : "AI绘制中...")
   };
 }
 
@@ -153,7 +155,7 @@ async function fetchGenerateJobsByStatuses(statuses: BackendGenerateJob["status"
 }
 
 export async function fetchGalleryGenerateTasks() {
-  const items = await fetchGenerateJobsByStatuses(["running", "queued"]);
+  const items = await fetchGenerateJobsByStatuses(["running", "queued", "finalizing"]);
   return items
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map(toGalleryGenTask);

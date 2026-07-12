@@ -19,6 +19,8 @@ import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "./workDetailService";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
+import { saveImageToDevice } from "../../services/imageSave";
+import { goRootTab } from "../../services/tabNavigation";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -380,63 +382,13 @@ function shareWork() {
   });
 }
 
-function saveImageInBrowser(url: string) {
-  if (typeof document === "undefined") return false;
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `lumi-work-${work.value?.id || Date.now()}.jpg`;
-  anchor.target = "_blank";
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-  return true;
-}
-
-function saveImageToAlbum(filePath: string) {
-  return new Promise<void>((resolve, reject) => {
-    uni.saveImageToPhotosAlbum({
-      filePath,
-      success() {
-        resolve();
-      },
-      fail(error) {
-        reject(error);
-      }
-    });
-  });
-}
-
-function downloadImage(url: string) {
-  return new Promise<string>((resolve, reject) => {
-    uni.downloadFile({
-      url,
-      success(result) {
-        if (result.statusCode >= 200 && result.statusCode < 300 && result.tempFilePath) {
-          resolve(result.tempFilePath);
-          return;
-        }
-        reject(new Error("download failed"));
-      },
-      fail(error) {
-        reject(error);
-      }
-    });
-  });
-}
-
 async function saveWorkImage() {
   if (!work.value) return;
-  if (saveImageInBrowser(work.value.image)) {
-    uni.showToast({ title: "图片下载已开始", icon: "none" });
-    return;
-  }
-
   try {
-    const filePath = await downloadImage(work.value.image);
-    await saveImageToAlbum(filePath);
+    await saveImageToDevice(work.value.image, `lumi-work-${work.value.id}.jpg`);
     uni.showToast({ title: "已保存到相册", icon: "none" });
   } catch {
-    uni.showToast({ title: "保存失败，请长按图片保存", icon: "none" });
+    uni.showToast({ title: "保存失败，请检查相册权限", icon: "none" });
   }
 }
 
@@ -458,9 +410,7 @@ async function remakeWork(current: DetailWork) {
   ]
     .filter(Boolean)
     .join("&");
-  uni.navigateTo({
-    url: `/pages/create/index?${query}`
-  });
+  goRootTab(`/pages/create/index?${query}`);
 }
 
 function openDetailManage() {

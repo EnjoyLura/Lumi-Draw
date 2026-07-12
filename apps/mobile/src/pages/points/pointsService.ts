@@ -110,6 +110,7 @@ function formatDate(value: string) {
 }
 
 function recordTitle(record: CreditRecord) {
+  if (record.reason === "AI generation failed refund") return "AI生成任务失败返还";
   if (record.reason) return record.reason;
   const titleMap: Record<string, string> = {
     recharge: "积分充值",
