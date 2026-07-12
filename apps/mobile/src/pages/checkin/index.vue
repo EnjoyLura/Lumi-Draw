@@ -19,6 +19,7 @@ const currentYear = currentDate.getFullYear();
 const currentMonth = currentDate.getMonth() + 1;
 const currentDay = currentDate.getDate();
 const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
+const firstWeekdayOfMonth = new Date(currentYear, currentMonth - 1, 1).getDay();
 const monthTitle = `${currentYear}年${currentMonth}月`;
 
 const checkinDone = ref(false);
@@ -61,15 +62,28 @@ const calendarDays = computed(() => {
       .filter((day) => startDay > 0 && day >= startDay && day <= daysInCurrentMonth)
   );
 
-  return Array.from({ length: daysInCurrentMonth }, (_, index) => {
+  const days = Array.from({ length: daysInCurrentMonth }, (_, index) => {
     const day = index + 1;
     return {
+      key: `day-${day}`,
       day,
       signed: signedDays.value.includes(day),
       today: day === currentDay,
-      milestone: milestoneDays.has(day)
+      milestone: milestoneDays.has(day),
+      placeholder: false
     };
   });
+
+  const placeholders = Array.from({ length: firstWeekdayOfMonth }, (_, index) => ({
+    key: `placeholder-${index}`,
+    day: 0,
+    signed: false,
+    today: false,
+    milestone: false,
+    placeholder: true
+  }));
+
+  return [...placeholders, ...days];
 });
 
 onShow(() => {
@@ -211,7 +225,13 @@ function claimMilestone(item: Milestone) {
 
       <view v-else class="page-content">
         <view class="streak-card">
-          <view class="streak-label">{{ isLoading ? "同步签到状态中" : "已连续签到" }}</view>
+          <view class="streak-head">
+            <view class="streak-label">{{ isLoading ? "同步签到状态中" : "已连续签到" }}</view>
+            <view class="today-reward">
+              <LumiIcon name="sparkles-filled" :size="13" />
+              <text>今日 +{{ nextCredits }}</text>
+            </view>
+          </view>
           <view class="streak-num" :class="{ pulse: streakPulse }">
             <text>{{ checkinStreak }}</text>
             <text class="streak-unit">天</text>
@@ -235,13 +255,22 @@ function claimMilestone(item: Milestone) {
             :class="milestoneStates[item.days]"
             @click="claimMilestone(item)"
           >
+            <view class="milestone-icon" :class="milestoneStates[item.days]">
+              <LumiIcon name="gift-filled" :size="16" />
+            </view>
             <view class="milestone-days">{{ item.days }}天</view>
-            <view class="milestone-reward">+{{ item.reward }}</view>
+            <view class="milestone-reward">
+              <LumiIcon name="sparkles-filled" :size="11" />
+              <text>+{{ item.reward }}</text>
+            </view>
             <view class="state-tag" :class="milestoneStates[item.days]">{{ stateText(milestoneStates[item.days]) }}</view>
           </view>
         </view>
 
-        <view class="section-title plain">本月签到</view>
+        <view class="section-title section-title-row">
+          <text>本月签到</text>
+          <text class="month-count">已签到 {{ signedDays.length }} 天</text>
+        </view>
         <view class="calendar-card">
           <view class="month-row">
             <text>{{ monthTitle }}</text>
@@ -258,16 +287,17 @@ function claimMilestone(item: Milestone) {
           <view class="calendar-grid">
             <view
               v-for="item in calendarDays"
-              :key="item.day"
+              :key="item.key"
               class="cal-day"
               :class="{
+                placeholder: item.placeholder,
                 signed: item.signed,
                 today: item.today && !item.signed,
                 milestone: item.milestone,
                 pulse: todayPulse && item.day === currentDay
               }"
             >
-              <text>{{ item.day }}</text>
+              <text v-if="!item.placeholder">{{ item.day }}</text>
               <LumiIcon v-if="item.milestone" class="cal-gift" name="gift-filled" :size="11" />
             </view>
           </view>
@@ -313,13 +343,21 @@ function claimMilestone(item: Milestone) {
 
 .streak-card {
   position: relative;
-  padding: 24px 22px 26px;
+  padding: 20px 20px 22px;
   margin-bottom: 18px;
   overflow: hidden;
   text-align: center;
   background:
     radial-gradient(circle at 18% 10%, rgba(111, 212, 176, 0.22), transparent 34%),
     linear-gradient(135deg, rgba(232, 244, 255, 0.98), rgba(255, 255, 255, 0.88));
+}
+
+.streak-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .checkin-page.theme-dark .streak-card,
@@ -346,11 +384,24 @@ function claimMilestone(item: Milestone) {
   border-radius: 999px;
 }
 
+.today-reward {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+
 .streak-num {
   position: relative;
   z-index: 1;
-  margin-top: 8px;
-  font-size: 62px;
+  margin-top: 2px;
+  font-size: 58px;
   font-weight: 700;
   line-height: 1.2;
   color: var(--accent);
@@ -375,8 +426,8 @@ function claimMilestone(item: Milestone) {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 50px;
-  margin-top: 18px;
+  height: 46px;
+  margin-top: 12px;
   font-size: 16px;
   font-weight: 700;
   color: #fff;
@@ -408,6 +459,16 @@ function claimMilestone(item: Milestone) {
   display: block;
 }
 
+.section-title-row {
+  justify-content: space-between;
+}
+
+.month-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
 .gift-icon {
   font-size: 16px;
   color: var(--mint);
@@ -422,8 +483,8 @@ function claimMilestone(item: Milestone) {
 
 .milestone-card {
   position: relative;
-  min-height: 86px;
-  padding: 13px 8px 12px;
+  min-height: 112px;
+  padding: 10px 6px;
   overflow: hidden;
   text-align: center;
   border-radius: 12px;
@@ -447,8 +508,12 @@ function claimMilestone(item: Milestone) {
 }
 
 .milestone-reward {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
   margin-top: 5px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -556,6 +621,32 @@ function claimMilestone(item: Milestone) {
   line-height: 1;
   color: var(--peach);
   pointer-events: none;
+}
+
+.cal-day.placeholder {
+  visibility: hidden;
+}
+
+.milestone-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 6px;
+  color: var(--fg-muted);
+  background: var(--bg-secondary);
+  border-radius: 9px;
+}
+
+.milestone-icon.claimed {
+  color: var(--mint);
+  background: rgba(111, 212, 176, 0.14);
+}
+
+.milestone-icon.available {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .credits-icon {
