@@ -70,6 +70,7 @@ type SideQuick = {
   label: string;
   url: string;
   gradient: string;
+  color: string;
 };
 
 type SideRow = {
@@ -115,10 +116,10 @@ const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
-  { icon: "💎", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
-  { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
+  { icon: "◆", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)", color: "var(--accent)" },
+  { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)", color: "var(--rose)" },
+  { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)", color: "var(--lavender)" },
+  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)", color: "var(--mint)" }
 ];
 const sideRows = ref<SideRow[]>([
   { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
@@ -793,11 +794,11 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">关注</text>
               </view>
             </view>
-            <button class="edit-btn" @click="goEditProfile">编辑资料</button>
+            <button class="edit-btn" @click="goEditProfile"><text class="edit-icon">✎</text>编辑资料</button>
           </view>
           <view class="profile-quick-grid">
             <view v-for="item in sideQuickActions" :key="item.label" class="profile-quick-item" @click="navigateSide(item.url)">
-              <view class="profile-quick-icon" :style="{ background: item.gradient }">{{ item.icon }}</view>
+              <view class="profile-quick-icon" :style="{ color: item.color }">{{ item.icon }}</view>
               <text>{{ item.label }}</text>
             </view>
           </view>
@@ -1361,9 +1362,22 @@ function openWork(work: HomeWork) {
 }
 
 .edit-btn {
-  color: #fff;
-  background: var(--accent);
-  border-radius: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--fg-secondary);
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+}
+
+.edit-btn::after {
+  border: 0;
+}
+
+.edit-icon {
+  font-size: 14px;
+  color: var(--accent);
 }
 
 .gallery-tabs-row {
@@ -1519,7 +1533,7 @@ function openWork(work: HomeWork) {
 .profile-quick-item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   font-size: 11px;
   color: var(--fg-secondary);
@@ -1529,10 +1543,12 @@ function openWork(work: HomeWork) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  color: #fff;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
+  background: var(--bg-soft);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
 }
 
 .manage-btn::after {
