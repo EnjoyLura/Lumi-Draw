@@ -246,6 +246,9 @@ async function login() {
   top: 8px;
   right: 8px;
   z-index: 5;
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
   padding: 3px 8px;
   font-size: 10px;
   font-weight: 600;

@@ -1287,6 +1287,8 @@ function openWork(work: HomeWork) {
 
 .role-tag {
   display: inline-flex;
+  gap: 3px;
+  align-items: center;
   margin-top: 6px;
   padding: 3px 9px;
   font-size: 12px;
@@ -1918,6 +1920,9 @@ function openWork(work: HomeWork) {
 }
 
 .likes {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--fg-muted);

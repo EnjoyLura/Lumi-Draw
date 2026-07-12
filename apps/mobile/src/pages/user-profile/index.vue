@@ -553,6 +553,7 @@ async function confirmUnfollow() {
 
 .role-tag {
   display: inline-flex;
+  gap: 3px;
   align-items: center;
   align-self: flex-start;
   margin-top: 6px;

@@ -10,6 +10,9 @@ withDefaults(defineProps<{ name: string; size?: number }>(), { size: 20 });
 .lumi-icon {
   display: inline-block;
   flex: 0 0 auto;
+  align-self: center;
+  line-height: 1;
+  vertical-align: middle;
   background-color: currentColor;
   -webkit-mask: var(--lumi-icon) center / contain no-repeat;
   mask: var(--lumi-icon) center / contain no-repeat;

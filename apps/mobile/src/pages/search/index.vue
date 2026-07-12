@@ -602,6 +602,9 @@ function handleReachBottom() {
 }
 
 .likes {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
   font-size: 13px;
   font-weight: 600;
   color: var(--fg-muted);

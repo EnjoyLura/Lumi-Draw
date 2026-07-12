@@ -497,13 +497,17 @@ async function submit() {
 }
 
 .submit-btn {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 50px;
   margin-top: 8px;
   margin-bottom: 20px;
   font-size: 16px;
   font-weight: 700;
-  line-height: 50px;
+  line-height: 1;
   color: #fff;
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;

@@ -1448,6 +1448,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .more-link {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
   font-size: 14px;
   font-weight: 600;
   color: var(--accent);
@@ -1638,6 +1641,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .prompt-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 500;
@@ -2077,6 +2083,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .create-btn {
   display: flex;
   flex: 1;
+  gap: 3px;
   align-items: center;
   justify-content: center;
   width: 100%;
