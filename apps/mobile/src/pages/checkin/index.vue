@@ -58,7 +58,7 @@ const calendarDays = computed(() => {
   const milestoneDays = new Set(
     milestones
       .map((item) => startDay + item.days - 1)
-      .filter((day) => startDay > 0 && day >= startDay && day <= endDay && day <= daysInCurrentMonth)
+      .filter((day) => startDay > 0 && day >= startDay && day <= daysInCurrentMonth)
   );
 
   return Array.from({ length: daysInCurrentMonth }, (_, index) => {
