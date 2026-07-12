@@ -29,6 +29,7 @@ const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
 const statusBarHeight = navigationMetrics.statusBarHeight;
 const navigationBarHeight = navigationMetrics.navigationBarHeight;
+const bottomSafeArea = navigationMetrics.bottomSafeArea;
 const props = defineProps<{ routeQuery?: Record<string, string> }>();
 
 const EMPTY_MODEL: CreateModel = {
@@ -860,7 +861,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 </script>
 
 <template>
-  <view class="create-page" :class="themeClass">
+  <view class="create-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
     <view class="create-nav-header">
       <view class="status-spacer" :style="{ height: `${statusBarHeight}px` }" />
       <view class="create-nav-row" :style="{ height: `${navigationBarHeight}px` }">
@@ -1248,12 +1249,13 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <view class="tab-item" @click="goGallery"><text class="tab-icon">□</text><text class="tab-label">画廊</text></view>
       <view class="tab-item" @click="goMine"><text class="tab-icon">☺</text><text class="tab-label">我的</text></view>
     </view>
+    <view class="bottom-safe-area" />
   </view>
 </template>
 
 <style scoped>
 .create-page {
-  --lumi-tabbar-height: calc(56px + env(safe-area-inset-bottom));
+  --lumi-tabbar-height: calc(56px + var(--lumi-safe-bottom, 0px));
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1313,7 +1315,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   text-align: center;
 }
 
-.tab-bar { position: absolute; right: 0; bottom: 0; left: 0; z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); border-top: 0; box-shadow: none; backdrop-filter: blur(24px) saturate(180%); }
+.tab-bar { position: absolute; right: 0; bottom: var(--lumi-safe-bottom, 0px); left: 0; z-index: 80; display: flex; align-items: center; justify-content: space-around; height: 56px; padding-bottom: 0; box-sizing: border-box; background: var(--bg-base); border-top: 0; box-shadow: none; backdrop-filter: none; }
+.bottom-safe-area { position: absolute; right: 0; bottom: 0; left: 0; z-index: 80; height: var(--lumi-safe-bottom, 0px); pointer-events: none; background: var(--bg-base); box-shadow: none; }
 .tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
@@ -2046,10 +2049,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
   left: 0;
   z-index: 5;
   padding: 4px 16px 3px;
-  background: var(--bg-glass);
-  border-top: 0.5px solid var(--border);
+  background: var(--bg-base);
+  border-top: 0;
   box-shadow: none;
-  backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: none;
 }
 
 .create-bottom-inner {

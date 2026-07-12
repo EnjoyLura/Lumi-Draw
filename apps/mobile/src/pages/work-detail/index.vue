@@ -18,8 +18,10 @@ import {
 import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "./workDetailService";
 import { useTheme } from "../../services/theme";
+import { getNavigationMetrics } from "../../services/navigationMetrics";
 
 const { themeClass } = useTheme();
+const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
 
 const workId = ref(1);
 const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -582,7 +584,7 @@ function showToast(title: string) {
 </script>
 
 <template>
-  <view class="detail-page" :class="themeClass">
+  <view class="detail-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
     <LumiPageHeader title="作品详情" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <template v-else-if="work && user">
@@ -692,6 +694,7 @@ function showToast(title: string) {
           </button>
         </template>
       </view>
+      <view class="bottom-safe-area" />
 
       <view class="sheet-overlay" :class="{ show: longPressOpen }" @click="closeLongPressSheet" />
       <view class="long-press-sheet" :class="{ show: longPressOpen }">
@@ -773,7 +776,7 @@ function showToast(title: string) {
 
 <style scoped>
 .detail-page {
-  --lumi-detail-action-height: calc(72px + env(safe-area-inset-bottom));
+  --lumi-detail-action-height: calc(72px + var(--lumi-safe-bottom, 0px));
   position: relative;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
@@ -1044,19 +1047,31 @@ function showToast(title: string) {
 .detail-bottom {
   position: absolute;
   right: 0;
-  bottom: 0;
+  bottom: var(--lumi-safe-bottom, 0px);
   left: 0;
   z-index: 20;
   display: flex;
   gap: 16px;
   align-items: center;
-  height: var(--lumi-detail-action-height);
-  padding: 14px 16px env(safe-area-inset-bottom);
+  height: 72px;
+  padding: 14px 16px;
   box-sizing: border-box;
-  background: var(--bg-glass);
-  border-top: 0.5px solid var(--border);
+  background: var(--bg-base);
+  border-top: 0;
   box-shadow: none;
-  backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: none;
+}
+
+.bottom-safe-area {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  height: var(--lumi-safe-bottom, 0px);
+  pointer-events: none;
+  background: var(--bg-base);
+  box-shadow: none;
 }
 
 .detail-bottom.own {
