@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -857,6 +858,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 <template>
   <view class="create-page" :class="themeClass">
+    <LumiPageHeader title="创作" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
@@ -1080,12 +1082,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <view class="create-bottom">
       <view class="create-bottom-inner">
         <view class="create-bottom-row">
-          <view class="cost-wrap">
-            <text class="bottom-cost">{{ totalCost }}</text>
-            <text class="bottom-unit">积分</text>
-          </view>
           <button class="create-btn" :class="{ disabled: !isLoggedIn }" @click="startGenerate">
-            {{ isLoggedIn ? "✦ 开始创作" : "→ 登录后创作" }}
+            {{ isLoggedIn ? `立即生成 · ✦ ${totalCost}` : "登录后创作" }}
           </button>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
@@ -1238,7 +1236,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <view class="tab-bar">
       <view class="tab-item" @click="goHome"><text class="tab-icon">⌂</text><text class="tab-label">首页</text></view>
       <view class="tab-item" @click="goPlaza"><text class="tab-icon">◇</text><text class="tab-label">广场</text></view>
-      <view class="tab-item center active"><text class="tab-icon">✦</text><text class="tab-label">创作</text></view>
+      <view class="tab-item active"><text class="tab-icon">✦</text><text class="tab-label">创作</text></view>
       <view class="tab-item" @click="goGallery"><text class="tab-icon">□</text><text class="tab-label">画廊</text></view>
       <view class="tab-item" @click="goMine"><text class="tab-icon">☺</text><text class="tab-label">我的</text></view>
     </view>
@@ -1284,7 +1282,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-content {
-  padding: 42px 0 calc(184px + env(safe-area-inset-bottom));
+  padding: 12px 0 calc(150px + env(safe-area-inset-bottom));
 }
 
 .tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); border-top: 0.5px solid var(--border); backdrop-filter: blur(24px) saturate(180%); }
@@ -1292,9 +1290,6 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
 .tab-item.active .tab-icon, .tab-item.active .tab-label { color: var(--tab-active); }
-.tab-item.center { margin-top: -10px; }
-.tab-item.center .tab-icon { width: 40px; height: 40px; font-size: 24px; color: #fff; background: linear-gradient(135deg, #b8a5e3 0%, #5b9fe8 50%, #6fd4b0 100%); border-radius: 50%; }
-.tab-item.center .tab-label { margin-top: 2px; }
 
 .login-gate {
   display: flex;
@@ -2022,7 +2017,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   bottom: var(--lumi-tabbar-height);
   left: 0;
   z-index: 5;
-  padding: 12px 16px 14px;
+  padding: 8px 16px 6px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
   box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
@@ -2036,32 +2031,13 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-bottom-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.cost-wrap {
-  display: flex;
-  gap: 4px;
-  align-items: baseline;
-  white-space: nowrap;
-}
-
-.bottom-cost {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.bottom-unit {
-  font-size: 12px;
-  color: var(--fg-muted);
+  display: block;
 }
 
 .create-btn {
   flex: 1;
-  height: 44px;
+  width: 100%;
+  height: 42px;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
