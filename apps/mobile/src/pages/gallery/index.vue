@@ -944,13 +944,14 @@ function openWork(work: HomeWork) {
         </view>
       </view>
 
-      <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
-        <text class="selected-count">已选择 {{ selectedCount }} 项</text>
-        <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
-        <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">回草稿</button>
-        <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
-      </view>
     </scroll-view>
+
+    <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
+      <text class="selected-count">已选择 {{ selectedCount }} 项</text>
+      <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
+      <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">回草稿</button>
+      <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
+    </view>
 
     <view class="filter-overlay" :class="{ show: filterOpen }" @click="filterOpen = false" />
     <view class="filter-sheet" :class="{ show: filterOpen }">
@@ -1028,7 +1029,7 @@ function openWork(work: HomeWork) {
 
 .gallery-scroll {
   position: absolute;
-  inset: 0 0 80px;
+  inset: 0 0 var(--lumi-tabbar-height);
   z-index: 1;
   box-sizing: border-box;
   -ms-overflow-style: none;
@@ -1511,8 +1512,8 @@ function openWork(work: HomeWork) {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  padding-top: 16px;
-  margin-top: 16px;
+  padding-top: 4px;
+  margin-top: 4px;
 }
 
 .profile-quick-item {
@@ -1540,7 +1541,7 @@ function openWork(work: HomeWork) {
 
 .manage-btn.active {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: transparent;
 }
 
 .gallery-content {
@@ -1900,31 +1901,30 @@ function openWork(work: HomeWork) {
 }
 
 .manage-bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 50;
+  position: absolute;
+  right: 0;
+  bottom: var(--lumi-tabbar-height);
+  left: 0;
+  z-index: 79;
   display: flex;
   gap: 8px;
   align-items: center;
-  max-height: 0;
-  padding: 0 16px;
-  overflow: hidden;
+  height: 60px;
+  padding: 8px 16px;
+  box-sizing: border-box;
   pointer-events: none;
   background: var(--bg-glass);
   border-top: 0;
   opacity: 0;
-  transition:
-    max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 0.25s ease,
-    padding 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
   backdrop-filter: blur(16px);
 }
 
 .manage-bar.show {
-  max-height: 60px;
-  padding: 8px 16px;
   pointer-events: auto;
   opacity: 1;
+  transform: translateY(0);
 }
 
 .selected-count {
