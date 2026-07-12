@@ -70,7 +70,6 @@ type SideQuick = {
   label: string;
   url: string;
   gradient: string;
-  color: string;
 };
 
 type SideRow = {
@@ -116,10 +115,10 @@ const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
-  { icon: "◆", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)", color: "var(--accent)" },
-  { icon: "✓", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)", color: "var(--rose)" },
-  { icon: "★", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)", color: "var(--lavender)" },
-  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)", color: "var(--mint)" }
+  { icon: "◇", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
+  { icon: "◷", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
+  { icon: "♕", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
+  { icon: "↗", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
 ];
 const sideRows = ref<SideRow[]>([
   { icon: "✦", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
@@ -768,10 +767,7 @@ function openWork(work: HomeWork) {
                 <text class="profile-id">ID: {{ profile.userNo }}</text>
                 <view v-if="hasGenderIcon" class="gender-tag" :class="profile.gender">{{ genderIcon }}</view>
               </view>
-              <view class="role-actions">
-                <view class="role-tag">✦ {{ profile.role }}</view>
-                <view class="edit-profile-link" @click="goEditProfile"><text>✎</text><text>编辑</text></view>
-              </view>
+              <view class="role-tag">✦ {{ profile.role }}</view>
             </view>
             <view class="points-pill" @click="goRecharge"><text class="points-gem">◆</text><text class="points-value">{{ profile.points }}</text></view>
           </view>
@@ -797,10 +793,11 @@ function openWork(work: HomeWork) {
                 <text class="stat-label">关注</text>
               </view>
             </view>
+            <button class="edit-home-btn" @click="goEditProfile">编辑主页</button>
           </view>
           <view class="profile-quick-grid">
             <view v-for="item in sideQuickActions" :key="item.label" class="profile-quick-item" @click="navigateSide(item.url)">
-              <view class="profile-quick-icon" :style="{ color: item.color }">{{ item.icon }}</view>
+              <view class="profile-quick-icon">{{ item.icon }}</view>
               <text>{{ item.label }}</text>
             </view>
           </view>
@@ -1257,6 +1254,7 @@ function openWork(work: HomeWork) {
 
 .role-tag {
   display: inline-flex;
+  margin-top: 6px;
   padding: 3px 9px;
   font-size: 12px;
   color: #8470c7;
@@ -1266,6 +1264,7 @@ function openWork(work: HomeWork) {
 
 .stats-row {
   display: flex;
+  gap: 10px;
   align-items: center;
   padding: 14px 16px 10px;
 }
@@ -1330,6 +1329,25 @@ function openWork(work: HomeWork) {
   align-items: center;
 }
 
+.edit-home-btn {
+  flex: 0 0 auto;
+  width: 86px;
+  height: 42px;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 42px;
+  color: var(--fg-primary);
+  background: var(--bg-soft);
+  border: 0;
+  border-radius: 8px;
+}
+
+.edit-home-btn::after {
+  border: 0;
+}
+
 .stat {
   display: flex;
   flex-direction: column;
@@ -1364,26 +1382,6 @@ function openWork(work: HomeWork) {
   font-size: 11px;
   color: var(--fg-muted);
   white-space: nowrap;
-}
-
-.role-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-top: 6px;
-}
-
-.edit-profile-link {
-  display: flex;
-  gap: 3px;
-  align-items: center;
-  padding: 3px 0;
-  font-size: 11px;
-  color: var(--fg-muted);
-}
-
-.edit-profile-link text:first-child {
-  color: var(--accent);
 }
 
 .gallery-tabs-row {
@@ -1531,41 +1529,29 @@ function openWork(work: HomeWork) {
 .profile-quick-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  padding: 8px 4px;
-  margin: 0 16px 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  margin: 0 4px 6px;
 }
 
 .profile-quick-item {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  font-size: 11px;
-  color: var(--fg-secondary);
-}
-
-.profile-quick-item:not(:last-child)::after {
-  position: absolute;
-  top: 7px;
-  right: 0;
-  width: 1px;
-  height: 28px;
-  content: "";
-  background: var(--border);
+  font-size: 12px;
+  color: var(--fg-primary);
 }
 
 .profile-quick-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
+  width: 34px;
+  height: 34px;
+  font-size: 25px;
+  color: var(--fg-primary);
   background: transparent;
   border: 0;
   border-radius: 50%;
