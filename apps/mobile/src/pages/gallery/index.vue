@@ -6,6 +6,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
@@ -81,15 +82,13 @@ type SideRow = {
 };
 
 const statusBarHeight = ref(0);
+const navigationBarHeight = ref(50);
 const navInviteRight = ref(100);
-try {
-  const systemInfo = uni.getSystemInfoSync();
-  statusBarHeight.value = systemInfo.statusBarHeight ?? 0;
-  const getMenuRect = (uni as UniApp.Uni & { getMenuButtonBoundingClientRect?: () => { left: number } }).getMenuButtonBoundingClientRect;
-  const menuRect = getMenuRect?.();
-  if (menuRect?.left && systemInfo.windowWidth) navInviteRight.value = systemInfo.windowWidth - menuRect.left + 8;
-} catch {
-  statusBarHeight.value = 0;
+const navigationMetrics = getNavigationMetrics();
+statusBarHeight.value = navigationMetrics.statusBarHeight;
+navigationBarHeight.value = navigationMetrics.navigationBarHeight;
+if (navigationMetrics.menuButtonLeft && navigationMetrics.windowWidth) {
+  navInviteRight.value = navigationMetrics.windowWidth - navigationMetrics.menuButtonLeft + 8;
 }
 
 const activeTab = ref<GalleryTab>("all");
@@ -754,7 +753,7 @@ function openWork(work: HomeWork) {
       <view class="header-bg">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
-          <view class="nav-row">
+          <view class="nav-row" :style="{ height: `${navigationBarHeight}px` }">
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
               <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
@@ -864,7 +863,7 @@ function openWork(work: HomeWork) {
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
-          {{ manageMode ? "✓ 完成" : "☷ 管理" }}
+          <text class="secondary-icon">{{ manageMode ? "✓" : "☷" }}</text><text>{{ manageMode ? "完成" : "管理" }}</text>
         </button>
       </view>
 
@@ -1082,18 +1081,11 @@ function openWork(work: HomeWork) {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
   min-width: 28px;
   height: 28px;
   font-size: 22px;
   color: var(--fg-primary);
-}
-
-.icon-btn.search {
-  font-size: 25px;
-}
-
-.icon-btn.checkin {
-  font-size: 23px;
 }
 
 .nav-menu {
@@ -1367,7 +1359,7 @@ function openWork(work: HomeWork) {
 }
 
 .edit-home-icon {
-  font-size: 15px;
+  font-size: 18px;
   color: var(--accent);
 }
 
@@ -1512,12 +1504,22 @@ function openWork(work: HomeWork) {
   justify-content: center;
   width: 28px;
   height: 28px;
-  font-size: 22px;
+  font-size: 18px;
   color: var(--fg-muted);
 }
 
 .draft-tool.active {
   color: var(--accent);
+}
+
+.secondary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .gallery-tabs-row > .manage-btn:not(:first-child) {

@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import { getCurrentPageTitle } from "../services/navigationTitle";
+import { getNavigationMetrics } from "../services/navigationMetrics";
 
 const props = defineProps<{
   title?: string;
@@ -10,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{ back: [] }>();
 
 const statusBarHeight = ref(0);
+const navigationBarHeight = ref(50);
 const canGoBack = ref(false);
 const resolvedTitle = ref(props.title || "");
 const currentRoute = ref("");
@@ -42,11 +44,9 @@ const ROUTE_FALLBACKS: Record<string, string> = {
   "pages/changelog/index": "/pages/settings/index"
 };
 
-try {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
-} catch {
-  statusBarHeight.value = 0;
-}
+const navigationMetrics = getNavigationMetrics();
+statusBarHeight.value = navigationMetrics.statusBarHeight;
+navigationBarHeight.value = navigationMetrics.navigationBarHeight;
 
 function readCurrentRoute() {
   try {
@@ -95,7 +95,7 @@ onShow(syncCanGoBack);
 <template>
   <view class="lumi-page-header">
     <view class="lumi-status-spacer" :style="{ height: statusBarHeight + 'px' }" />
-    <view class="lumi-title-row">
+    <view class="lumi-title-row" :style="{ height: `${navigationBarHeight}px` }">
       <button v-if="canGoBack" class="lumi-back" @click="goBack">‹</button>
       <view class="lumi-page-title">{{ resolvedTitle }}</view>
     </view>

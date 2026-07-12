@@ -7,6 +7,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -112,11 +113,10 @@ function applyPlazaFilter() {
 }
 
 const statusBarHeight = ref(0);
-try {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
-} catch {
-  statusBarHeight.value = 0;
-}
+const navigationBarHeight = ref(50);
+const navigationMetrics = getNavigationMetrics();
+statusBarHeight.value = navigationMetrics.statusBarHeight;
+navigationBarHeight.value = navigationMetrics.navigationBarHeight;
 
 const activeTab = ref<PlazaTab>("recommend");
 const renderedTab = ref<PlazaTab>("recommend");
@@ -714,7 +714,7 @@ function handleReachBottom() {
       <view class="plaza-content">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
-          <view class="nav-row">
+          <view class="nav-row" :style="{ height: `${navigationBarHeight}px` }">
             <text class="nav-title">广场</text>
           </view>
         </view>
@@ -977,14 +977,10 @@ function handleReachBottom() {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   font-size: 22px;
   color: var(--fg-primary);
-}
-
-.search-btn {
-  font-size: 26px;
 }
 
 .tab-group {

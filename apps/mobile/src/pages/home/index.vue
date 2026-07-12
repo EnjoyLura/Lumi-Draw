@@ -21,6 +21,7 @@ import {
 import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, createRouteQuery, openEmbeddedCreate, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
@@ -42,11 +43,10 @@ const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementSh
 const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
-try {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
-} catch {
-  statusBarHeight.value = 0;
-}
+const navigationBarHeight = ref(50);
+const navigationMetrics = getNavigationMetrics();
+statusBarHeight.value = navigationMetrics.statusBarHeight;
+navigationBarHeight.value = navigationMetrics.navigationBarHeight;
 
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
@@ -670,7 +670,7 @@ function getRatioClass(ratio: string) {
     >
       <view class="nav-header">
         <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />
-        <view class="nav-row">
+        <view class="nav-row" :style="{ height: `${navigationBarHeight}px` }">
           <view class="nav-notify" @click="goMessages">
             <view class="nav-notify-icon" />
             <view v-if="showUnreadDot" class="nav-notify-dot" />
@@ -938,8 +938,8 @@ function getRatioClass(ratio: string) {
 }
 
 .nav-notify-icon {
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
   background: var(--fg-primary);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7v4.586l-1.707 1.707A1 1 0 0 0 4 17h16a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm0 20a3 3 0 0 0 2.995-2.824L15 19H9a3 3 0 0 0 3 3z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7v4.586l-1.707 1.707A1 1 0 0 0 4 17h16a1 1 0 0 0 .707-1.707L19 13.586V9a7 7 0 0 0-7-7zm0 20a3 3 0 0 0 2.995-2.824L15 19H9a3 3 0 0 0 3 3z'/%3E%3C/svg%3E") center / contain no-repeat;
