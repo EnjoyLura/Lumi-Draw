@@ -674,10 +674,10 @@ function showToast(title: string) {
             <text>⇩</text>
             <text>下载</text>
           </view>
-          <button class="remake-btn" @click="remakeWork(work)">
+          <view class="remake-btn" role="button" aria-label="重新生成" hover-class="remake-btn-pressed" @click="remakeWork(work)">
             <text class="remake-icon">↻</text>
             <text>重新生成</text>
-          </button>
+          </view>
         </template>
         <template v-else>
           <view class="bottom-action" :class="{ active: liked, pulse: likePulse }" @click="toggleLike">
@@ -688,10 +688,10 @@ function showToast(title: string) {
             <text>{{ favorited ? "★" : "☆" }}</text>
             <text>{{ favoriteCount }}</text>
           </view>
-          <button class="remake-btn" @click="remakeWork(work)">
+          <view class="remake-btn" role="button" aria-label="一键同款" hover-class="remake-btn-pressed" @click="remakeWork(work)">
             <text class="remake-icon">✦</text>
             <text>一键同款</text>
-          </button>
+          </view>
         </template>
       </view>
       <view class="bottom-safe-area" />
@@ -873,8 +873,7 @@ function showToast(title: string) {
 }
 
 .small-btn::after,
-.copy-btn::after,
-.remake-btn::after {
+.copy-btn::after {
   border: none;
 }
 
@@ -1142,6 +1141,10 @@ function showToast(title: string) {
   border: none;
   border-radius: 12px;
   box-shadow: none;
+}
+
+.remake-btn-pressed {
+  opacity: 0.88;
 }
 
 .remake-icon {

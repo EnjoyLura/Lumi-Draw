@@ -1091,9 +1091,16 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <view class="create-bottom">
       <view class="create-bottom-inner">
         <view class="create-bottom-row">
-          <button class="create-btn" :class="{ disabled: !isLoggedIn }" @click="startGenerate">
+          <view
+            class="create-btn"
+            :class="{ disabled: !isLoggedIn }"
+            role="button"
+            :aria-disabled="!isLoggedIn"
+            hover-class="create-btn-pressed"
+            @click="startGenerate"
+          >
             {{ isLoggedIn ? `立即生成 · ✦ ${totalCost}` : "登录后创作" }}
-          </button>
+          </view>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
       </view>
@@ -2066,9 +2073,13 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-btn {
+  display: flex;
   flex: 1;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 37px;
+  box-sizing: border-box;
   font-size: 15px;
   font-weight: 700;
   color: #fff;
@@ -2077,8 +2088,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   border-radius: 14px;
 }
 
-.create-btn::after {
-  border: 0;
+.create-btn-pressed {
+  opacity: 0.88;
 }
 
 .create-btn.disabled {
