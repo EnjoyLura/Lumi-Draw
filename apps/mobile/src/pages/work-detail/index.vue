@@ -1059,6 +1059,8 @@ function showToast(title: string) {
   border-top: 0;
   box-shadow: none;
   backdrop-filter: none;
+  overflow: hidden;
+  contain: paint;
 }
 
 .bottom-safe-area {
@@ -1130,9 +1132,12 @@ function showToast(title: string) {
   gap: 4px;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  height: 44px;
+  min-height: 0;
   margin-left: auto;
-  padding: 12px 0;
+  padding: 0;
+  overflow: hidden;
+  box-sizing: border-box;
   font-size: 15px;
   font-weight: 700;
   line-height: 1;
@@ -1141,6 +1146,7 @@ function showToast(title: string) {
   border: none;
   border-radius: 12px;
   box-shadow: none;
+  contain: paint;
 }
 
 .remake-btn-pressed {

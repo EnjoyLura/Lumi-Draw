@@ -2060,6 +2060,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   border-top: 0;
   box-shadow: none;
   backdrop-filter: none;
+  overflow: hidden;
+  contain: paint;
 }
 
 .create-bottom-inner {
@@ -2086,6 +2088,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;
   border-radius: 14px;
+  overflow: hidden;
+  contain: paint;
 }
 
 .create-btn-pressed {
