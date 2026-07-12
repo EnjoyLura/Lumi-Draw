@@ -2134,13 +2134,16 @@ function goMine() { goRootTab("/pages/mine/index"); }
   background: var(--bg-card);
   border-top-left-radius: 20px;
   border-top-right-radius: 20px;
-  box-shadow: 0 -10px 30px rgba(60, 120, 200, 0.16);
+  visibility: hidden;
+  box-shadow: none;
   transform: translateY(105%);
-  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.34s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.34s;
 }
 
 .model-sheet.show {
+  visibility: visible;
   transform: translateY(0);
+  transition-delay: 0s;
 }
 
 .sheet-handle {
