@@ -45,6 +45,7 @@ export interface HomeWork {
   viewedAt?: string;
   liked?: boolean;
   favorited?: boolean;
+  modelName?: string;
 }
 
 export const homeBanners: HomeBanner[] = [

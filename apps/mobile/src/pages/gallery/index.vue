@@ -84,8 +84,8 @@ try {
   statusBarHeight.value = 0;
 }
 
-const activeTab = ref<GalleryTab>(props.pageMode === "mine" ? "all" : "draft");
-const renderedTab = ref<GalleryTab>(props.pageMode === "mine" ? "all" : "draft");
+const activeTab = ref<GalleryTab>("all");
+const renderedTab = ref<GalleryTab>("all");
 const works = ref<HomeWork[]>(useMockData.value ? galleryWorks : []);
 const profile = ref(useMockData.value ? galleryUser : EMPTY_PROFILE);
 const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : []);
@@ -99,6 +99,10 @@ const showLoginSheet = ref(false);
 const isInitialContentReady = ref(false);
 const sideDrawerMounted = ref(false);
 const loginSheetMounted = ref(false);
+const filterOpen = ref(false);
+const selectedModel = ref("all");
+const selectedStatus = ref("all");
+const sortDescending = ref(true);
 const unreadMessageCount = ref(0);
 const visibleCount = ref(PAGE_SIZE);
 const renderKey = ref(0);
@@ -129,14 +133,24 @@ let lastLoadKey = useMockData.value ? `${useMockData.value}-${isLoggedIn.value}`
 let lastLoadedAt = 0;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 
+const modelOptions = computed(() => Array.from(new Set(works.value.map((work) => work.modelName).filter(Boolean))) as string[]);
 const filteredWorks = computed(() => {
-  if (!useMockData.value) return works.value;
-  if (renderedTab.value === "published") return works.value.filter((work) => work.published);
-  if (renderedTab.value === "draft") return works.value.filter((work) => !work.published);
+  let result = works.value;
+  if (renderedTab.value === "published") result = result.filter((work) => work.published);
+  if (renderedTab.value === "draft") result = result.filter((work) => !work.published);
   if (renderedTab.value === "favorite") {
-    return works.value.filter((work) => work.favorited || work.liked || (useMockData.value && [3, 11].includes(work.id)));
+    result = result.filter((work) => work.favorited || work.liked || (useMockData.value && [3, 11].includes(work.id)));
   }
-  return works.value;
+  if (!isMineMode.value) {
+    if (selectedModel.value !== "all") result = result.filter((work) => (work.modelName || "未标注模型") === selectedModel.value);
+    if (selectedStatus.value === "published") result = result.filter((work) => work.published);
+    if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
+    if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
+  }
+  return [...result].sort((a, b) => {
+    const diff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    return sortDescending.value ? diff : -diff;
+  });
 });
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleCount.value));
@@ -453,6 +467,11 @@ function showDraftTool(title: string) {
   uni.showToast({ title, icon: "none" });
 }
 
+function toggleSort() {
+  sortDescending.value = !sortDescending.value;
+  uni.showToast({ title: sortDescending.value ? "已按最新排序" : "已按最早排序", icon: "none" });
+}
+
 function clearWaterfallAnimation() {
   if (waterfallAnimationTimer) clearTimeout(waterfallAnimationTimer);
   waterfallAnimationTimer = undefined;
@@ -767,9 +786,8 @@ function openWork(work: HomeWork) {
         </view>
         <view v-else class="draft-tools">
           <view class="draft-tool" @click="goSearch">⌕</view>
-          <view class="draft-tool" @click="showDraftTool('筛选功能开发中')">▽</view>
-          <view class="draft-tool" @click="showDraftTool('已按最新排序')">⇅</view>
-          <view class="draft-tool" @click="showDraftTool('当前为宫格视图')">▦</view>
+          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true">▽</view>
+          <view class="draft-tool" @click="toggleSort">{{ sortDescending ? "↓" : "↑" }}</view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
           {{ manageMode ? "✓ 完成" : "☷ 管理" }}
@@ -870,6 +888,23 @@ function openWork(work: HomeWork) {
         <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
       </view>
     </scroll-view>
+
+    <view v-if="!isMineMode" class="filter-overlay" :class="{ show: filterOpen }" @click="filterOpen = false" />
+    <view v-if="!isMineMode" class="filter-sheet" :class="{ show: filterOpen }">
+      <view class="sheet-handle" />
+      <view class="filter-title">筛选作品</view>
+      <view class="filter-section-title">模型</view>
+      <view class="filter-options">
+        <view class="filter-chip" :class="{ active: selectedModel === 'all' }" @click="selectedModel = 'all'">全部模型</view>
+        <view v-for="model in modelOptions" :key="model" class="filter-chip" :class="{ active: selectedModel === model }" @click="selectedModel = model">{{ model }}</view>
+        <view v-if="!modelOptions.length" class="filter-chip" :class="{ active: selectedModel === '未标注模型' }" @click="selectedModel = '未标注模型'">未标注模型</view>
+      </view>
+      <view class="filter-section-title">发布状态</view>
+      <view class="filter-options">
+        <view v-for="item in [{ key: 'all', label: '全部' }, { key: 'published', label: '已发布' }, { key: 'draft', label: '草稿' }, { key: 'pending', label: '审核中' }]" :key="item.key" class="filter-chip" :class="{ active: selectedStatus === item.key }" @click="selectedStatus = item.key">{{ item.label }}</view>
+      </view>
+      <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
+    </view>
 
     <view v-if="!isMineMode && isInitialContentReady && isLoggedIn" class="publish-btn" @click="goPublish">+</view>
 
@@ -1308,6 +1343,8 @@ function openWork(work: HomeWork) {
   display: flex;
   gap: 14px;
   align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .draft-tool {
@@ -1319,6 +1356,39 @@ function openWork(work: HomeWork) {
   font-size: 22px;
   color: var(--fg-muted);
 }
+
+.draft-tool.active {
+  color: var(--accent);
+}
+
+.gallery-tabs-row > .manage-btn:not(:first-child) {
+  padding-left: 14px;
+  margin-left: 2px;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.filter-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  pointer-events: none;
+  background: rgba(15, 31, 58, 0.36);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.filter-overlay.show { pointer-events: auto; opacity: 1; }
+.filter-sheet { position: fixed; right: 0; bottom: 0; left: 0; z-index: 181; padding: 10px 18px calc(18px + env(safe-area-inset-bottom)); background: var(--bg-card); border-radius: 20px 20px 0 0; transform: translateY(105%); transition: transform 0.28s ease; }
+.filter-sheet.show { transform: translateY(0); }
+.sheet-handle { width: 38px; height: 4px; margin: 0 auto 14px; background: var(--border-strong); border-radius: 999px; }
+.filter-title { margin-bottom: 18px; font-size: 18px; font-weight: 700; text-align: center; }
+.filter-section-title { margin: 14px 0 9px; font-size: 13px; font-weight: 700; color: var(--fg-secondary); }
+.filter-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-chip { padding: 7px 13px; font-size: 12px; color: var(--fg-secondary); background: var(--bg-soft); border: 1px solid transparent; border-radius: 999px; }
+.filter-chip.active { color: var(--accent-deep); background: var(--accent-soft); border-color: var(--accent); }
+.filter-confirm { width: 100%; height: 42px; margin-top: 20px; font-size: 14px; font-weight: 700; color: #fff; background: var(--gradient-dream); border: 0; border-radius: 12px; }
+.filter-confirm::after { border: 0; }
 
 .profile-quick-grid {
   display: grid;

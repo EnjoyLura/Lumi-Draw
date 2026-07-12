@@ -25,6 +25,7 @@ interface BackendWork {
   status: string;
   isPublic: boolean;
   likes: number;
+  modelName?: string;
 }
 
 interface PageResult<T> {
@@ -89,7 +90,8 @@ function toHomeWork(item: BackendWork): HomeWork {
     ratio: item.ratio || "1:1",
     likes: item.likes,
     published: item.status === "published" && item.isPublic,
-    status: item.status
+    status: item.status,
+    modelName: item.modelName
   };
 }
 
