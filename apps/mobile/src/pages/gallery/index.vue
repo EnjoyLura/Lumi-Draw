@@ -2093,8 +2093,8 @@ function openWork(work: HomeWork) {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   transform: translate(-50%, -50%);
 }
 
@@ -2110,13 +2110,13 @@ function openWork(work: HomeWork) {
 }
 
 .publish-plus::before {
-  width: 22px;
+  width: 18px;
   height: 2px;
 }
 
 .publish-plus::after {
   width: 2px;
-  height: 22px;
+  height: 18px;
 }
 
 .tab-bar {
