@@ -81,8 +81,13 @@ type SideRow = {
 };
 
 const statusBarHeight = ref(0);
+const navInviteRight = ref(100);
 try {
-  statusBarHeight.value = uni.getSystemInfoSync().statusBarHeight ?? 0;
+  const systemInfo = uni.getSystemInfoSync();
+  statusBarHeight.value = systemInfo.statusBarHeight ?? 0;
+  const getMenuRect = (uni as UniApp.Uni & { getMenuButtonBoundingClientRect?: () => { left: number } }).getMenuButtonBoundingClientRect;
+  const menuRect = getMenuRect?.();
+  if (menuRect?.left && systemInfo.windowWidth) navInviteRight.value = systemInfo.windowWidth - menuRect.left + 8;
 } catch {
   statusBarHeight.value = 0;
 }
@@ -203,6 +208,9 @@ onMounted(() => {
   void loadModelOptions();
   markInitialContentReady();
 });
+const hasMembership = computed(() => !["创作者", "AI创作者", "体验用户"].includes(profile.value.role));
+const membershipTitle = computed(() => (hasMembership.value ? profile.value.role : "未开通 PRO"));
+const membershipSubtitle = computed(() => (hasMembership.value ? "会员权益已生效" : "加入 PRO 会员解锁所有权益"));
 
 async function loadModelOptions() {
   if (useMockData.value) {
@@ -750,9 +758,10 @@ function openWork(work: HomeWork) {
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()">{{ isMineMode ? "⚙" : "▤" }}</view>
               <view v-if="isMineMode" class="icon-btn search" @click="goSearch">⌕</view>
+              <view v-if="isMineMode" class="icon-btn checkin" @click="navigateSide('/pages/checkin/index')">◷</view>
             </view>
-            <text class="nav-title">{{ isMineMode ? "我的" : "画廊" }}</text>
-            <view class="nav-right-spacer" />
+            <text v-if="!isMineMode" class="nav-title">画廊</text>
+            <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><text>🎁</text><text>邀请有礼</text></view>
           </view>
         </view>
 
@@ -795,11 +804,13 @@ function openWork(work: HomeWork) {
             </view>
             <button class="edit-home-btn" @click="goEditProfile">编辑主页</button>
           </view>
-          <view class="profile-quick-grid">
-            <view v-for="item in sideQuickActions" :key="item.label" class="profile-quick-item" @click="navigateSide(item.url)">
-              <view class="profile-quick-icon">{{ item.icon }}</view>
-              <text>{{ item.label }}</text>
+          <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
+            <view class="membership-mark">♕</view>
+            <view class="membership-copy">
+              <view class="membership-title">{{ membershipTitle }}</view>
+              <view class="membership-subtitle">{{ membershipSubtitle }}</view>
             </view>
+            <button class="membership-action">{{ hasMembership ? "查看权益" : "升级 PRO" }}</button>
           </view>
         </view>
 
@@ -1081,6 +1092,10 @@ function openWork(work: HomeWork) {
   font-size: 25px;
 }
 
+.icon-btn.checkin {
+  font-size: 23px;
+}
+
 .nav-menu {
   position: absolute;
   left: 16px;
@@ -1103,10 +1118,19 @@ function openWork(work: HomeWork) {
   position: static;
 }
 
-.nav-right-spacer {
+.nav-invite {
   position: absolute;
-  right: 16px;
-  width: 78px;
+  right: 100px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 9px;
+  font-size: 11px;
+  color: var(--fg-primary);
+  background: var(--bg-soft);
+  border-radius: 8px;
 }
 
 .gallery-initial-placeholder {
@@ -1526,35 +1550,69 @@ function openWork(work: HomeWork) {
 .filter-confirm { width: 100%; height: 42px; margin-top: 20px; font-size: 14px; font-weight: 700; color: #fff; background: var(--gradient-dream); border: 0; border-radius: 12px; }
 .filter-confirm::after { border: 0; }
 
-.profile-quick-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 8px 12px 10px;
-  margin: 0 4px 6px;
-}
-
-.profile-quick-item {
-  position: relative;
+.membership-banner {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  gap: 10px;
   align-items: center;
-  font-size: 12px;
-  color: var(--fg-primary);
+  min-height: 72px;
+  padding: 10px 12px;
+  margin: 2px 16px 8px;
+  box-sizing: border-box;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
 }
 
-.profile-quick-icon {
+.membership-mark {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  font-size: 25px;
-  color: var(--fg-primary);
-  background: transparent;
-  border: 0;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  color: #fff3d4;
+  background: #c88332;
   border-radius: 50%;
+}
+
+.membership-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.membership-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.membership-subtitle {
+  margin-top: 4px;
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.membership-action {
+  flex: 0 0 auto;
+  min-width: 76px;
+  height: 36px;
+  padding: 0 10px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 36px;
+  color: var(--fg-primary);
+  background: var(--bg-soft);
+  border: 0;
+  border-radius: 8px;
+}
+
+.membership-action::after {
+  border: 0;
 }
 
 .manage-btn::after {
