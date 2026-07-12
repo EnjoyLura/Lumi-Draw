@@ -739,7 +739,7 @@ function showToast(title: string) {
           </view>
           <view v-if="work.published" class="manage-row" @click="moveOwnWorkToDraft">
             <view class="manage-icon peach">↓</view>
-            <view class="manage-text">下架回草稿</view>
+            <view class="manage-text">下架</view>
             <view class="manage-arrow">›</view>
           </view>
           <view class="manage-row" @click="saveWorkImage(); closeDetailManage()">
@@ -1051,7 +1051,7 @@ function showToast(title: string) {
   padding: 14px 16px 30px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
-  box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
+  box-shadow: none;
   backdrop-filter: blur(20px) saturate(180%);
 }
 
@@ -1122,7 +1122,7 @@ function showToast(title: string) {
   background: var(--gradient-dream);
   border: none;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(91, 159, 232, 0.24);
+  box-shadow: none;
 }
 
 .remake-icon {

@@ -21,10 +21,14 @@ import {
 import { createGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
+import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { goRootTab } from "../../services/tabNavigation";
 
 const { themeClass } = useTheme();
+const navigationMetrics = getNavigationMetrics();
+const statusBarHeight = navigationMetrics.statusBarHeight;
+const navigationBarHeight = navigationMetrics.navigationBarHeight;
 const props = defineProps<{ routeQuery?: Record<string, string> }>();
 
 const EMPTY_MODEL: CreateModel = {
@@ -857,10 +861,15 @@ function goMine() { goRootTab("/pages/mine/index"); }
 
 <template>
   <view class="create-page" :class="themeClass">
+    <view class="create-nav-header">
+      <view class="status-spacer" :style="{ height: `${statusBarHeight}px` }" />
+      <view class="create-nav-row" :style="{ height: `${navigationBarHeight}px` }">
+        <view class="create-page-title">创作</view>
+      </view>
+    </view>
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="create-scroll" scroll-y>
       <view class="create-content">
-        <view class="create-page-title">创作</view>
         <view v-if="!isLoggedIn" class="login-gate">
           <view class="login-gate-icon">✎</view>
           <view class="login-gate-title">登录后开始 AI 创作</view>
@@ -1281,19 +1290,30 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .create-content {
-  padding: 22px 0 calc(132px + env(safe-area-inset-bottom));
+  padding: 12px 0 calc(132px + env(safe-area-inset-bottom));
+}
+
+.create-nav-header {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  background: var(--page-bg);
+}
+
+.create-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .create-page-title {
-  padding: 0 16px;
-  margin-bottom: 14px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   color: var(--fg-primary);
   text-align: center;
 }
 
-.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); backdrop-filter: blur(24px) saturate(180%); }
+.tab-bar { z-index: 80; display: flex; align-items: center; justify-content: space-around; height: var(--lumi-tabbar-height); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; background: var(--bg-glass); box-shadow: none; backdrop-filter: blur(24px) saturate(180%); }
 .tab-item { display: flex; flex: 1; flex-direction: column; gap: 2px; align-items: center; padding: 4px 8px; }
 .tab-icon { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 22px; color: var(--fg-muted); }
 .tab-label { font-size: 10px; color: var(--fg-muted); }
@@ -2028,7 +2048,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   padding: 4px 16px 3px;
   background: var(--bg-glass);
   border-top: 0.5px solid var(--border);
-  box-shadow: 0 -4px 20px rgba(60, 120, 200, 0.06);
+  box-shadow: none;
   backdrop-filter: blur(20px) saturate(180%);
 }
 
@@ -2052,6 +2072,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
   border: none;
   border-radius: 14px;
+}
+
+.create-btn::after {
+  border: 0;
 }
 
 .create-btn.disabled {

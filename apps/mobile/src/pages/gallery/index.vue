@@ -648,7 +648,7 @@ async function refreshAfterBatchAction() {
 
 async function moveSelectedToDraft() {
   if (selectedIds.value.size === 0) {
-    uni.showToast({ title: "请先选择要回草稿的作品", icon: "none" });
+    uni.showToast({ title: "请先选择要下架的作品", icon: "none" });
     return;
   }
 
@@ -659,9 +659,9 @@ async function moveSelectedToDraft() {
   }
 
   const confirmed = await confirmBatchAction({
-    title: "回到草稿",
+    title: "下架作品",
     content: `将 ${ids.length} 个已发布作品转回草稿箱，广场将不再展示，确定继续吗？`,
-    confirmText: "回草稿",
+    confirmText: "下架",
     confirmColor: "#ff8a65"
   });
   if (!confirmed) return;
@@ -670,7 +670,7 @@ async function moveSelectedToDraft() {
     try {
       await moveGalleryWorksToDraft(ids);
     } catch {
-      uni.showToast({ title: "回草稿失败，请稍后重试", icon: "none" });
+      uni.showToast({ title: "下架失败，请稍后重试", icon: "none" });
       return;
     }
   } else {
@@ -678,7 +678,7 @@ async function moveSelectedToDraft() {
   }
 
   await refreshAfterBatchAction();
-  uni.showToast({ title: `已转入草稿 ${ids.length} 个作品`, icon: "none" });
+  uni.showToast({ title: `已下架 ${ids.length} 个作品`, icon: "none" });
 }
 
 async function deleteSelected() {
@@ -959,7 +959,7 @@ function openWork(work: HomeWork) {
     <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
       <text class="selected-count">已选择 {{ selectedCount }} 项</text>
       <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
-      <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">回草稿</button>
+      <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">下架</button>
       <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
     </view>
 
