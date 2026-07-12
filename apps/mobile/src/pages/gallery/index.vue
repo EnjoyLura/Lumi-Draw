@@ -777,6 +777,15 @@ function openWork(work: HomeWork) {
         </view>
       </view>
 
+      <view v-if="!isMineMode && isInitialContentReady && !isLoggedIn" class="gallery-content guest-empty-wrap">
+        <view class="empty-state">
+          <view class="empty-icon">□</view>
+          <view class="empty-title">还没有作品哦~</view>
+          <view class="empty-sub">登录后可查看和管理全部作品，也可以先去创作</view>
+          <button class="empty-btn" @click="goCreate">✦ 立即去创作</button>
+        </view>
+      </view>
+
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-tabs-row" :class="{ 'draft-toolbar-row': !isMineMode }">
         <view v-if="isMineMode" class="gallery-tabs">
           <view
@@ -1333,12 +1342,16 @@ function openWork(work: HomeWork) {
 .draft-toolbar-row .manage-btn {
   position: absolute;
   top: 5px;
-  right: 16px;
+  right: 10px;
   min-width: 76px;
   padding-left: 14px;
   margin: 0;
   border-left: 1px solid var(--border);
   border-radius: 0;
+}
+
+.guest-empty-wrap {
+  padding-top: 96px;
 }
 
 .gallery-tabs {
