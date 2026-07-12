@@ -337,6 +337,8 @@ const bannerActionRoutes: Record<string, string> = {
   广场页: "/pages/plaza/index",
   gallery: "/pages/gallery/index",
   画廊页: "/pages/gallery/index",
+  mine: "/pages/mine/index",
+  我的页: "/pages/mine/index",
   messages: "/pages/messages/index",
   消息页: "/pages/messages/index",
   "all-gameplays": "/pages/all-gameplays/index",
@@ -443,6 +445,7 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
+    if (route.startsWith("/pages/home/index")) return;
     if (route.startsWith("/pages/create/index")) {
       const [, queryString = ""] = route.split("?");
       const query: Record<string, string> = {};
@@ -450,6 +453,18 @@ function handleBannerTap(action: string, title: string) {
         query[key] = value;
       });
       openEmbeddedCreate(query);
+      return;
+    }
+    if (route.startsWith("/pages/plaza/index")) {
+      goPlaza();
+      return;
+    }
+    if (route.startsWith("/pages/gallery/index")) {
+      goGallery();
+      return;
+    }
+    if (route.startsWith("/pages/mine/index")) {
+      goMine();
       return;
     }
     uni.navigateTo({ url: route });
@@ -698,14 +713,14 @@ function getRatioClass(ratio: string) {
             @change="activeBanner = $event.detail.current"
           >
             <swiper-item v-for="banner in bannerList" :key="banner.title">
-              <view class="banner-slide" @click="handleBannerTap(banner.action, banner.title)">
+              <view class="banner-slide" @tap="handleBannerTap(banner.action, banner.title)">
                 <image class="banner-image" :src="banner.image" mode="aspectFill" />
                 <view class="banner-shade" />
                 <view class="banner-copy">
                   <text class="banner-title">{{ banner.title }}</text>
                   <text class="banner-desc">{{ banner.description }}</text>
                 </view>
-                <view class="banner-action">了解更多</view>
+                <view class="banner-action" @tap.stop="handleBannerTap(banner.action, banner.title)">了解更多</view>
               </view>
             </swiper-item>
           </swiper>
@@ -861,7 +876,7 @@ function getRatioClass(ratio: string) {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="wand-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">
@@ -1155,12 +1170,12 @@ function getRatioClass(ratio: string) {
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(18, 36, 62, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.58);
   border-radius: 999px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   transform: translateY(-50%);
-  backdrop-filter: blur(12px) saturate(180%);
+  backdrop-filter: blur(12px) saturate(140%);
 }
 
 .banner-dots {

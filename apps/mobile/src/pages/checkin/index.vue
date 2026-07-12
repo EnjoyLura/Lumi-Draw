@@ -219,7 +219,7 @@ function claimMilestone(item: Milestone) {
           <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone || isSubmitting" @click="doCheckin">
             <LumiIcon v-if="checkinDone" class="check-icon" name="check" :size="16" />
             <text>{{ checkinDone ? "今日已签到" : `今日签到 +${nextCredits}` }}</text>
-            <LumiIcon v-if="!checkinDone" class="credits-icon" name="sparkles" :size="15" />
+            <LumiIcon v-if="!checkinDone" class="credits-icon" name="sparkles-filled" :size="15" />
           </button>
         </view>
 

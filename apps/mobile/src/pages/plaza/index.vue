@@ -832,7 +832,7 @@ function handleReachBottom() {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="wand-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" @click="goGallery">

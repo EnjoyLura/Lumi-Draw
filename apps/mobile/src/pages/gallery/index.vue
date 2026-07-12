@@ -789,7 +789,7 @@ function openWork(work: HomeWork) {
               </view>
               <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ profile.role }}</view>
             </view>
-            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
+            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles-filled" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>
@@ -870,9 +870,6 @@ function openWork(work: HomeWork) {
           <view class="draft-tool" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
           <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
           <view class="draft-tool" @click="toggleSort"><LumiIcon name="arrow-down-up" :size="19" /></view>
-        </view>
-        <view v-if="isMineMode" class="mine-work-tools">
-          <view class="draft-tool" :class="{ active: filterOpen || selectedModel !== 'all' || selectedStatus !== 'all' }" @click="filterOpen = true"><LumiIcon name="sliders-horizontal" :size="18" /></view>
         </view>
         <button class="manage-btn" :class="{ active: manageMode }" @click="toggleManage">
           <LumiIcon class="secondary-icon" name="list-checks" :size="18" /><text>{{ manageMode ? "完成" : "管理" }}</text>
@@ -1005,7 +1002,7 @@ function openWork(work: HomeWork) {
         <text class="tab-label">广场</text>
       </view>
       <view class="tab-item" @click="goCreate">
-        <LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" />
+        <LumiIcon class="tab-icon" name="wand-sparkles" :size="24" />
         <text class="tab-label">创作</text>
       </view>
       <view class="tab-item" :class="{ active: !isMineMode }" @click="goGallery">
@@ -1149,8 +1146,8 @@ function openWork(work: HomeWork) {
 
 .profile-placeholder-avatar {
   flex: 0 0 auto;
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 50%;
@@ -1224,9 +1221,9 @@ function openWork(work: HomeWork) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
-  font-size: 28px;
+  width: 64px;
+  height: 64px;
+  font-size: 24px;
   font-weight: 700;
   color: #fff;
   border-radius: 50%;
@@ -1502,13 +1499,6 @@ function openWork(work: HomeWork) {
   gap: 14px;
   align-items: center;
   justify-content: flex-end;
-  margin-left: auto;
-}
-
-.mine-work-tools {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
   margin-left: auto;
 }
 

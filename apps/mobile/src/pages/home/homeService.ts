@@ -111,6 +111,7 @@ function normalizeBannerAction(action: string) {
     邀请页: "invite",
     广场页: "plaza",
     画廊页: "gallery",
+    我的页: "mine",
     消息页: "messages",
     全部玩法: "all-gameplays",
     反推提示词: "reverse-prompt",

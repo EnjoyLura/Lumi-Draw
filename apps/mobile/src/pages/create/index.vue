@@ -922,7 +922,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="model-cost">
               <text class="cost-num">{{ selectedModel.cost }}</text>
-              <view class="cost-unit"><LumiIcon name="sparkles" :size="13" /><text>起</text></view>
+              <view class="cost-unit"><LumiIcon name="sparkles-filled" :size="14" /><text>起</text></view>
             </view>
             <LumiIcon class="chevron" name="chevron-right" :size="18" />
           </view>
@@ -1099,7 +1099,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >
-            <text>{{ isLoggedIn ? "立即生成" : "登录后创作" }}</text><template v-if="isLoggedIn"><text>·</text><LumiIcon name="sparkles" :size="16" /><text>{{ totalCost }}</text></template>
+            <text>{{ isLoggedIn ? "立即生成" : "登录后创作" }}</text><template v-if="isLoggedIn"><text>·</text><LumiIcon name="sparkles-filled" :size="15" /><text>{{ totalCost }}</text></template>
           </view>
         </view>
         <text class="bottom-note">内容由AI生成，仅供参考</text>
@@ -1139,7 +1139,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view class="drawer-model-cost">
               <text class="drawer-cost-num">{{ model.cost }}</text>
-              <view class="drawer-cost-unit"><LumiIcon name="sparkles" :size="13" /><text>起</text></view>
+              <view class="drawer-cost-unit"><LumiIcon name="sparkles-filled" :size="14" /><text>起</text></view>
             </view>
             <view v-if="selectedModelIndex === index" class="drawer-selected-icon"><LumiIcon name="check" :size="20" /></view>
           </view>
@@ -1252,7 +1252,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
     <view class="tab-bar">
       <view class="tab-item" @click="goHome"><LumiIcon class="tab-icon" name="house" :size="24" /><text class="tab-label">首页</text></view>
       <view class="tab-item" @click="goPlaza"><LumiIcon class="tab-icon" name="compass" :size="24" /><text class="tab-label">广场</text></view>
-      <view class="tab-item active"><LumiIcon class="tab-icon" name="pencil-sparkles" :size="24" /><text class="tab-label">创作</text></view>
+      <view class="tab-item active"><LumiIcon class="tab-icon" name="wand-sparkles" :size="24" /><text class="tab-label">创作</text></view>
       <view class="tab-item" @click="goGallery"><LumiIcon class="tab-icon" name="images" :size="24" /><text class="tab-label">画廊</text></view>
       <view class="tab-item" @click="goMine"><LumiIcon class="tab-icon" name="circle-user-round" :size="24" /><text class="tab-label">我的</text></view>
     </view>
@@ -1588,12 +1588,13 @@ function goMine() { goRootTab("/pages/mine/index"); }
   display: flex;
   flex: 0 0 auto;
   gap: 2px;
-  align-items: baseline;
+  align-items: center;
 }
 
 .cost-num {
   font-size: 18px;
   font-weight: 700;
+  line-height: 1;
   color: var(--accent);
 }
 
@@ -1601,7 +1602,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   display: inline-flex;
   gap: 2px;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1;
   color: var(--accent);
 }
 
@@ -2295,12 +2297,13 @@ function goMine() { goRootTab("/pages/mine/index"); }
   display: flex;
   flex: 0 0 auto;
   gap: 2px;
-  align-items: baseline;
+  align-items: center;
 }
 
 .drawer-cost-num {
   font-size: 16px;
   font-weight: 700;
+  line-height: 1;
   color: var(--accent);
 }
 
@@ -2308,7 +2311,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
   display: inline-flex;
   gap: 2px;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 1;
   color: var(--accent);
 }
 
