@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { computed, onBeforeUnmount, ref } from "vue";
+import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -29,6 +29,8 @@ const isUploading = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 const loadFailed = ref(false);
+const isInitialContentReady = ref(false);
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const nickCount = computed(() => `${nickname.value.length}/20`);
 const signCount = computed(() => `${signature.value.length}/100`);
@@ -39,6 +41,17 @@ function leaveEditProfilePage() {
 
 onShow(() => {
   void loadProfile();
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
+});
+
+onBeforeUnmount(() => {
+  if (initialContentTimer) clearTimeout(initialContentTimer);
 });
 
 function clearProfile() {
@@ -179,8 +192,8 @@ async function save() {
 <template>
   <view class="edit-page" :class="themeClass">
     <LumiPageHeader title="编辑资料" />
-    <LumiDeferredPageContent>
-    <scroll-view class="page-scroll" scroll-y>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后编辑资料"
@@ -255,7 +268,6 @@ async function save() {
         <button class="save-btn" :disabled="isSaving || loadFailed" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
       </view>
     </scroll-view>
-    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
@@ -270,7 +282,14 @@ async function save() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .edit-content {

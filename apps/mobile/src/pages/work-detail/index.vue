@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -38,8 +38,10 @@ const showLoginSheet = ref(false);
 const likePulse = ref(false);
 const favoritePulse = ref(false);
 const isDeleting = ref(false);
+const isInitialContentReady = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMode: boolean | null = null;
 
 const isOwn = computed(() => {
@@ -97,7 +99,15 @@ onMounted(() => {
   window.addEventListener("hashchange", handleHashChange);
 });
 
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
+});
+
 onUnmounted(() => {
+  if (initialContentTimer) clearTimeout(initialContentTimer);
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
@@ -574,8 +584,8 @@ function showToast(title: string) {
 <template>
   <view class="detail-page" :class="themeClass">
     <LumiPageHeader title="作品详情" />
-    <LumiDeferredPageContent>
-    <template v-if="work && user">
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <template v-else-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <image
           class="detail-image"
@@ -757,7 +767,6 @@ function showToast(title: string) {
       <view class="empty-icon">▧</view>
       <view class="empty-title">作品不存在</view>
     </view>
-    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
@@ -770,6 +779,11 @@ function showToast(title: string) {
   overflow: hidden;
   color: var(--fg-primary);
   background: var(--bg-base);
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .detail-scroll {
