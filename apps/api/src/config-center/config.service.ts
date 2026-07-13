@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
 
 const enabledOrder = { where: { enabled: true }, orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
 const defaultAgreements: Record<string, { title: string; content: string }> = {
@@ -23,7 +24,10 @@ const defaultAgreements: Record<string, { title: string; content: string }> = {
 
 @Injectable()
 export class ConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService
+  ) {}
 
   async getBanners() {
     const rows = await this.prisma.banner.findMany(enabledOrder);
@@ -31,7 +35,7 @@ export class ConfigService {
       id: b.id,
       title: b.title,
       description: b.description,
-      imageUrl: b.imageUrl,
+      imageUrl: this.uploads.readUrl(b.imageUrl, "public"),
       action: b.action,
       sort: b.sort
     }));

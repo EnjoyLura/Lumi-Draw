@@ -38,6 +38,7 @@ test("admin opens the complete work upload form", async ({ page }) => {
   await page.goto("/");
   await page.locator(".nav-header .nav-btn").click();
   await page.locator(".drawer.show .ditem", { hasText: "作品管理" }).click();
+  await expect(page.locator(".chip", { hasText: "首页推荐" })).toBeVisible();
   await page.getByRole("button", { name: "上传并发布作品" }).click();
 
   const sheet = page.locator(".sheet.show");
@@ -50,6 +51,8 @@ test("admin opens the complete work upload form", async ({ page }) => {
   await expect(sheet.getByText("图片精度", { exact: true })).toBeVisible();
   await expect(sheet.getByText("作品风格", { exact: true })).toBeVisible();
   await expect(sheet.getByText("作品标签", { exact: true })).toBeVisible();
+  await expect(sheet.locator(".chip", { hasText: "二次元" })).toBeVisible();
+  await expect(sheet.getByText("已选择 0/5", { exact: true })).toBeVisible();
   await expect(sheet.locator('input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
   await expect(sheet.getByRole("button", { name: "立即发布" })).toBeVisible();
 });

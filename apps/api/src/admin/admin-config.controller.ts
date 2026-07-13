@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { AdminConfigService } from "./admin-config.service";
 
 type Body_ = Record<string, unknown>;
+type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
 @ApiTags("admin-config")
 @ApiBearerAuth()
@@ -14,6 +16,9 @@ export class AdminConfigController {
 
   // ---------- 读 ----------
   @Get("banners") banners() { return this.config.banners(); }
+  @Post("banners/upload-image")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))
+  uploadBannerImage(@UploadedFile() file?: UploadedImage) { return this.config.uploadBannerImage(file); }
   @Get("gameplays") gameplays() { return this.config.gameplays(); }
   @Get("styles") styles() { return this.config.styles(); }
   @Get("categories") categories() { return this.config.categories(); }

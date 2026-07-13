@@ -1,5 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
+
+type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
 const bySort = { orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
 
@@ -34,11 +37,20 @@ const FIELDS = {
 
 @Injectable()
 export class AdminConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService
+  ) {}
 
   // ---------- 读 ----------
-  banners() {
-    return this.prisma.banner.findMany(bySort);
+  async banners() {
+    const rows = await this.prisma.banner.findMany(bySort);
+    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
+  }
+
+  uploadBannerImage(file?: UploadedImage) {
+    if (!file) throw new BadRequestException("请选择走马灯图片");
+    return this.uploads.uploadBuffer("banner", file.originalname, file.mimetype, file.buffer);
   }
   gameplays() {
     return this.prisma.gameplay.findMany(bySort);

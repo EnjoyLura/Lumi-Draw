@@ -8,7 +8,7 @@ import { useNav } from "../shell/NavContext";
 import { AddBtn, Chips, SearchBar, StatCard, WorkCard } from "../ui";
 import { WorkUploadForm } from "./WorkUploadForm";
 
-const FILTERS = ["全部", "已发布", "待审核", "已下架", "精选"];
+const FILTERS = ["全部", "已发布", "待审核", "已下架", "精选", "首页推荐"];
 
 function isToday(dateText: string) {
   const date = new Date(dateText);
@@ -44,6 +44,7 @@ export function Works() {
   const q = query.toLowerCase();
   const list = works.filter((w) => {
     if (filter === "精选") { if (!w.featured) return false; }
+    else if (filter === "首页推荐") { if (!w.recommend) return false; }
     else if (filter !== "全部" && w.status !== filter) return false;
     if (q && (w.title || "").toLowerCase().indexOf(q) < 0 && w.prompt.toLowerCase().indexOf(q) < 0 && userName(w.userId).toLowerCase().indexOf(q) < 0) return false;
     return true;

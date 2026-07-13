@@ -76,16 +76,16 @@ export function Seg({ items, active, onPick, small }: { items: Array<[string, st
 
 export function WorkCard({ w }: { w: AdminWork }) {
   const { go } = useNav();
-  const badge = w.featured || w.status === "精选"
-    ? <span className="badge b-warning" style={{ position: "absolute", top: 6, left: 6 }}><i className="ri-star-fill" />精选</span>
-    : w.status !== "已发布"
-      ? <span style={{ position: "absolute", top: 6, left: 6 }}><StatusBadge s={w.status} /></span>
-      : null;
+  const featured = Boolean(w.featured || w.status === "精选");
   return (
     <div className="wcard" onClick={() => go("workDetail", String(w.id))}>
       <div style={{ position: "relative" }}>
         <img className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
-        {badge}
+        <span style={{ position: "absolute", top: 6, left: 6, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: "calc(100% - 12px)" }}>
+          {featured ? <span className="badge" style={{ color: "#B86B00", background: "rgba(255,255,255,.94)", border: "1px solid rgba(184,107,0,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-star-fill" />精选</span> : null}
+          {w.recommend ? <span className="badge" style={{ color: "#347CC2", background: "rgba(255,255,255,.94)", border: "1px solid rgba(52,124,194,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-home-heart-fill" />首页推荐</span> : null}
+          {!featured && !w.recommend && w.status !== "已发布" ? <StatusBadge s={w.status} /> : null}
+        </span>
       </div>
       <div style={{ padding: "8px 9px" }}>
         <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title || w.prompt.slice(0, 10)}</div>

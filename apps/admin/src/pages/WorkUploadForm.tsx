@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   apiCreateAdminWork,
+  apiGetCategories,
   apiGetModels,
   apiGetQualities,
   apiGetRatios,
@@ -10,6 +11,7 @@ import {
 } from "../data/api";
 import {
   MODELS,
+  CATEGORIES,
   QUALITIES,
   RATIOS,
   STYLES,
@@ -17,6 +19,7 @@ import {
   WORKS,
   nextId,
   type AdminModel,
+  type AdminCategory,
   type AdminQuality,
   type AdminRatio,
   type AdminStyle,
@@ -51,6 +54,7 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
   const [qualities, setQualities] = useState<AdminQuality[]>([]);
   const [ratios, setRatios] = useState<AdminRatio[]>([]);
   const [styles, setStyles] = useState<AdminStyle[]>([]);
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [authorQuery, setAuthorQuery] = useState("");
   const [searchingUsers, setSearchingUsers] = useState(false);
@@ -64,7 +68,7 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
   const [ratio, setRatio] = useState("");
   const [quality, setQuality] = useState("");
   const [style, setStyle] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [featured, setFeatured] = useState(false);
   const [recommend, setRecommend] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -78,14 +82,15 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
     const load = async () => {
       try {
         const values = useMock
-          ? [USERS, MODELS, QUALITIES, RATIOS, STYLES] as const
-          : await Promise.all([apiGetUsers(), apiGetModels(), apiGetQualities(), apiGetRatios(), apiGetStyles()]);
+          ? [USERS, MODELS, QUALITIES, RATIOS, STYLES, CATEGORIES] as const
+          : await Promise.all([apiGetUsers(), apiGetModels(), apiGetQualities(), apiGetRatios(), apiGetStyles(), apiGetCategories()]);
         if (!active) return;
         setUsers(values[0]);
         setModels(values[1]);
         setQualities(values[2]);
         setRatios(values[3]);
         setStyles(values[4]);
+        setCategories(values[5]);
         setUserId(String(values[0][0]?.id ?? ""));
         setModelId(values[1].find((item) => item.on)?.id ?? values[1][0]?.id ?? "");
         setQuality(values[2].find((item) => item.on)?.label ?? values[2][0]?.label ?? "");
@@ -142,7 +147,7 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
     setSaving(true);
     try {
       const imageUrl = useMock ? await fileAsDataUrl(file) : (await apiUploadAdminWorkImage(file)).imageUrl;
-      const parsedTags = Array.from(new Set(tags.split(/[、,，]/).map((item) => item.trim()).filter(Boolean))).slice(0, 5);
+      const parsedTags = tags.slice(0, 5);
       if (useMock) {
         const author = USERS.find((user) => user.id === Number(userId));
         WORKS.unshift({
@@ -249,7 +254,28 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
         {styles.map((item) => <option key={item.id} value={item.n}>{item.n}</option>)}
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>作品标签</label>
-      <input className="input" value={tags} onChange={(event) => setTags(event.target.value)} placeholder="最多5个，用逗号或顿号分隔" />
+      <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12 }}>
+        {categories.map((item) => {
+          const selected = tags.includes(item.n);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`chip${selected ? " active" : ""}`}
+              style={{ border: 0, cursor: "pointer" }}
+              onClick={() => {
+                if (selected) setTags((current) => current.filter((tag) => tag !== item.n));
+                else if (tags.length < 5) setTags((current) => [...current, item.n]);
+                else toast("最多选择5个作品标签");
+              }}
+            >
+              {item.n}
+            </button>
+          );
+        })}
+        {!categories.length && !loadingOptions ? <span style={{ color: "var(--fg-muted)", fontSize: 12 }}>暂无可选标签，请先在分类管理中添加</span> : null}
+      </div>
+      <div style={{ marginTop: 5, fontSize: 11, color: "var(--fg-muted)" }}>已选择 {tags.length}/5</div>
 
       <div className="card" style={{ padding: "2px 14px", marginTop: 14 }}>
         <div className="kv"><span className="k">设为精选</span><Switch on={featured} onToggle={() => setFeatured((value) => !value)} /></div>

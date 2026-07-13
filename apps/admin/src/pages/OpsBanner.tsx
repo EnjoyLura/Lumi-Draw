@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiDeleteBanner, apiGetBanners, apiSaveBanner, apiSetBannerEnabled } from "../data/api";
+import { apiDeleteBanner, apiGetBanners, apiSaveBanner, apiSetBannerEnabled, apiUploadBannerImage } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { BANNERS, IMG, nextId, type AdminBanner } from "../data/mock";
 import { getBanners } from "../data/service";
@@ -11,7 +11,7 @@ import { moveItem, useRefresh } from "./opsShared";
 const ACTIONS = ["创作页", "会员页", "签到页", "活动页", "无"];
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed", cursor: "pointer", overflow: "hidden", position: "relative" };
-const MAX_BANNER_IMAGE_BYTES = 80 * 1024;
+const MAX_BANNER_IMAGE_BYTES = 10 * 1024 * 1024;
 
 function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -22,44 +22,10 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("图片加载失败"));
-    img.src = src;
-  });
-}
-
-function estimateDataUrlBytes(dataUrl: string) {
-  const base64 = dataUrl.split(",")[1] ?? "";
-  return Math.ceil(base64.length * 0.75);
-}
-
-async function compressBannerImage(file: File) {
+async function prepareMockBannerImage(file: File) {
   if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
-  const source = await readFileAsDataUrl(file);
-  const image = await loadImage(source);
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("浏览器不支持图片处理");
-
-  let maxWidth = 960;
-  let quality = 0.78;
-  let output = source;
-  for (let i = 0; i < 8; i += 1) {
-    const scale = Math.min(1, maxWidth / image.width);
-    canvas.width = Math.max(1, Math.round(image.width * scale));
-    canvas.height = Math.max(1, Math.round(image.height * scale));
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-    output = canvas.toDataURL("image/jpeg", quality);
-    if (estimateDataUrlBytes(output) <= MAX_BANNER_IMAGE_BYTES) break;
-    if (quality > 0.5) quality -= 0.1;
-    else maxWidth = Math.max(480, Math.floor(maxWidth * 0.8));
-  }
-  return output;
+  if (file.size > MAX_BANNER_IMAGE_BYTES) throw new Error("走马灯图片不能超过10MB");
+  return readFileAsDataUrl(file);
 }
 
 function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBanner; useMock: boolean; onSaved: () => void }) {
@@ -82,10 +48,10 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
       const file = input.files?.[0];
       if (!file) return;
       setUploading(true);
-      void compressBannerImage(file)
+      void (useMock ? prepareMockBannerImage(file) : apiUploadBannerImage(file).then((result) => result.imageUrl))
         .then((url) => {
           setImageUrl(url);
-          toast("图片已选择");
+          toast(useMock ? "图片已选择" : "图片已上传");
         })
         .catch((e) => toast(e instanceof Error ? e.message : "图片处理失败"))
         .finally(() => setUploading(false));

@@ -344,6 +344,12 @@ export async function apiGetBanners() {
   return (await http.get<ApiBanner[]>("/admin/banners")).map(mapBanner);
 }
 
+export async function apiUploadBannerImage(file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return http.upload<{ imageUrl: string; ossKey: string; sizeBytes: number; contentType: string }>("/admin/banners/upload-image", form);
+}
+
 export async function apiSaveBanner(id: number, values: Pick<AdminBanner, "title" | "desc" | "action" | "sort"> & { imageUrl?: string; on?: boolean }) {
   const body = { title: values.title, description: values.desc, imageUrl: values.imageUrl, action: values.action, sort: values.sort, enabled: values.on };
   return mapBanner(id ? await http.patch<ApiBanner>(`/admin/banners/${id}`, body) : await http.post<ApiBanner>("/admin/banners", body));

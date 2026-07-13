@@ -17,6 +17,7 @@ interface BackendBanner {
   id: number;
   title: string;
   description: string;
+  imageUrl?: string;
   action: string;
 }
 
@@ -153,7 +154,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
       const action = normalizeBannerAction(item.action || "");
       const fallback = mockBanners.find((banner) => banner.action === action) ?? fallbackByIndex(mockBanners, index);
       return {
-        image: fallback.image,
+        image: item.imageUrl || fallback.image,
         title: item.title || fallback.title,
         description: item.description || fallback.description,
         action: action || fallback.action
