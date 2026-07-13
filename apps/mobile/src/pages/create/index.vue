@@ -2069,6 +2069,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   contain: paint;
 }
 
+.create-page.theme-dark .quality-grid .option-card,
 .create-page.theme-dark .ratio-card,
 .create-page.theme-dark .count-card {
   border-color: transparent;
