@@ -57,12 +57,35 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return json.data;
 }
 
+async function upload<T>(path: string, body: FormData): Promise<T> {
+  const token = getAdminToken();
+  const res = await fetch(`${getApiBase()}${path}`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body
+  });
+  let json: Envelope<T> | null = null;
+  try {
+    json = (await res.json()) as Envelope<T>;
+  } catch {
+    throw new ApiError(res.status, `上传失败(${res.status})`);
+  }
+  if (json.code === 40001) {
+    clearAdminToken();
+    window.dispatchEvent(new Event("lumi-admin-unauthorized"));
+    throw new ApiError(40001, json.message || "登录已失效");
+  }
+  if (json.code !== 0) throw new ApiError(json.code, json.message || "上传失败");
+  return json.data;
+}
+
 export const http = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body ?? {}),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),
-  del: <T>(path: string) => request<T>("DELETE", path)
+  del: <T>(path: string) => request<T>("DELETE", path),
+  upload: <T>(path: string, body: FormData) => upload<T>(path, body)
 };
 
 export interface Paginated<T> {

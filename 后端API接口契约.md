@@ -909,6 +909,33 @@ MVP 可先做账号密码登录；后续可接企业微信或二次验证。
 
 作品详情。
 
+#### POST `/admin/works/upload-image`
+
+管理员上传作品图片。请求类型为 `multipart/form-data`，文件字段名为 `file`，支持 JPG、PNG、WEBP、GIF，最大 30MB。
+
+#### POST `/admin/works`
+
+管理员代用户直接发布作品。该接口要求管理员鉴权，作品会直接进入公开已发布状态，不创建生成任务，也不变动用户积分。
+
+请求：
+
+```json
+{
+  "userId": 1,
+  "imageUrl": "https://example.com/work.jpg",
+  "title": "作品标题",
+  "description": "作品描述",
+  "prompt": "完整提示词",
+  "modelId": "gpt-image-2",
+  "ratio": "1:1",
+  "quality": "1K",
+  "style": "写实",
+  "tags": ["写实", "人像"],
+  "featured": false,
+  "recommend": false
+}
+```
+
 #### PATCH `/admin/works/:id`
 
 修改作品元信息。

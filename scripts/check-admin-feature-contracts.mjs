@@ -86,6 +86,7 @@ const adminApiPathContracts = [
   "/admin/dashboard/detail",
   "/admin/users",
   "/admin/works",
+  "/admin/works/upload-image",
   "/admin/reviews",
   "/admin/reports",
   "/admin/feedback",

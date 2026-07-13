@@ -33,3 +33,23 @@ test("admin opens mock menu and navigates core sections", async ({ page }) => {
   await expect(page.locator(".page-body")).toBeVisible();
   await expect(page.locator(".card").first()).toBeVisible();
 });
+
+test("admin opens the complete work upload form", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".nav-header .nav-btn").click();
+  await page.locator(".drawer.show .ditem", { hasText: "作品管理" }).click();
+  await page.getByRole("button", { name: "上传并发布作品" }).click();
+
+  const sheet = page.locator(".sheet.show");
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByText("作品图片", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("选择作者", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("提示词", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("模型", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("画面比例", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("图片精度", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("作品风格", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("作品标签", { exact: true })).toBeVisible();
+  await expect(sheet.locator('input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
+  await expect(sheet.getByRole("button", { name: "立即发布" })).toBeVisible();
+});

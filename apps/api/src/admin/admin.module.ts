@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { CreditsModule } from "../credits/credits.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { UploadsModule } from "../uploads/uploads.module";
 import { AdminAuthController } from "./admin-auth.controller";
 import { AdminAuthService } from "./admin-auth.service";
 import { AdminConfigController } from "./admin-config.controller";
@@ -15,7 +16,7 @@ import { ModerationController } from "./moderation.controller";
 import { ModerationService } from "./moderation.service";
 
 @Module({
-  imports: [AuthModule, CreditsModule, NotificationsModule],
+  imports: [AuthModule, CreditsModule, NotificationsModule, UploadsModule],
   controllers: [
     AdminAuthController,
     DashboardController,

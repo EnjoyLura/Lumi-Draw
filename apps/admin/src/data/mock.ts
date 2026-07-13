@@ -38,6 +38,8 @@ export interface AdminWork {
   recommend: boolean;
   time: string;
   tags?: string[];
+  imageUrl?: string;
+  authorName?: string;
 }
 
 export interface AdminModel {

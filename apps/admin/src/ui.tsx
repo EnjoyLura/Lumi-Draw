@@ -84,13 +84,13 @@ export function WorkCard({ w }: { w: AdminWork }) {
   return (
     <div className="wcard" onClick={() => go("workDetail", String(w.id))}>
       <div style={{ position: "relative" }}>
-        <img className="thumb" src={IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
+        <img className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
         {badge}
       </div>
       <div style={{ padding: "8px 9px" }}>
         <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title || w.prompt.slice(0, 10)}</div>
         <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 3, display: "flex", justifyContent: "space-between" }}>
-          <span>{userName(w.userId)}</span>
+          <span>{w.authorName || userName(w.userId)}</span>
           <span><i className="ri-heart-3-line" /> {w.likes}</span>
         </div>
       </div>

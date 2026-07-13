@@ -92,6 +92,7 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
     recommend: w.recommend,
     time: (w.createdAt ?? "").slice(0, 10),
     imageUrl: w.imageUrl,
+    authorName: w.author?.nickname ?? w.authorName,
     author: w.author
       ? { id: w.author.id, name: w.author.nickname, avatar: w.author.avatarText, color: w.author.avatarColor }
       : w.authorName
@@ -195,6 +196,31 @@ export async function apiRestoreWork(id: number) {
 
 export async function apiDeleteWork(id: number) {
   return http.del<{ ok: boolean; id: number; action: "delete" }>(`/admin/works/${id}`);
+}
+
+export interface AdminCreateWorkInput {
+  userId: number;
+  imageUrl: string;
+  title: string;
+  description: string;
+  prompt: string;
+  modelId: string;
+  ratio: string;
+  quality: string;
+  style: string;
+  tags: string[];
+  featured: boolean;
+  recommend: boolean;
+}
+
+export async function apiUploadAdminWorkImage(file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return http.upload<{ imageUrl: string; ossKey: string; sizeBytes: number; contentType: string }>("/admin/works/upload-image", form);
+}
+
+export async function apiCreateAdminWork(input: AdminCreateWorkInput) {
+  return mapWork(await http.post<ApiWork>("/admin/works", input));
 }
 
 interface ApiReviewWork {

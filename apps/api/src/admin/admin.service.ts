@@ -3,6 +3,8 @@ import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
+import { AdminCreateWorkDto } from "./admin-work.dto";
 import { AdminUserQueryDto, AdminWorkQueryDto } from "./admin.query";
 
 function userRow(user: User) {
@@ -42,6 +44,10 @@ function workRow(work: Work & { user?: User | null }) {
     likes: work.likes,
     favorites: work.favorites,
     remakes: work.remakes,
+    description: work.description,
+    prompt: work.prompt,
+    imageUrl: work.imageUrl,
+    tags: work.tags,
     createdAt: work.createdAt.toISOString()
   };
 }
@@ -50,8 +56,16 @@ function workRow(work: Work & { user?: User | null }) {
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly credits: CreditsService
+    private readonly credits: CreditsService,
+    private readonly uploads: UploadsService
   ) {}
+
+  private adminWorkRow(work: Work & { user?: User | null }) {
+    return {
+      ...workRow(work),
+      imageUrl: this.uploads.readUrl(work.imageUrl, work.status === "published" && work.isPublic ? "public" : "private")
+    };
+  }
 
   async users(query: AdminUserQueryDto) {
     const { keyword, status, member, page, pageSize } = query;
@@ -93,7 +107,7 @@ export class AdminService {
       orderBy: { createdAt: "desc" },
       take: 6
     });
-    return { ...userRow(user), recentWorks: recentWorks.map((w) => workRow(w)) };
+    return { ...userRow(user), recentWorks: recentWorks.map((w) => this.adminWorkRow(w)) };
   }
 
   async works(query: AdminWorkQueryDto) {
@@ -110,7 +124,7 @@ export class AdminService {
       this.prisma.work.findMany({ where, orderBy: { createdAt: "desc" }, include: { user: true }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    return buildPage(rows.map((w) => workRow(w)), total, page, pageSize);
+    return buildPage(rows.map((w) => this.adminWorkRow(w)), total, page, pageSize);
   }
 
   async worksSummary() {
@@ -129,10 +143,9 @@ export class AdminService {
     const work = await this.prisma.work.findUnique({ where: { id }, include: { user: true } });
     if (!work) throw new NotFoundException("作品不存在");
     return {
-      ...workRow(work),
+      ...this.adminWorkRow(work),
       description: work.description,
       prompt: work.prompt,
-      imageUrl: work.imageUrl,
       author: work.user ? { id: work.user.id, nickname: work.user.nickname, avatarText: work.user.avatarText, avatarColor: work.user.avatarColor } : null
     };
   }
@@ -206,6 +219,44 @@ export class AdminService {
   }
 
   // ---------- 作品管理动作 ----------
+  async uploadWorkImage(file?: { buffer: Buffer; originalname: string; mimetype: string; size: number }) {
+    if (!file) throw new BadRequestException("请选择需要上传的作品图片");
+    if (!file.mimetype.startsWith("image/")) throw new BadRequestException("请选择图片文件");
+    return this.uploads.uploadBuffer("work", file.originalname, file.mimetype, file.buffer);
+  }
+
+  async createWork(dto: AdminCreateWorkDto) {
+    const user = await this.ensureUser(dto.userId);
+    const imageUrl = dto.imageUrl.trim();
+    if (!/^https:\/\//i.test(imageUrl)) throw new BadRequestException("作品图片地址无效");
+
+    const tags = Array.from(new Set((dto.tags ?? []).map((tag) => tag.trim()).filter(Boolean))).slice(0, 5);
+    const work = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.work.create({
+        data: {
+          userId: user.id,
+          title: dto.title.trim(),
+          description: dto.description?.trim() ?? "",
+          prompt: dto.prompt.trim(),
+          imageUrl,
+          ratio: dto.ratio.trim(),
+          quality: dto.quality.trim(),
+          modelId: dto.modelId.trim(),
+          style: dto.style?.trim() ?? tags[0] ?? "",
+          tags,
+          status: "published",
+          isPublic: true,
+          featured: dto.featured ?? false,
+          recommend: dto.recommend ?? false
+        }
+      });
+      await tx.user.update({ where: { id: user.id }, data: { worksCount: { increment: 1 } } });
+      return created;
+    });
+
+    return this.adminWorkRow({ ...work, user });
+  }
+
   private async ensureWork(id: number) {
     const work = await this.prisma.work.findUnique({ where: { id } });
     if (!work) throw new NotFoundException("作品不存在");
@@ -220,31 +271,31 @@ export class AdminService {
     if (typeof body.style === "string") data.style = body.style;
     if (["draft", "pending", "published", "rejected", "offline"].includes(String(body.status))) data.status = String(body.status);
     const work = await this.prisma.work.update({ where: { id }, data, include: { user: true } });
-    return workRow(work);
+    return this.adminWorkRow(work);
   }
 
   async featureWork(id: number, featured: unknown) {
     await this.ensureWork(id);
     const work = await this.prisma.work.update({ where: { id }, data: { featured: !!featured }, include: { user: true } });
-    return workRow(work);
+    return this.adminWorkRow(work);
   }
 
   async recommendWork(id: number, recommend: unknown) {
     await this.ensureWork(id);
     const work = await this.prisma.work.update({ where: { id }, data: { recommend: !!recommend }, include: { user: true } });
-    return workRow(work);
+    return this.adminWorkRow(work);
   }
 
   async offlineWork(id: number) {
     await this.ensureWork(id);
     const work = await this.prisma.work.update({ where: { id }, data: { status: "offline", isPublic: false }, include: { user: true } });
-    return workRow(work);
+    return this.adminWorkRow(work);
   }
 
   async restoreWork(id: number) {
     await this.ensureWork(id);
     const work = await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true }, include: { user: true } });
-    return workRow(work);
+    return this.adminWorkRow(work);
   }
 
   async deleteWork(id: number) {

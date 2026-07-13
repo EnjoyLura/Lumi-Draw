@@ -69,6 +69,27 @@ export class UploadsService {
     return { ok: true, ossKey, publicUrl: resolved };
   }
 
+  async uploadBuffer(scene: string, filename: string, contentType: string, buffer: Buffer) {
+    if (!EXT_BY_TYPE[contentType]) throw new BadRequestException("仅支持 PNG、JPG、WEBP 或 GIF 图片");
+    if (!buffer.length) throw new BadRequestException("上传图片不能为空");
+    if (buffer.byteLength > MAX_TRANSFER_BYTES) throw new BadRequestException("上传图片不能超过 30MB");
+
+    const policy = this.policy(scene, filename, contentType);
+    const uploaded = await fetch(policy.uploadUrl, {
+      method: "PUT",
+      headers: policy.headers,
+      body: buffer
+    });
+    if (!uploaded.ok) throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
+
+    return {
+      imageUrl: policy.publicUrl,
+      ossKey: policy.ossKey,
+      sizeBytes: buffer.byteLength,
+      contentType
+    };
+  }
+
   /**
    * Public media uses a stable CDN URL. Private media keeps a short-lived OSS
    * signature so drafts and generation results are never persisted in CDN.

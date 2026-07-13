@@ -4,7 +4,9 @@ import { getWorks } from "../data/service";
 import { apiGetWorks, apiGetWorksSummary, type AdminWorksSummary } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
-import { Chips, SearchBar, StatCard, WorkCard } from "../ui";
+import { useNav } from "../shell/NavContext";
+import { AddBtn, Chips, SearchBar, StatCard, WorkCard } from "../ui";
+import { WorkUploadForm } from "./WorkUploadForm";
 
 const FILTERS = ["全部", "已发布", "待审核", "已下架", "精选"];
 
@@ -20,8 +22,9 @@ function formatCount(value: number) {
 }
 
 export function Works() {
+  const { openSheet } = useNav();
   const { useMock } = useAdminSession();
-  const { data } = useAsyncData(useMock ? null : apiGetWorks, [useMock]);
+  const { data, reload } = useAsyncData(useMock ? null : apiGetWorks, [useMock]);
   const summaryState = useAsyncData(useMock ? null : apiGetWorksSummary, [useMock]);
   const works = useMock ? getWorks() : data ?? [];
   const [filter, setFilter] = useState("全部");
@@ -33,6 +36,10 @@ export function Works() {
     offline: works.filter((w) => w.status === "已下架").length
   };
   const summary = useMock ? localSummary : summaryState.data ?? localSummary;
+  const afterPublished = () => {
+    reload();
+    summaryState.reload();
+  };
 
   const q = query.toLowerCase();
   const list = works.filter((w) => {
@@ -51,6 +58,7 @@ export function Works() {
         <StatCard label="已下架" val={formatCount(summary.offline)} icon="ri-eye-off-line" color="#9AA5B4" soft="var(--bg-soft)" />
       </div>
       <div style={{ height: 14 }} />
+      <AddBtn text="上传并发布作品" onClick={() => openSheet("上传并发布作品", <WorkUploadForm useMock={useMock} onPublished={afterPublished} />)} />
       <SearchBar value={query} onChange={setQuery} placeholder="搜索作品标题 / 提示词 / 作者" />
       <Chips items={FILTERS} active={filter} onPick={setFilter} />
       {query ? (

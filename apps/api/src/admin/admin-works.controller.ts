@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { AdminWorkQueryDto } from "./admin.query";
+import { AdminCreateWorkDto } from "./admin-work.dto";
 import { AdminService } from "./admin.service";
 
 type Body_ = Record<string, unknown>;
+type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
 @ApiTags("admin-works")
 @ApiBearerAuth()
@@ -21,6 +24,17 @@ export class AdminWorksController {
   @Get("summary")
   summary() {
     return this.admin.worksSummary();
+  }
+
+  @Post("upload-image")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 30 * 1024 * 1024, files: 1 } }))
+  uploadImage(@UploadedFile() file?: UploadedImage) {
+    return this.admin.uploadWorkImage(file);
+  }
+
+  @Post()
+  create(@Body() dto: AdminCreateWorkDto) {
+    return this.admin.createWork(dto);
   }
 
   @Get(":id")
