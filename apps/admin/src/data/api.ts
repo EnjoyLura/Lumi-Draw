@@ -364,19 +364,19 @@ export async function apiSetBannerEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiGameplay {
-  id: number; name: string; description: string; uses: string | number; hot: boolean; enabled: boolean; sort: number;
+  id: number; name: string; description: string; uses: string | number; hot: boolean; imageUrl?: string; enabled: boolean; sort: number;
 }
 
 function mapGameplay(g: ApiGameplay): AdminGameplay {
-  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, on: g.enabled };
+  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, imageUrl: g.imageUrl, on: g.enabled };
 }
 
 export async function apiGetGameplays() {
   return (await http.get<ApiGameplay[]>("/admin/gameplays")).map(mapGameplay);
 }
 
-export async function apiSaveGameplay(id: number, values: { name: string; desc: string; uses?: string; hot: boolean; on?: boolean }) {
-  const body = { name: values.name, description: values.desc, uses: values.uses, hot: values.hot, enabled: values.on };
+export async function apiSaveGameplay(id: number, values: { name: string; desc: string; uses?: string; hot: boolean; imageUrl?: string; on?: boolean }) {
+  const body = { name: values.name, description: values.desc, uses: values.uses, hot: values.hot, imageUrl: values.imageUrl, enabled: values.on };
   return mapGameplay(id ? await http.patch<ApiGameplay>(`/admin/gameplays/${id}`, body) : await http.post<ApiGameplay>("/admin/gameplays", body));
 }
 
@@ -389,24 +389,30 @@ export async function apiSetGameplayEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiStyle {
-  id: number; name: string; prompt: string; uses: number; enabled: boolean; sort: number;
+  id: number; name: string; prompt: string; uses: number; imageUrl?: string; enabled: boolean; sort: number;
 }
 
 function mapStyle(s: ApiStyle): AdminStyle {
-  return { id: s.id, n: s.name, prompt: s.prompt, s: s.uses };
+  return { id: s.id, n: s.name, prompt: s.prompt, s: s.uses, imageUrl: s.imageUrl };
 }
 
 export async function apiGetStyles() {
   return (await http.get<ApiStyle[]>("/admin/styles")).map(mapStyle);
 }
 
-export async function apiSaveStyle(id: number, values: { n: string; prompt: string; s: number; sort?: number }) {
-  const body = { name: values.n, prompt: values.prompt, uses: values.s, sort: values.sort };
+export async function apiSaveStyle(id: number, values: { n: string; prompt: string; s: number; imageUrl?: string; sort?: number }) {
+  const body = { name: values.n, prompt: values.prompt, uses: values.s, imageUrl: values.imageUrl, sort: values.sort };
   return mapStyle(id ? await http.patch<ApiStyle>(`/admin/styles/${id}`, body) : await http.post<ApiStyle>("/admin/styles", body));
 }
 
 export async function apiDeleteStyle(id: number) {
   return http.del<ApiStyle>(`/admin/styles/${id}`);
+}
+
+export async function apiUploadConfigImage(scene: "gameplay" | "style", file: File) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return http.upload<{ imageUrl: string; ossKey: string; sizeBytes: number; contentType: string }>(`/admin/config-media/${scene}`, form);
 }
 
 interface ApiCategory {

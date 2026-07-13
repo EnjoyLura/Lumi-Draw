@@ -19,6 +19,9 @@ export class AdminConfigController {
   @Post("banners/upload-image")
   @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))
   uploadBannerImage(@UploadedFile() file?: UploadedImage) { return this.config.uploadBannerImage(file); }
+  @Post("config-media/:scene")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))
+  uploadConfigImage(@Param("scene") scene: string, @UploadedFile() file?: UploadedImage) { return this.config.uploadConfigImage(scene, file); }
   @Get("gameplays") gameplays() { return this.config.gameplays(); }
   @Get("styles") styles() { return this.config.styles(); }
   @Get("categories") categories() { return this.config.categories(); }

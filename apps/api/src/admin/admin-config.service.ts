@@ -23,8 +23,8 @@ function requireFields(body: Record<string, unknown>, keys: string[]) {
 // 各配置实体的可写字段白名单（防止未知字段进 Prisma）
 const FIELDS = {
   banner: ["title", "description", "imageUrl", "action", "sort", "enabled"],
-  gameplay: ["name", "description", "uses", "hot", "enabled", "sort"],
-  style: ["name", "prompt", "uses", "enabled", "sort"],
+  gameplay: ["name", "description", "uses", "hot", "imageUrl", "enabled", "sort"],
+  style: ["name", "prompt", "uses", "imageUrl", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
   hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
   modelConfig: ["id", "provider", "providerModel", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
@@ -52,11 +52,20 @@ export class AdminConfigService {
     if (!file) throw new BadRequestException("请选择走马灯图片");
     return this.uploads.uploadBuffer("banner", file.originalname, file.mimetype, file.buffer);
   }
-  gameplays() {
-    return this.prisma.gameplay.findMany(bySort);
+
+  uploadConfigImage(scene: string, file?: UploadedImage) {
+    if (scene !== "gameplay" && scene !== "style") throw new BadRequestException("不支持的配置图片类型");
+    if (!file) throw new BadRequestException("请选择封面图片");
+    return this.uploads.uploadBuffer(scene, file.originalname, file.mimetype, file.buffer);
   }
-  styles() {
-    return this.prisma.style.findMany(bySort);
+
+  async gameplays() {
+    const rows = await this.prisma.gameplay.findMany(bySort);
+    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
+  }
+  async styles() {
+    const rows = await this.prisma.style.findMany(bySort);
+    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
   }
   categories() {
     return this.prisma.category.findMany(bySort);

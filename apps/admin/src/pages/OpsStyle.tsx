@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConfigImagePicker } from "../components/ConfigImagePicker";
 import { apiDeleteStyle, apiGetStyles, apiSaveStyle } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { IMG, nextId, STYLES, type AdminStyle } from "../data/mock";
@@ -9,7 +10,6 @@ import { AddBtn, CtrlIcons, SortCtrl } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
-const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed" };
 
 function StyleForm({ id, item, useMock, onSaved }: { id: number; item?: AdminStyle; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
@@ -17,19 +17,21 @@ function StyleForm({ id, item, useMock, onSaved }: { id: number; item?: AdminSty
   const [name, setName] = useState(s?.n ?? "");
   const [prompt, setPrompt] = useState(s?.prompt ?? "");
   const [uses, setUses] = useState(String(s?.s ?? 0));
+  const [imageUrl, setImageUrl] = useState(s?.imageUrl ?? "");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
+    if (!imageUrl) { toast("请上传风格封面"); return; }
     const n = name.trim();
     const val = parseInt(uses) || 0;
     setSaving(true);
     try {
       if (useMock) {
-        if (s) { s.n = n; s.prompt = prompt; s.s = val; }
-        else STYLES.push({ id: nextId(STYLES), n, s: val, prompt });
+        if (s) { s.n = n; s.prompt = prompt; s.s = val; s.imageUrl = imageUrl; }
+        else STYLES.push({ id: nextId(STYLES), n, s: val, prompt, imageUrl });
       } else {
-        await apiSaveStyle(id, { n, prompt, s: val });
+        await apiSaveStyle(id, { n, prompt, s: val, imageUrl });
       }
       closeSheet();
       onSaved();
@@ -50,7 +52,7 @@ function StyleForm({ id, item, useMock, onSaved }: { id: number; item?: AdminSty
       <label className="field-label" style={{ marginTop: 12 }}>使用次数</label>
       <input className="input" type="number" value={uses} onChange={(e) => setUses(e.target.value)} />
       <label className="field-label" style={{ marginTop: 12 }}>封面图</label>
-      <div className="card" style={UPLOAD_STYLE}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} />&nbsp;点击上传</div>
+      <ConfigImagePicker value={imageUrl} scene="style" useMock={useMock} disabled={saving} onChange={setImageUrl} />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
@@ -102,7 +104,7 @@ export function OpsStyle() {
       <div className="card">
         {styles.map((s, i) => (
           <div key={s.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <img className="thumb" src={IMG("st" + s.n)} style={{ width: 40, height: 40, marginTop: 2 }} alt="" />
+            <img className="thumb" src={s.imageUrl || IMG("st" + s.n)} style={{ width: 40, height: 40, marginTop: 2 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{s.n}</div>
               <div className="lr-s">使用 {s.s} 次 · 排序 {i + 1}</div>

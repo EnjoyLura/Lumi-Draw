@@ -56,3 +56,19 @@ test("admin opens the complete work upload form", async ({ page }) => {
   await expect(sheet.locator('input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
   await expect(sheet.getByRole("button", { name: "立即发布" })).toBeVisible();
 });
+
+test("admin gameplay and style forms provide image upload", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".nav-header .nav-btn").click();
+  await page.locator(".drawer.show .ditem", { hasText: "玩法模板" }).click();
+  await page.locator(".page-body .lrow .nav-btn").first().click();
+  await expect(page.locator(".sheet.show").getByText("玩法封面", { exact: true })).toBeVisible();
+  await expect(page.locator('.sheet.show input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
+  await page.locator(".sheet.show .sh-head .nav-btn").click();
+
+  await page.locator(".nav-header .nav-btn").click();
+  await page.locator(".drawer.show .ditem", { hasText: "风格管理" }).click();
+  await page.locator(".page-body .lrow .nav-btn").nth(2).click();
+  await expect(page.locator(".sheet.show").getByText("封面图", { exact: true })).toBeVisible();
+  await expect(page.locator('.sheet.show input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
+});

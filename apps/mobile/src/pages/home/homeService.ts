@@ -27,6 +27,7 @@ interface BackendGameplay {
   description: string;
   uses: string | number;
   hot: boolean;
+  imageUrl?: string;
 }
 
 interface BackendBootstrap {
@@ -164,7 +165,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
       const fallback = mockGameplays.find((gameplay) => gameplay.name === item.name) ?? fallbackByIndex(mockGameplays, index);
       return {
         name: item.name || fallback.name,
-        image: fallback.image,
+        image: item.imageUrl || fallback.image,
         uses: formatUses(item.uses, fallback.uses),
         hot: item.hot
       };

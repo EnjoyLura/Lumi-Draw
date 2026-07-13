@@ -129,19 +129,20 @@ export interface AdminStyle {
   n: string;
   s: number;
   prompt: string;
+  imageUrl?: string;
 }
 
 export const STYLES: AdminStyle[] = [
-  { id: 1, n: "赛博朋克", s: 9800, prompt: "cyberpunk style, neon lights, futuristic city, high detail" },
-  { id: 2, n: "国风", s: 8600, prompt: "chinese ink painting style, traditional, elegant, misty" },
-  { id: 3, n: "二次元", s: 12400, prompt: "anime style, soft colors, clean lineart, studio ghibli" },
-  { id: 4, n: "写实", s: 7300, prompt: "photorealistic, ultra detailed, natural lighting, 8k" },
-  { id: 5, n: "油画", s: 4200, prompt: "oil painting style, impressionist, textured brushstrokes" },
-  { id: 6, n: "水彩", s: 3900, prompt: "watercolor style, soft wash, pastel, delicate" },
-  { id: 7, n: "梦幻", s: 5100, prompt: "dreamy, ethereal, surreal, pastel colors, glowing" },
-  { id: 8, n: "极简", s: 2600, prompt: "minimalist style, clean lines, simple, negative space" },
-  { id: 9, n: "像素", s: 2100, prompt: "pixel art, 16-bit, retro game style, colorful" },
-  { id: 10, n: "暗黑", s: 3300, prompt: "dark gothic style, dramatic lighting, moody, high contrast" }
+  { id: 1, n: "赛博朋克", s: 9800, prompt: "cyberpunk style, neon lights, futuristic city, high detail", imageUrl: gptImage2Banner },
+  { id: 2, n: "国风", s: 8600, prompt: "chinese ink painting style, traditional, elegant, misty", imageUrl: publishRewardBanner },
+  { id: 3, n: "二次元", s: 12400, prompt: "anime style, soft colors, clean lineart, studio ghibli", imageUrl: gptImage2Banner },
+  { id: 4, n: "写实", s: 7300, prompt: "photorealistic, ultra detailed, natural lighting, 8k", imageUrl: publishRewardBanner },
+  { id: 5, n: "油画", s: 4200, prompt: "oil painting style, impressionist, textured brushstrokes", imageUrl: gptImage2Banner },
+  { id: 6, n: "水彩", s: 3900, prompt: "watercolor style, soft wash, pastel, delicate", imageUrl: publishRewardBanner },
+  { id: 7, n: "梦幻", s: 5100, prompt: "dreamy, ethereal, surreal, pastel colors, glowing", imageUrl: gptImage2Banner },
+  { id: 8, n: "极简", s: 2600, prompt: "minimalist style, clean lines, simple, negative space", imageUrl: publishRewardBanner },
+  { id: 9, n: "像素", s: 2100, prompt: "pixel art, 16-bit, retro game style, colorful", imageUrl: gptImage2Banner },
+  { id: 10, n: "暗黑", s: 3300, prompt: "dark gothic style, dramatic lighting, moody, high contrast", imageUrl: publishRewardBanner }
 ];
 
 export interface AdminBanner {
@@ -161,6 +162,7 @@ export interface AdminGameplay {
   uses: string;
   hot: boolean;
   on: boolean;
+  imageUrl?: string;
 }
 
 export interface AdminCategory {
@@ -202,12 +204,12 @@ export const BANNERS: AdminBanner[] = [
 ];
 
 export const GAMEPLAYS: AdminGameplay[] = [
-  { id: 1, name: "人物美颜", desc: "一键美颜，智能磨皮提亮肤色", uses: "12.6w", hot: true, on: true },
-  { id: 2, name: "证件照", desc: "快速生成标准规格证件照", uses: "8.3w", hot: true, on: true },
-  { id: 3, name: "宠物头像", desc: "萌宠专属卡通头像生成", uses: "5.1w", hot: false, on: true },
-  { id: 4, name: "古风国潮", desc: "国风古韵人像与场景创作", uses: "4.8w", hot: false, on: true },
-  { id: 5, name: "Q版头像", desc: "可爱Q版卡通形象定制", uses: "6.2w", hot: true, on: true },
-  { id: 6, name: "Logo设计", desc: "AI辅助品牌Logo灵感生成", uses: "3.9w", hot: false, on: false }
+  { id: 1, name: "人物美颜", desc: "一键美颜，智能磨皮提亮肤色", uses: "12.6w", hot: true, on: true, imageUrl: publishRewardBanner },
+  { id: 2, name: "证件照", desc: "快速生成标准规格证件照", uses: "8.3w", hot: true, on: true, imageUrl: gptImage2Banner },
+  { id: 3, name: "宠物头像", desc: "萌宠专属卡通头像生成", uses: "5.1w", hot: false, on: true, imageUrl: publishRewardBanner },
+  { id: 4, name: "古风国潮", desc: "国风古韵人像与场景创作", uses: "4.8w", hot: false, on: true, imageUrl: gptImage2Banner },
+  { id: 5, name: "Q版头像", desc: "可爱Q版卡通形象定制", uses: "6.2w", hot: true, on: true, imageUrl: publishRewardBanner },
+  { id: 6, name: "Logo设计", desc: "AI辅助品牌Logo灵感生成", uses: "3.9w", hot: false, on: false, imageUrl: gptImage2Banner }
 ];
 
 export const HOT_SEARCHES: AdminHotSearch[] = [

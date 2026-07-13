@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ConfigImagePicker } from "../components/ConfigImagePicker";
 import { apiDeleteGameplay, apiGetGameplays, apiSaveGameplay, apiSetGameplayEnabled } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { GAMEPLAYS, IMG, nextId, type AdminGameplay } from "../data/mock";
@@ -17,19 +18,21 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
   const [desc, setDesc] = useState(g?.desc ?? "");
   const [uses, setUses] = useState(g?.uses ?? "0");
   const [prompt, setPrompt] = useState("");
+  const [imageUrl, setImageUrl] = useState(g?.imageUrl ?? "");
   const [hot, setHot] = useState(g?.hot ?? false);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
+    if (!imageUrl) { toast("请上传玩法封面"); return; }
     void prompt;
     setSaving(true);
     try {
       if (useMock) {
-        if (g) Object.assign(g, { name: name.trim(), desc, uses: uses.trim() || "0", hot });
-        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: uses.trim() || "0", on: true });
+        if (g) Object.assign(g, { name: name.trim(), desc, uses: uses.trim() || "0", hot, imageUrl });
+        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: uses.trim() || "0", imageUrl, on: true });
       } else {
-        await apiSaveGameplay(id, { name: name.trim(), desc, uses: uses.trim() || "0", hot, on: g?.on ?? true });
+        await apiSaveGameplay(id, { name: name.trim(), desc, uses: uses.trim() || "0", hot, imageUrl, on: g?.on ?? true });
       }
       closeSheet();
       onSaved();
@@ -51,6 +54,8 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
       <input className="input" value={uses} onChange={(e) => setUses(e.target.value)} placeholder="如：8600 或 12.6w" />
       <label className="field-label" style={{ marginTop: 12 }}>关联提示词模板</label>
       <textarea className="input" rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="预设提示词" />
+      <label className="field-label" style={{ marginTop: 12 }}>玩法封面</label>
+      <ConfigImagePicker value={imageUrl} scene="gameplay" useMock={useMock} disabled={saving} onChange={setImageUrl} />
       <div className="kv" style={{ marginTop: 8 }}>
         <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>标记为 HOT</span>
         <Switch on={hot} onToggle={() => setHot((v) => !v)} />
@@ -113,7 +118,7 @@ export function OpsGameplay() {
       <div className="card">
         {gameplays.map((g) => (
           <div key={g.id} className="lrow" style={{ cursor: "default" }}>
-            <img className="thumb" src={IMG("gp" + g.id)} style={{ width: 44, height: 44 }} alt="" />
+            <img className="thumb" src={g.imageUrl || IMG("gp" + g.id)} style={{ width: 44, height: 44 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{g.name}{g.hot ? <>&nbsp;<Badge text="HOT" type="danger" /></> : null}</div>
               <div className="lr-s">{g.desc}</div>

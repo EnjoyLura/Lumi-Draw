@@ -47,6 +47,7 @@ export class ConfigService {
       id: g.id,
       name: g.name,
       description: g.description,
+      imageUrl: this.uploads.readUrl(g.imageUrl, "public"),
       uses: g.uses,
       hot: g.hot
     }));
@@ -58,6 +59,7 @@ export class ConfigService {
       id: s.id,
       name: s.name,
       prompt: s.prompt,
+      imageUrl: this.uploads.readUrl(s.imageUrl, "public"),
       uses: s.uses
     }));
   }
