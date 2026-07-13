@@ -100,6 +100,13 @@ export class PaymentsService {
     if (!order) {
       throw new NotFoundException("payment order not found");
     }
+    const payConfig = this.wechatPayConfig();
+    if (transaction.appid && transaction.appid !== payConfig.appId) throw new ForbiddenException("微信支付应用号不匹配");
+    if (transaction.mchid && transaction.mchid !== payConfig.mchId) throw new ForbiddenException("微信支付商户号不匹配");
+    if (transaction.amount?.total !== undefined && transaction.amount.total !== order.amountFen) {
+      throw new BadRequestException("微信支付金额与订单金额不一致");
+    }
+    if (transaction.amount?.currency && transaction.amount.currency !== "CNY") throw new BadRequestException("微信支付币种不正确");
     await this.markOrderPaid(order, transaction.transaction_id || transaction.out_trade_no);
     return { received: true };
   }
@@ -142,19 +149,25 @@ export class PaymentsService {
     if (order.status !== "pending") throw new BadRequestException("订单状态不能支付");
 
     return this.prisma.$transaction(async (tx) => {
-      const locked = await tx.paymentOrder.findUnique({
+      const reusedTransaction = await tx.paymentOrder.findFirst({
+        where: { transactionId, status: "paid", id: { not: order.id } },
+        select: { id: true }
+      });
+      if (reusedTransaction) throw new BadRequestException("微信支付交易号已被其他订单使用");
+
+      const claimed = await tx.paymentOrder.updateMany({
+        where: { id: order.id, status: "pending" },
+        data: { status: "paid", transactionId, paidAt: new Date() }
+      });
+      const paid = await tx.paymentOrder.findUnique({
         where: { id: order.id },
         include: { user: { select: { memberExpireAt: true } } }
       });
-      if (!locked) throw new NotFoundException("支付订单不存在");
-      if (locked.status === "paid") return locked;
-      if (locked.status !== "pending") throw new BadRequestException("订单状态不能支付");
-
-      const paid = await tx.paymentOrder.update({
-        where: { id: locked.id },
-        data: { status: "paid", transactionId, paidAt: new Date() },
-        include: { user: { select: { memberExpireAt: true } } }
-      });
+      if (!paid) throw new NotFoundException("支付订单不存在");
+      if (claimed.count === 0) {
+        if (paid.status === "paid") return paid;
+        throw new BadRequestException("订单状态不能支付");
+      }
 
       await this.applyPaidOrder(tx, paid);
       return paid;

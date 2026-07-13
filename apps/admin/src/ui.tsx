@@ -1,4 +1,5 @@
 // 通用展示组件（移植自 prototype/admin-prototype.html 的 statCard/avatar/badge/searchBar/sec 等辅助函数）
+import { useState } from "react";
 import { IMG, statusType, userName, type AdminWork } from "./data/mock";
 import { useNav } from "./shell/NavContext";
 
@@ -132,13 +133,15 @@ export function CtrlIcons({ onEdit, onDelete }: { onEdit: () => void; onDelete: 
   );
 }
 
-export function BarChart({ data, labels, grad }: { data: number[]; labels: string[]; grad: string }) {
+export function BarChart({ data, labels, grad, valueFormatter = String }: { data: number[]; labels: string[]; grad: string; valueFormatter?: (value: number) => string }) {
+  const [selected, setSelected] = useState<number | null>(null);
   const max = Math.max(1, ...data);
   return (
     <div className="bars">
       {data.map((v, i) => (
-        <div key={i} className="bar-col">
-          <div className="bar" style={{ height: `${(v / max) * 100}%`, background: grad }} />
+        <div key={i} className={`bar-col${selected === i ? " selected" : ""}`} onClick={() => setSelected(i)}>
+          {selected === i ? <div className="bar-tip">{valueFormatter(v)}</div> : null}
+          <div className="bar" style={{ height: v > 0 ? `${Math.max(5, (v / max) * 100)}%` : 0, background: grad }} />
           <div className="bar-x">{labels[i]}</div>
         </div>
       ))}

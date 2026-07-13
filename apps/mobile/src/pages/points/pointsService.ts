@@ -126,10 +126,15 @@ function recordTitle(record: CreditRecord) {
 
 function toPointRecord(record: CreditRecord): PointRecord {
   const amount = record.amount > 0 ? `+${record.amount}` : `${record.amount}`;
+  const sourceMap: Record<string, string> = {
+    recharge: "微信充值", consume: "创作消耗", refund: "积分返还", checkin: "签到奖励",
+    invite: "邀请奖励", membership: "会员权益", adjust: "积分调整"
+  };
+  const source = sourceMap[record.type] || "积分变动";
   return {
     title: recordTitle(record),
-    source: record.type,
-    model: record.type,
+    source,
+    model: source,
     time: formatDate(record.createdAt),
     amount
   };

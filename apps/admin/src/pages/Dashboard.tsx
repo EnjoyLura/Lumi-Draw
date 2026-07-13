@@ -78,7 +78,13 @@ export function Dashboard() {
           active={trendKey}
           onPick={setTrendKey}
         />
-        <BarChart data={trendData} labels={trend.labels} grad={TREND_GRAD[trendKey]} />
+        <BarChart
+          key={trendKey}
+          data={trendData}
+          labels={trend.labels}
+          grad={TREND_GRAD[trendKey]}
+          valueFormatter={trendKey === "income" ? (value) => `¥${value.toLocaleString("zh-CN", { maximumFractionDigits: 2 })}` : formatCount}
+        />
       </div>
 
       <Sec title="数据对比" />

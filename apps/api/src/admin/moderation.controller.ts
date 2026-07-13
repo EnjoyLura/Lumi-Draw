@@ -120,6 +120,12 @@ export class ModerationController {
     return this.mod.transactions(type, Number.isFinite(uid) ? uid : undefined, toInt(page, 1), toInt(pageSize, 20));
   }
 
+  @Get("payment-orders")
+  paymentOrders(@Query("type") type?: string, @Query("userId") userId?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+    const uid = Number(userId);
+    return this.mod.paymentOrders(type, Number.isFinite(uid) ? uid : undefined, toInt(page, 1), toInt(pageSize, 20));
+  }
+
   // 财务/积分配置
   @Get("checkin-config") getCheckinConfig() { return this.mod.getCheckinConfig(); }
   @Put("checkin-config") putCheckinConfig(@Body() b: Body_) { return this.mod.putCheckinConfig(b); }

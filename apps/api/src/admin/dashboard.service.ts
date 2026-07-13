@@ -1,21 +1,31 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 
+const CHINA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function chinaDate(d: Date) {
+  return new Date(d.getTime() + CHINA_OFFSET_MS);
+}
+
 function dayKey(d: Date) {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
+  const shifted = chinaDate(d);
+  const year = shifted.getUTCFullYear();
+  const month = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(shifted.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 function lastNDays(n: number): string[] {
   const keys: string[] = [];
-  const base = new Date();
-  base.setHours(0, 0, 0, 0);
+  const base = chinaDate(new Date());
+  base.setUTCHours(0, 0, 0, 0);
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(base);
-    d.setDate(base.getDate() - i);
-    keys.push(dayKey(d));
+    d.setUTCDate(base.getUTCDate() - i);
+    const year = d.getUTCFullYear();
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    keys.push(`${year}-${month}-${day}`);
   }
   return keys;
 }
@@ -31,13 +41,21 @@ function bucketByDay(dates: Date[], keys: string[]): number[] {
 
 function dayStart(key: string) {
   const [year, month, day] = key.split("-").map(Number);
-  return new Date(year, month - 1, day, 0, 0, 0, 0);
+  return new Date(Date.UTC(year, month - 1, day) - CHINA_OFFSET_MS);
 }
 
 function nextDayStart(key: string) {
-  const d = dayStart(key);
-  d.setDate(d.getDate() + 1);
-  return d;
+  return new Date(dayStart(key).getTime() + 24 * 60 * 60 * 1000);
+}
+
+function bucketFenByDay(rows: Array<{ paidAt: Date | null; amountFen: number }>, keys: string[]) {
+  const totals = new Map<string, number>(keys.map((key) => [key, 0]));
+  rows.forEach((row) => {
+    if (!row.paidAt) return;
+    const key = dayKey(row.paidAt);
+    if (totals.has(key)) totals.set(key, (totals.get(key) ?? 0) + row.amountFen);
+  });
+  return keys.map((key) => totals.get(key) ?? 0);
 }
 
 function sumFen(result: { _sum: { amountFen: number | null } }) {
@@ -49,8 +67,7 @@ export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async summary() {
-    const startToday = new Date();
-    startToday.setHours(0, 0, 0, 0);
+    const startToday = dayStart(dayKey(new Date()));
     const [totalUsers, totalWorks, publishedWorks, pendingWorks, pendingReports, pendingFeedback, todayNewUsers, todayNewWorks] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.work.count(),
@@ -69,10 +86,10 @@ export class DashboardService {
   }
 
   async financeSummary() {
-    const startToday = new Date();
-    startToday.setHours(0, 0, 0, 0);
-    const startMonth = new Date(startToday);
-    startMonth.setDate(1);
+    const todayKey = dayKey(new Date());
+    const startToday = dayStart(todayKey);
+    const [year, month] = todayKey.split("-");
+    const startMonth = dayStart(`${year}-${month}-01`);
 
     const paidWhere = { status: "paid" };
     const [todayIncome, monthIncome, totalIncome, paidOrders, pendingOrders] = await Promise.all([
@@ -117,15 +134,20 @@ export class DashboardService {
   async trends(range?: string) {
     const keys = lastNDays(this.daysOf(range));
     const start = dayStart(keys[0]);
-    const [users, works] = await Promise.all([
+    const [users, works, paidOrders] = await Promise.all([
       this.prisma.user.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
-      this.prisma.work.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })
+      this.prisma.work.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } }),
+      this.prisma.paymentOrder.findMany({
+        where: { status: "paid", paidAt: { gte: start } },
+        select: { paidAt: true, amountFen: true }
+      })
     ]);
     return {
       range: `${this.daysOf(range)}d`,
       labels: keys,
       newUsers: bucketByDay(users.map((u) => u.createdAt), keys),
-      newWorks: bucketByDay(works.map((w) => w.createdAt), keys)
+      newWorks: bucketByDay(works.map((w) => w.createdAt), keys),
+      incomeFen: bucketFenByDay(paidOrders, keys)
     };
   }
 

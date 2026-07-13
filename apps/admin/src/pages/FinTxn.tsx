@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { apiGetTransactions } from "../data/api";
+import { apiGetPaymentOrders } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { userName, type AdminTxn } from "../data/mock";
 import { getTransactions } from "../data/service";
@@ -22,13 +22,14 @@ function TxnDetail({ t }: { t: AdminTxn }) {
   return (
     <>
       <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">交易用户</span><span className="v">{userName(t.userId)}</span></div>
+        <div className="kv"><span className="k">交易用户</span><span className="v">{t.userName || userName(t.userId)}</span></div>
         <div className="kv"><span className="k">类型</span><span className="v">{t.type}</span></div>
-        <div className="kv"><span className="k">金额</span><span className="v">{t.amount}</span></div>
-        <div className="kv"><span className="k">积分变动</span><span className="v">{t.credits || "—"}</span></div>
+        <div className="kv"><span className="k">支付金额</span><span className="v">{t.amount}</span></div>
+        <div className="kv"><span className="k">到账积分</span><span className="v">{t.credits || "—"}</span></div>
         <div className="kv"><span className="k">状态</span><span className="v">{t.status}</span></div>
         <div className="kv"><span className="k">时间</span><span className="v">{t.time}</span></div>
-        <div className="kv"><span className="k">订单号</span><span className="v">LM{202506000 + t.id}</span></div>
+        <div className="kv"><span className="k">订单号</span><span className="v">{t.orderNo || t.id}</span></div>
+        {t.transactionId ? <div className="kv"><span className="k">微信交易号</span><span className="v" style={{ overflowWrap: "anywhere" }}>{t.transactionId}</span></div> : null}
       </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet}>关闭</button>
@@ -41,7 +42,7 @@ function TxnDetail({ t }: { t: AdminTxn }) {
 export function FinTxn() {
   const { openSheet } = useNav();
   const { useMock } = useAdminSession();
-  const { data, loading, error } = useAsyncData<AdminTxn[]>(useMock ? null : () => apiGetTransactions(), [useMock]);
+  const { data, loading, error } = useAsyncData<AdminTxn[]>(useMock ? null : () => apiGetPaymentOrders(), [useMock]);
   const all = useMock ? getTransactions() : data ?? [];
   const [type, setType] = useState("全部");
   const [status, setStatus] = useState("全部");
@@ -51,9 +52,9 @@ export function FinTxn() {
   return (
     <>
       <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "0 2px 4px" }}>类型</div>
-      <Chips items={["全部", "充值", "消费", "会员", "签到", "退款"]} active={type} onPick={setType} />
+      <Chips items={["全部", "充值", "会员"]} active={type} onPick={setType} />
       <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "0 2px 4px" }}>状态</div>
-      <Chips items={["全部", "成功", "失败", "已退款"]} active={status} onPick={setStatus} />
+      <Chips items={["全部", "成功", "待支付", "失败", "已退款"]} active={status} onPick={setStatus} />
       {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载交易记录中</div></div> : null}
       {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
       {list.length ? <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "0 2px 8px" }}>共 {list.length} 条记录</div> : null}
@@ -65,7 +66,7 @@ export function FinTxn() {
             <div key={t.id} className="lrow" onClick={() => openSheet("交易详情", <TxnDetail t={t} />)}>
               <div className="lr-ico" style={{ background: `${col}22`, color: col }}><i className={`ri-${TXN_ICO[t.type] || "exchange-line"}`} /></div>
               <div className="lr-main">
-                <div className="lr-t">{userName(t.userId)} · {t.type}</div>
+                <div className="lr-t">{t.userName || userName(t.userId)} · {t.type}</div>
                 <div className="lr-s">{t.time}</div>
               </div>
               <div style={{ textAlign: "right" }}>

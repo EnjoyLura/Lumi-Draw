@@ -44,6 +44,9 @@ export interface WechatTransaction {
   out_trade_no: string;
   transaction_id?: string;
   trade_state?: string;
+  appid?: string;
+  mchid?: string;
+  amount?: { total?: number; payer_total?: number; currency?: string; payer_currency?: string };
 }
 
 function normalizePem(value: string) {

@@ -343,13 +343,17 @@ export const CHECKIN: { base: number; tiers: CheckinTier[] } = {
 };
 
 export interface AdminTxn {
-  id: number;
+  id: number | string;
   userId: number;
+  userName?: string;
   type: string;
   amount: string;
   credits: string;
   status: string;
   time: string;
+  orderNo?: string;
+  transactionId?: string;
+  channel?: string;
 }
 
 export const TRANSACTIONS: AdminTxn[] = [

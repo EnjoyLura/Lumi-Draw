@@ -687,12 +687,54 @@ function mapTransaction(t: ApiTransaction): AdminTxn {
   return {
     id: t.id,
     userId: t.userId,
+    userName: t.userName,
     type,
     amount: `${t.amount >= 0 ? "+" : ""}${t.amount}积分`,
     credits: `余额 ${t.balanceAfter}`,
     status: "成功",
-    time: (t.createdAt ?? "").replace("T", " ").slice(0, 16)
+    time: formatChinaDateTime(t.createdAt)
   };
+}
+
+function formatChinaDateTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}`;
+}
+
+interface ApiPaymentOrder {
+  id: string; orderNo: string; transactionId?: string | null; userId: number; userName: string;
+  type: string; status: string; channel: string; amountFen: number; credits: number;
+  subject: string; paidAt?: string | null; createdAt: string;
+}
+
+const PAYMENT_TYPE_CN: Record<string, string> = { recharge: "充值", membership: "会员" };
+const PAYMENT_STATUS_CN: Record<string, string> = { paid: "成功", pending: "待支付", closed: "失败", failed: "失败", refunded: "已退款" };
+
+function mapPaymentOrder(order: ApiPaymentOrder): AdminTxn {
+  const yuan = order.amountFen / 100;
+  return {
+    id: order.id, userId: order.userId, userName: order.userName,
+    type: PAYMENT_TYPE_CN[order.type] ?? order.type,
+    amount: `¥${yuan.toLocaleString("zh-CN", { minimumFractionDigits: yuan % 1 ? 2 : 0, maximumFractionDigits: 2 })}`,
+    credits: order.credits ? `+${order.credits}积分` : "—",
+    status: PAYMENT_STATUS_CN[order.status] ?? order.status,
+    time: formatChinaDateTime(order.paidAt ?? order.createdAt),
+    orderNo: order.orderNo,
+    transactionId: order.transactionId ?? undefined,
+    channel: order.channel
+  };
+}
+
+export async function apiGetPaymentOrders() {
+  const page = await http.get<Paginated<ApiPaymentOrder>>("/admin/payment-orders?page=1&pageSize=100");
+  return page.items.map(mapPaymentOrder);
 }
 
 export async function apiGetTransactions(options: { userId?: number; type?: string } = {}) {
@@ -919,6 +961,7 @@ interface ApiDashboardTrends {
   labels: string[];
   newUsers: number[];
   newWorks: number[];
+  incomeFen: number[];
 }
 
 function shortDateLabels(labels: string[]) {
@@ -931,7 +974,7 @@ export async function apiGetDashboardTrends(): Promise<AdminDashboardTrends> {
     labels: shortDateLabels(t.labels),
     users: t.newUsers,
     works: t.newWorks,
-    income: Array.from({ length: t.labels.length }, () => 0)
+    income: (t.incomeFen ?? []).map((value) => value / 100)
   };
 }
 

@@ -219,6 +219,37 @@ export class ModerationService {
     return buildPage(items, total, page, pageSize);
   }
 
+  async paymentOrders(type: string | undefined, userId: number | undefined, page: number, pageSize: number) {
+    const where: Prisma.PaymentOrderWhereInput = {};
+    if (type) where.type = type;
+    if (userId) where.userId = userId;
+    const [rows, total] = await Promise.all([
+      this.prisma.paymentOrder.findMany({
+        where,
+        include: { user: { select: { nickname: true } } },
+        orderBy: { createdAt: "desc" },
+        ...skipTake(page, pageSize)
+      }),
+      this.prisma.paymentOrder.count({ where })
+    ]);
+    const items = rows.map((order) => ({
+      id: order.id,
+      orderNo: order.orderNo,
+      transactionId: order.transactionId,
+      userId: order.userId,
+      userName: order.user.nickname || `用户${order.userId}`,
+      type: order.type,
+      status: order.status,
+      channel: order.channel,
+      amountFen: order.amountFen,
+      credits: order.credits + order.bonusCredits,
+      subject: order.subject,
+      paidAt: order.paidAt?.toISOString() ?? null,
+      createdAt: order.createdAt.toISOString()
+    }));
+    return buildPage(items, total, page, pageSize);
+  }
+
   // ---------- 财务/积分配置（AppSetting JSON）----------
   private async getJsonConfig(key: string, fallback: unknown) {
     const row = await this.prisma.appSetting.findUnique({ where: { key } });
