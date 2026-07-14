@@ -279,7 +279,7 @@ async function submit() {
   <view class="publish-page" :class="themeClass">
     <LumiPageHeader title="发布作品" />
     <LumiDeferredPageContent>
-    <scroll-view class="page-scroll" scroll-y>
+    <scroll-view class="page-scroll" scroll-y enable-flex>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后发布作品"
@@ -401,7 +401,7 @@ async function submit() {
 }
 
 .publish-content {
-  padding: 16px;
+  padding: 16px 16px calc(56px + env(safe-area-inset-bottom));
 }
 
 .field {
@@ -565,8 +565,8 @@ async function submit() {
   width: 100%;
   height: 50px;
   margin-top: 8px;
-  margin-bottom: 20px;
-  font-size: 16px;
+  margin-bottom: 0;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   color: #fff;

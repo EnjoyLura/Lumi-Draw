@@ -325,7 +325,11 @@ function applyRouteQuery(query?: Record<string, unknown>, force = false) {
   lastRouteSignature = signature;
 
   const hasCreationParams = Object.values(routeQuery).some(Boolean);
-  if (routeQuery.gameplay) selectedGameplayName.value = routeQuery.gameplay;
+  if (routeQuery.gameplay) {
+    const changedGameplay = selectedGameplayName.value !== routeQuery.gameplay;
+    selectedGameplayName.value = routeQuery.gameplay;
+    if (changedGameplay) showToast(`已套用「${routeQuery.gameplay}」模板`);
+  }
   else if (hasCreationParams) selectedGameplayName.value = "";
 
   if (routeQuery.model) {

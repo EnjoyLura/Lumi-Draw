@@ -40,7 +40,7 @@ const memberStats = computed(() => {
     return [
       { value: "0", label: "开通赠送", className: "gold" },
       { value: "标准", label: "签到加成", className: "lavender" },
-      { value: "待配置", label: "套餐权益", className: "mint" }
+      { value: "待配置", label: "会员权益", className: "mint" }
     ];
   }
   return [
@@ -52,7 +52,7 @@ const memberStats = computed(() => {
 const activeBenefits = computed<MemberBenefit[]>(() => {
   const plan = selectedPlan.value;
   if (!plan) return [];
-  if (!plan.rights?.length && !plan.checkinBonus && !plan.milestoneBonus && !plan.publishBonus && !plan.totalCredits) return memberBenefits;
+  if (!plan.checkinBonus && !plan.milestoneBonus && !plan.publishBonus && !plan.totalCredits) return memberBenefits;
 
   const benefits: MemberBenefit[] = [
     { title: "开通赠送", desc: `立即获得 ${plan.totalCredits || 0} 积分`, icon: "gem", tone: "mint" },
@@ -60,15 +60,6 @@ const activeBenefits = computed<MemberBenefit[]>(() => {
     { title: "签到里程碑加成", desc: plan.milestoneBonus ? `达成里程碑额外 +${plan.milestoneBonus} 积分` : "按基础里程碑奖励发放", icon: "gift", tone: "lavender" },
     { title: "发布作品加成", desc: plan.publishBonus ? `每次发布额外 +${plan.publishBonus} 积分` : "按基础发布奖励发放", icon: "sparkles", tone: "peach" }
   ];
-
-  plan.rights?.slice(0, 2).forEach((right, index) => {
-    benefits.push({
-      title: index === 0 ? "套餐权益" : "专属权益",
-      desc: right,
-      icon: index === 0 ? "crown" : "sparkles",
-      tone: index === 0 ? "lavender" : "peach"
-    });
-  });
 
   return benefits;
 });

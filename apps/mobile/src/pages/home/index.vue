@@ -28,7 +28,6 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { fetchMemberPlans, fetchMemberStatus } from "../points/pointsService";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -63,8 +62,6 @@ const likePendingIds = ref<Set<number>>(new Set());
 const showLoginSheet = ref(false);
 const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
-const publishReward = ref(50);
-const memberPublishBonus = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(!useMockData.value);
 const isWorksSwitching = ref(false);
@@ -101,11 +98,6 @@ const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedS
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
 const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
 const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
-function bannerActionText(action: string) {
-  if (action !== "publish") return "了解更多";
-  const reward = publishReward.value + memberPublishBonus.value;
-  return memberPublishBonus.value ? `发布作品 · 送${reward}积分（会员）` : `发布作品 · 送${reward}积分`;
-}
 const isWaterfallSwitching = computed(() => selectedHomeTab.value !== renderedHomeTab.value);
 
 onLoad((query) => {
@@ -252,21 +244,12 @@ async function loadHomeData(force = false) {
     ]);
 
     bannerList.value = bootstrap.banners;
-    publishReward.value = bootstrap.publishReward;
     announcementList.value = bootstrap.announcements;
     gameplayList.value = bootstrap.gameplays;
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
     syncLikedWorkIds([...recommendFeed.works, ...latestFeed.works]);
     userList.value = [];
-    memberPublishBonus.value = 0;
-    if (isLoggedIn.value) {
-      void Promise.all([fetchMemberStatus(), fetchMemberPlans()])
-        .then(([status, plans]) => {
-          if (status.isMember) memberPublishBonus.value = plans.find((plan) => plan.name === status.memberPlan)?.publishBonus ?? 0;
-        })
-        .catch(() => { memberPublishBonus.value = 0; });
-    }
     mergeUsers([...recommendFeed.users, ...latestFeed.users]);
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
@@ -738,7 +721,7 @@ function getRatioClass(ratio: string) {
                   <text class="banner-title">{{ banner.title }}</text>
                   <text class="banner-desc">{{ banner.description }}</text>
                 </view>
-                <view class="banner-action" @tap.stop="handleBannerTap(banner.action, banner.title)">{{ bannerActionText(banner.action) }}</view>
+                <view class="banner-action" @tap.stop="handleBannerTap(banner.action, banner.title)">了解更多</view>
               </view>
             </swiper-item>
           </swiper>
