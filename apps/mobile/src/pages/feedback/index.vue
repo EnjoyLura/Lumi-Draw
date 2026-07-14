@@ -95,8 +95,8 @@ function applyRouteSource(query?: Record<string, unknown>) {
   const source = resolveRouteSource(query);
   if (source === lastRouteSource) return;
   lastRouteSource = source;
+  if (source === "experience" || source === "service") activeType.value = "experience";
   if (source !== "service") return;
-  activeType.value = "experience";
   if (!desc.value.trim()) desc.value = "我想咨询：";
 }
 

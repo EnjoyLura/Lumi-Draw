@@ -23,7 +23,9 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 const featureItems = [
   { label: "消息中心", icon: "bell", colorClass: "rose", url: "/pages/messages/index" },
   { label: "浏览历史", icon: "history", colorClass: "mint", url: "/pages/history/index" },
-  { label: "生成记录", icon: "rotate-ccw", colorClass: "lavender", url: "/pages/generation-history/index" }
+  { label: "生成记录", icon: "rotate-ccw", colorClass: "lavender", url: "/pages/generation-history/index" },
+  { label: "体验反馈", icon: "pencil", colorClass: "accent", url: "/pages/feedback/index?source=experience", requiresLogin: false },
+  { label: "联系客服", icon: "message-circle", colorClass: "mint", url: "/pages/feedback/index?source=service", requiresLogin: false }
 ];
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
@@ -73,9 +75,9 @@ function toggleDarkMode() {
   setTheme(darkMode.value ? "light" : "dark");
 }
 
-function openFeature(url: string) {
-  if (!requireSession()) return;
-  uni.navigateTo({ url });
+function openFeature(item: { url: string; requiresLogin?: boolean }) {
+  if (item.requiresLogin !== false && !requireSession()) return;
+  uni.navigateTo({ url: item.url });
 }
 
 function clearAppCache() {
@@ -158,7 +160,7 @@ async function login() {
 
         <view class="section-title">功能</view>
         <view class="card">
-          <view v-for="item in featureItems" :key="item.label" class="list-row" @click="openFeature(item.url)">
+          <view v-for="item in featureItems" :key="item.label" class="list-row" @click="openFeature(item)">
             <view class="lr-icon" :class="item.colorClass"><LumiIcon :name="item.icon" :size="20" /></view>
             <view class="lr-text">{{ item.label }}</view>
             <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
