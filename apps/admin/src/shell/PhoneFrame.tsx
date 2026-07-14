@@ -12,10 +12,6 @@ export function PhoneFrame() {
 
   return (
     <>
-      <div className="status-bar">
-        <span>9:41</span>
-        <span className="sb-right"><i className="ri-signal-wifi-fill" /><i className="ri-battery-fill" /></span>
-      </div>
       <div className="nav-header">
         <span className="nav-btn" onClick={onNavLeft}>
           <i className={depth > 1 ? "ri-arrow-left-line" : "ri-menu-2-line"} />
