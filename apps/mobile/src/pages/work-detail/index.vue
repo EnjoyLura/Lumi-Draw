@@ -21,6 +21,7 @@ import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { saveImageToDevice } from "../../services/imageSave";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
+import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -96,6 +97,7 @@ onShow(() => {
     void loadDetail();
     return;
   }
+  if (consumeWorkDetailStale(workId.value)) void loadDetail();
 });
 
 onMounted(() => {

@@ -7,6 +7,8 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
+import { invalidateTabPages } from "../../services/tabPageCache";
+import { markWorkDetailStale } from "../../services/workDetailRefresh";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
@@ -222,6 +224,8 @@ async function submit() {
       style: selectedTags.value[0] || "",
       tags: selectedTags.value
     });
+    markWorkDetailStale(workId.value);
+    invalidateTabPages("gallery:");
     uni.showToast({ title: "作品信息已保存", icon: "none" });
     setTimeout(leaveEditWorkPage, 600);
   } catch {
