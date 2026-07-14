@@ -3,6 +3,20 @@ import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 
 const enabledOrder = { where: { enabled: true }, orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
+
+function resolveBannerAction(action: string, title: string) {
+  const value = action.trim();
+  if (["创作页", "create"].includes(value)) {
+    if (/发布作品/.test(title)) return "publish";
+    if (/gpt\s*image\s*2/i.test(title)) return "create-gpt-image-2";
+  }
+  const aliases: Record<string, string> = {
+    "签到页": "checkin", "会员页": "membership", "发布页": "publish", "发布作品页": "publish",
+    "充值页": "recharge", "邀请页": "invite", "活动页": "create", "无": "none"
+  };
+  return aliases[value] || value;
+}
+
 const defaultAgreements: Record<string, { title: string; content: string }> = {
   user: {
     title: "用户协议",
@@ -36,7 +50,7 @@ export class ConfigService {
       title: b.title,
       description: b.description,
       imageUrl: this.uploads.readUrl(b.imageUrl, "public"),
-      action: b.action,
+      action: resolveBannerAction(b.action, b.title),
       sort: b.sort
     }));
   }

@@ -8,7 +8,16 @@ import { useNav } from "../shell/NavContext";
 import { AddBtn, CtrlIcons, SortCtrl, Switch } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
-const ACTIONS = ["创作页", "会员页", "签到页", "活动页", "无"];
+const ACTIONS = [
+  { value: "checkin", label: "每日签到" },
+  { value: "create-gpt-image-2", label: "GPT Image 2 创作页" },
+  { value: "create", label: "创作页" },
+  { value: "publish", label: "发布作品页" },
+  { value: "membership", label: "会员中心" },
+  { value: "recharge", label: "积分充值" },
+  { value: "invite", label: "邀请好友" },
+  { value: "none", label: "不跳转" }
+];
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const UPLOAD_STYLE: React.CSSProperties = { height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--fg-muted)", borderStyle: "dashed", cursor: "pointer", overflow: "hidden", position: "relative" };
 const MAX_BANNER_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -34,7 +43,7 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
   const [title, setTitle] = useState(b?.title ?? "");
   const [desc, setDesc] = useState(b?.desc ?? "");
   const [imageUrl, setImageUrl] = useState(b?.imageUrl ?? "");
-  const [action, setAction] = useState(b?.action ?? "创作页");
+  const [action, setAction] = useState(b?.action ?? "create");
   const [sort, setSort] = useState(String(b?.sort ?? BANNERS.length + 1));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -88,7 +97,8 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
       <textarea className="input" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="轮播内容描述" />
       <label className="field-label" style={{ marginTop: 12 }}>跳转页面</label>
       <select className="input" value={action} onChange={(e) => setAction(e.target.value)}>
-        {[...ACTIONS, "\u53d1\u5e03\u4f5c\u54c1\u9875"].map((o) => <option key={o}>{o}</option>)}
+        {!ACTIONS.some((item) => item.value === action) ? <option value={action}>{action}</option> : null}
+        {ACTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>排序</label>
       <input className="input" type="number" value={sort} onChange={(e) => setSort(e.target.value)} />

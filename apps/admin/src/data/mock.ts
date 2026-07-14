@@ -199,9 +199,9 @@ export interface AdminRatio {
 export const MODEL_BADGES = ["无", "推荐", "性价比", "NEW", "热门"];
 
 export const BANNERS: AdminBanner[] = [
-  { id: 1, title: "签到送好礼", desc: "每日签到领积分，连续7天送高级模型体验券", imageUrl: checkinGiftBanner, action: "签到页", sort: 1, on: true },
-  { id: 2, title: "GPT Image 2 全新上线", desc: "画质更细腻，理解力更强，创作效果飞跃提升", imageUrl: gptImage2Banner, action: "创作页", sort: 2, on: true },
-  { id: 3, title: "发布作品送积分", desc: "发布原创作品即得50积分，被收藏额外奖励", imageUrl: publishRewardBanner, action: "创作页", sort: 3, on: true },
+  { id: 1, title: "签到送好礼", desc: "每日签到领积分，连续7天送高级模型体验券", imageUrl: checkinGiftBanner, action: "checkin", sort: 1, on: true },
+  { id: 2, title: "GPT Image 2 全新上线", desc: "画质更细腻，理解力更强，创作效果飞跃提升", imageUrl: gptImage2Banner, action: "create-gpt-image-2", sort: 2, on: true },
+  { id: 3, title: "发布作品送积分", desc: "发布原创作品即得50积分，被收藏额外奖励", imageUrl: publishRewardBanner, action: "publish", sort: 3, on: true },
   { id: 4, title: "会员限时5折", desc: "年度会员立减50%，每日生成次数翻倍不限量", imageUrl: membershipOfferBanner, action: "会员页", sort: 4, on: false }
 ];
 
