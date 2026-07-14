@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -16,6 +17,7 @@ export class PaymentsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("recharge/orders")
+  @Throttle({ default: { ttl: 60_000, limit: 8 } })
   createRechargeOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateRechargeOrderDto) {
     return this.payments.createRechargeOrder(user.id, dto);
   }
@@ -23,6 +25,7 @@ export class PaymentsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("membership/orders")
+  @Throttle({ default: { ttl: 60_000, limit: 8 } })
   createMembershipOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateMembershipOrderDto) {
     return this.payments.createMembershipOrder(user.id, dto);
   }

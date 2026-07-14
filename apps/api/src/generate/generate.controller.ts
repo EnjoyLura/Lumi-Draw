@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CreateGenerateJobDto, GenerateJobListQueryDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
@@ -13,6 +14,7 @@ export class GenerateController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("jobs")
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   createJob(@CurrentUser() user: { id: number }, @Body() dto: CreateGenerateJobDto) {
     return this.generate.createJob(user.id, dto);
   }
@@ -55,6 +57,7 @@ export class GenerateController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("reverse-prompt")
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   reversePrompt(@CurrentUser() user: { id: number }, @Body() dto: ReversePromptDto) {
     return this.generate.reversePrompt(user.id, dto);
   }

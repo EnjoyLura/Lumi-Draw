@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 
-const DEFAULT_API_BASE = "http://122.51.235.145:3000/api";
-const DEFAULT_ADMIN_USERNAME = "admin";
-const DEFAULT_ADMIN_PASSWORD = "admin123";
+function requireEnv(name) {
+  const value = process.env[name]?.trim();
+  if (!value) throw new Error(`${name} is required for real-environment acceptance checks.`);
+  return value;
+}
 
 const steps = [
   {
@@ -16,10 +18,10 @@ const steps = [
     command: "corepack",
     args: ["pnpm", "verify:api"],
     env: {
-      API_BASE: process.env.API_BASE || DEFAULT_API_BASE,
-      ADMIN_USERNAME: process.env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME,
-      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD,
-      SMOKE_GENERATE_MOCK: process.env.SMOKE_GENERATE_MOCK || "true"
+      API_BASE: requireEnv("API_BASE"),
+      ADMIN_USERNAME: requireEnv("ADMIN_USERNAME"),
+      ADMIN_PASSWORD: requireEnv("ADMIN_PASSWORD"),
+      SMOKE_GENERATE_MOCK: process.env.SMOKE_GENERATE_MOCK || "false"
     }
   },
   {
@@ -32,7 +34,7 @@ const steps = [
     command: "corepack",
     args: ["pnpm", "smoke:mobile-real-h5"],
     env: {
-      MOBILE_REAL_API_TARGET: process.env.MOBILE_REAL_API_TARGET || process.env.API_BASE || DEFAULT_API_BASE
+      MOBILE_REAL_API_TARGET: process.env.MOBILE_REAL_API_TARGET || requireEnv("API_BASE")
     }
   },
   {
@@ -40,9 +42,9 @@ const steps = [
     command: "corepack",
     args: ["pnpm", "smoke:admin-real-ui"],
     env: {
-      ADMIN_REAL_API_TARGET: process.env.ADMIN_REAL_API_TARGET || process.env.API_BASE || DEFAULT_API_BASE,
-      ADMIN_USERNAME: process.env.ADMIN_USERNAME || DEFAULT_ADMIN_USERNAME,
-      ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD
+      ADMIN_REAL_API_TARGET: process.env.ADMIN_REAL_API_TARGET || requireEnv("API_BASE"),
+      ADMIN_USERNAME: requireEnv("ADMIN_USERNAME"),
+      ADMIN_PASSWORD: requireEnv("ADMIN_PASSWORD")
     }
   },
   {

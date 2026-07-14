@@ -22,6 +22,7 @@ export const appConfig = registerAs("app", () => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parsePort(process.env.PORT),
   apiPrefix: process.env.API_PREFIX ?? "api",
+  docsEnabled: process.env.ENABLE_SWAGGER === "true",
   corsOrigins: parseOrigins(process.env.CORS_ORIGINS),
   databaseUrl: process.env.DATABASE_URL ?? "",
   redisUrl: process.env.REDIS_URL ?? "",
@@ -32,9 +33,7 @@ export const appConfig = registerAs("app", () => ({
     // 开发环境默认允许 mock 登录；生产需显式开启
     allowMockLogin: (process.env.AUTH_ALLOW_MOCK_LOGIN ?? (process.env.NODE_ENV === "production" ? "false" : "true")) === "true",
     accessTtl: parseIntOr(process.env.ACCESS_TOKEN_TTL, 7200), // 秒
-    refreshTtlDays: parseIntOr(process.env.REFRESH_TOKEN_TTL_DAYS, 30),
-    adminUsername: process.env.ADMIN_USERNAME ?? "admin",
-    adminPassword: process.env.ADMIN_PASSWORD ?? "admin123"
+    refreshTtlDays: parseIntOr(process.env.REFRESH_TOKEN_TTL_DAYS, 30)
   },
   wx: {
     appId: process.env.WX_APPID ?? "",

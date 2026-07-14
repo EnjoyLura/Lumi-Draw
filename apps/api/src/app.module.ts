@@ -1,5 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { appConfig } from "./config/app.config";
 import { validateEnvironment } from "./config/env.validation";
 import { AdminModule } from "./admin/admin.module";
@@ -28,6 +30,7 @@ import { WorksModule } from "./works/works.module";
       load: [appConfig],
       validate: validateEnvironment
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
     HealthModule,
     ConfigCenterModule,
@@ -45,6 +48,7 @@ import { WorksModule } from "./works/works.module";
     SocialModule,
     WorksModule,
     AdminModule
-  ]
+  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }]
 })
 export class AppModule {}

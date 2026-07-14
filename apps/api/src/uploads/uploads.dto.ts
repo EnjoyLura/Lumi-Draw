@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, MinLength } from "class-validator";
+import { IsIn, IsInt, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 
 export class UploadPolicyDto {
   @IsIn(["avatar", "prompt-image", "feedback", "work"])
@@ -6,15 +6,18 @@ export class UploadPolicyDto {
 
   @IsString()
   @MinLength(1)
+  @MaxLength(128)
   filename!: string;
 
   @IsString()
   @MinLength(1)
+  @MaxLength(64)
   contentType!: string;
 
-  @IsOptional()
   @IsInt()
-  sizeBytes?: number;
+  @Min(1)
+  @Max(10 * 1024 * 1024)
+  sizeBytes!: number;
 }
 
 export class UploadCompleteDto {
@@ -22,7 +25,7 @@ export class UploadCompleteDto {
   @MinLength(1)
   ossKey!: string;
 
-  @IsOptional()
   @IsString()
-  publicUrl?: string;
+  @MinLength(1)
+  uploadToken!: string;
 }

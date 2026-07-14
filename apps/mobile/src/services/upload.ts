@@ -6,6 +6,7 @@ interface UploadPolicy {
   headers: Record<string, string>;
   publicUrl: string;
   ossKey: string;
+  uploadToken: string;
 }
 
 export interface UploadedImage {
@@ -21,6 +22,7 @@ export interface ChosenImage {
   path: string;
   name: string;
   contentType: string;
+  sizeBytes?: number;
   file?: Blob;
   width?: number;
   height?: number;
@@ -74,12 +76,12 @@ function ratioFromSize(width?: number, height?: number) {
   return `${nearest.value[0]}:${nearest.value[1]}`;
 }
 
-function requestUploadPolicy(scene: string, filename: string, contentType: string) {
-  return api.post<UploadPolicy>("/uploads/policy", { scene, filename, contentType });
+function requestUploadPolicy(scene: string, filename: string, contentType: string, sizeBytes: number) {
+  return api.post<UploadPolicy>("/uploads/policy", { scene, filename, contentType, sizeBytes });
 }
 
-function completeUpload(ossKey: string, publicUrl: string) {
-  return api.post<UploadedImage>("/uploads/complete", { ossKey, publicUrl });
+function completeUpload(ossKey: string, uploadToken: string) {
+  return api.post<UploadedImage>("/uploads/complete", { ossKey, uploadToken });
 }
 
 function chooseSingleImage(): Promise<ChosenImage> {
@@ -91,7 +93,7 @@ function chooseSingleImage(): Promise<ChosenImage> {
       success(result) {
         const rawTempFiles = result.tempFiles;
         const tempFiles = Array.isArray(rawTempFiles) ? rawTempFiles : rawTempFiles ? [rawTempFiles] : [];
-        const tempFile = tempFiles[0] as ({ path?: string; name?: string; type?: string; file?: Blob } | string | undefined);
+        const tempFile = tempFiles[0] as ({ path?: string; name?: string; type?: string; file?: Blob; size?: number } | string | undefined);
         const path = result.tempFilePaths?.[0] || (typeof tempFile === "object" ? tempFile.path : "") || "";
         if (!path) {
           reject(new Error("No image selected"));
@@ -106,6 +108,7 @@ function chooseSingleImage(): Promise<ChosenImage> {
           name,
           contentType,
           file: typeof tempFile === "object" ? tempFile.file : undefined,
+          sizeBytes: typeof tempFile === "object" && typeof tempFile.size === "number" ? tempFile.size : undefined,
           width,
           height
         });
@@ -161,6 +164,15 @@ async function blobFromPath(path: string) {
   const response = await fetch(path);
   if (!response.ok) throw new Error(`Fetch image failed: ${response.status}`);
   return response.blob();
+}
+
+async function resolveUploadSize(image: Pick<ChosenImage, "path" | "file" | "sizeBytes">) {
+  if (Number.isInteger(image.sizeBytes) && image.sizeBytes! > 0) return image.sizeBytes!;
+  if (image.file?.size) return image.file.size;
+  if (typeof fetch === "function" && /^blob:|^data:|^https?:/.test(image.path)) {
+    return (await blobFromPath(image.path)).size;
+  }
+  throw new Error("无法读取图片大小，请重新选择图片");
 }
 
 async function putWithFetch(policy: UploadPolicy, body: Blob) {
@@ -227,9 +239,10 @@ export function chooseLocalImage() {
 
 export async function uploadSelectedImage(scene: string, image: ChosenImage): Promise<UploadedImage> {
   const size = await resolveImageSize(image);
-  const policy = await requestUploadPolicy(scene, image.name, image.contentType);
+  const sizeBytes = await resolveUploadSize(image);
+  const policy = await requestUploadPolicy(scene, image.name, image.contentType, sizeBytes);
   await putObject(policy, image);
-  const completed = await completeUpload(policy.ossKey, policy.publicUrl);
+  const completed = await completeUpload(policy.ossKey, policy.uploadToken);
   return { ...completed, localPath: image.path, width: size?.width, height: size?.height, ratio: ratioFromSize(size?.width, size?.height) };
 }
 
@@ -241,7 +254,7 @@ export async function uploadChosenImage(scene: string): Promise<UploadedImage> {
 export async function uploadRemoteImage(url: string, scene: string, filename = `image-${Date.now()}.jpg`): Promise<UploadedImage> {
   const blob = await blobFromPath(url);
   const contentType = blob.type || contentTypeFromName(filename);
-  const policy = await requestUploadPolicy(scene, filename, contentType);
+  const policy = await requestUploadPolicy(scene, filename, contentType, blob.size);
   await putWithFetch(policy, blob);
-  return completeUpload(policy.ossKey, policy.publicUrl);
+  return completeUpload(policy.ossKey, policy.uploadToken);
 }

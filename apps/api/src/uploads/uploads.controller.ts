@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { UploadCompleteDto, UploadPolicyDto } from "./uploads.dto";
 import { UploadsService } from "./uploads.service";
@@ -12,12 +14,14 @@ export class UploadsController {
   constructor(private readonly uploads: UploadsService) {}
 
   @Post("policy")
-  policy(@Body() dto: UploadPolicyDto) {
-    return this.uploads.policy(dto.scene, dto.filename, dto.contentType);
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  policy(@CurrentUser() user: { id: number }, @Body() dto: UploadPolicyDto) {
+    return this.uploads.policy(user.id, dto.scene, dto.filename, dto.contentType, dto.sizeBytes);
   }
 
   @Post("complete")
-  complete(@Body() dto: UploadCompleteDto) {
-    return this.uploads.complete(dto.ossKey, dto.publicUrl);
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  complete(@CurrentUser() user: { id: number }, @Body() dto: UploadCompleteDto) {
+    return this.uploads.complete(user.id, dto.ossKey, dto.uploadToken);
   }
 }

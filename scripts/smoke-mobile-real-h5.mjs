@@ -117,12 +117,7 @@ async function proxyApi(req, res) {
 }
 
 async function resolveApiBase() {
-  const candidates = Array.from(
-    new Set([
-      preferredApiBase,
-      "http://122.51.235.145:3000/api"
-    ])
-  );
+  const candidates = [preferredApiBase];
 
   for (const candidate of candidates) {
     try {
@@ -183,8 +178,8 @@ async function seedSmokeWork(ownerToken) {
 }
 
 async function maybeApproveWork(workId) {
-  const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD || "admin123";
+  const username = process.env.ADMIN_USERNAME || "";
+  const password = process.env.ADMIN_PASSWORD || "";
   try {
     const admin = await apiRequest("POST", "/admin/auth/login", { username, password });
     await apiRequest("POST", `/admin/reviews/${workId}/approve`, {}, admin.accessToken);
@@ -194,8 +189,8 @@ async function maybeApproveWork(workId) {
 }
 
 async function maybeAdminLogin() {
-  const username = process.env.ADMIN_USERNAME || "admin";
-  const password = process.env.ADMIN_PASSWORD || "admin123";
+  const username = process.env.ADMIN_USERNAME || "";
+  const password = process.env.ADMIN_PASSWORD || "";
   try {
     return await apiRequest("POST", "/admin/auth/login", { username, password });
   } catch {

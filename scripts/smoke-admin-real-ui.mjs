@@ -9,8 +9,8 @@ const ADMIN_ROOT = path.join(ROOT, "apps", "admin", "dist");
 const PORT = Number(process.env.ADMIN_REAL_UI_PORT || 4374);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const preferredApiBase = (process.env.ADMIN_REAL_API_TARGET || process.env.API_BASE || "https://ejoyflie.cloud/api").replace(/\/+$/, "");
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const MOCK_KEY = "lumi-draw:use-mock-data";
 const ADMIN_TOKEN_KEY = "lumi-admin-token";
 let apiBase = preferredApiBase;
@@ -68,7 +68,7 @@ async function apiRequest(method, pathName, body, token) {
 }
 
 async function resolveApiBase() {
-  const candidates = Array.from(new Set([preferredApiBase, "http://122.51.235.145:3000/api"]));
+  const candidates = [preferredApiBase];
   for (const candidate of candidates) {
     try {
       apiBase = candidate;
