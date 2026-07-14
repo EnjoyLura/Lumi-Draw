@@ -589,7 +589,13 @@ function showToast(title: string) {
             <view class="prompt-text">{{ work.prompt }}</view>
           </view>
 
-          <view class="time-text">生成于 {{ work.time }}</view>
+          <view class="time-row">
+            <text class="time-text">生成于 {{ work.time }}</text>
+            <view class="ai-generated-note">
+              <LumiIcon name="sparkles" :size="13" />
+              <text>图片内容由AI生成</text>
+            </view>
+          </view>
 
           <view v-if="work.published" class="stats-row">
             <view class="stat">
@@ -945,10 +951,27 @@ function showToast(title: string) {
   line-height: 1.6;
 }
 
-.time-text {
+.time-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 14px;
+}
+
+.time-text {
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+.ai-generated-note {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--accent);
 }
 
 .stats-row {
