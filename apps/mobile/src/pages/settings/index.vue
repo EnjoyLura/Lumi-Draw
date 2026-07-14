@@ -20,12 +20,21 @@ const cacheMeta = ref("12.5MB");
 const isInitialContentReady = ref(false);
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
-const featureItems = [
+interface FeatureItem {
+  label: string;
+  icon: string;
+  colorClass: string;
+  url?: string;
+  requiresLogin?: boolean;
+  contact?: boolean;
+}
+
+const featureItems: FeatureItem[] = [
   { label: "消息中心", icon: "bell", colorClass: "rose", url: "/pages/messages/index" },
   { label: "浏览历史", icon: "history", colorClass: "mint", url: "/pages/history/index" },
   { label: "生成记录", icon: "rotate-ccw", colorClass: "lavender", url: "/pages/generation-history/index" },
   { label: "体验反馈", icon: "pencil", colorClass: "accent", url: "/pages/feedback/index?source=experience", requiresLogin: false },
-  { label: "联系客服", icon: "message-circle", colorClass: "mint", url: "/pages/feedback/index?source=service", requiresLogin: false }
+  { label: "联系客服", icon: "message-circle", colorClass: "mint", contact: true }
 ];
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
@@ -75,7 +84,8 @@ function toggleDarkMode() {
   setTheme(darkMode.value ? "light" : "dark");
 }
 
-function openFeature(item: { url: string; requiresLogin?: boolean }) {
+function openFeature(item: FeatureItem) {
+  if (!item.url) return;
   if (item.requiresLogin !== false && !requireSession()) return;
   uni.navigateTo({ url: item.url });
 }
@@ -160,11 +170,23 @@ async function login() {
 
         <view class="section-title">功能</view>
         <view class="card">
-          <view v-for="item in featureItems" :key="item.label" class="list-row" @click="openFeature(item)">
-            <view class="lr-icon" :class="item.colorClass"><LumiIcon :name="item.icon" :size="20" /></view>
-            <view class="lr-text">{{ item.label }}</view>
-            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
-          </view>
+          <template v-for="item in featureItems" :key="item.label">
+            <button
+              v-if="item.contact"
+              class="list-row contact-row"
+              open-type="contact"
+              session-from="settings-contact"
+            >
+              <view class="lr-icon" :class="item.colorClass"><LumiIcon :name="item.icon" :size="20" /></view>
+              <view class="lr-text">{{ item.label }}</view>
+              <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
+            </button>
+            <view v-else class="list-row" @click="openFeature(item)">
+              <view class="lr-icon" :class="item.colorClass"><LumiIcon :name="item.icon" :size="20" /></view>
+              <view class="lr-text">{{ item.label }}</view>
+              <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
+            </view>
+          </template>
         </view>
 
         <view class="section-title">外观</view>
@@ -247,6 +269,19 @@ async function login() {
 
 .list-row:last-child {
   border-bottom: none;
+}
+
+.contact-row {
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  line-height: normal;
+  background: transparent;
+  border: none;
+}
+
+.contact-row::after {
+  border: none;
 }
 
 .lr-icon {
