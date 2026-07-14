@@ -74,7 +74,8 @@ const detailImageStyle = computed(() => {
   const [width, height] = work.value.ratio.split(":").map(Number);
   if (!width || !height) return {};
   const ratioHeight = Math.round((height / width) * 750);
-  return { height: `${Math.min(ratioHeight, 1040)}rpx` };
+  const minHeight = width > height ? 640 : 0;
+  return { height: `${Math.max(ratioHeight, minHeight)}rpx` };
 });
 
 onLoad((query) => {
@@ -535,7 +536,7 @@ function showToast(title: string) {
         <image
           class="detail-image"
           :src="work.image"
-          mode="aspectFit"
+          mode="aspectFill"
           :style="detailImageStyle"
           @click="previewWorkImage"
           @longpress="openLongPressSheet"
@@ -741,8 +742,9 @@ function showToast(title: string) {
 .detail-image {
   display: block;
   width: 100%;
-  max-height: 520px;
-  object-fit: contain;
+  min-height: 260px;
+  max-height: 560px;
+  object-fit: cover;
   background: var(--bg-soft);
 }
 
