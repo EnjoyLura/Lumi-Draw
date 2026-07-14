@@ -104,8 +104,13 @@ function uniqueUsers(users: HomeUser[]) {
   return Array.from(map.values());
 }
 
-function normalizeBannerAction(action: string) {
+function normalizeBannerAction(action: string, title = "") {
   const value = action.trim();
+  if (["创作页", "create"].includes(value)) {
+    if (/签到/.test(title)) return "checkin";
+    if (/发布作品/.test(title)) return "publish";
+    if (/gpt\s*image\s*2/i.test(title)) return "create-gpt-image-2";
+  }
   const map: Record<string, string> = {
     "\u53d1\u5e03\u4f5c\u54c1\u9875": "publish",
     签到页: "checkin",
@@ -155,7 +160,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
   const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
   return {
     banners: data.banners.map((item, index) => {
-      const action = normalizeBannerAction(item.action || "");
+      const action = normalizeBannerAction(item.action || "", item.title || "");
       const fallback = mockBanners.find((banner) => banner.action === action) ?? fallbackByIndex(mockBanners, index);
       return {
         image: item.imageUrl || fallback.image,
@@ -180,7 +185,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
         image: mockImage(`announce${item.id}`, 600, 280),
         title: item.title || fallback.title,
         summary: item.summary || fallback.summary,
-        action: normalizeBannerAction(item.action || fallback.action),
+        action: normalizeBannerAction(item.action || fallback.action, item.title || fallback.title),
         rangeText: item.rangeText || fallback.rangeText,
         popup: item.popup
       };

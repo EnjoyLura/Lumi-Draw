@@ -4,10 +4,10 @@ import { hashPassword } from "../src/common/crypto/password";
 const prisma = new PrismaClient();
 
 const banners = [
-  { id: 1, title: "签到送好礼", description: "每日签到领积分，连续7天送高级模型体验券", action: "签到页", sort: 1, enabled: true },
-  { id: 2, title: "GPT Image 2 全新上线", description: "画质更细腻，理解力更强，创作效果飞跃提升", action: "创作页", sort: 2, enabled: true },
-  { id: 3, title: "发布作品送积分", description: "发布原创作品即得50积分，被收藏额外奖励", action: "创作页", sort: 3, enabled: true },
-  { id: 4, title: "会员限时5折", description: "年度会员立减50%，每日生成次数翻倍不限量", action: "会员页", sort: 4, enabled: false }
+  { id: 1, title: "签到送好礼", description: "每日签到领积分，连续7天送高级模型体验券", action: "checkin", sort: 1, enabled: true },
+  { id: 2, title: "GPT Image 2 全新上线", description: "画质更细腻，理解力更强，创作效果飞跃提升", action: "create-gpt-image-2", sort: 2, enabled: true },
+  { id: 3, title: "发布作品送积分", description: "发布原创作品即得50积分，被收藏额外奖励", action: "publish", sort: 3, enabled: true },
+  { id: 4, title: "会员限时5折", description: "年度会员立减50%，每日生成次数翻倍不限量", action: "membership", sort: 4, enabled: false }
 ];
 
 const gameplays = [

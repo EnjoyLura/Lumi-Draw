@@ -321,6 +321,8 @@ function handleAnnouncementAction() {
 }
 
 const bannerActionRoutes: Record<string, string> = {
+  "create-gpt-image-2": "/pages/create/index?model=gpt-image-2",
+  "GPT Image 2 创作页": "/pages/create/index?model=gpt-image-2",
   "\u53d1\u5e03\u4f5c\u54c1\u9875": "/pages/publish/index",
   checkin: "/pages/checkin/index",
   签到页: "/pages/checkin/index",
