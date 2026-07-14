@@ -30,9 +30,9 @@ const { login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 
 const feedbackTypes: FeedbackType[] = [
-  { key: "bug", label: "Bug反馈", icon: "!" },
-  { key: "experience", label: "体验反馈", icon: "●" },
-  { key: "suggestion", label: "优化建议", icon: "check" }
+  { key: "bug", label: "Bug反馈", icon: "flag" },
+  { key: "experience", label: "体验反馈", icon: "message-circle" },
+  { key: "suggestion", label: "优化建议", icon: "sparkles" }
 ];
 
 const activeType = ref("bug");
