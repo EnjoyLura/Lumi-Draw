@@ -88,7 +88,7 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
       <textarea className="input" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="轮播内容描述" />
       <label className="field-label" style={{ marginTop: 12 }}>跳转页面</label>
       <select className="input" value={action} onChange={(e) => setAction(e.target.value)}>
-        {ACTIONS.map((o) => <option key={o}>{o}</option>)}
+        {[...ACTIONS, "\u53d1\u5e03\u4f5c\u54c1\u9875"].map((o) => <option key={o}>{o}</option>)}
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>排序</label>
       <input className="input" type="number" value={sort} onChange={(e) => setSort(e.target.value)} />

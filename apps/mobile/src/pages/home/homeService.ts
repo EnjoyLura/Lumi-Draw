@@ -34,6 +34,7 @@ interface BackendBootstrap {
   banners: BackendBanner[];
   gameplays: BackendGameplay[];
   announcements?: BackendAnnouncement[];
+  creditsConfig?: { publishReward?: number };
 }
 
 interface BackendAnnouncement {
@@ -76,6 +77,7 @@ export interface HomeBootstrapView {
   banners: HomeBanner[];
   gameplays: Gameplay[];
   announcements: HomeAnnouncement[];
+  publishReward: number;
 }
 
 export interface HomeFeedView {
@@ -105,6 +107,7 @@ function uniqueUsers(users: HomeUser[]) {
 function normalizeBannerAction(action: string) {
   const value = action.trim();
   const map: Record<string, string> = {
+    "\u53d1\u5e03\u4f5c\u54c1\u9875": "publish",
     签到页: "checkin",
     创作页: "create",
     会员页: "membership",
@@ -181,7 +184,8 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
         rangeText: item.rangeText || fallback.rangeText,
         popup: item.popup
       };
-    })
+    }),
+    publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 50))
   };
 }
 

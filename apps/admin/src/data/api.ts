@@ -577,11 +577,11 @@ export async function apiSetRechargeEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiMemberPlan {
-  id: number; name: string; price: number; rights: string; giftCredits: number; checkinBonus: number; enabled: boolean; sort: number;
+  id: number; name: string; price: number; rights: string; giftCredits: number; checkinBonus: number; milestoneBonus: number; publishBonus: number; enabled: boolean; sort: number;
 }
 
 function mapMemberPlan(p: ApiMemberPlan): MemberPlan {
-  return { id: p.id, name: p.name, price: p.price, rights: p.rights, gift: p.giftCredits, ckBonus: p.checkinBonus };
+  return { id: p.id, name: p.name, price: p.price, rights: p.rights, gift: p.giftCredits, ckBonus: p.checkinBonus, milestoneBonus: p.milestoneBonus, publishBonus: p.publishBonus };
 }
 
 export async function apiGetMemberPlans() {
@@ -589,7 +589,7 @@ export async function apiGetMemberPlans() {
 }
 
 export async function apiSaveMemberPlan(id: number, values: MemberPlan & { sort?: number }) {
-  const body = { name: values.name, price: values.price, rights: values.rights, giftCredits: values.gift, checkinBonus: values.ckBonus, enabled: true, sort: values.sort };
+  const body = { name: values.name, price: values.price, rights: values.rights, giftCredits: values.gift, checkinBonus: values.ckBonus, milestoneBonus: values.milestoneBonus, publishBonus: values.publishBonus, enabled: true, sort: values.sort };
   return mapMemberPlan(id ? await http.patch<ApiMemberPlan>(`/admin/member-plans/${id}`, body) : await http.post<ApiMemberPlan>("/admin/member-plans", body));
 }
 

@@ -36,6 +36,8 @@ export interface MemberPlan {
   totalCredits: number;
   rights?: string[];
   checkinBonus?: number;
+  milestoneBonus?: number;
+  publishBonus?: number;
   icon: string;
   accent: "accent" | "lavender" | "gold";
   badge?: string;

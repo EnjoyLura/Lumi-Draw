@@ -137,7 +137,9 @@ export class ConfigService {
       price: p.price,
       rights: p.rights,
       giftCredits: p.giftCredits,
-      checkinBonus: p.checkinBonus
+      checkinBonus: p.checkinBonus,
+      milestoneBonus: p.milestoneBonus,
+      publishBonus: p.publishBonus
     }));
   }
 
@@ -198,6 +200,16 @@ export class ConfigService {
     };
   }
 
+  async getCreditsConfig() {
+    const row = await this.prisma.appSetting.findUnique({ where: { key: "creditsConfig" } });
+    try {
+      const value = row ? JSON.parse(row.value) : {};
+      return { publishReward: Number(value.publishReward ?? 50) };
+    } catch {
+      return { publishReward: 50 };
+    }
+  }
+
   async getBootstrap() {
     const [
       banners,
@@ -211,7 +223,8 @@ export class ConfigService {
       rechargeTiers,
       memberPlans,
       announcements,
-      settings
+      settings,
+      creditsConfig
     ] = await Promise.all([
       this.getBanners(),
       this.getGameplays(),
@@ -224,7 +237,8 @@ export class ConfigService {
       this.getRechargeTiers(),
       this.getMemberPlans(),
       this.getAnnouncements(),
-      this.getSettings()
+      this.getSettings(),
+      this.getCreditsConfig()
     ]);
 
     return {
@@ -240,7 +254,8 @@ export class ConfigService {
       rechargeTiers,
       memberPlans,
       announcements,
-      settings
+      settings,
+      creditsConfig
     };
   }
 }

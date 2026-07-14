@@ -592,7 +592,7 @@ function showToast(title: string) {
           <view class="time-row">
             <text class="time-text">生成于 {{ work.time }}</text>
             <view class="ai-generated-note">
-              <LumiIcon name="sparkles" :size="13" />
+              <LumiIcon name="circle-alert" :size="13" />
               <text>图片内容由AI生成</text>
             </view>
           </view>

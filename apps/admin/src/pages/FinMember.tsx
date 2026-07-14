@@ -17,12 +17,14 @@ function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberP
   const [price, setPrice] = useState(String(p?.price ?? ""));
   const [gift, setGift] = useState(String(p?.gift ?? 0));
   const [ckBonus, setCkBonus] = useState(String(p?.ckBonus ?? 0));
+  const [milestoneBonus, setMilestoneBonus] = useState(String(p?.milestoneBonus ?? 0));
+  const [publishBonus, setPublishBonus] = useState(String(p?.publishBonus ?? 0));
   const [rights, setRights] = useState(p?.rights ?? "");
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
-    const data = { name: name.trim(), price: parseInt(price) || 0, gift: parseInt(gift) || 0, ckBonus: parseInt(ckBonus) || 0, rights };
+    const data = { name: name.trim(), price: parseInt(price) || 0, gift: parseInt(gift) || 0, ckBonus: parseInt(ckBonus) || 0, milestoneBonus: parseInt(milestoneBonus) || 0, publishBonus: parseInt(publishBonus) || 0, rights };
     setSaving(true);
     try {
       if (useMock) {
@@ -53,6 +55,10 @@ function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberP
       <input className="input" type="number" value={ckBonus} onChange={(e) => setCkBonus(e.target.value)} placeholder="会员每日签到额外多得的积分" />
       <label className="field-label" style={{ marginTop: 12 }}>权益说明</label>
       <textarea className="input" rows={3} value={rights} onChange={(e) => setRights(e.target.value)} placeholder="如：每日20次·1K无限" />
+      <label className="field-label" style={{ marginTop: 12 }}>签到里程碑额外积分</label>
+      <input className="input" type="number" value={milestoneBonus} onChange={(e) => setMilestoneBonus(e.target.value)} placeholder="会员达成签到里程碑额外获得的积分" />
+      <label className="field-label" style={{ marginTop: 12 }}>发布作品额外积分</label>
+      <input className="input" type="number" value={publishBonus} onChange={(e) => setPublishBonus(e.target.value)} placeholder="会员每次发布作品额外获得的积分" />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>

@@ -1,0 +1,3 @@
+ALTER TABLE "member_plans"
+  ADD COLUMN "milestoneBonus" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "publishBonus" INTEGER NOT NULL DEFAULT 0;

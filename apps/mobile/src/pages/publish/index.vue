@@ -10,6 +10,7 @@ import { navigateBackOrRedirect } from "../../services/navigation";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
+import { fetchMemberPlans, fetchMemberStatus, fetchPublishRewardConfig } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
@@ -28,11 +29,18 @@ const isSubmitting = ref(false);
 const pendingDraftId = ref<number | null>(null);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+const basePublishReward = ref(50);
+const memberPublishBonus = ref(0);
 let lastMockMode: boolean | null = null;
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
 const draftOptions = computed(() => (useMockData.value ? draftWorks : backendDrafts.value));
+const publishReward = computed(() => basePublishReward.value + memberPublishBonus.value);
+const publishButtonText = computed(() => {
+  const suffix = memberPublishBonus.value ? `送${publishReward.value}积分（含会员加成）` : `送${publishReward.value}积分`;
+  return `发布作品 · ${suffix}`;
+});
 
 function leavePublishPage() {
   navigateBackOrRedirect("/pages/gallery/index");
@@ -56,6 +64,7 @@ onShow(() => {
     lastMockMode = useMockData.value;
   }
   void loadDrafts();
+  void loadPublishReward();
 });
 
 onMounted(() => {
@@ -135,6 +144,24 @@ async function loadDrafts() {
   }
 }
 
+async function loadPublishReward() {
+  if (useMockData.value) {
+    basePublishReward.value = 50;
+    memberPublishBonus.value = 0;
+    return;
+  }
+  try {
+    basePublishReward.value = await fetchPublishRewardConfig();
+    memberPublishBonus.value = 0;
+    if (!isLoggedIn.value) return;
+    const [status, plans] = await Promise.all([fetchMemberStatus(), fetchMemberPlans()]);
+    if (!status.isMember) return;
+    memberPublishBonus.value = plans.find((plan) => plan.name === status.memberPlan)?.publishBonus ?? 0;
+  } catch {
+    memberPublishBonus.value = 0;
+  }
+}
+
 function openLoginSheet() {
   showLoginSheet.value = true;
 }
@@ -147,7 +174,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await loadDrafts();
+    await Promise.all([loadDrafts(), loadPublishReward()]);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -322,7 +349,7 @@ async function submit() {
 
         <button class="submit-btn" :disabled="isSubmitting" @click="submit">
           <LumiIcon v-if="!isSubmitting" name="send" :size="16" />
-          <text>{{ isSubmitting ? "发布中..." : "发布作品" }}</text>
+          <text>{{ isSubmitting ? "发布中..." : publishButtonText }}</text>
         </button>
       </view>
     </scroll-view>
@@ -684,6 +711,19 @@ async function submit() {
 }
 
 .publish-page > .page-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.publish-page > :deep(.deferred-content) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.publish-page :deep(.deferred-content) > .page-scroll {
   flex: 1;
   min-height: 0;
   height: auto;

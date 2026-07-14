@@ -59,6 +59,8 @@ interface MemberPlanRow {
   rights: string | string[];
   giftCredits: number;
   checkinBonus: number;
+  milestoneBonus: number;
+  publishBonus: number;
 }
 
 interface MemberStatus {
@@ -97,6 +99,7 @@ export interface PaymentOrderView {
 interface Bootstrap {
   rechargeTiers?: Array<{ id: number; price: number; credits: number; bonus: number }>;
   memberPlans?: MemberPlanRow[];
+  creditsConfig?: { publishReward?: number };
 }
 
 function formatDate(value: string) {
@@ -163,6 +166,8 @@ function toMemberPlan(plan: MemberPlanRow, index: number): MemberPlan {
     totalCredits: plan.giftCredits,
     rights,
     checkinBonus: plan.checkinBonus,
+    milestoneBonus: plan.milestoneBonus,
+    publishBonus: plan.publishBonus,
     icon: index >= 2 ? "crown" : "gem",
     accent: planAccent(index),
     badge: index === 1 ? "推荐" : index >= 2 ? "超值" : undefined,
@@ -222,6 +227,11 @@ export async function fetchInviteSummary() {
 export async function fetchMemberPlans() {
   const rows = await api.get<MemberPlanRow[]>("/membership/plans", { skipAuth: true });
   return rows.map(toMemberPlan);
+}
+
+export async function fetchPublishRewardConfig() {
+  const data = await api.get<Bootstrap>("/app/bootstrap", { skipAuth: true });
+  return Math.max(0, Number(data.creditsConfig?.publishReward ?? 50));
 }
 
 export async function fetchMemberStatus() {

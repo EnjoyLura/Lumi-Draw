@@ -31,7 +31,7 @@ const FIELDS = {
   qualityConfig: ["label", "pixel", "multiplier", "enabled", "sort"],
   ratioConfig: ["label", "description", "enabled", "sort"],
   rechargeTier: ["price", "credits", "bonus", "enabled", "sort"],
-  memberPlan: ["name", "price", "rights", "giftCredits", "checkinBonus", "enabled", "sort"],
+  memberPlan: ["name", "price", "rights", "giftCredits", "checkinBonus", "milestoneBonus", "publishBonus", "enabled", "sort"],
   appVersion: ["version", "releasedAt", "items", "sort"]
 };
 

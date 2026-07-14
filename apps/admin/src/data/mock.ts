@@ -84,6 +84,8 @@ export interface MemberPlan {
   rights: string;
   gift: number;
   ckBonus: number;
+  milestoneBonus?: number;
+  publishBonus?: number;
 }
 
 export const IMG = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/300/300`;

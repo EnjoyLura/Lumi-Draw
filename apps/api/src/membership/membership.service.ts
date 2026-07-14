@@ -16,7 +16,9 @@ export class MembershipService {
       price: p.price,
       rights: p.rights,
       giftCredits: p.giftCredits,
-      checkinBonus: p.checkinBonus
+      checkinBonus: p.checkinBonus,
+      milestoneBonus: p.milestoneBonus,
+      publishBonus: p.publishBonus
     }));
   }
 
