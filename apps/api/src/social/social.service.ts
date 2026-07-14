@@ -4,6 +4,7 @@ import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers, resolveCreatorTitle } from "../common/creator-titles";
 
 type WorkWithAuthor = Work & { user: User };
 type InteractionType = "like" | "favorite";
@@ -240,7 +241,11 @@ export class SocialService {
   }
 
   async profile(currentUserId: number | undefined, targetUserId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    const [user, setting, publishedWorksCount] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: targetUserId } }),
+      this.prisma.appSetting.findUnique({ where: { key: "creatorTitlesConfig" } }),
+      this.prisma.work.count({ where: { userId: targetUserId, ...PUBLIC_WORK_WHERE } })
+    ]);
     if (!user) throw new NotFoundException("用户不存在");
     const follow =
       !currentUserId || currentUserId === targetUserId
@@ -248,7 +253,12 @@ export class SocialService {
         : await this.prisma.follow.findUnique({
             where: { followerId_followingId: { followerId: currentUserId, followingId: targetUserId } }
           });
-    return toUserCard(user, Boolean(follow));
+    let rawTiers: unknown = DEFAULT_CREATOR_TITLE_TIERS;
+    if (setting) {
+      try { rawTiers = JSON.parse(setting.value).tiers; } catch { /* use defaults */ }
+    }
+    const tiers = normalizeCreatorTitleTiers(rawTiers);
+    return { ...toUserCard(user, Boolean(follow)), publishedWorksCount, creatorTitle: resolveCreatorTitle(tiers, publishedWorksCount) };
   }
 
   async userWorks(targetUserId: number, page: number, pageSize: number, currentUserId?: number) {

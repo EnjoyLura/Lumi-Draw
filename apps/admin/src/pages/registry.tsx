@@ -21,6 +21,7 @@ import { OpsModel } from "./OpsModel";
 import { OpsQuality } from "./OpsQuality";
 import { OpsRatio } from "./OpsRatio";
 import { OpsStyle } from "./OpsStyle";
+import { OpsCreatorTitle } from "./OpsCreatorTitle";
 import { Review } from "./Review";
 import { ReviewDetail } from "./ReviewDetail";
 import { SetAgreement } from "./SetAgreement";
@@ -54,6 +55,7 @@ const REAL_PAGES: Record<string, (param?: string) => ReactNode> = {
   opsModel: () => <OpsModel />,
   opsQuality: () => <OpsQuality />,
   opsRatio: () => <OpsRatio />,
+  opsCreatorTitle: () => <OpsCreatorTitle />,
   finance: () => <Finance />,
   finRecharge: () => <FinRecharge />,
   finMember: () => <FinMember />,

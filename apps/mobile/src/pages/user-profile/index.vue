@@ -145,7 +145,7 @@ function toProfileView(profile: BackendUserProfile): ProfileView {
     followers: formatCompactNumber(profile.followers),
     following: profile.following,
     gender: profile.gender === "male" || profile.gender === "female" ? profile.gender : "unknown",
-    role: "AI 创作者",
+    role: profile.creatorTitle || "画布新星",
     isFollowing: profile.isFollowing
   };
 }

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers } from "../common/creator-titles";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -283,6 +284,27 @@ export class ModerationService {
   }
   putCreditsConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("creditsConfig", body);
+  }
+  async getCreatorTitlesConfig() {
+    const config = await this.getJsonConfig("creatorTitlesConfig", { tiers: DEFAULT_CREATOR_TITLE_TIERS });
+    const raw = config && typeof config === "object" ? (config as { tiers?: unknown }).tiers : undefined;
+    return { tiers: normalizeCreatorTitleTiers(raw) };
+  }
+  async putCreatorTitlesConfig(body: Record<string, unknown>) {
+    const input = body.tiers;
+    if (!Array.isArray(input) || input.length !== DEFAULT_CREATOR_TITLE_TIERS.length) {
+      throw new BadRequestException("称号需保留 6 个档位");
+    }
+    const tiers = normalizeCreatorTitleTiers(input);
+    const valid = input.every((item, index) => {
+      const row = item && typeof item === "object" ? (item as { name?: unknown; minWorks?: unknown }) : {};
+      const works = Number(row.minWorks);
+      return String(row.name || "").trim().length > 0 && Number.isInteger(works) && works >= 0 && (index === 0 || works > Number((input[index - 1] as { minWorks?: unknown }).minWorks));
+    });
+    if (!valid) {
+      throw new BadRequestException("称号名称不能为空，作品数需逐档递增");
+    }
+    return this.putJsonConfig("creatorTitlesConfig", { tiers });
   }
 
   private async resolvePushUserIds(target: string) {

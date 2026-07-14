@@ -18,6 +18,7 @@ export interface GalleryUser {
   userNo: string;
   bio: string;
   role: string;
+  memberPlan?: string;
   works: number;
   followers: string;
   following: string;
@@ -34,6 +35,7 @@ export const galleryUser: GalleryUser = {
   userNo: "LUMI8829",
   bio: "用AI描绘心中的梦境，每一笔都是想象力的延伸",
   role: "AI创作者",
+  memberPlan: "",
   works: 48,
   followers: "326",
   following: "128",

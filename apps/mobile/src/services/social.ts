@@ -29,6 +29,8 @@ export interface BackendUserProfile extends BackendAuthor {
   followers: number;
   following: number;
   isFollowing: boolean;
+  creatorTitle?: string;
+  publishedWorksCount?: number;
 }
 
 export interface BackendWorkCard {

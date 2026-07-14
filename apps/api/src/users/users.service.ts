@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateMeDto } from "../auth/auth.dto";
+import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers, resolveCreatorTitle } from "../common/creator-titles";
 
 function publicUser(user: User) {
   return {
@@ -27,10 +28,23 @@ function publicUser(user: User) {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async withCreatorTitle(user: User) {
+    const [setting, publishedWorksCount] = await Promise.all([
+      this.prisma.appSetting.findUnique({ where: { key: "creatorTitlesConfig" } }),
+      this.prisma.work.count({ where: { userId: user.id, status: "published", isPublic: true } })
+    ]);
+    let rawTiers: unknown = DEFAULT_CREATOR_TITLE_TIERS;
+    if (setting) {
+      try { rawTiers = JSON.parse(setting.value).tiers; } catch { /* use defaults */ }
+    }
+    const tiers = normalizeCreatorTitleTiers(rawTiers);
+    return { ...publicUser(user), publishedWorksCount, creatorTitle: resolveCreatorTitle(tiers, publishedWorksCount) };
+  }
+
   async me(userId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException("用户不存在");
-    return publicUser(user);
+    return this.withCreatorTitle(user);
   }
 
   async updateMe(userId: number, dto: UpdateMeDto) {
@@ -44,6 +58,6 @@ export class UsersService {
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.phone !== undefined) data.phone = dto.phone;
     const user = await this.prisma.user.update({ where: { id: userId }, data });
-    return publicUser(user);
+    return this.withCreatorTitle(user);
   }
 }

@@ -674,6 +674,30 @@ export async function apiSaveCreditsConfig(config: AdminCreditsConfig) {
   return mapCreditsConfig(await http.put<Partial<AdminCreditsConfig>>("/admin/credits/config", config));
 }
 
+export interface AdminCreatorTitleTier {
+  minWorks: number;
+  name: string;
+}
+
+const DEFAULT_CREATOR_TITLE_TIERS: AdminCreatorTitleTier[] = [
+  { minWorks: 0, name: "画布新星" },
+  { minWorks: 1, name: "灵感画师" },
+  { minWorks: 10, name: "创意达人" },
+  { minWorks: 30, name: "风格主理人" },
+  { minWorks: 50, name: "光影大师" },
+  { minWorks: 100, name: "星耀艺术家" }
+];
+
+export function apiGetCreatorTitles() {
+  return http.get<{ tiers?: AdminCreatorTitleTier[] }>("/admin/creator-titles").then((result) => ({
+    tiers: result.tiers?.length === 6 ? result.tiers : DEFAULT_CREATOR_TITLE_TIERS
+  }));
+}
+
+export function apiSaveCreatorTitles(tiers: AdminCreatorTitleTier[]) {
+  return http.put<{ tiers: AdminCreatorTitleTier[] }>("/admin/creator-titles", { tiers });
+}
+
 const TXN_TYPE_CN: Record<string, string> = {
   recharge: "充值", consume: "消费", refund: "退款", checkin: "签到", invite: "邀请", membership: "会员", adjust: "调整"
 };

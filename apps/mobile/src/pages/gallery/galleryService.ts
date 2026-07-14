@@ -10,6 +10,8 @@ interface BackendUser {
   bio?: string | null;
   credits: number;
   memberPlan?: string | null;
+  creatorTitle?: string;
+  publishedWorksCount?: number;
   gender?: string | null;
   worksCount: number;
   likesCount?: number;
@@ -75,7 +77,8 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     points: `${user.credits}`,
     userNo: `LUMI${String(user.id).padStart(4, "0")}`,
     bio: user.bio || "这个用户还没有填写简介",
-    role: user.memberPlan || "创作者",
+    role: user.creatorTitle || "画布新星",
+    memberPlan: user.memberPlan || "",
     works: user.worksCount,
     followers: `${user.followers}`,
     following: `${user.following ?? 0}`,

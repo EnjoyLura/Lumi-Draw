@@ -60,6 +60,7 @@ const EMPTY_PROFILE: GalleryUser = {
   userNo: "-",
   bio: "资料加载完成后显示真实信息",
   role: "创作者",
+  memberPlan: "",
   works: 0,
   followers: "0",
   following: "0",
@@ -222,8 +223,8 @@ onMounted(() => {
   void loadModelOptions();
   markInitialContentReady();
 });
-const hasMembership = computed(() => !["创作者", "AI创作者", "体验用户"].includes(profile.value.role));
-const membershipTitle = computed(() => (hasMembership.value ? profile.value.role : "未开通会员"));
+const hasMembership = computed(() => Boolean(profile.value.memberPlan));
+const membershipTitle = computed(() => (hasMembership.value ? profile.value.memberPlan : "未开通会员"));
 const membershipSubtitle = computed(() => (hasMembership.value ? "会员权益已生效" : "开通会员解锁权益"));
 
 async function loadModelOptions() {
