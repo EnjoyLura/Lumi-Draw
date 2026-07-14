@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -31,7 +31,9 @@ const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 const basePublishReward = ref(50);
 const memberPublishBonus = ref(0);
+const isInitialContentReady = ref(false);
 let lastMockMode: boolean | null = null;
+let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
@@ -48,6 +50,13 @@ function leavePublishPage() {
 
 onLoad((query) => {
   pendingDraftId.value = resolveRouteDraftId(query);
+});
+
+onReady(() => {
+  initialContentTimer = setTimeout(() => {
+    isInitialContentReady.value = true;
+    initialContentTimer = undefined;
+  }, 16);
 });
 
 onShow(() => {
@@ -73,6 +82,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (initialContentTimer) clearTimeout(initialContentTimer);
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
@@ -278,8 +288,8 @@ async function submit() {
 <template>
   <view class="publish-page" :class="themeClass">
     <LumiPageHeader title="发布作品" />
-    <LumiDeferredPageContent>
-    <scroll-view class="page-scroll" scroll-y enable-flex>
+    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <scroll-view v-else class="page-scroll" scroll-y enable-flex>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后发布作品"
@@ -353,7 +363,6 @@ async function submit() {
         </button>
       </view>
     </scroll-view>
-    </LumiDeferredPageContent>
 
     <view class="sheet-overlay" :class="{ show: pickerOpen }" @click="closePicker" />
     <view class="picker-sheet" :class="{ show: pickerOpen }">
@@ -397,7 +406,13 @@ async function submit() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.page-first-frame {
+  flex: 1;
+  background: var(--page-bg);
 }
 
 .publish-content {
@@ -566,7 +581,7 @@ async function submit() {
   height: 50px;
   margin-top: 8px;
   margin-bottom: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
   color: #fff;
@@ -716,16 +731,4 @@ async function submit() {
   height: auto;
 }
 
-.publish-page > :deep(.deferred-content) {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.publish-page :deep(.deferred-content) > .page-scroll {
-  flex: 1;
-  min-height: 0;
-  height: auto;
-}
 </style>
