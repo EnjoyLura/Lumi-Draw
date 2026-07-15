@@ -45,13 +45,14 @@ export function resolveChange2ProModel(modelId: string) {
   return undefined;
 }
 
-export function normalizeImage2Size(ratio: string) {
+export function normalizeImage2Size(ratio: string, quality: string) {
   const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1024x1024";
+  const qualityScale = quality.match(/\b4K\b/i) ? 4 : quality.match(/\b2K\b/i) ? 2 : 1;
+  if (!width || !height) return `${1024 * qualityScale}x${1024 * qualityScale}`;
   const value = width / height;
-  if (value > 1.15) return "1536x1024";
-  if (value < 0.87) return "1024x1536";
-  return "1024x1024";
+  if (value > 1.15) return `${1536 * qualityScale}x${1024 * qualityScale}`;
+  if (value < 0.87) return `${1024 * qualityScale}x${1536 * qualityScale}`;
+  return `${1024 * qualityScale}x${1024 * qualityScale}`;
 }
 
 function normalizeBananaQuality(quality: string) {
@@ -98,7 +99,7 @@ export class Change2ProClient {
       form.set("model", "gpt-image-2");
       form.set("prompt", input.prompt);
       form.set("n", String(input.count));
-      form.set("size", normalizeImage2Size(input.ratio));
+      form.set("size", normalizeImage2Size(input.ratio, input.quality));
       form.set("image", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
       body = form;
     } else {
@@ -107,7 +108,7 @@ export class Change2ProClient {
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
-        size: normalizeImage2Size(input.ratio)
+        size: normalizeImage2Size(input.ratio, input.quality)
       });
     }
 

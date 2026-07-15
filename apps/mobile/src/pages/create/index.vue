@@ -167,28 +167,9 @@ function qualityShortLabel(value: string) {
   return value.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() || value;
 }
 
-function isImage2Model(model: CreateModel = selectedModel.value) {
-  return model.id === "gpt-image-2" || model.id === "gpt2" || /GPT\s*Image\s*2/i.test(model.name);
-}
-
-function isQualityUnavailable(quality: QualityOption) {
-  return isImage2Model() && qualityShortLabel(quality.label) !== "1K";
-}
-
 function selectQuality(index: number) {
-  const quality = qualityList.value[index];
-  if (!quality) return;
-  if (isQualityUnavailable(quality)) {
-    showToast("GPT Image 2 当前仅支持 1K 清晰度");
-    return;
-  }
+  if (!qualityList.value[index]) return;
   selectedQualityIndex.value = index;
-}
-
-function enforceSelectedQualityForModel() {
-  if (!isImage2Model() || qualityShortLabel(selectedQuality.value.label) === "1K") return;
-  const oneKIndex = qualityList.value.findIndex((quality) => qualityShortLabel(quality.label) === "1K");
-  if (oneKIndex >= 0) selectedQualityIndex.value = oneKIndex;
 }
 
 function startElapsedTimer(startedAt = Date.now()) {
@@ -311,7 +292,6 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 });
 
 watch(() => props.routeQuery, (query) => applyRouteQuery(query, true), { deep: true });
-watch(() => selectedModel.value.id, enforceSelectedQualityForModel);
 
 function handleHashChange() {
   applyRouteQuery();
@@ -503,7 +483,6 @@ function applyPendingRouteOptions() {
   applySelectedRatio(pendingRouteOptions.value.ratio);
   applySelectedQuality(pendingRouteOptions.value.quality);
   applySelectedStyle(pendingRouteOptions.value.style);
-  enforceSelectedQualityForModel();
 }
 
 function openModelDrawer() {
@@ -517,7 +496,6 @@ function closeModelDrawer() {
 
 function selectModel(index: number) {
   selectedModelIndex.value = index;
-  enforceSelectedQualityForModel();
   closeModelDrawer();
   showToast(`已选择${selectedModel.value.name}`);
 }
@@ -1036,7 +1014,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               v-for="(quality, index) in qualityList"
               :key="quality.label"
               class="option-card"
-              :class="{ selected: selectedQualityIndex === index, disabled: isQualityUnavailable(quality) }"
+              :class="{ selected: selectedQualityIndex === index }"
               @click="selectQuality(index)"
             >
               <text class="option-icon">{{ quality.icon }}</text>
@@ -1859,12 +1837,6 @@ function goMine() { goRootTab("/pages/mine/index"); }
   color: var(--accent-deep);
   background: var(--accent-soft);
   border-color: var(--accent);
-}
-
-.option-card.disabled {
-  color: var(--fg-muted);
-  cursor: not-allowed;
-  opacity: 0.45;
 }
 
 .option-icon {
