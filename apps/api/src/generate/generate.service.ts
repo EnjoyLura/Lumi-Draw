@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerateJob, GenerateResult, Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
@@ -6,6 +6,7 @@ import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
+import { Change2ProClient, type Change2ProOutput } from "./change2pro.client";
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
@@ -42,14 +43,25 @@ function mockGeneratedImageUrl(seed: string) {
 }
 
 @Injectable()
-export class GenerateService {
+export class GenerateService implements OnApplicationBootstrap {
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
     private readonly kie: KieClient,
+    private readonly change2pro: Change2ProClient,
     private readonly config: ConfigService,
     private readonly uploads: UploadsService
   ) {}
+
+  async onApplicationBootstrap() {
+    const interrupted = await this.prisma.generateJob.findMany({
+      where: { provider: "change2pro", status: { in: ["queued", "running", "finalizing"] } },
+      select: { id: true }
+    });
+    for (const job of interrupted) {
+      await this.failAndRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
+    }
+  }
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
     const normalized = this.normalizeCreateDto(dto);
@@ -68,14 +80,15 @@ export class GenerateService {
 
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
 
+    const useChange2Pro = this.change2pro.isConfiguredFor(model.id);
     const created = await this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.create({
         data: {
           userId,
           mode: normalized.mode,
           modelId: model.id,
-          provider: model.provider,
-          providerModel: model.providerModel,
+          provider: useChange2Pro ? "change2pro" : model.provider,
+          providerModel: useChange2Pro ? this.change2pro.providerModel(model.id) || model.providerModel : model.providerModel,
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
           gameplayId: normalized.gameplayId,
@@ -399,11 +412,30 @@ export class GenerateService {
       return this.completeMockProviderJob(job);
     }
 
+    const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
+    if (this.change2pro.isConfiguredFor(model.id)) {
+      const updated = await this.prisma.generateJob.update({
+        where: { id: job.id },
+        data: {
+          provider: "change2pro",
+          providerModel: this.change2pro.providerModel(model.id) || model.providerModel,
+          status: "running",
+          progress: 5,
+          stageText: "任务已提交，正在生成",
+          startedAt: new Date()
+        },
+        include: { results: true }
+      });
+      void this.completeChange2ProJob(updated, model.id).catch(async (error) => {
+        await this.failChange2ProJobIfActive(updated.id, error instanceof Error ? error.message : "Change2Pro generation failed");
+      });
+      return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
+    }
+
     if (!this.kie.isConfigured()) {
       return { job, id: job.id, status: job.status, creditsAfter: undefined as number | undefined };
     }
 
-    const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
     try {
       const submitted = await this.kie.submitGenerateJob({
         jobId: job.id,
@@ -430,6 +462,45 @@ export class GenerateService {
     } catch (error) {
       const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "KIE submit failed");
       return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
+    }
+  }
+
+  private async completeChange2ProJob(job: JobWithResults, modelId: string) {
+    const outputs = await this.change2pro.generate({
+      jobId: job.id,
+      modelId,
+      mode: job.mode,
+      prompt: job.prompt,
+      inputImageUrl: job.inputImageUrl,
+      ratio: job.ratio,
+      quality: job.quality,
+      count: job.count
+    });
+    const results = await this.storeChange2ProOutputs(outputs);
+    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+    if (TERMINAL_STATUSES.has(current.status)) return current;
+    return this.finishJobWithDrafts(current, results, "生成完成");
+  }
+
+  private async storeChange2ProOutputs(outputs: Change2ProOutput[]) {
+    const results: GeneratedImage[] = [];
+    for (const output of outputs) {
+      if (output.url) {
+        results.push(await this.uploads.transferRemoteImage("generate", output.url));
+      } else if (output.buffer?.length && output.contentType) {
+        results.push(await this.uploads.uploadBuffer("generate", "generated-image", output.contentType, output.buffer));
+      }
+    }
+    if (!results.length) throw new Error("Change2Pro did not return a valid image");
+    return results;
+  }
+
+  private async failChange2ProJobIfActive(jobId: string, message: string) {
+    try {
+      const job = await this.prisma.generateJob.findUnique({ where: { id: jobId }, select: { status: true } });
+      if (job && !TERMINAL_STATUSES.has(job.status)) await this.failAndRefund(jobId, message);
+    } catch {
+      // The original request has already returned; polling will surface the persisted job state.
     }
   }
 

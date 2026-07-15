@@ -57,6 +57,11 @@ export const appConfig = registerAs("app", () => ({
     apiKey: process.env.KIE_API_KEY ?? "",
     callbackUrl: process.env.KIE_CALLBACK_URL ?? ""
   },
+  change2pro: {
+    apiBase: process.env.CHANGE2PRO_API_BASE ?? "https://api.change2pro.com",
+    imageApiKey: process.env.CHANGE2PRO_IMAGE_API_KEY ?? "",
+    bananaApiKey: process.env.CHANGE2PRO_BANANA_API_KEY ?? ""
+  },
   generate: {
     allowMock: process.env.GENERATE_ALLOW_MOCK === "true"
   },

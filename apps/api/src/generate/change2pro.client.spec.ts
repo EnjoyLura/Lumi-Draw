@@ -1,0 +1,143 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { ConfigService } from "@nestjs/config";
+import { Change2ProClient, normalizeImage2Size, resolveChange2ProModel } from "./change2pro.client";
+
+function client(keys = { imageApiKey: "image-key", bananaApiKey: "banana-key" }) {
+  const config = {
+    get(name: string) {
+      if (name === "app.change2pro") return { apiBase: "https://api.example.com", ...keys };
+      if (name === "app.oss") return { bucket: "bucket", endpoint: "oss.example.com", cdnBaseUrl: "https://cdn.example.com" };
+      return undefined;
+    }
+  } as ConfigService;
+  return new Change2ProClient(config);
+}
+
+function jsonResponse(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
+}
+
+test("routes Image 2 and both Banana models to Change2Pro", () => {
+  assert.deepEqual(resolveChange2ProModel("gpt-image-2"), { kind: "image2", providerModel: "gpt-image-2" });
+  assert.deepEqual(resolveChange2ProModel("nano-banana-2"), { kind: "banana", providerModel: "gemini-3.1-flash-image-preview" });
+  assert.deepEqual(resolveChange2ProModel("nano-banana-pro"), { kind: "banana", providerModel: "gemini-3-pro-image-preview" });
+  assert.equal(resolveChange2ProModel("seedream-4-5"), undefined);
+});
+
+test("maps Image 2 ratios to supported image sizes", () => {
+  assert.equal(normalizeImage2Size("16:9"), "1536x1024");
+  assert.equal(normalizeImage2Size("9:16"), "1024x1536");
+  assert.equal(normalizeImage2Size("1:1"), "1024x1024");
+});
+
+test("Image 2 supports both text generation and image edits", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    calls.push({ url, init });
+    if (url === "https://cdn.example.com/reference.png") {
+      return new Response(Buffer.from([137, 80, 78, 71]), { headers: { "Content-Type": "image/png" } });
+    }
+    return jsonResponse({ data: [{ url: "https://images.example.com/result.png" }] });
+  };
+
+  try {
+    const provider = client();
+    await provider.generate({
+      jobId: "job-text",
+      modelId: "gpt-image-2",
+      mode: "text-to-image",
+      prompt: "orange cat",
+      inputImageUrl: "",
+      ratio: "16:9",
+      quality: "2K",
+      count: 1
+    });
+    await provider.generate({
+      jobId: "job-edit",
+      modelId: "gpt-image-2",
+      mode: "image-to-image",
+      prompt: "watercolor style",
+      inputImageUrl: "https://cdn.example.com/reference.png",
+      ratio: "3:4",
+      quality: "2K",
+      count: 1
+    });
+
+    assert.equal(calls[0].url, "https://api.example.com/images/generations");
+    assert.match(String(calls[0].init?.body), /"size":"1536x1024"/);
+    assert.equal(calls[2].url, "https://api.example.com/images/edits");
+    assert.ok(calls[2].init?.body instanceof FormData);
+    assert.equal((calls[2].init?.body as FormData).get("prompt"), "watercolor style");
+    assert.ok((calls[2].init?.body as FormData).get("image") instanceof Blob);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Banana supports text generation and inline reference image generation", async () => {
+  const originalFetch = globalThis.fetch;
+  const requestBodies: Array<Record<string, unknown>> = [];
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "https://cdn.example.com/reference.jpg") {
+      return new Response(Buffer.from([255, 216, 255]), { headers: { "Content-Type": "image/jpeg" } });
+    }
+    requestBodies.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+    return jsonResponse({
+      candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: Buffer.from("generated").toString("base64") } }] } }]
+    });
+  };
+
+  try {
+    const provider = client();
+    const textOutputs = await provider.generate({
+      jobId: "banana-text",
+      modelId: "nano-banana-2",
+      mode: "text-to-image",
+      prompt: "orange cat",
+      inputImageUrl: "",
+      ratio: "9:16",
+      quality: "4K",
+      count: 1
+    });
+    const editOutputs = await provider.generate({
+      jobId: "banana-edit",
+      modelId: "nano-banana-2",
+      mode: "image-to-image",
+      prompt: "change clothes",
+      inputImageUrl: "https://cdn.example.com/reference.jpg",
+      ratio: "3:4",
+      quality: "2K",
+      count: 1
+    });
+
+    const textParts = ((requestBodies[0].contents as Array<{ parts: unknown[] }>)[0].parts);
+    const editParts = ((requestBodies[1].contents as Array<{ parts: Array<Record<string, unknown>> }>)[0].parts);
+    assert.equal(textParts.length, 1);
+    assert.equal(editParts.length, 2);
+    assert.deepEqual(editParts[1], { inlineData: { mimeType: "image/jpeg", data: Buffer.from([255, 216, 255]).toString("base64") } });
+    assert.equal(textOutputs[0].buffer?.toString(), "generated");
+    assert.equal(editOutputs[0].contentType, "image/png");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("rejects reference images outside the configured OSS and CDN hosts", async () => {
+  await assert.rejects(
+    client().generate({
+      jobId: "unsafe-reference",
+      modelId: "nano-banana-2",
+      mode: "image-to-image",
+      prompt: "edit",
+      inputImageUrl: "https://untrusted.example.com/reference.jpg",
+      ratio: "1:1",
+      quality: "1K",
+      count: 1
+    }),
+    /参考图地址无效/
+  );
+});

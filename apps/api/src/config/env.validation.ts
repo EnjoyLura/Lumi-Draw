@@ -24,6 +24,8 @@ export function validateEnvironment(env: Env) {
     "WX_APPSECRET",
     "KIE_API_KEY",
     "KIE_CALLBACK_URL",
+    "CHANGE2PRO_IMAGE_API_KEY",
+    "CHANGE2PRO_BANANA_API_KEY",
     "OSS_ACCESS_KEY_ID",
     "OSS_ACCESS_KEY_SECRET",
     "OSS_BUCKET",
