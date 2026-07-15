@@ -43,7 +43,7 @@ const EMPTY_MODEL: CreateModel = {
   badge: "未配置",
   badgeColor: "var(--fg-muted)"
 };
-const EMPTY_QUALITY: QualityOption = { label: "未同步", description: "待配置", icon: "--" };
+const EMPTY_QUALITY: QualityOption = { label: "未同步", description: "待配置", icon: "--", multiplier: 1 };
 const EMPTY_RATIO: RatioOption = { label: "1:1", width: 1, height: 1 };
 
 const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
@@ -76,6 +76,7 @@ const configLoadFailed = ref(false);
 const isInitialContentReady = ref(false);
 const progress = ref(0);
 const stageText = ref("点击「开始创作」生成作品");
+const generationElapsedSeconds = ref(0);
 
 interface GenResult {
   id: string;
@@ -94,6 +95,8 @@ const previewData = ref<{ src: string; resolution: string; size: string; ratio: 
 let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
+let elapsedTimer: ReturnType<typeof setInterval> | undefined;
+let generationStartedAt = 0;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -109,7 +112,7 @@ const selectedRatio = computed(
   () => ratioList.value.find((ratio) => ratio.label === selectedRatioLabel.value) ?? (useMockData.value ? ratioOptions[0] : EMPTY_RATIO)
 );
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
-const totalCost = computed(() => selectedModel.value.cost * selectedCount.value);
+const totalCost = computed(() => Math.ceil(selectedModel.value.cost * selectedQuality.value.multiplier * selectedCount.value));
 const visibleStyles = computed(() => styleOptions.value.slice(0, 7));
 const allStyles = computed(() => styleOptions.value.slice(0, -1));
 const inlineRatios = computed(() => ratioList.value);
@@ -123,7 +126,7 @@ const allSuccessfulResultsSaved = computed(
   () => successCount.value > 0 && generatedResults.value.filter((item) => !item.failed).every((item) => item.savedWorkId)
 );
 const hasAutoSavedDrafts = computed(() => !useMockData.value && savedDraftCount.value > 0);
-const refundCredits = computed(() => failCount.value * selectedModel.value.cost);
+const refundCredits = computed(() => Math.ceil(failCount.value * selectedModel.value.cost * selectedQuality.value.multiplier));
 const createConfigUnavailable = computed(
   () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
 );
@@ -160,16 +163,48 @@ const generationErrors = [
   "渲染异常，请重试"
 ];
 
-function resolveResolution(label: string) {
-  const map: Record<string, [number, number]> = {
-    "1:1": [1024, 1024],
-    "3:4": [768, 1024],
-    "4:3": [1024, 768],
-    "16:9": [1024, 576],
-    "9:16": [576, 1024]
+function qualityShortLabel(value: string) {
+  return value.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() || value;
+}
+
+function isImage2Model(model: CreateModel = selectedModel.value) {
+  return model.id === "gpt-image-2" || model.id === "gpt2" || /GPT\s*Image\s*2/i.test(model.name);
+}
+
+function isQualityUnavailable(quality: QualityOption) {
+  return isImage2Model() && qualityShortLabel(quality.label) !== "1K";
+}
+
+function selectQuality(index: number) {
+  const quality = qualityList.value[index];
+  if (!quality) return;
+  if (isQualityUnavailable(quality)) {
+    showToast("GPT Image 2 当前仅支持 1K 清晰度");
+    return;
+  }
+  selectedQualityIndex.value = index;
+}
+
+function enforceSelectedQualityForModel() {
+  if (!isImage2Model() || qualityShortLabel(selectedQuality.value.label) === "1K") return;
+  const oneKIndex = qualityList.value.findIndex((quality) => qualityShortLabel(quality.label) === "1K");
+  if (oneKIndex >= 0) selectedQualityIndex.value = oneKIndex;
+}
+
+function startElapsedTimer(startedAt = Date.now()) {
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  generationStartedAt = startedAt;
+  const update = () => {
+    generationElapsedSeconds.value = Math.max(0, Math.floor((Date.now() - generationStartedAt) / 1000));
   };
-  const [width, height] = map[label] || [1024, 1024];
-  return `${width}×${height}`;
+  update();
+  elapsedTimer = setInterval(update, 1000);
+}
+
+function stopElapsedTimer(finalSeconds?: number) {
+  if (elapsedTimer) clearInterval(elapsedTimer);
+  elapsedTimer = undefined;
+  if (typeof finalSeconds === "number") generationElapsedSeconds.value = Math.max(0, Math.round(finalSeconds));
 }
 
 function randomError() {
@@ -268,6 +303,7 @@ onBeforeUnmount(() => {
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
+  stopElapsedTimer();
 });
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
@@ -275,6 +311,7 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 });
 
 watch(() => props.routeQuery, (query) => applyRouteQuery(query, true), { deep: true });
+watch(() => selectedModel.value.id, enforceSelectedQualityForModel);
 
 function handleHashChange() {
   applyRouteQuery();
@@ -466,6 +503,7 @@ function applyPendingRouteOptions() {
   applySelectedRatio(pendingRouteOptions.value.ratio);
   applySelectedQuality(pendingRouteOptions.value.quality);
   applySelectedStyle(pendingRouteOptions.value.style);
+  enforceSelectedQualityForModel();
 }
 
 function openModelDrawer() {
@@ -479,6 +517,7 @@ function closeModelDrawer() {
 
 function selectModel(index: number) {
   selectedModelIndex.value = index;
+  enforceSelectedQualityForModel();
   closeModelDrawer();
   showToast(`已选择${selectedModel.value.name}`);
 }
@@ -596,6 +635,8 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
 }
 
 function applyBackendJob(job: BackendGenerateJob) {
+  const startedAt = new Date(job.createdAt).getTime();
+  if (!isTerminalJob(job.status) && Number.isFinite(startedAt) && startedAt !== generationStartedAt) startElapsedTimer(startedAt);
   progress.value = Math.max(progress.value, Math.min(job.progress || 0, 100));
   stageText.value = generationStageText(progress.value, job.status);
 
@@ -607,9 +648,11 @@ function applyBackendJob(job: BackendGenerateJob) {
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
   generatedResults.value = toGeneratedResults(job);
+  const elapsed = Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000);
+  stopElapsedTimer(elapsed);
   genMeta.value = {
-    time: Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000).toFixed(1),
-    resolution: resolveResolution(selectedRatio.value.label),
+    time: elapsed.toFixed(1),
+    resolution: qualityShortLabel(job.quality),
     size: `${job.costCredits - job.refundCredits}积分`
   };
 
@@ -628,6 +671,7 @@ async function pollBackendJob(jobId: string) {
     }
   } catch {
     isGenerating.value = false;
+    stopElapsedTimer();
     showToast("任务状态获取失败，请稍后在画廊查看");
   }
 }
@@ -642,6 +686,7 @@ async function resumeBackendJob(jobId: string) {
   generatedResults.value = [];
   genMeta.value = null;
   stageText.value = generationStageText(0, "queued");
+  startElapsedTimer();
 
   try {
     const job = await fetchGenerateJob(jobId);
@@ -665,6 +710,7 @@ async function resumeBackendJob(jobId: string) {
     }
   } catch {
     isGenerating.value = false;
+    stopElapsedTimer();
     showToast("生成任务读取失败，请稍后重试");
   }
 }
@@ -690,6 +736,7 @@ async function startBackendGenerate(prompt: string) {
   generatedResults.value = [];
   genMeta.value = null;
   stageText.value = generationStageText(0, "queued");
+  startElapsedTimer();
 
   try {
     const inputImageUrl = await resolvePromptImageUrl();
@@ -711,6 +758,7 @@ async function startBackendGenerate(prompt: string) {
     }
   } catch (error) {
     isGenerating.value = false;
+    stopElapsedTimer();
     const message = error instanceof Error ? error.message : "提交失败，请稍后重试";
     showToast(message);
   }
@@ -744,6 +792,7 @@ async function startGenerate() {
   generatedResults.value = [];
   genMeta.value = null;
   stageText.value = generationStageText(0);
+  startElapsedTimer();
   showToast(`创作任务已提交，正在生成 ${selectedCount.value} 张图片`);
 
   progressTimer = setInterval(() => {
@@ -770,13 +819,14 @@ async function startGenerate() {
     generatedResults.value = results;
     genMeta.value = {
       time: (Math.random() * 8 + 7).toFixed(1),
-      resolution: resolveResolution(selectedRatio.value.label),
+      resolution: qualityShortLabel(selectedQuality.value.label),
       size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`
     };
     isGenerating.value = false;
+    stopElapsedTimer(Number(genMeta.value.time));
 
     const fails = results.filter((item) => item.failed).length;
-    const refund = fails * selectedModel.value.cost;
+    const refund = Math.ceil(fails * selectedModel.value.cost * selectedQuality.value.multiplier);
     if (fails === 0) showToast(`生成成功！消耗${totalCost.value}积分`);
     else if (fails === count) showToast(`全部生成失败，${totalCost.value}积分已退还`);
     else showToast(`${count - fails}张成功，${fails}张失败，退还${refund}积分`);
@@ -986,8 +1036,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
               v-for="(quality, index) in qualityList"
               :key="quality.label"
               class="option-card"
-              :class="{ selected: selectedQualityIndex === index }"
-              @click="selectedQualityIndex = index"
+              :class="{ selected: selectedQualityIndex === index, disabled: isQualityUnavailable(quality) }"
+              @click="selectQuality(index)"
             >
               <text class="option-icon">{{ quality.icon }}</text>
               <text class="option-name">{{ quality.label }}</text>
@@ -1036,11 +1086,15 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <view class="progress-num">{{ progress }}%</view>
             </view>
             <text class="stage-text">{{ stageText }}</text>
+            <view class="generation-elapsed">
+              <LumiIcon name="clock-3" :size="13" />
+              <text>已耗时 {{ generationElapsedSeconds }}s</text>
+            </view>
             <view class="progress-track">
               <view class="progress-bar" :style="{ width: `${progress}%` }" />
             </view>
             <text class="generation-meta">
-              消耗 {{ totalCost }} 积分 · 使用 {{ selectedModel.name }} · {{ selectedQuality.description }}
+              消耗 {{ totalCost }} 积分 · 使用 {{ selectedModel.name }} · {{ qualityShortLabel(selectedQuality.label) }}
             </text>
           </view>
           <view v-else-if="generatedResults.length" class="result-wrap">
@@ -1807,6 +1861,12 @@ function goMine() { goRootTab("/pages/mine/index"); }
   border-color: var(--accent);
 }
 
+.option-card.disabled {
+  color: var(--fg-muted);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .option-icon {
   font-size: 14px;
   font-weight: 700;
@@ -1906,6 +1966,18 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .stage-text {
   font-size: 14px;
   font-weight: 600;
+}
+
+.generation-elapsed {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 999px;
 }
 
 .progress-track {

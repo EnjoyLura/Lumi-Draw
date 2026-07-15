@@ -20,6 +20,7 @@ export interface QualityOption {
   label: string;
   description: string;
   icon: string;
+  multiplier: number;
 }
 
 export interface RatioOption {
@@ -118,9 +119,9 @@ export const createStyles: CreateStyle[] = [
 }));
 
 export const qualityOptions: QualityOption[] = [
-  { label: "全高清1K", description: "1024px", icon: "HD" },
-  { label: "超清2K", description: "2048px", icon: "2K" },
-  { label: "超高清4K", description: "4096px", icon: "4K" }
+  { label: "全高清1K", description: "1024px", icon: "1K", multiplier: 1 },
+  { label: "超清2K", description: "2048px", icon: "2K", multiplier: 1.5 },
+  { label: "超高清4K", description: "4096px", icon: "4K", multiplier: 2 }
 ];
 
 export const ratioOptions: RatioOption[] = [

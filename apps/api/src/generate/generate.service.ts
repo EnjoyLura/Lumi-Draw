@@ -74,6 +74,9 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!model) throw new BadRequestException("模型不可用");
     if (!quality) throw new BadRequestException("分辨率不可用");
     if (!ratio) throw new BadRequestException("尺寸比例不可用");
+    if (model.id === "gpt-image-2" && !/\b1K\b/i.test(quality.label)) {
+      throw new BadRequestException("GPT Image 2 当前仅支持 1K 清晰度");
+    }
     if (normalized.mode === "text-to-image" && !model.supportsTextToImage) throw new BadRequestException("该模型不支持文生图");
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");

@@ -31,6 +31,7 @@ interface BackendQuality {
   id: number;
   label: string;
   pixel: string;
+  multiplier: number;
 }
 
 interface BackendRatio {
@@ -191,7 +192,8 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
       return {
         label: item.label || fallback.label,
         description: item.pixel || fallback.description,
-        icon: item.label || fallback.icon
+        icon: item.label.match(/\b(?:1K|2K|4K)\b/i)?.[0]?.toUpperCase() || fallback.icon,
+        multiplier: Number(item.multiplier) || fallback.multiplier
       };
     }),
     ratios: data.ratios.map((item, index) => parseRatio(item.label, fallbackByIndex(mockRatios, index))),
