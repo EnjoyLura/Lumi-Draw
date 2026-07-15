@@ -26,9 +26,11 @@ test("routes Image 2 and both Banana models to Change2Pro", () => {
 });
 
 test("maps Image 2 ratios and quality tiers to image sizes", () => {
-  assert.equal(normalizeImage2Size("16:9", "1K"), "1536x1024");
-  assert.equal(normalizeImage2Size("9:16", "2K"), "2048x3072");
-  assert.equal(normalizeImage2Size("1:1", "4K"), "4096x4096");
+  assert.equal(normalizeImage2Size("16:9", "1K"), "1536x864");
+  assert.equal(normalizeImage2Size("9:16", "2K"), "1152x2048");
+  assert.equal(normalizeImage2Size("1:1", "4K"), "2880x2880");
+  assert.equal(normalizeImage2Size("3:4", "4K"), "2480x3312");
+  assert.throws(() => normalizeImage2Size("7:5", "4K"), /当前模型不支持所选图片尺寸/);
 });
 
 test("Image 2 supports both text generation and image edits", async () => {
@@ -67,11 +69,11 @@ test("Image 2 supports both text generation and image edits", async () => {
     });
 
     assert.equal(calls[0].url, "https://api.example.com/images/generations");
-    assert.match(String(calls[0].init?.body), /"size":"3072x2048"/);
+    assert.match(String(calls[0].init?.body), /"size":"2048x1152"/);
     assert.equal(calls[2].url, "https://api.example.com/images/edits");
     assert.ok(calls[2].init?.body instanceof FormData);
     assert.equal((calls[2].init?.body as FormData).get("prompt"), "watercolor style");
-    assert.equal((calls[2].init?.body as FormData).get("size"), "2048x3072");
+    assert.equal((calls[2].init?.body as FormData).get("size"), "1536x2048");
     assert.ok((calls[2].init?.body as FormData).get("image") instanceof Blob);
   } finally {
     globalThis.fetch = originalFetch;

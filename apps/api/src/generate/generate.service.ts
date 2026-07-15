@@ -6,7 +6,7 @@ import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
-import { Change2ProClient, type Change2ProOutput } from "./change2pro.client";
+import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
@@ -78,9 +78,9 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
 
-    const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
-
     const useChange2Pro = this.change2pro.isConfiguredFor(model.id);
+    if (useChange2Pro && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
+    const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.create({
         data: {
