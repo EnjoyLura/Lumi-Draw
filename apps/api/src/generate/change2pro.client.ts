@@ -37,6 +37,7 @@ const BANANA_PRO_MODEL_ID = "nano-banana-pro";
 const BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
+const GENERATION_TIMEOUT_MS = 30 * 60 * 1000;
 const IMAGE_2_SIZES: Record<string, Record<"1K" | "2K" | "4K", string>> = {
   "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "2880x2880" },
   "3:2": { "1K": "1536x1024", "2K": "2048x1360", "4K": "3520x2336" },
@@ -130,7 +131,7 @@ export class Change2ProClient {
       method: "POST",
       headers: { ...headers, "X-Request-Id": input.jobId },
       body,
-      signal: AbortSignal.timeout(300_000)
+      signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS)
     });
     const data = Array.isArray(payload.data) ? payload.data : [];
     const outputs: Change2ProOutput[] = [];
@@ -170,7 +171,7 @@ export class Change2ProClient {
             }
           }
         }),
-        signal: AbortSignal.timeout(300_000)
+        signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS)
       });
       outputs.push(...this.extractBananaOutputs(payload));
     }
