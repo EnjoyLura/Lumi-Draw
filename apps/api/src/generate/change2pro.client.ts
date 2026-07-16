@@ -308,6 +308,9 @@ export class Change2ProClient {
       const error = this.asRecord(payload?.error);
       const message = String(error?.message ?? payload?.message ?? payload?.error ?? `HTTP ${status}`);
       this.logger.warn(`Change2Pro request failed (HTTP ${status}): ${message.slice(0, 500)}`);
+      if (status === 451 || /unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感/i.test(message)) {
+        throw new Error("内容可能不安全，请修改提示词重试");
+      }
       if (/尺寸|size|最长边|pixel/i.test(message)) throw new Error("当前模型不支持所选图片尺寸，积分已退还");
       if (status === 429) throw new Error("当前生成任务较多，积分已退还，请稍后重试");
       throw new Error("图片生成失败，积分已退还，请稍后重试");

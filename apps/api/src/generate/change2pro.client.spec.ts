@@ -155,3 +155,15 @@ test("rejects reference images outside the configured OSS and CDN hosts", async 
     /参考图地址无效/
   );
 });
+
+test("preserves provider content-safety rejections as an actionable message", () => {
+  const provider = client();
+  const validate = (provider as unknown as {
+    validateJsonResponse: (status: number, payload: Record<string, unknown>) => Record<string, unknown>;
+  }).validateJsonResponse.bind(provider);
+
+  assert.throws(
+    () => validate(451, { error: { message: "The generated images appear to be unsafe." } }),
+    /内容可能不安全，请修改提示词重试/
+  );
+});
