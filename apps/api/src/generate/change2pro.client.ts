@@ -124,7 +124,8 @@ export class Change2ProClient {
         prompt: input.prompt,
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
-        quality: "high"
+        quality: "high",
+        moderation: "low"
       });
     }
 
@@ -163,6 +164,7 @@ export class Change2ProClient {
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
         "--form-string", "quality=high",
         "--form-string", "input_fidelity=high",
+        "--form-string", "moderation=low",
         "--form", `image=@${referencePath};type=${reference.contentType}`
       ];
     });

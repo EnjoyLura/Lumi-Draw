@@ -79,7 +79,14 @@ test("Image 2 supports both text generation and image edits", async () => {
 
     assert.deepEqual(requests[0], {
       type: "json",
-      payload: { model: "gpt-image-2", prompt: "orange cat", n: 1, size: "2048x1152", quality: "high" }
+      payload: {
+        model: "gpt-image-2",
+        prompt: "orange cat",
+        n: 1,
+        size: "2048x1152",
+        quality: "high",
+        moderation: "low"
+      }
     });
     assert.equal(requests[1].type, "form");
     assert.equal(requests[1].input?.prompt, "watercolor style");
