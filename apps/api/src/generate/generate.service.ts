@@ -29,6 +29,18 @@ const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
 const REVERSE_PROMPT_COST = 2;
 
+function userFacingGenerateError(errorMessage: string) {
+  const message = errorMessage.toLowerCase();
+  if (/unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感/.test(message)) return "内容可能不安全，请修改提示词重试";
+  if (/尺寸|size|pixel|最长边/.test(message)) return "当前模型不支持所选图片尺寸，请调整比例或清晰度后重试";
+  if (/429|rate limit|任务较多|too many requests/.test(message)) return "当前生成任务较多，请稍后重试";
+  if (/超时|timeout|aborted/.test(message)) return "生成等待超时，请稍后重试";
+  if (/参考图|input image|image.*(?:invalid|download)/.test(message)) return "参考图不可用，请重新上传后重试";
+  if (/连接失败|network|fetch failed|econn|enotfound/.test(message)) return "生成服务连接异常，请稍后重试";
+  if (/did not include an image|no usable images|未获取到/.test(message)) return "未获取到生成图片，请稍后重试";
+  return "生成失败，请稍后重试";
+}
+
 function mockGeneratedImageUrl(seed: string) {
   const colors = [
     ["#5b9fe8", "#62c9b7", "#f6b28f"],
@@ -573,6 +585,7 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async failAndRefund(jobId: string, errorMessage: string) {
+    const userMessage = userFacingGenerateError(errorMessage);
     return this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
       const refundCredits = job.costCredits - job.refundCredits;
@@ -582,7 +595,7 @@ export class GenerateService implements OnApplicationBootstrap {
           status: "failed",
           progress: 0,
           stageText: "Generation failed",
-          errorMessage: errorMessage.slice(0, 500),
+          errorMessage: userMessage,
           refundCredits: job.refundCredits + Math.max(refundCredits, 0),
           finishedAt: new Date()
         },
