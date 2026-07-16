@@ -1,10 +1,9 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { execFile } from "node:child_process";
+import { spawn } from "node:child_process";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 type Change2ProConfig = {
   apiBase: string;
@@ -43,7 +42,6 @@ const BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
 const GENERATION_TIMEOUT_MS = 30 * 60 * 1000;
-const execFileAsync = promisify(execFile);
 const IMAGE_2_SIZES: Record<string, Record<"1K" | "2K" | "4K", string>> = {
   "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "2880x2880" },
   "3:2": { "1K": "1536x1024", "2K": "2048x1360", "4K": "3520x2336" },
@@ -186,6 +184,7 @@ export class Change2ProClient {
     try {
       const responsePath = join(temp, "response.json");
       const configPath = join(temp, "curl.conf");
+      const headerPath = join(temp, "response.headers");
       await writeFile(
         configPath,
         [
@@ -197,26 +196,22 @@ export class Change2ProClient {
       );
       await chmod(configPath, 0o600);
       const requestArgs = await buildRequestArgs(temp);
-      let stdout = "";
-      let curlError = "";
-      try {
-        ({ stdout } = await execFileAsync("curl", [
+      const result = await this.runCurlUntilJson(
+        [
           "--silent", "--show-error", "--location", "--http1.1", "--max-time", String(GENERATION_TIMEOUT_MS / 1000),
           "--config", configPath, "--request", "POST", ...requestArgs,
-          "--output", responsePath, "--write-out", "%{http_code}", url
-        ]));
-      } catch (error) {
-        const failure = error as { stdout?: string; stderr?: string };
-        stdout = failure.stdout || "";
-        curlError = failure.stderr || "curl request failed";
-      }
-      const raw = await readFile(responsePath, "utf8").catch(() => "");
-      const status = Number.parseInt(stdout.trim().slice(-3), 10);
+          "--dump-header", headerPath, "--output", responsePath, "--write-out", "%{http_code}", url
+        ],
+        responsePath,
+        headerPath
+      );
+      const curlError = result.error;
+      const status = result.status;
       if (!Number.isFinite(status)) {
         this.logger.warn(`Change2Pro curl request failed: ${curlError.slice(0, 500)}`);
         throw new Error("生成服务连接失败，请稍后重试");
       }
-      const payload = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      const payload = result.payload;
       return this.validateJsonResponse(status, payload);
     } catch (error) {
       if (error instanceof SyntaxError) throw new Error("生成服务返回异常，请稍后重试");
@@ -228,6 +223,60 @@ export class Change2ProClient {
 
   private escapeCurlHeader(value: string) {
     return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]/g, "");
+  }
+
+  private async runCurlUntilJson(args: string[], responsePath: string, headerPath: string) {
+    const child = spawn("curl", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => { stdout += chunk; });
+    child.stderr.on("data", (chunk: string) => { stderr += chunk; });
+
+    const exited = new Promise<void>((resolve) => {
+      child.once("close", () => resolve());
+      child.once("error", (error) => {
+        stderr += error.message;
+        resolve();
+      });
+    });
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < GENERATION_TIMEOUT_MS) {
+      const headers = await readFile(headerPath, "utf8").catch(() => "");
+      const status = this.lastHttpStatus(headers);
+      const raw = await readFile(responsePath, "utf8").catch(() => "");
+      if (status && raw) {
+        try {
+          const payload = JSON.parse(raw) as Record<string, unknown>;
+          child.kill("SIGTERM");
+          await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 1_000))]);
+          return { status, payload, error: "" };
+        } catch {
+          // The provider is still writing the response body.
+        }
+      }
+
+      const completed = await Promise.race([
+        exited.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 250))
+      ]);
+      if (completed) {
+        const raw = await readFile(responsePath, "utf8").catch(() => "");
+        const status = Number.parseInt(stdout.trim().slice(-3), 10) || this.lastHttpStatus(await readFile(headerPath, "utf8").catch(() => ""));
+        return { status: status || Number.NaN, payload: raw ? (JSON.parse(raw) as Record<string, unknown>) : null, error: stderr || "curl request failed" };
+      }
+    }
+
+    child.kill("SIGTERM");
+    await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 1_000))]);
+    return { status: Number.NaN, payload: null, error: "curl request timed out" };
+  }
+
+  private lastHttpStatus(headers: string) {
+    const statuses = [...headers.matchAll(/HTTP\/\d(?:\.\d)?\s+(\d{3})/g)].map((match) => Number.parseInt(match[1] || "", 10));
+    return statuses.at(-1) || 0;
   }
 
   private image2Endpoint(apiBase: string, path: string) {

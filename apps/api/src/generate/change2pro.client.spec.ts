@@ -179,3 +179,10 @@ test("preserves provider content-safety rejections as an actionable message", ()
     /内容可能不安全，请修改提示词重试/
   );
 });
+
+test("uses the final HTTP response status when curl follows redirects", () => {
+  const provider = client();
+  const lastHttpStatus = (provider as unknown as { lastHttpStatus: (headers: string) => number }).lastHttpStatus.bind(provider);
+
+  assert.equal(lastHttpStatus("HTTP/1.1 302 Found\r\nLocation: /next\r\n\r\nHTTP/1.1 200 OK\r\n"), 200);
+});
