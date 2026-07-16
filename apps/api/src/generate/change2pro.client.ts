@@ -117,9 +117,9 @@ export class Change2ProClient {
 
     if (input.mode === "image-to-image") {
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
-      payload = await this.requestImage2Form(`${config.apiBase}${endpoint}`, config.imageApiKey, input, reference);
+      payload = await this.requestImage2Form(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input, reference);
     } else {
-      payload = await this.requestImage2Json(`${config.apiBase}${endpoint}`, config.imageApiKey, input.jobId, {
+      payload = await this.requestImage2Json(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input.jobId, {
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
@@ -228,6 +228,12 @@ export class Change2ProClient {
 
   private escapeCurlHeader(value: string) {
     return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]/g, "");
+  }
+
+  private image2Endpoint(apiBase: string, path: string) {
+    const base = apiBase.replace(/\/$/, "");
+    const versionedBase = base.endsWith("/v1") ? base : `${base}/v1`;
+    return `${versionedBase}${path}`;
   }
 
   private async generateBanana(input: Change2ProGenerateInput, providerModel: string) {

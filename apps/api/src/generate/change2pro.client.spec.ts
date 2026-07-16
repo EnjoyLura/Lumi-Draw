@@ -47,13 +47,13 @@ test("Image 2 supports both text generation and image edits", async () => {
 
   try {
     const provider = client();
-    const requests: Array<{ type: string; payload?: Record<string, unknown>; input?: Record<string, unknown> }> = [];
-    (provider as unknown as { requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>> }).requestImage2Json = async (_url, _key, _id, payload) => {
-      requests.push({ type: "json", payload });
+    const requests: Array<{ type: string; url: string; payload?: Record<string, unknown>; input?: Record<string, unknown> }> = [];
+    (provider as unknown as { requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>> }).requestImage2Json = async (url, _key, _id, payload) => {
+      requests.push({ type: "json", url, payload });
       return { data: [{ url: "https://images.example.com/result.png" }] };
     };
-    (provider as unknown as { requestImage2Form: (url: string, key: string, input: Record<string, unknown>, reference: unknown) => Promise<Record<string, unknown>> }).requestImage2Form = async (_url, _key, input) => {
-      requests.push({ type: "form", input });
+    (provider as unknown as { requestImage2Form: (url: string, key: string, input: Record<string, unknown>, reference: unknown) => Promise<Record<string, unknown>> }).requestImage2Form = async (url, _key, input) => {
+      requests.push({ type: "form", url, input });
       return { data: [{ url: "https://images.example.com/result.png" }] };
     };
     await provider.generate({
@@ -79,6 +79,7 @@ test("Image 2 supports both text generation and image edits", async () => {
 
     assert.deepEqual(requests[0], {
       type: "json",
+      url: "https://api.example.com/v1/images/generations",
       payload: {
         model: "gpt-image-2",
         prompt: "orange cat",
@@ -92,6 +93,7 @@ test("Image 2 supports both text generation and image edits", async () => {
       }
     });
     assert.equal(requests[1].type, "form");
+    assert.equal(requests[1].url, "https://api.example.com/v1/images/edits");
     assert.equal(requests[1].input?.prompt, "watercolor style");
     assert.equal(requests[1].input?.ratio, "3:4");
     assert.equal(requests[1].input?.quality, "2K");
