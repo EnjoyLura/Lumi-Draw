@@ -115,6 +115,9 @@ export class Change2ProClient {
       form.set("prompt", input.prompt);
       form.set("n", String(input.count));
       form.set("size", normalizeImage2Size(input.ratio, input.quality));
+      form.set("quality", "high");
+      form.set("output_format", "png");
+      form.set("input_fidelity", "high");
       form.set("image", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
       body = form;
     } else {
@@ -123,7 +126,9 @@ export class Change2ProClient {
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
-        size: normalizeImage2Size(input.ratio, input.quality)
+        size: normalizeImage2Size(input.ratio, input.quality),
+        quality: "high",
+        output_format: "png"
       });
     }
 
