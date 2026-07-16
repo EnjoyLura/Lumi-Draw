@@ -125,7 +125,10 @@ export class Change2ProClient {
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
         quality: "high",
-        moderation: "low"
+        moderation: "low",
+        output_format: "png",
+        transparent_output: false,
+        response_format: "url"
       });
     }
 
@@ -165,6 +168,9 @@ export class Change2ProClient {
         "--form-string", "quality=high",
         "--form-string", "input_fidelity=high",
         "--form-string", "moderation=low",
+        "--form-string", "output_format=png",
+        "--form-string", "transparent_output=false",
+        "--form-string", "response_format=url",
         "--form", `image=@${referencePath};type=${reference.contentType}`
       ];
     });
