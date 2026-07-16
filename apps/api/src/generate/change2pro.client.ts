@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 type Change2ProConfig = {
@@ -81,6 +81,8 @@ function normalizeBananaRatio(ratio: string) {
 
 @Injectable()
 export class Change2ProClient {
+  private readonly logger = new Logger(Change2ProClient.name);
+
   constructor(private readonly config: ConfigService) {}
 
   isConfiguredFor(modelId: string) {
@@ -116,7 +118,6 @@ export class Change2ProClient {
       form.set("n", String(input.count));
       form.set("size", normalizeImage2Size(input.ratio, input.quality));
       form.set("quality", "high");
-      form.set("output_format", "png");
       form.set("input_fidelity", "high");
       form.set("image", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
       body = form;
@@ -127,8 +128,7 @@ export class Change2ProClient {
         prompt: input.prompt,
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
-        quality: "high",
-        output_format: "png"
+        quality: "high"
       });
     }
 
@@ -230,6 +230,7 @@ export class Change2ProClient {
     if (!response.ok || !payload) {
       const error = this.asRecord(payload?.error);
       const message = String(error?.message ?? payload?.message ?? payload?.error ?? `HTTP ${response.status}`);
+      this.logger.warn(`Change2Pro request failed (HTTP ${response.status}): ${message.slice(0, 500)}`);
       if (/尺寸|size|最长边|pixel/i.test(message)) throw new Error("当前模型不支持所选图片尺寸，积分已退还");
       if (response.status === 429) throw new Error("当前生成任务较多，积分已退还，请稍后重试");
       throw new Error("图片生成失败，积分已退还，请稍后重试");
