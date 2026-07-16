@@ -31,6 +31,7 @@ const REVERSE_PROMPT_COST = 2;
 
 function userFacingGenerateError(errorMessage: string) {
   const message = errorMessage.toLowerCase();
+  if (/服务重启/.test(message)) return "生成服务已重启，本次任务已自动退款";
   if (/unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感/.test(message)) return "内容可能不安全，请修改提示词重试";
   if (/尺寸|size|pixel|最长边/.test(message)) return "当前模型不支持所选图片尺寸，请调整比例或清晰度后重试";
   if (/429|rate limit|任务较多|too many requests/.test(message)) return "当前生成任务较多，请稍后重试";

@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { execFile } from "node:child_process";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 
 type Change2ProConfig = {
   apiBase: string;
@@ -38,6 +43,7 @@ const BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
 const GENERATION_TIMEOUT_MS = 30 * 60 * 1000;
+const execFileAsync = promisify(execFile);
 const IMAGE_2_SIZES: Record<string, Record<"1K" | "2K" | "4K", string>> = {
   "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "2880x2880" },
   "3:2": { "1K": "1536x1024", "2K": "2048x1360", "4K": "3520x2336" },
@@ -107,23 +113,13 @@ export class Change2ProClient {
   private async generateImage2(input: Change2ProGenerateInput): Promise<Change2ProOutput[]> {
     const config = this.getConfig();
     const endpoint = input.mode === "image-to-image" ? "/images/edits" : "/images/generations";
-    let body: string | FormData;
-    let headers: Record<string, string> = { Authorization: `Bearer ${config.imageApiKey}`, Accept: "application/json" };
+    let payload: Record<string, unknown>;
 
     if (input.mode === "image-to-image") {
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
-      const form = new FormData();
-      form.set("model", "gpt-image-2");
-      form.set("prompt", input.prompt);
-      form.set("n", String(input.count));
-      form.set("size", normalizeImage2Size(input.ratio, input.quality));
-      form.set("quality", "high");
-      form.set("input_fidelity", "high");
-      form.set("image", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
-      body = form;
+      payload = await this.requestImage2Form(`${config.apiBase}${endpoint}`, config.imageApiKey, input, reference);
     } else {
-      headers = { ...headers, "Content-Type": "application/json" };
-      body = JSON.stringify({
+      payload = await this.requestImage2Json(`${config.apiBase}${endpoint}`, config.imageApiKey, input.jobId, {
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
@@ -132,12 +128,6 @@ export class Change2ProClient {
       });
     }
 
-    const payload = await this.requestJson(`${config.apiBase}${endpoint}`, {
-      method: "POST",
-      headers: { ...headers, "X-Request-Id": input.jobId },
-      body,
-      signal: AbortSignal.timeout(GENERATION_TIMEOUT_MS)
-    });
     const data = Array.isArray(payload.data) ? payload.data : [];
     const outputs: Change2ProOutput[] = [];
     data.forEach((item) => {
@@ -147,6 +137,89 @@ export class Change2ProClient {
     });
     if (!outputs.length) throw new Error("Image 2 response did not include an image");
     return outputs;
+  }
+
+  private async requestImage2Json(url: string, apiKey: string, requestId: string, payload: Record<string, unknown>) {
+    return this.requestImage2WithCurl(url, apiKey, requestId, async (temp) => {
+      const payloadPath = join(temp, "payload.json");
+      await writeFile(payloadPath, JSON.stringify(payload), "utf8");
+      return ["--header", "Content-Type: application/json", "--data-binary", `@${payloadPath}`];
+    });
+  }
+
+  private async requestImage2Form(
+    url: string,
+    apiKey: string,
+    input: Change2ProGenerateInput,
+    reference: { buffer: Buffer; contentType: string }
+  ) {
+    return this.requestImage2WithCurl(url, apiKey, input.jobId, async (temp) => {
+      const referencePath = join(temp, `reference.${this.extension(reference.contentType)}`);
+      await writeFile(referencePath, reference.buffer);
+      return [
+        "--form-string", "model=gpt-image-2",
+        "--form-string", `prompt=${input.prompt}`,
+        "--form-string", `n=${input.count}`,
+        "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
+        "--form-string", "quality=high",
+        "--form-string", "input_fidelity=high",
+        "--form", `image=@${referencePath};type=${reference.contentType}`
+      ];
+    });
+  }
+
+  private async requestImage2WithCurl(
+    url: string,
+    apiKey: string,
+    requestId: string,
+    buildRequestArgs: (temp: string) => Promise<string[]>
+  ) {
+    const temp = await mkdtemp(join(tmpdir(), "lumi-image2-"));
+    try {
+      const responsePath = join(temp, "response.json");
+      const configPath = join(temp, "curl.conf");
+      await writeFile(
+        configPath,
+        [
+          `header = "${this.escapeCurlHeader(`Authorization: Bearer ${apiKey}`)}"`,
+          'header = "Accept: application/json"',
+          `header = "${this.escapeCurlHeader(`X-Request-Id: ${requestId}`)}"`
+        ].join("\n") + "\n",
+        "utf8"
+      );
+      await chmod(configPath, 0o600);
+      const requestArgs = await buildRequestArgs(temp);
+      let stdout = "";
+      let curlError = "";
+      try {
+        ({ stdout } = await execFileAsync("curl", [
+          "--silent", "--show-error", "--location", "--http1.1", "--max-time", String(GENERATION_TIMEOUT_MS / 1000),
+          "--config", configPath, "--request", "POST", ...requestArgs,
+          "--output", responsePath, "--write-out", "%{http_code}", url
+        ]));
+      } catch (error) {
+        const failure = error as { stdout?: string; stderr?: string };
+        stdout = failure.stdout || "";
+        curlError = failure.stderr || "curl request failed";
+      }
+      const raw = await readFile(responsePath, "utf8").catch(() => "");
+      const status = Number.parseInt(stdout.trim().slice(-3), 10);
+      if (!Number.isFinite(status)) {
+        this.logger.warn(`Change2Pro curl request failed: ${curlError.slice(0, 500)}`);
+        throw new Error("生成服务连接失败，请稍后重试");
+      }
+      const payload = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+      return this.validateJsonResponse(status, payload);
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new Error("生成服务返回异常，请稍后重试");
+      throw error;
+    } finally {
+      await rm(temp, { recursive: true, force: true });
+    }
+  }
+
+  private escapeCurlHeader(value: string) {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/[\r\n]/g, "");
   }
 
   private async generateBanana(input: Change2ProGenerateInput, providerModel: string) {
@@ -227,12 +300,16 @@ export class Change2ProClient {
       throw new Error("生成服务连接失败，积分已退还，请稍后重试");
     }
     const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!response.ok || !payload) {
+    return this.validateJsonResponse(response.status, payload);
+  }
+
+  private validateJsonResponse(status: number, payload: Record<string, unknown> | null) {
+    if (status < 200 || status >= 300 || !payload) {
       const error = this.asRecord(payload?.error);
-      const message = String(error?.message ?? payload?.message ?? payload?.error ?? `HTTP ${response.status}`);
-      this.logger.warn(`Change2Pro request failed (HTTP ${response.status}): ${message.slice(0, 500)}`);
+      const message = String(error?.message ?? payload?.message ?? payload?.error ?? `HTTP ${status}`);
+      this.logger.warn(`Change2Pro request failed (HTTP ${status}): ${message.slice(0, 500)}`);
       if (/尺寸|size|最长边|pixel/i.test(message)) throw new Error("当前模型不支持所选图片尺寸，积分已退还");
-      if (response.status === 429) throw new Error("当前生成任务较多，积分已退还，请稍后重试");
+      if (status === 429) throw new Error("当前生成任务较多，积分已退还，请稍后重试");
       throw new Error("图片生成失败，积分已退还，请稍后重试");
     }
     return payload;

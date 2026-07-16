@@ -47,6 +47,15 @@ test("Image 2 supports both text generation and image edits", async () => {
 
   try {
     const provider = client();
+    const requests: Array<{ type: string; payload?: Record<string, unknown>; input?: Record<string, unknown> }> = [];
+    (provider as unknown as { requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>> }).requestImage2Json = async (_url, _key, _id, payload) => {
+      requests.push({ type: "json", payload });
+      return { data: [{ url: "https://images.example.com/result.png" }] };
+    };
+    (provider as unknown as { requestImage2Form: (url: string, key: string, input: Record<string, unknown>, reference: unknown) => Promise<Record<string, unknown>> }).requestImage2Form = async (_url, _key, input) => {
+      requests.push({ type: "form", input });
+      return { data: [{ url: "https://images.example.com/result.png" }] };
+    };
     await provider.generate({
       jobId: "job-text",
       modelId: "gpt-image-2",
@@ -68,13 +77,15 @@ test("Image 2 supports both text generation and image edits", async () => {
       count: 1
     });
 
-    assert.equal(calls[0].url, "https://api.example.com/images/generations");
-    assert.match(String(calls[0].init?.body), /"size":"2048x1152"/);
-    assert.equal(calls[2].url, "https://api.example.com/images/edits");
-    assert.ok(calls[2].init?.body instanceof FormData);
-    assert.equal((calls[2].init?.body as FormData).get("prompt"), "watercolor style");
-    assert.equal((calls[2].init?.body as FormData).get("size"), "1536x2048");
-    assert.ok((calls[2].init?.body as FormData).get("image") instanceof Blob);
+    assert.deepEqual(requests[0], {
+      type: "json",
+      payload: { model: "gpt-image-2", prompt: "orange cat", n: 1, size: "2048x1152", quality: "high" }
+    });
+    assert.equal(requests[1].type, "form");
+    assert.equal(requests[1].input?.prompt, "watercolor style");
+    assert.equal(requests[1].input?.ratio, "3:4");
+    assert.equal(requests[1].input?.quality, "2K");
+    assert.equal(calls[0].url, "https://cdn.example.com/reference.png");
   } finally {
     globalThis.fetch = originalFetch;
   }
