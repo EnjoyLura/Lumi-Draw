@@ -35,8 +35,6 @@ export type Change2ProOutput = {
 };
 
 const IMAGE_2_MODEL_ID = "gpt-image-2";
-const IMAGE_2_OUTPUT_FORMAT = "webp";
-const IMAGE_2_OUTPUT_COMPRESSION = 90;
 const BANANA_MODEL_ID = "nano-banana-2";
 const BANANA_PROVIDER_MODEL = "gemini-3.1-flash-image-preview";
 const BANANA_PRO_MODEL_ID = "nano-banana-pro";
@@ -125,10 +123,6 @@ export class Change2ProClient {
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
         quality: "high",
-        moderation: "low",
-        output_format: IMAGE_2_OUTPUT_FORMAT,
-        output_compression: IMAGE_2_OUTPUT_COMPRESSION,
-        transparent_output: false,
         response_format: "url"
       });
     }
@@ -138,7 +132,7 @@ export class Change2ProClient {
     data.forEach((item) => {
       const record = this.asRecord(item);
       if (typeof record?.url === "string") outputs.push({ url: record.url });
-      else if (typeof record?.b64_json === "string") outputs.push({ buffer: Buffer.from(record.b64_json, "base64"), contentType: `image/${IMAGE_2_OUTPUT_FORMAT}` });
+      else if (typeof record?.b64_json === "string") outputs.push({ buffer: Buffer.from(record.b64_json, "base64"), contentType: "image/png" });
     });
     if (!outputs.length) throw new Error("Image 2 response did not include an image");
     return outputs;
@@ -168,10 +162,6 @@ export class Change2ProClient {
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
         "--form-string", "quality=high",
         "--form-string", "input_fidelity=high",
-        "--form-string", "moderation=low",
-        "--form-string", `output_format=${IMAGE_2_OUTPUT_FORMAT}`,
-        "--form-string", `output_compression=${IMAGE_2_OUTPUT_COMPRESSION}`,
-        "--form-string", "transparent_output=false",
         "--form-string", "response_format=url",
         "--form", `image=@${referencePath};type=${reference.contentType}`
       ];
