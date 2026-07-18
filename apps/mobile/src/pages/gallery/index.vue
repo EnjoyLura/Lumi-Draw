@@ -13,7 +13,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
-import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -832,9 +832,7 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
-  primeWorkDetailPreview(work.id, work.image);
-  primeWorkDetailSnapshot(work, getWorkAuthor(work));
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  openPreloadedWorkDetail(work, getWorkAuthor(work));
 }
 
 </script>

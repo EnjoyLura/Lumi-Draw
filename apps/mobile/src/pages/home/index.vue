@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
 import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
@@ -29,7 +30,7 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -506,9 +507,7 @@ function handleBannerTap(action: string, title: string) {
 }
 
 function openWorkDetail(work: HomeWork) {
-  primeWorkDetailPreview(work.id, work.image);
-  primeWorkDetailSnapshot(work, getUser(work.userId));
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  openPreloadedWorkDetail(work, getUser(work.userId));
 }
 
 function clearWorksSwitchTimers() {
@@ -939,6 +938,7 @@ function getRatioClass(ratio: string) {
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
+  <LumiWorkDetailOverlay />
 </template>
 
 <style scoped>
