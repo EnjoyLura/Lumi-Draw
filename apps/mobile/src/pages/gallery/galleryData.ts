@@ -23,6 +23,9 @@ export interface GalleryUser {
   followers: string;
   following: string;
   likes: string;
+  worksCount?: number;
+  likesCount?: number;
+  followersCount?: number;
   gender?: "male" | "female" | "unknown";
 }
 

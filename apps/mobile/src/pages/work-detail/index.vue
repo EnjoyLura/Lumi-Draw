@@ -9,6 +9,7 @@ import {
   fetchWorkState,
   followUser,
   formatCompactNumber,
+  formatRelativeTime,
   recordWorkView,
   toggleWorkFavorite,
   toggleWorkLike,
@@ -163,19 +164,25 @@ function hydrateDetailSnapshot() {
   work.value = {
     ...item,
     previewImage: item.image,
-    description: "",
-    modelId: "",
+    description: item.description || "",
+    modelId: item.modelId || "",
     modelName: item.modelName || "AI 绘画",
-    quality: "",
-    styleName: "",
-    tags: [],
+    quality: item.quality || "",
+    styleName: item.styleName || "默认",
+    tags: item.tags || [],
     editTags: [],
-    favorites: 0,
-    remakes: 0,
-    time: ""
+    favorites: item.favorites || 0,
+    remakes: item.remakes || 0,
+    time: formatRelativeTime(item.createdAt || "")
   };
-  user.value = snapshot.user;
-  return true;
+  user.value = {
+    ...snapshot.user,
+    worksText: formatCompactNumber(snapshot.user.worksCount || 0),
+    likesText: formatCompactNumber(snapshot.user.likesCount || 0),
+    followersText: formatCompactNumber(snapshot.user.followers || 0),
+    followersCount: snapshot.user.followers || 0
+  };
+  return Boolean(item.isDetailPreloaded);
 }
 
 function resetTransientState() {
@@ -195,7 +202,8 @@ async function loadDetail() {
   isDetailLoading.value = true;
   isDetailPreviewReady.value = true;
   const hasVisibleDetail = work.value?.id === workId.value && Boolean(user.value);
-  if (!hasVisibleDetail && !hydrateDetailSnapshot()) {
+  const hasPreloadedDetail = !hasVisibleDetail && hydrateDetailSnapshot();
+  if (!hasVisibleDetail && !work.value) {
     work.value = undefined;
     user.value = undefined;
   }
@@ -203,6 +211,16 @@ async function loadDetail() {
   try {
     if (useMockData.value) {
       loadMockDetail();
+      return;
+    }
+    if (hasPreloadedDetail && work.value?.published) {
+      if (!isLoggedIn.value) return;
+      const [stateResult] = await Promise.allSettled([fetchWorkState(workId.value), recordWorkView(workId.value)]);
+      if (stateResult.status === "fulfilled") {
+        liked.value = stateResult.value.liked;
+        favorited.value = stateResult.value.favorited;
+        following.value = stateResult.value.following;
+      }
       return;
     }
     const detail = await fetchWorkDetail(workId.value);

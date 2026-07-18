@@ -525,7 +525,15 @@ function goGallery() {
 
 function getWorkAuthor(work: HomeWork) {
   if (work.userId === profile.value.id || renderedTab.value !== "favorite") {
-    return { id: profile.value.id, name: profile.value.name, avatar: profile.value.avatar, color: profile.value.color };
+    return {
+      id: profile.value.id,
+      name: profile.value.name,
+      avatar: profile.value.avatar,
+      color: profile.value.color,
+      worksCount: profile.value.worksCount ?? profile.value.works,
+      likesCount: profile.value.likesCount ?? 0,
+      followers: profile.value.followersCount ?? (Number(profile.value.followers) || 0)
+    };
   }
   return workAuthors.value.find((user) => user.id === work.userId) || homeUsers.find((user) => user.id === work.userId) || {
     id: work.userId,

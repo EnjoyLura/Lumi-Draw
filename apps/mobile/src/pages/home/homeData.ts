@@ -29,6 +29,9 @@ export interface HomeUser {
   name: string;
   avatar: string;
   color: string;
+  worksCount?: number;
+  likesCount?: number;
+  followers?: number;
 }
 
 export interface HomeWork {
@@ -46,6 +49,14 @@ export interface HomeWork {
   liked?: boolean;
   favorited?: boolean;
   modelName?: string;
+  description?: string;
+  quality?: string;
+  modelId?: string;
+  styleName?: string;
+  tags?: string[];
+  favorites?: number;
+  remakes?: number;
+  isDetailPreloaded?: boolean;
 }
 
 export const homeBanners: HomeBanner[] = [

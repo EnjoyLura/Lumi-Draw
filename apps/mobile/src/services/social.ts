@@ -43,6 +43,14 @@ export interface BackendWorkCard {
   likes: number;
   favorites: number;
   remakes: number;
+  description?: string | null;
+  quality?: string | null;
+  modelId?: string | null;
+  modelName?: string | null;
+  style?: string | null;
+  tags?: string[];
+  status?: string;
+  isPublic?: boolean;
   createdAt: string;
   viewedAt?: string;
   favoritedAt?: string;
@@ -97,7 +105,10 @@ export function toHomeUser(author: BackendAuthor): HomeUser {
     id: author.id,
     name: author.nickname || fallbackName,
     avatar: author.avatarText || author.nickname?.slice(0, 1) || "U",
-    color: author.avatarColor || "var(--accent)"
+    color: author.avatarColor || "var(--accent)",
+    worksCount: author.worksCount,
+    likesCount: author.likesCount,
+    followers: author.followers
   };
 }
 
@@ -110,11 +121,21 @@ export function toHomeWork(item: BackendWorkCard): HomeWork {
     prompt: item.prompt,
     ratio: item.ratio || "1:1",
     likes: item.likes,
-    published: true,
+    published: item.status ? item.status === "published" && item.isPublic !== false : true,
+    status: item.status,
     createdAt: item.createdAt,
     viewedAt: item.viewedAt,
     liked: item.liked,
-    favorited: item.favorited
+    favorited: item.favorited,
+    description: item.description || "",
+    quality: item.quality || "",
+    modelId: item.modelId || "",
+    modelName: item.modelName || item.modelId || "AI 绘画",
+    styleName: item.style || "默认",
+    tags: item.tags || [],
+    favorites: item.favorites,
+    remakes: item.remakes,
+    isDetailPreloaded: Boolean(item.createdAt)
   };
 }
 

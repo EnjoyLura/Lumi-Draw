@@ -29,8 +29,14 @@ interface BackendWork {
   status: string;
   isPublic: boolean;
   likes: number;
+  favorites: number;
+  remakes: number;
+  description?: string | null;
+  quality?: string | null;
   modelId?: string;
   modelName?: string;
+  style?: string | null;
+  tags?: string[];
   createdAt?: string;
 }
 
@@ -84,6 +90,9 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     followers: `${user.followers}`,
     following: `${user.following ?? 0}`,
     likes: `${user.likesCount ?? 0}`,
+    worksCount: user.worksCount,
+    likesCount: user.likesCount ?? 0,
+    followersCount: user.followers,
     gender: user.gender === "male" || user.gender === "female" ? user.gender : "unknown"
   };
 }
@@ -100,7 +109,15 @@ function toHomeWork(item: BackendWork): HomeWork {
     published: item.status === "published" && item.isPublic,
     status: item.status,
     modelName: item.modelName || item.modelId,
-    createdAt: item.createdAt
+    createdAt: item.createdAt,
+    description: item.description || "",
+    quality: item.quality || "",
+    modelId: item.modelId || "",
+    styleName: item.style || "默认",
+    tags: item.tags || [],
+    favorites: item.favorites,
+    remakes: item.remakes,
+    isDetailPreloaded: true
   };
 }
 

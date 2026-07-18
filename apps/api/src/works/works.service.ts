@@ -41,6 +41,14 @@ function toCard(work: WorkWithAuthor) {
     likes: work.likes,
     favorites: work.favorites,
     remakes: work.remakes,
+    description: work.description,
+    quality: work.quality,
+    modelId: work.modelId,
+    style: work.style,
+    tags: work.tags,
+    status: work.status,
+    isPublic: work.isPublic,
+    createdAt: work.createdAt.toISOString(),
     author: author(work.user)
   };
 }
@@ -95,11 +103,12 @@ export class WorksService {
     private readonly credits: CreditsService
   ) {}
 
-  private toCard(work: WorkWithAuthor) {
+  private toCard(work: WorkWithAuthor, modelName?: string) {
     return {
       ...toCard(work),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
-      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public"),
+      modelName: modelName ?? work.modelId
     };
   }
 
@@ -114,7 +123,12 @@ export class WorksService {
       this.prisma.work.findMany({ where, orderBy, include: { user: true }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toCard(work)));
+    const modelIds = Array.from(new Set(rows.map((work) => work.modelId).filter(Boolean)));
+    const models = modelIds.length
+      ? await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
+      : [];
+    const modelNames = new Map(models.map((model) => [model.id, model.name]));
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toCard(work, modelNames.get(work.modelId))));
     return buildPage(items, total, page, pageSize);
   }
 
@@ -347,13 +361,19 @@ export class WorksService {
       imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
       thumbnailUrl: this.uploads.readResponsiveImageUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
       title: w.title,
+      description: w.description,
+      prompt: w.prompt,
       ratio: w.ratio,
+      quality: w.quality,
       status: w.status,
       isPublic: w.isPublic,
       likes: w.likes,
       favorites: w.favorites,
+      remakes: w.remakes,
       modelId: w.modelId,
       modelName: modelNames.get(w.modelId) ?? w.modelId,
+      style: w.style,
+      tags: w.tags,
       createdAt: w.createdAt.toISOString()
     }));
     return buildPage(items, total, page, pageSize);

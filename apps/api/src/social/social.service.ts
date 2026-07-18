@@ -35,6 +35,14 @@ function toWorkCard(work: WorkWithAuthor) {
     likes: work.likes,
     favorites: work.favorites,
     remakes: work.remakes,
+    description: work.description,
+    quality: work.quality,
+    modelId: work.modelId,
+    modelName: work.modelId,
+    style: work.style,
+    tags: work.tags,
+    status: work.status,
+    isPublic: work.isPublic,
     createdAt: work.createdAt.toISOString(),
     author: toAuthor(work.user)
   };
