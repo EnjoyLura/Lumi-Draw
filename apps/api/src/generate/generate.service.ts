@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { GenerateJob, GenerateResult, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { GenerateJob, GenerateResult } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -27,6 +28,7 @@ type GeneratedImage = {
 };
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
+const ACTIVE_JOB_STATUSES = ["queued", "running", "finalizing"];
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
 const REVERSE_PROMPT_COST = 2;
@@ -128,6 +130,14 @@ export class GenerateService implements OnApplicationBootstrap {
     if ((useAinb || useChange2Pro) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
+      // Serialize per user so rapid taps and parallel clients cannot consume credits twice.
+      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      const activeJob = await tx.generateJob.findFirst({
+        where: { userId, status: { in: ACTIVE_JOB_STATUSES } },
+        select: { id: true }
+      });
+      if (activeJob) throw new ConflictException("A generation task is already in progress");
+
       const job = await tx.generateJob.create({
         data: {
           userId,

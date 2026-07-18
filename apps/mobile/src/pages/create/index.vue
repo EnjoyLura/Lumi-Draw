@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
-import { onLoad, onShow } from "@dcloudio/uni-app";
+import { onHide, onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -18,7 +18,7 @@ import {
   type QualityOption,
   type RatioOption
 } from "./createData";
-import { createGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
+import { createGenerateJob, fetchActiveGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
@@ -64,6 +64,7 @@ const promptImage = ref("");
 const promptLocalImage = ref<ChosenImage | null>(null);
 const promptUploadedImageUrl = ref("");
 const isGenerating = ref(false);
+const isSubmittingGenerate = ref(false);
 const modelDrawerOpen = ref(false);
 const ratioSheetOpen = ref(false);
 const gameplaySheetOpen = ref(false);
@@ -98,6 +99,8 @@ let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let elapsedTimer: ReturnType<typeof setInterval> | undefined;
 let generationStartedAt = 0;
+let activeBackendJobId = "";
+let nextPollErrorToastAt = 0;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -131,6 +134,7 @@ const refundCredits = computed(() => Math.ceil(failCount.value * selectedModel.v
 const createConfigUnavailable = computed(
   () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
 );
+const isGenerationBusy = computed(() => isGenerating.value || isSavingOriginal.value || isSubmittingGenerate.value);
 
 const generationStages = [
   "提交任务：正在整理创作参数",
@@ -260,6 +264,18 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
+  if (activeBackendJobId && isGenerating.value) {
+    void pollBackendJob(activeBackendJobId);
+  } else {
+    void restoreActiveBackendJob();
+  }
+
+});
+
+onHide(() => {
+  // Polling is only for the UI. The persisted server-side job continues in the background.
+  if (pollTimer) clearTimeout(pollTimer);
+  pollTimer = undefined;
 });
 
 onMounted(() => {
@@ -630,6 +646,7 @@ function applyBackendJob(job: BackendGenerateJob) {
 
   if (pollTimer) clearTimeout(pollTimer);
   removeActiveGenerateJobIds([job.id]);
+  activeBackendJobId = "";
   void syncCreditsAfterTerminalJob(job);
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
@@ -657,16 +674,39 @@ async function pollBackendJob(jobId: string) {
       pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
     }
   } catch {
-    isGenerating.value = false;
-    stopElapsedTimer();
-    showToast("任务状态获取失败，请稍后在画廊查看");
+    isGenerating.value = true;
+    if (pollTimer) clearTimeout(pollTimer);
+    pollTimer = setTimeout(() => void pollBackendJob(jobId), 5000);
+    if (Date.now() >= nextPollErrorToastAt) {
+      nextPollErrorToastAt = Date.now() + 30_000;
+      showToast("任务状态获取失败，请稍后在画廊查看");
+    }
   }
+}
+
+let activeJobRestorePromise: Promise<void> | undefined;
+
+async function restoreActiveBackendJob() {
+  if (useMockData.value || !isLoggedIn.value || isGenerationBusy.value || activeJobRestorePromise) return;
+
+  activeJobRestorePromise = (async () => {
+    try {
+      const job = await fetchActiveGenerateJob();
+      if (job) await resumeBackendJob(job.id);
+    } catch {
+      // A later onShow or gallery task refresh will retry the persisted job lookup.
+    } finally {
+      activeJobRestorePromise = undefined;
+    }
+  })();
+  await activeJobRestorePromise;
 }
 
 async function resumeBackendJob(jobId: string) {
   if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
+  activeBackendJobId = jobId;
 
   isGenerating.value = true;
   isSavingOriginal.value = false;
@@ -697,6 +737,7 @@ async function resumeBackendJob(jobId: string) {
       pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
     }
   } catch {
+    activeBackendJobId = "";
     isGenerating.value = false;
     stopElapsedTimer();
     showToast("生成任务读取失败，请稍后重试");
@@ -739,6 +780,7 @@ async function startBackendGenerate(prompt: string) {
       quality: selectedQuality.value.label,
       count: selectedCount.value
     });
+    activeBackendJobId = created.jobId;
     addActiveGenerateJobId(created.jobId);
     if (typeof created.creditsAfter === "number") updateCurrentUser({ credits: created.creditsAfter });
     applyBackendJob(created.job);
@@ -746,6 +788,7 @@ async function startBackendGenerate(prompt: string) {
       pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
     }
   } catch (error) {
+    activeBackendJobId = "";
     isGenerating.value = false;
     stopElapsedTimer();
     const message = error instanceof Error ? error.message : "提交失败，请稍后重试";
@@ -754,6 +797,10 @@ async function startBackendGenerate(prompt: string) {
 }
 
 async function startGenerate() {
+  if (isGenerationBusy.value) {
+    showToast("当前任务仍在生成中，请完成后再提交新的创作");
+    return;
+  }
   if (!ensureLogin()) return;
 
   const prompt = promptText.value.trim();
@@ -768,7 +815,12 @@ async function startGenerate() {
   }
 
   if (!useMockData.value) {
-    await startBackendGenerate(prompt);
+    isSubmittingGenerate.value = true;
+    try {
+      await startBackendGenerate(prompt);
+    } finally {
+      isSubmittingGenerate.value = false;
+    }
     return;
   }
 
@@ -1141,9 +1193,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <view class="create-bottom-row">
           <view
             class="create-btn"
-            :class="{ disabled: !isLoggedIn }"
+            :class="{ disabled: !isLoggedIn || isGenerationBusy }"
             role="button"
-            :aria-disabled="!isLoggedIn"
+            :aria-disabled="!isLoggedIn || isGenerationBusy"
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >

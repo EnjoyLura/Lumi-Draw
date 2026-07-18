@@ -133,6 +133,10 @@ export interface CreateGenerateJobResponse {
   job: BackendGenerateJob;
 }
 
+interface GenerateJobPage {
+  items: BackendGenerateJob[];
+}
+
 export interface PublishGenerateResultPayload {
   title: string;
   description?: string;
@@ -229,6 +233,11 @@ export function createGenerateJob(payload: CreateGenerateJobPayload) {
 
 export function fetchGenerateJob(jobId: string) {
   return api.get<BackendGenerateJob>(`/generate/jobs/${jobId}`);
+}
+
+export async function fetchActiveGenerateJob() {
+  const result = await api.get<GenerateJobPage>("/generate/jobs?status=queued,running,finalizing&page=1&pageSize=1");
+  return result.items[0];
 }
 
 export function publishGenerateResult(resultId: string, payload: PublishGenerateResultPayload) {
