@@ -500,11 +500,7 @@ function goUserProfile(userId: number) {
 async function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getUser(work));
-  try {
-    await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  } catch {
-    // A transition is cosmetic; opening the detail must never depend on it.
-  }
+  await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
   openedDetailWorkId.value = work.id;
   await nextTick();
   detailTransition.value?.finish();
