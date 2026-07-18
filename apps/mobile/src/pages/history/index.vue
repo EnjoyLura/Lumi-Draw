@@ -157,7 +157,7 @@ function goPlaza() {
             <view class="section-title">{{ section.label }}</view>
             <view class="grid">
               <view v-for="work in section.works" :key="work.id" class="grid-item" @click="openWork(work)">
-                <image class="grid-img" :src="work.image" mode="aspectFill" />
+                <image class="grid-img" :src="work.image" mode="aspectFill" lazy-load />
               </view>
             </view>
           </template>

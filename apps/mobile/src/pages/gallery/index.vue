@@ -11,7 +11,7 @@ import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteW
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
-import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
+import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -201,7 +201,7 @@ function refreshGalleryPage(force = false) {
   const key = galleryCacheKey();
   const shouldForce = force || !hasLoadedOnce.value;
   if (shouldForce) invalidateTabPage(key);
-  return refreshTabPage(key, reloadGalleryData, { force: shouldForce, ttl: 60_000 }).then((result) => {
+  return refreshTabPage(key, reloadGalleryData, { force: shouldForce, ttl: TAB_PAGE_CACHE_TTL }).then((result) => {
     hasLoadedOnce.value = true;
     return result;
   });

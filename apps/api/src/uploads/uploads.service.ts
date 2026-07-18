@@ -5,6 +5,7 @@ import { ConfigService } from "@nestjs/config";
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
+const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -90,7 +91,10 @@ export class UploadsService {
     const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
     if (!ossKey) return url;
     if (visibility === "public" && oss.cdnBaseUrl) return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}`;
-    return this.signedObjectUrl("GET", ossKey, 30 * 60);
+    // Keep a private URL stable inside its existing 30-minute validity window.
+    // A freshly calculated expiry on every API response changes the image src and
+    // prevents WeChat's native disk cache from reusing an unchanged image.
+    return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry());
   }
 
   async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
@@ -169,6 +173,11 @@ export class UploadsService {
     const signature = createHmac("sha1", oss.accessKeySecret).update(`${method}\n\n${contentType}\n${expires}\n${resource}`).digest("base64");
     const query = `OSSAccessKeyId=${encodeURIComponent(oss.accessKeyId)}&Expires=${expires}&Signature=${encodeURIComponent(signature)}`;
     return `${this.objectHost(oss)}/${encodeKeyPath(ossKey)}?${query}`;
+  }
+
+  private privateReadExpiry() {
+    const now = Math.floor(Date.now() / 1000);
+    return (Math.floor(now / PRIVATE_READ_EXPIRES_SECONDS) + 1) * PRIVATE_READ_EXPIRES_SECONDS;
   }
 
   private objectHost(oss: OssConfig) {

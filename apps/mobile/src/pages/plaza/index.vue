@@ -11,6 +11,7 @@ import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
+import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -218,7 +219,7 @@ function refreshPlazaPage() {
   void loadDrawerProfile();
   const modeChanged = lastMockMode !== useMockData.value;
   lastMockMode = useMockData.value;
-  if (modeChanged || Date.now() - lastLoadedAt > 60_000) void reloadPlazaData();
+  if (modeChanged || Date.now() - lastLoadedAt > TAB_PAGE_CACHE_TTL) void reloadPlazaData();
 }
 
 onShow(refreshPlazaPage);

@@ -369,7 +369,7 @@ async function confirmUnfollow() {
         <view v-if="allWorks.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -385,7 +385,7 @@ async function confirmUnfollow() {
           </view>
           <view class="waterfall-column">
             <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">

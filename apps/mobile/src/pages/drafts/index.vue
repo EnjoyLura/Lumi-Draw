@@ -158,7 +158,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
@@ -172,7 +172,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image class="work-img" :src="work.image" mode="aspectFill" :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">

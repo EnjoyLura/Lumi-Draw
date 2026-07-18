@@ -383,6 +383,7 @@ async function login() {
               class="thumb"
               :src="result.imageUrl"
               mode="aspectFill"
+              lazy-load
               :style="{ aspectRatio: getAspectRatio(job.ratio) }"
               @click="openWork($event, result.workId)"
             />
