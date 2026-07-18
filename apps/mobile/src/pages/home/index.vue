@@ -1488,15 +1488,16 @@ function getRatioClass(ratio: string) {
 }
 
 .work-body {
-  padding: 8px 10px 6px;
+  padding: 3px 8px 5px;
 }
 
 .work-title {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 1px;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 17px;
   color: var(--fg-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1504,14 +1505,14 @@ function getRatioClass(ratio: string) {
 
 .work-meta {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 
 .author {
   display: flex;
   flex: 1;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   min-width: 0;
 }
@@ -1521,10 +1522,10 @@ function getRatioClass(ratio: string) {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   overflow: hidden;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #fff;
   border-radius: 50%;
@@ -1534,7 +1535,7 @@ function getRatioClass(ratio: string) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--fg-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1543,10 +1544,10 @@ function getRatioClass(ratio: string) {
 .like {
   display: flex;
   flex-shrink: 0;
-  gap: 3px;
+  gap: 2px;
   align-items: center;
-  padding: 2px 4px;
-  font-size: 13px;
+  padding: 1px 2px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--fg-muted);
 }
