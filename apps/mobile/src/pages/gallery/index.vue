@@ -120,6 +120,7 @@ const availableModels = ref<string[]>(useMockData.value ? createModels.map((mode
 const workAuthors = ref<HomeUser[]>(useMockData.value ? homeUsers : []);
 const visibleCount = ref(PAGE_SIZE);
 const renderKey = ref(0);
+const waterfallEnterKey = ref(0);
 const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
@@ -412,10 +413,14 @@ async function loadGalleryPage(page = 1, append = false) {
     page,
     pageSize: PAGE_SIZE
   });
-  const nextWorks = await hydrateImageRatios(result.works);
-  works.value = append ? [...works.value, ...nextWorks] : nextWorks;
+  works.value = append ? [...works.value, ...result.works] : result.works;
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
+  waterfallEnterKey.value += 1;
+  void hydrateImageRatios(result.works).then((resolvedWorks) => {
+    const resolvedById = new Map(resolvedWorks.map((work) => [work.id, work]));
+    works.value = works.value.map((work) => resolvedById.get(work.id) || work);
+  });
 }
 
 async function reloadGalleryData() {
@@ -930,9 +935,10 @@ function openWork(work: HomeWork) {
         <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
           <view v-if="isLoading && !isWaterfallSwitching" :key="`loading-${activeTab}`" class="loading-card">
             <view class="spinner" />
+            <text class="loading-text">正在加载作品</text>
           </view>
 
-        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}`" class="waterfall" :class="waterfallAnimationClass">
+        <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}-${waterfallEnterKey}`" class="waterfall cards-enter" :class="waterfallAnimationClass">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
@@ -1827,6 +1833,14 @@ function openWork(work: HomeWork) {
   border: 1px solid var(--card-border);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
+  animation: card-rise 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.waterfall.cards-enter .waterfall-column:nth-child(2) .work-card { animation-delay: 0.06s; }
+
+@keyframes card-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .work-img {
@@ -1951,9 +1965,14 @@ function openWork(work: HomeWork) {
 
 .loading-card {
   display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: center;
   justify-content: center;
   padding: 20px 0;
 }
+
+.loading-text { font-size: 12px; color: var(--fg-muted); }
 
 .spinner {
   width: 28px;

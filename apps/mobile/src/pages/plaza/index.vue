@@ -333,12 +333,15 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     pageSize: 10,
     skipAuth: !isLoggedIn.value
   });
-  const nextWorks = await hydrateImageRatios(result.works);
-  workList.value = append ? [...workList.value, ...nextWorks] : nextWorks;
-  syncInteractionIds(nextWorks, append);
+  workList.value = append ? [...workList.value, ...result.works] : result.works;
+  syncInteractionIds(result.works, append);
     mergeUsers(result.users);
     pageState.page = result.page;
     pageState.hasMore = result.hasMore;
+  void hydrateImageRatios(result.works).then((resolvedWorks) => {
+    const resolvedById = new Map(resolvedWorks.map((work) => [work.id, work]));
+    workList.value = workList.value.map((work) => resolvedById.get(work.id) || work);
+  });
 }
 
 function syncInteractionIds(works: HomeWork[], append: boolean) {
