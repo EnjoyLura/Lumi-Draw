@@ -192,7 +192,7 @@ function remake() {
 </template>
 
 <style scoped>
-.work-detail-overlay-host { display: contents; }
+.work-detail-overlay-host { display: block; width: 0; height: 0; }
 .work-detail-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; overflow: hidden; }
 .work-detail-overlay.open { pointer-events: auto; }
 .detail-dim { position: absolute; inset: 0; opacity: 0; background: rgba(0,0,0,.46); transition: opacity .22s ease; }
