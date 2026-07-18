@@ -7,6 +7,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
+import { hydrateImageRatios } from "../../services/imageDimensions";
 import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
@@ -411,7 +412,8 @@ async function loadGalleryPage(page = 1, append = false) {
     page,
     pageSize: PAGE_SIZE
   });
-  works.value = append ? [...works.value, ...result.works] : result.works;
+  const nextWorks = await hydrateImageRatios(result.works);
+  works.value = append ? [...works.value, ...nextWorks] : nextWorks;
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
 }

@@ -8,6 +8,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
+import { hydrateImageRatios } from "../../services/imageDimensions";
 import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -332,8 +333,9 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     pageSize: 10,
     skipAuth: !isLoggedIn.value
   });
-  workList.value = append ? [...workList.value, ...result.works] : result.works;
-  syncInteractionIds(result.works, append);
+  const nextWorks = await hydrateImageRatios(result.works);
+  workList.value = append ? [...workList.value, ...nextWorks] : nextWorks;
+  syncInteractionIds(nextWorks, append);
     mergeUsers(result.users);
     pageState.page = result.page;
     pageState.hasMore = result.hasMore;
