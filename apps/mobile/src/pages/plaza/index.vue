@@ -4,6 +4,7 @@ import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
+import LumiWorkDetailTransition from "../../components/LumiWorkDetailTransition.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -168,6 +169,7 @@ let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastLoadedAt = 0;
 let prefetchedPlazaPage: { key: string; page: number; request: Promise<PlazaWorkPage> } | undefined;
+const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const waterfallColumns = computed(() => {
@@ -493,10 +495,12 @@ function goUserProfile(userId: number) {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
-function openWorkDetail(work: HomeWork) {
+async function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getUser(work));
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}`, animationType: animated ? "none" : "pop-in", animationDuration: animated ? 0 : 240 });
+  detailTransition.value?.finish();
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {
@@ -865,6 +869,7 @@ function handleReachBottom() {
         </view>
       </view>
     </scroll-view>
+    <LumiWorkDetailTransition ref="detailTransition" />
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">

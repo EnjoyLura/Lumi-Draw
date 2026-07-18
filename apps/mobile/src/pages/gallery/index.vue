@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
+import LumiWorkDetailTransition from "../../components/LumiWorkDetailTransition.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -149,6 +150,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
+const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -818,7 +820,7 @@ function statusBadgeClass(work: HomeWork) {
   };
 }
 
-function openWork(work: HomeWork) {
+async function openWork(work: HomeWork) {
   if (!ensureLogin()) return;
   if (manageMode.value) {
     toggleWorkSelection(work.id);
@@ -826,7 +828,9 @@ function openWork(work: HomeWork) {
   }
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getWorkAuthor(work));
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}`, animationType: animated ? "none" : "pop-in", animationDuration: animated ? 0 : 240 });
+  detailTransition.value?.finish();
 }
 
 </script>
@@ -983,7 +987,7 @@ function openWork(work: HomeWork) {
 
         <view v-else-if="filteredWorks.length" :key="`waterfall-${renderedTab}-${renderKey}-${waterfallEnterKey}`" class="waterfall cards-enter" :class="waterfallAnimationClass">
           <view class="waterfall-column">
-            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
+            <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
@@ -1001,7 +1005,7 @@ function openWork(work: HomeWork) {
           </view>
 
           <view class="waterfall-column">
-            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
+            <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
               <image class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
@@ -1038,6 +1042,7 @@ function openWork(work: HomeWork) {
       </view>
 
     </scroll-view>
+    <LumiWorkDetailTransition ref="detailTransition" />
 
     <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
       <text class="selected-count">已选择 {{ selectedCount }} 项</text>

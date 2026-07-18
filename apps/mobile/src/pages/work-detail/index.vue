@@ -22,7 +22,7 @@ import { imageSaveFailureMessage, saveImageToDevice } from "../../services/image
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
-import { getWorkDetailPreview, getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -46,7 +46,6 @@ const favoritePulse = ref(false);
 const isDeleting = ref(false);
 const isInitialContentReady = ref(false);
 const isDetailLoading = ref(true);
-const listPreviewImage = ref("");
 const isDetailPreviewReady = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
@@ -85,6 +84,7 @@ const detailImageStyle = computed(() => {
 onLoad((query) => {
   workId.value = resolveRouteId(query);
   lastMode = useMockData.value;
+  isInitialContentReady.value = true;
   void loadDetail();
 });
 
@@ -193,8 +193,7 @@ async function loadDetail() {
   favorited.value = false;
   following.value = false;
   isDetailLoading.value = true;
-  listPreviewImage.value = getWorkDetailPreview(workId.value);
-  isDetailPreviewReady.value = false;
+  isDetailPreviewReady.value = true;
   const hasVisibleDetail = work.value?.id === workId.value && Boolean(user.value);
   if (!hasVisibleDetail && !hydrateDetailSnapshot()) {
     work.value = undefined;
@@ -577,12 +576,6 @@ function handleDetailPreviewLoad() {
       <scroll-view class="detail-scroll" scroll-y>
         <view class="detail-image-frame" :style="detailImageStyle">
           <image
-            v-if="listPreviewImage"
-            class="detail-image detail-image-placeholder"
-            :src="listPreviewImage"
-            mode="aspectFill"
-          />
-          <image
             class="detail-image detail-image-full"
             :class="{ ready: isDetailPreviewReady }"
             :src="work.previewImage || work.image"
@@ -816,21 +809,8 @@ function handleDetailPreviewLoad() {
   object-fit: cover;
 }
 
-.detail-image-placeholder {
-  position: absolute;
-  inset: 0;
-  transform: scale(1.015);
-  filter: blur(8px);
-}
-
 .detail-image-full {
   position: relative;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-.detail-image-full.ready {
-  opacity: 1;
 }
 
 .detail-body {

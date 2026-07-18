@@ -23,7 +23,7 @@ const emit = defineEmits<{
 <template>
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
-      <view v-for="work in leftWorks" :key="work.id" class="work-card">
+      <view v-for="work in leftWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
         <image class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
@@ -42,7 +42,7 @@ const emit = defineEmits<{
     </view>
 
     <view class="waterfall-column">
-      <view v-for="work in rightWorks" :key="work.id" class="work-card">
+      <view v-for="work in rightWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
         <image class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
