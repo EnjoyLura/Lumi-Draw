@@ -9,7 +9,6 @@ defineProps<{
   rightWorks: HomeWork[];
   switching: boolean;
   displayLikeCount: (work: HomeWork) => number;
-  getAspectRatio: (ratio: string) => string;
   getUser: (work: HomeWork) => HomeUser;
 }>();
 
@@ -25,7 +24,7 @@ const emit = defineEmits<{
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
       <view v-for="work in leftWorks" :key="work.id" class="work-card">
-        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
+        <image class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
@@ -44,7 +43,7 @@ const emit = defineEmits<{
 
     <view class="waterfall-column">
       <view v-for="work in rightWorks" :key="work.id" class="work-card">
-        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
+        <image class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">

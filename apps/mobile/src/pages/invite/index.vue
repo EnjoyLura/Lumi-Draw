@@ -107,7 +107,6 @@ function shareInvite() {
 <template>
   <view class="invite-page" :class="themeClass">
     <LumiPageHeader title="邀请好友" />
-    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -164,7 +163,6 @@ function shareInvite() {
         </view>
       </view>
     </scroll-view>
-    </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
 </template>
@@ -179,7 +177,9 @@ function shareInvite() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 0;
 }
 
 .page-content {
@@ -381,11 +381,6 @@ function shareInvite() {
   flex-direction: column;
 }
 
-.invite-page :deep(.deferred-content) {
-  flex: 1;
-  min-height: 0;
-  height: 0;
-}
 
 .credits-label {
   display: flex;

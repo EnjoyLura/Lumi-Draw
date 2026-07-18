@@ -78,7 +78,9 @@ function toUser(author: BackendAuthor): HomeUser {
 function toWork(item: BackendWork): HomeWork {
   return {
     id: item.id,
-    image: item.thumbnailUrl || item.imageUrl,
+    // Keep the source image ratio for the waterfall. The card thumbnail is a
+    // square OSS transform and must not be used as the rendered image.
+    image: item.imageUrl,
     userId: item.author.id,
     title: item.title,
     prompt: item.prompt,

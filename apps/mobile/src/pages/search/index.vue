@@ -153,12 +153,6 @@ function getUser(work: HomeWork) {
   };
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
-
 async function doSearch(value = keyword.value) {
   const query = value.trim();
   keyword.value = query;
@@ -202,7 +196,6 @@ function handleReachBottom() {
 <template>
   <view class="search-page" :class="themeClass">
     <LumiPageHeader :title="searchTitle" />
-    <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">
@@ -258,7 +251,7 @@ function handleReachBottom() {
         <view v-else-if="results.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -274,7 +267,7 @@ function handleReachBottom() {
 
           <view class="waterfall-column">
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -301,7 +294,6 @@ function handleReachBottom() {
         </view>
       </view>
     </scroll-view>
-    </LumiDeferredPageContent>
   </view>
 </template>
 
@@ -705,9 +697,9 @@ function handleReachBottom() {
   flex-direction: column;
 }
 
-.search-page > .page-scroll {
+.search-page .page-scroll {
   flex: 1;
   min-height: 0;
-  height: auto;
+  height: 0;
 }
 </style>

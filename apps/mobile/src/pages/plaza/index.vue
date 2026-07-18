@@ -607,12 +607,6 @@ function getUser(work: HomeWork) {
   };
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
-
 function setPendingLike(workId: number, pending: boolean) {
   const next = new Set(likePendingIds.value);
   if (pending) next.add(workId);
@@ -796,7 +790,6 @@ function handleReachBottom() {
           v-else-if="filteredWorks.length"
           :animation-class="waterfallAnimationClass"
           :display-like-count="displayLikeCount"
-          :get-aspect-ratio="getAspectRatio"
           :get-user="getUser"
           :left-works="leftColumnWorks"
           :liked-work-ids="likedWorkIds"
