@@ -1,4 +1,4 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
@@ -6,6 +6,9 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
+// A short, stable URL bucket lets WeChat reuse the same image cache entry while
+// leaving ample headroom for the CDN's Type A authentication validity window.
+const CDN_AUTH_URL_WINDOW_SECONDS = 5 * 60;
 const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,q_70/format,webp";
 const DETAIL_IMAGE_PROCESS = LIST_IMAGE_PROCESS;
 const EXT_BY_TYPE: Record<string, string> = {
@@ -38,6 +41,7 @@ type OssConfig = {
   bucket: string;
   endpoint: string;
   cdnBaseUrl?: string;
+  cdnAuthKey?: string;
 };
 
 function encodeKeyPath(key: string) {
@@ -92,7 +96,7 @@ export class UploadsService {
     if (!url.startsWith(`${host}/`)) return url;
     const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
     if (!ossKey) return url;
-    if (visibility === "public" && oss.cdnBaseUrl) return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}`;
+    if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) return this.cdnObjectUrl(oss, ossKey);
     // Keep a private URL stable inside its existing 30-minute validity window.
     // A freshly calculated expiry on every API response changes the image src and
     // prevents WeChat's native disk cache from reusing an unchanged image.
@@ -105,7 +109,7 @@ export class UploadsService {
     if (!url || !styleName || !oss.cdnBaseUrl || !url.startsWith(`${host}/`)) return this.readUrl(url, "public");
     const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
     if (!ossKey) return this.readUrl(url, "public");
-    return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=style/${encodeURIComponent(styleName)}`;
+    return this.cdnObjectUrl(oss, ossKey, `style/${encodeURIComponent(styleName)}`);
   }
 
   readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
@@ -123,8 +127,8 @@ export class UploadsService {
     if (!url.startsWith(`${host}/`)) return url;
     const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
     if (!ossKey) return url;
-    if (visibility === "public" && oss.cdnBaseUrl) {
-      return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=${encodeURIComponent(imageProcess)}`;
+    if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) {
+      return this.cdnObjectUrl(oss, ossKey, imageProcess);
     }
     return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry(), imageProcess);
   }
@@ -206,6 +210,20 @@ export class UploadsService {
 
   private objectUrl(ossKey: string) {
     return `${this.objectHost(this.ossConfig())}/${encodeKeyPath(ossKey)}`;
+  }
+
+  private cdnObjectUrl(oss: OssConfig, ossKey: string, imageProcess?: string) {
+    const pathname = `/${encodeKeyPath(ossKey)}`;
+    const processQuery = imageProcess ? `x-oss-process=${encodeURIComponent(imageProcess)}` : "";
+    if (!oss.cdnAuthKey) return `${oss.cdnBaseUrl}${pathname}${processQuery ? `?${processQuery}` : ""}`;
+
+    // Alibaba Cloud CDN Type A: md5(path-timestamp-rand-uid-key).
+    // The CDN strips auth_key before producing its cache key, so different users
+    // still share the same cached object and image-processing variant.
+    const timestamp = Math.floor(Math.floor(Date.now() / 1000) / CDN_AUTH_URL_WINDOW_SECONDS) * CDN_AUTH_URL_WINDOW_SECONDS;
+    const authKey = createHash("md5").update(`${pathname}-${timestamp}-0-0-${oss.cdnAuthKey}`).digest("hex");
+    const authQuery = `auth_key=${timestamp}-0-0-${authKey}`;
+    return `${oss.cdnBaseUrl}${pathname}?${processQuery ? `${processQuery}&` : ""}${authQuery}`;
   }
 
   private signedObjectUrl(
