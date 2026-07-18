@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -25,6 +25,17 @@ import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
 import { getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 
+const props = withDefaults(defineProps<{
+  embedded?: boolean;
+  open?: boolean;
+  initialWorkId?: number | null;
+}>(), {
+  embedded: false,
+  open: false,
+  initialWorkId: null
+});
+
+const emit = defineEmits<{ close: [] }>();
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
 
@@ -48,6 +59,7 @@ const isDeleting = ref(false);
 const isInitialContentReady = ref(false);
 const isDetailLoading = ref(true);
 const isDetailPreviewReady = ref(false);
+const highImage = ref("");
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -83,6 +95,7 @@ const detailImageStyle = computed(() => {
 });
 
 onLoad((query) => {
+  if (props.embedded) return;
   workId.value = resolveRouteId(query);
   lastMode = useMockData.value;
   isInitialContentReady.value = true;
@@ -90,6 +103,7 @@ onLoad((query) => {
 });
 
 onShow(() => {
+  if (props.embedded) return;
   const nextId = resolveRouteId();
   if (nextId !== workId.value) {
     workId.value = nextId;
@@ -106,11 +120,16 @@ onShow(() => {
 });
 
 onMounted(() => {
+  if (props.embedded) {
+    syncEmbeddedDetail();
+    return;
+  }
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
 });
 
 onReady(() => {
+  if (props.embedded) return;
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
     initialContentTimer = undefined;
@@ -183,6 +202,61 @@ function hydrateDetailSnapshot() {
     followersCount: snapshot.user.followers || 0
   };
   return Boolean(item.isDetailPreloaded);
+}
+
+watch(
+  () => props.open,
+  (opened) => {
+    if (props.embedded && opened) syncEmbeddedDetail();
+  }
+);
+
+function syncEmbeddedDetail() {
+  if (!props.embedded || !props.open || !props.initialWorkId) return;
+  workId.value = props.initialWorkId;
+  resetTransientState();
+  liked.value = false;
+  favorited.value = false;
+  following.value = false;
+  highImage.value = "";
+  isDetailPreviewReady.value = true;
+  isInitialContentReady.value = true;
+  isDetailLoading.value = false;
+  const hasSnapshot = hydrateDetailSnapshot();
+  if (!hasSnapshot) {
+    isDetailLoading.value = true;
+    void loadDetail();
+    return;
+  }
+  // The animation owns the first frame. Refresh fields afterwards without
+  // assigning the high-resolution image to the rendered <image>.
+  setTimeout(() => void refreshEmbeddedDetail(), 260);
+}
+
+async function refreshEmbeddedDetail() {
+  if (!props.embedded || !props.open || !work.value) return;
+  const id = work.value.id;
+  try {
+    const [detailResult, stateResult] = await Promise.allSettled([
+      fetchWorkDetail(id),
+      isLoggedIn.value && work.value.published ? fetchWorkState(id) : Promise.resolve(null)
+    ]);
+    if (detailResult.status === "fulfilled" && work.value?.id === id) {
+      const latest = detailResult.value;
+      // Keep the list preview in place. The detail endpoint image URL is not
+      // used until the user explicitly previews or downloads the work.
+      work.value = { ...work.value, ...latest.work, image: work.value.image, previewImage: work.value.previewImage };
+      user.value = latest.user;
+    }
+    if (stateResult.status === "fulfilled" && stateResult.value) {
+      liked.value = stateResult.value.liked;
+      favorited.value = stateResult.value.favorited;
+      following.value = stateResult.value.following;
+    }
+    if (isLoggedIn.value && work.value?.published) void recordWorkView(id);
+  } catch {
+    // Cached content remains interactive when the background refresh fails.
+  }
 }
 
 function resetTransientState() {
@@ -386,10 +460,14 @@ function goUserProfile() {
 
 function previewWorkImage() {
   if (!work.value) return;
-  uni.previewImage({
-    urls: [work.value.image],
-    current: work.value.image
-  });
+  void resolveHighImage().then((url) => uni.previewImage({ urls: [url], current: url }));
+}
+
+async function resolveHighImage() {
+  if (!props.embedded || highImage.value || !work.value) return highImage.value || work.value?.image || "";
+  const detail = await fetchWorkDetail(work.value.id);
+  highImage.value = detail.work.image;
+  return highImage.value;
 }
 
 function openLongPressSheet() {
@@ -442,7 +520,8 @@ function shareWork() {
 async function saveWorkImage() {
   if (!work.value) return;
   try {
-    await saveImageToDevice(work.value.image, `lumi-work-${work.value.id}.jpg`);
+    const imageUrl = await resolveHighImage();
+    await saveImageToDevice(imageUrl, `lumi-work-${work.value.id}.jpg`);
     uni.showToast({ title: "已保存到相册", icon: "none" });
   } catch (error) {
     uni.showToast({ title: imageSaveFailureMessage(error), icon: "none" });
@@ -457,6 +536,10 @@ async function remakeWork(current: DetailWork) {
     quality: current.quality || "",
     style: current.styleName || ""
   });
+  if (props.embedded) {
+    emit("close");
+    return;
+  }
   if (getCurrentPages().length > 1) uni.navigateBack();
   else uni.reLaunch({ url: "/pages/home/index" });
 }
@@ -588,7 +671,7 @@ function handleDetailPreviewLoad() {
 
 <template>
   <view class="detail-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
-    <LumiPageHeader title="作品详情" />
+    <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="props.embedded ? emit('close') : undefined" />
     <view v-if="!isInitialContentReady" class="page-first-frame" aria-label="作品详情加载中">
       <view class="detail-first-image skeleton-shimmer" />
       <view class="detail-first-body">

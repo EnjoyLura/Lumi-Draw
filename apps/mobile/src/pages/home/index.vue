@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
+import WorkDetailPage from "../work-detail/index.vue";
 import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
@@ -29,7 +30,7 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { openPreloadedWorkDetail, WORK_DETAIL_OVERLAY_OPEN_EVENT, type WorkDetailOverlayOpenPayload } from "../../services/workDetailNavigation";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -76,6 +77,8 @@ const plazaMounted = ref(false);
 const galleryMounted = ref(false);
 const mineMounted = ref(false);
 const createMounted = ref(false);
+const detailOverlayWorkId = ref<number | null>(null);
+const detailOverlayOpen = ref(false);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -89,6 +92,7 @@ let worksSwitchTimer: ReturnType<typeof setTimeout> | undefined;
 let worksAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let lastLoadKey = useMockData.value ? "mock" : "";
 let lastInviteCode = "";
+let detailOverlayCloseTimer: ReturnType<typeof setTimeout> | undefined;
 
 const currentTabWorks = computed(() => {
   return renderedHomeTab.value === "new" ? latestWorks.value : recommendWorks.value;
@@ -126,11 +130,13 @@ onReady(() => {
 });
 
 onMounted(() => {
+  uni.$on(WORK_DETAIL_OVERLAY_OPEN_EVENT, openDetailOverlay);
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
 });
 
 onUnmounted(() => {
+  uni.$off(WORK_DETAIL_OVERLAY_OPEN_EVENT, openDetailOverlay);
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
@@ -139,10 +145,29 @@ onBeforeUnmount(() => {
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
   clearWorksSwitchTimers();
+  if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
 });
 
 function handleHashChange() {
   applyInviteCode();
+}
+
+function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
+  if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
+  detailOverlayOpen.value = false;
+  detailOverlayWorkId.value = payload.work.id;
+  void nextTick(() => {
+    detailOverlayOpen.value = true;
+  });
+}
+
+function closeDetailOverlay() {
+  detailOverlayOpen.value = false;
+  if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
+  detailOverlayCloseTimer = setTimeout(() => {
+    detailOverlayWorkId.value = null;
+    detailOverlayCloseTimer = undefined;
+  }, 280);
 }
 
 function resolveInviteCode(query?: Record<string, unknown>) {
@@ -937,6 +962,11 @@ function getRatioClass(ratio: string) {
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
+  <view v-if="detailOverlayWorkId" class="work-detail-overlay" :class="{ open: detailOverlayOpen }" @touchmove.stop.prevent>
+    <view class="work-detail-overlay-surface">
+      <WorkDetailPage embedded :open="detailOverlayOpen" :initial-work-id="detailOverlayWorkId" @close="closeDetailOverlay" />
+    </view>
+  </view>
 </template>
 
 <style scoped>
@@ -1487,6 +1517,37 @@ function getRatioClass(ratio: string) {
 
 .work-body {
   padding: 3px 8px 5px;
+}
+
+.work-detail-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  background: var(--bg-base);
+  transition: opacity 100ms ease;
+}
+
+.work-detail-overlay-surface {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transform: scale(.92);
+  transform-origin: center center;
+  transition: transform 280ms cubic-bezier(.16, 1, .3, 1), opacity 160ms ease;
+  will-change: transform, opacity;
+}
+
+.work-detail-overlay.open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.work-detail-overlay.open .work-detail-overlay-surface {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .work-title {
