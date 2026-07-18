@@ -30,7 +30,8 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { openPreloadedWorkDetail, WORK_DETAIL_OVERLAY_OPEN_EVENT } from "../../services/workDetailNavigation";
+import type { WorkDetailOverlaySeed } from "../../services/workDetailOverlay";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -77,6 +78,8 @@ const plazaMounted = ref(false);
 const galleryMounted = ref(false);
 const mineMounted = ref(false);
 const createMounted = ref(false);
+const detailOverlayOpen = ref(false);
+const detailOverlaySeed = ref<WorkDetailOverlaySeed | null>(null);
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -127,11 +130,13 @@ onReady(() => {
 });
 
 onMounted(() => {
+  uni.$on(WORK_DETAIL_OVERLAY_OPEN_EVENT, openDetailOverlay);
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
 });
 
 onUnmounted(() => {
+  uni.$off(WORK_DETAIL_OVERLAY_OPEN_EVENT, openDetailOverlay);
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
@@ -144,6 +149,15 @@ onBeforeUnmount(() => {
 
 function handleHashChange() {
   applyInviteCode();
+}
+
+function openDetailOverlay(seed: WorkDetailOverlaySeed) {
+  detailOverlaySeed.value = seed;
+  detailOverlayOpen.value = true;
+}
+
+function closeDetailOverlay() {
+  detailOverlayOpen.value = false;
 }
 
 function resolveInviteCode(query?: Record<string, unknown>) {
@@ -938,7 +952,7 @@ function getRatioClass(ratio: string) {
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
-  <LumiWorkDetailOverlay />
+  <LumiWorkDetailOverlay :open="detailOverlayOpen" :seed="detailOverlaySeed" @close="closeDetailOverlay" />
 </template>
 
 <style scoped>

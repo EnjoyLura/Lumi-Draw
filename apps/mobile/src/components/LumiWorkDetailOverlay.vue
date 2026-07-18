@@ -8,7 +8,16 @@ import { fetchWorkDetail, type DetailAuthor } from "../pages/work-detail/workDet
 import type { DetailWork } from "../pages/work-detail/workDetailData";
 import { imageSaveFailureMessage, saveImageToDevice } from "../services/imageSave";
 import { openEmbeddedCreate } from "../services/primaryShell";
-import { workDetailOverlay } from "../services/workDetailOverlay";
+import type { WorkDetailOverlaySeed } from "../services/workDetailOverlay";
+
+const props = defineProps<{
+  open: boolean;
+  seed: WorkDetailOverlaySeed | null;
+}>();
+
+const emit = defineEmits<{
+  close: [];
+}>();
 
 const { themeClass } = useTheme();
 const { currentUser, isLoggedIn, requireLogin } = useAuth();
@@ -22,7 +31,7 @@ const highImage = ref("");
 const work = ref<DetailWork | null>(null);
 const user = ref<DetailAuthor | null>(null);
 
-const isOpen = computed(() => workDetailOverlay.open.value && Boolean(work.value && user.value));
+const isOpen = computed(() => props.open && Boolean(work.value && user.value));
 const isOwn = computed(() => Boolean(work.value && currentUser.value?.id === work.value.userId));
 const displayedImage = computed(() => work.value?.image || "");
 const authorSub = computed(() => {
@@ -38,11 +47,11 @@ const detailImageStyle = computed(() => {
 
 function close() {
   contentVisible.value = false;
-  setTimeout(() => workDetailOverlay.close(), 180);
+  setTimeout(() => emit("close"), 180);
 }
 
 function hydrate() {
-  const seed = workDetailOverlay.seed.value;
+  const seed = props.seed;
   if (!seed) return;
   const item = seed.work;
   work.value = {
@@ -100,7 +109,7 @@ async function refreshSilently() {
 }
 
 watch(
-  () => workDetailOverlay.open.value,
+  () => props.open,
   async (opened) => {
     if (!opened) return;
     hydrate();
