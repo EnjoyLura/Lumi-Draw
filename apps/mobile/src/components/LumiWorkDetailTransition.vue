@@ -10,7 +10,26 @@ const toStyle = ref<Record<string, string>>({});
 
 function getRect(selector: string) {
   return new Promise<UniApp.NodeInfo | null>((resolve) => {
-    uni.createSelectorQuery().select(selector).boundingClientRect((rect) => resolve(rect)).exec();
+    let settled = false;
+    const finish = (rect: UniApp.NodeInfo | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(rect);
+    };
+    const timer = setTimeout(() => finish(null), 80);
+    try {
+      uni
+        .createSelectorQuery()
+        .select(selector)
+        .boundingClientRect((rect) => {
+          clearTimeout(timer);
+          finish(rect);
+        })
+        .exec();
+    } catch {
+      clearTimeout(timer);
+      finish(null);
+    }
   });
 }
 
