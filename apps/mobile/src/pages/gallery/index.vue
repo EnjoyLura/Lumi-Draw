@@ -457,10 +457,17 @@ async function reloadGalleryData() {
   isPageRequesting.value = true;
   isLoading.value = !works.value.length;
   try {
-    const [nextProfile] = await Promise.all([fetchGalleryUser(), loadGalleryPage(1, false), loadGenerateTasks(true), loadUnreadMessages()]);
-    profile.value = nextProfile;
+    const profilePromise = fetchGalleryUser();
+    const taskPromise = loadGenerateTasks(true);
+    const unreadPromise = loadUnreadMessages();
+
+    await loadGalleryPage(1, false);
     visibleCount.value = PAGE_SIZE;
     renderKey.value += 1;
+    isLoading.value = false;
+
+    const [profileResult] = await Promise.allSettled([profilePromise, taskPromise, unreadPromise]);
+    if (profileResult.status === "fulfilled") profile.value = profileResult.value;
   } catch (error) {
     if (!works.value.length) resetRealGalleryData();
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });
