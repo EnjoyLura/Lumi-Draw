@@ -256,8 +256,8 @@ function toggleTag(name: string) {
 function previewDraftImage() {
   if (!selectedDraft.value) return;
   uni.previewImage({
-    urls: [selectedDraft.value.image],
-    current: selectedDraft.value.image
+    urls: [selectedDraft.value.fullImage || selectedDraft.value.image],
+    current: selectedDraft.value.fullImage || selectedDraft.value.image
   });
 }
 
@@ -395,7 +395,7 @@ async function submit() {
             :class="{ active: selectedDraft && selectedDraft.id === draft.id }"
             @click="selectDraft(draft)"
           >
-            <image class="picker-thumb" :src="draft.image" mode="aspectFill" @load="syncDraftResolution(draft.id, $event)" />
+            <image class="picker-thumb" :src="draft.image" mode="aspectFill" lazy-load @load="syncDraftResolution(draft.id, $event)" />
             <view class="picker-info">
               <view class="picker-name">{{ draft.title }}</view>
               <view class="picker-res">{{ draft.resolution }}</view>

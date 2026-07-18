@@ -37,7 +37,10 @@ export function ratioToResolution(ratio: string) {
 
 export interface DraftWork {
   id: number;
+  /** Responsive thumbnail for list and selection surfaces. */
   image: string;
+  /** Original image retained for full-screen preview and publishing. */
+  fullImage?: string;
   title: string;
   prompt?: string;
   ratio: string;
@@ -50,6 +53,7 @@ export const draftWorks: DraftWork[] = galleryWorks
   .map((work) => ({
     id: work.id,
     image: work.image,
+    fullImage: work.image,
     title: work.title || (work.prompt ? work.prompt.slice(0, 20) : "未命名作品"),
     prompt: work.prompt,
     ratio: work.ratio,

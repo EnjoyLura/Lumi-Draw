@@ -4,6 +4,7 @@ import { ratioToResolution, type DraftWork } from "./publishData";
 interface BackendDraftWork {
   id: number;
   imageUrl: string;
+  thumbnailUrl?: string;
   title: string;
   ratio: string;
   width?: number | null;
@@ -43,7 +44,8 @@ export interface PublishWorkPayload {
 function toDraftWork(item: BackendDraftWork): DraftWork {
   return {
     id: item.id,
-    image: item.imageUrl,
+    image: item.thumbnailUrl || item.imageUrl,
+    fullImage: item.imageUrl,
     title: item.title || "未命名作品",
     ratio: item.ratio || "1:1",
     resolution: formatResolution(item.width, item.height, item.ratio),
@@ -82,7 +84,7 @@ export async function publishWork(payload: PublishWorkPayload) {
     title: payload.title,
     description: payload.description,
     prompt,
-    imageUrl: detail.imageUrl || payload.draft.image,
+    imageUrl: detail.imageUrl || payload.draft.fullImage || payload.draft.image,
     ratio: detail.ratio || payload.draft.ratio || "1:1",
     quality: detail.quality || "1K",
     modelId: detail.modelId || "",
