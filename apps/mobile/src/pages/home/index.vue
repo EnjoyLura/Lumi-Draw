@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
@@ -739,6 +740,7 @@ function getRatioClass(ratio: string) {
             />
           </view>
         </view>
+        <view v-else-if="isPageLoading" class="banner-card banner-skeleton" />
         <view v-else class="home-empty-card">
           <view class="home-empty-title">暂无走马灯</view>
           <view class="home-empty-sub">后台配置走马灯后会显示在这里。</view>
@@ -797,9 +799,7 @@ function getRatioClass(ratio: string) {
         </view>
 
         <view class="works-stage" :class="{ switching: isWaterfallSwitching }">
-          <view v-if="isPageLoading" class="works-loading">
-            <view class="loading-spinner" />
-          </view>
+          <LumiWorkSkeletonWaterfall v-if="isPageLoading" />
 
           <view v-else :key="worksRenderKey" class="waterfall" :class="waterfallAnimationClass">
             <view class="waterfall-col">
@@ -1182,6 +1182,17 @@ function getRatioClass(ratio: string) {
   box-shadow: 0 3px 12px rgba(15, 31, 58, 0.18);
   transform: translateY(-50%);
   backdrop-filter: blur(12px) saturate(140%);
+}
+
+.banner-skeleton {
+  border-color: transparent;
+  background: linear-gradient(100deg, var(--bg-soft) 20%, var(--bg-card) 48%, var(--bg-soft) 76%);
+  background-size: 240% 100%;
+  animation: home-skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes home-skeleton-shimmer {
+  to { background-position: -140% 0; }
 }
 
 .banner-dots {

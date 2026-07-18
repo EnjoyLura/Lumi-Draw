@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
+import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -786,6 +787,7 @@ function handleReachBottom() {
           </view>
 
           <view v-else-if="isLoading && !isWaterfallSwitching" class="loading-card">
+            <LumiWorkSkeletonWaterfall />
             <view class="spinner" />
           </view>
 
@@ -1153,9 +1155,11 @@ function handleReachBottom() {
 }
 
 .loading-card {
-  display: flex;
-  justify-content: center;
-  padding: 20px 0;
+  padding: 0;
+}
+
+.loading-card > .spinner {
+  display: none;
 }
 
 .spinner {

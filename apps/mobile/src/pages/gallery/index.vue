@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -957,6 +958,7 @@ function openWork(work: HomeWork) {
 
         <view class="waterfall-stage" :class="{ switching: isWaterfallSwitching }">
           <view v-if="isLoading && !isWaterfallSwitching" :key="`loading-${activeTab}`" class="loading-card">
+            <LumiWorkSkeletonWaterfall />
             <view class="spinner" />
             <text class="loading-text">正在加载作品</text>
           </view>
@@ -1990,13 +1992,13 @@ function openWork(work: HomeWork) {
 .loading-card {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 0;
+  padding: 0;
 }
 
 .loading-text { font-size: 12px; color: var(--fg-muted); }
+
+.loading-card > .spinner,
+.loading-card > .loading-text { display: none; }
 
 .spinner {
   width: 28px;
