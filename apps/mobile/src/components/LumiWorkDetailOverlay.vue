@@ -153,9 +153,12 @@ function remake() {
 </script>
 
 <template>
-  <view v-if="work && user" class="work-detail-overlay" :class="[themeClass, { open: isOpen, visible: contentVisible }]" @touchmove.stop.prevent>
-    <view class="detail-dim" @click="close" />
-    <view class="detail-panel">
+  <!-- Keep a native host in the tree. mp-weixin may not reliably attach a
+       custom component whose first render has no root node. -->
+  <view class="work-detail-overlay-host">
+    <view v-if="work && user" class="work-detail-overlay" :class="[themeClass, { open: isOpen, visible: contentVisible }]" @touchmove.stop.prevent>
+      <view class="detail-dim" @click="close" />
+      <view class="detail-panel">
       <view class="detail-nav">
         <view class="nav-back" @click="close"><LumiIcon name="chevron-left" :size="25" /></view>
         <text>作品详情</text>
@@ -183,11 +186,13 @@ function remake() {
         <view v-if="isOwn" class="action" @click="downloadHighImage"><LumiIcon name="download" :size="23" /><text>下载</text></view>
         <view class="remake-button" @click="remake"><LumiIcon name="rotate-ccw" :size="17" /><text>{{ isOwn ? '重新生成' : '一键同款' }}</text></view>
       </view>
+      </view>
     </view>
   </view>
 </template>
 
 <style scoped>
+.work-detail-overlay-host { display: contents; }
 .work-detail-overlay { position: fixed; inset: 0; z-index: 1000; pointer-events: none; overflow: hidden; }
 .work-detail-overlay.open { pointer-events: auto; }
 .detail-dim { position: absolute; inset: 0; opacity: 0; background: rgba(0,0,0,.46); transition: opacity .22s ease; }
