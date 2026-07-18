@@ -8,8 +8,9 @@ function response(statusCode, body) {
   return { statusCode, headers: { "content-type": "application/json; charset=utf-8" }, body: JSON.stringify(body) };
 }
 
-function parseEvent(event) {
-  const value = typeof event === "string" ? JSON.parse(event) : event;
+function parseIncomingEvent(event) {
+  const runtimeParser = globalThis.parseEvent;
+  const value = typeof runtimeParser === "function" ? runtimeParser(event) : typeof event === "string" ? JSON.parse(event) : event;
   let body = value?.body ?? value;
   if (value?.isBase64Encoded && typeof body === "string") body = Buffer.from(body, "base64").toString("utf8");
   return { body: typeof body === "string" ? JSON.parse(body || "{}") : body || {} };
@@ -39,7 +40,7 @@ async function notify(payload) {
 export const handler = async (event, context) => {
   let payload;
   try {
-    const request = parseEvent(event);
+    const request = parseIncomingEvent(event);
     payload = request.body;
     if (![payload.jobId, payload.resultId, payload.sourceUrl, payload.objectKey].every((item) => typeof item === "string" && item)) {
       return response(400, { message: "invalid transfer request" });
