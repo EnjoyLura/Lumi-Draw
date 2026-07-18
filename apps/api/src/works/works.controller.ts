@@ -39,7 +39,7 @@ export class WorksController {
   @UseGuards(OptionalJwtAuthGuard)
   @Get("search")
   search(@CurrentUser() user: { id: number } | undefined, @Query() query: SearchQueryDto) {
-    return this.works.search(query.keyword, query.page, query.pageSize, user?.id);
+    return this.works.search(query.keyword, query.page, query.pageSize, user?.id, query.scope);
   }
 
   @ApiBearerAuth()

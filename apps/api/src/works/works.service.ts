@@ -144,9 +144,22 @@ export class WorksService {
     return this.listCards(where, orderBy, page, pageSize, currentUserId);
   }
 
-  search(keyword: string | undefined, page: number, pageSize: number, currentUserId?: number) {
+  search(
+    keyword: string | undefined,
+    page: number,
+    pageSize: number,
+    currentUserId?: number,
+    scope?: "gallery" | "mine",
+  ) {
     const kw = (keyword ?? "").trim();
-    const where: Prisma.WorkWhereInput = { ...PUBLIC_WHERE };
+    if (scope && !currentUserId) return buildPage([], 0, page, pageSize);
+
+    const where: Prisma.WorkWhereInput =
+      scope === "gallery"
+        ? { userId: currentUserId }
+        : scope === "mine"
+          ? { userId: currentUserId, status: "published", isPublic: true }
+          : { ...PUBLIC_WHERE };
     if (kw) {
       where.OR = [{ title: { contains: kw } }, { prompt: { contains: kw } }];
     }

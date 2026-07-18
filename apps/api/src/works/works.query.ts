@@ -39,4 +39,8 @@ export class SearchQueryDto extends PageQueryDto {
   @IsOptional()
   @IsString()
   keyword?: string;
+
+  @IsOptional()
+  @IsIn(["gallery", "mine"])
+  scope?: "gallery" | "mine";
 }

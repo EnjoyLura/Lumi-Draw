@@ -179,13 +179,11 @@ function shareInvite() {
 }
 
 .page-scroll {
-  flex: 1;
-  min-height: 0;
-  height: 0;
+  height: 100%;
 }
 
 .page-content {
-  padding: 16px;
+  padding: 16px 16px calc(16px + var(--lumi-safe-bottom, 0px));
 }
 
 .hero-card,
@@ -381,6 +379,12 @@ function shareInvite() {
 .invite-page {
   display: flex;
   flex-direction: column;
+}
+
+.invite-page :deep(.deferred-content) {
+  flex: 1;
+  min-height: 0;
+  height: 0;
 }
 
 .credits-label {
