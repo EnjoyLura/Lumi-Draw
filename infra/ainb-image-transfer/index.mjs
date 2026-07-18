@@ -10,7 +10,8 @@ function response(statusCode, body) {
 
 function parseIncomingEvent(event) {
   const runtimeParser = globalThis.parseEvent;
-  const value = typeof runtimeParser === "function" ? runtimeParser(event) : typeof event === "string" ? JSON.parse(event) : event;
+  const rawEvent = Buffer.isBuffer(event) ? event.toString("utf8") : event;
+  const value = typeof runtimeParser === "function" ? runtimeParser(rawEvent) : typeof rawEvent === "string" ? JSON.parse(rawEvent) : rawEvent;
   let body = value?.body ?? value;
   if (value?.isBase64Encoded && typeof body === "string") body = Buffer.from(body, "base64").toString("utf8");
   return { body: typeof body === "string" ? JSON.parse(body || "{}") : body || {} };
