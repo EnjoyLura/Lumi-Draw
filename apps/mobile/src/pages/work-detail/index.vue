@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -23,6 +23,9 @@ import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
 import { getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+
+const props = withDefaults(defineProps<{ embedded?: boolean; workId?: number }>(), { embedded: false, workId: 0 });
+const emit = defineEmits<{ close: [] }>();
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -82,6 +85,7 @@ const detailImageStyle = computed(() => {
 });
 
 onLoad((query) => {
+  if (props.embedded) return;
   workId.value = resolveRouteId(query);
   lastMode = useMockData.value;
   isInitialContentReady.value = true;
@@ -89,6 +93,7 @@ onLoad((query) => {
 });
 
 onShow(() => {
+  if (props.embedded) return;
   const nextId = resolveRouteId();
   if (nextId !== workId.value) {
     workId.value = nextId;
@@ -103,6 +108,18 @@ onShow(() => {
   }
   if (consumeWorkDetailStale(workId.value)) void loadDetail();
 });
+
+watch(
+  () => props.workId,
+  (nextId) => {
+    if (!props.embedded || !nextId) return;
+    workId.value = nextId;
+    lastMode = useMockData.value;
+    isInitialContentReady.value = true;
+    void loadDetail();
+  },
+  { immediate: true }
+);
 
 onMounted(() => {
   if (typeof window === "undefined") return;
@@ -123,11 +140,20 @@ onUnmounted(() => {
 });
 
 function handleHashChange() {
+  if (props.embedded) return;
   const nextId = resolveRouteId();
   if (nextId === workId.value) return;
   workId.value = nextId;
   lastMode = useMockData.value;
   void loadDetail();
+}
+
+function closeEmbeddedDetail() {
+  if (props.embedded) {
+    emit("close");
+    return;
+  }
+  uni.navigateBack();
 }
 
 function resolveRouteId(query?: Record<string, unknown>) {
@@ -439,6 +465,10 @@ async function remakeWork(current: DetailWork) {
     quality: current.quality || "",
     style: current.styleName || ""
   });
+  if (props.embedded) {
+    emit("close");
+    return;
+  }
   if (getCurrentPages().length > 1) uni.navigateBack();
   else uni.reLaunch({ url: "/pages/home/index" });
 }
@@ -525,6 +555,10 @@ function confirmDeleteWork() {
 }
 
 function leaveAfterDelete() {
+  if (props.embedded) {
+    emit("close");
+    return;
+  }
   const pages = getCurrentPages();
   if (pages.length > 1) {
     uni.navigateBack();
@@ -569,8 +603,8 @@ function handleDetailPreviewLoad() {
 </script>
 
 <template>
-  <view class="detail-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
-    <LumiPageHeader title="作品详情" />
+  <view class="detail-page" :class="[themeClass, { embedded: props.embedded }]" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
+    <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="closeEmbeddedDetail" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <template v-else-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
@@ -781,6 +815,21 @@ function handleDetailPreviewLoad() {
   overflow: hidden;
   color: var(--fg-primary);
   background: var(--bg-base);
+}
+
+.detail-page.embedded {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  animation: detail-overlay-enter .16s ease-out both;
+}
+
+@keyframes detail-overlay-enter {
+  from { opacity: .98; }
+  to { opacity: 1; }
 }
 
 .page-first-frame {

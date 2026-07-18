@@ -8,6 +8,7 @@ import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
 import PlazaPage from "../plaza/index.vue";
+import WorkDetailPage from "../work-detail/index.vue";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockHomeAnnouncements,
@@ -45,6 +46,7 @@ const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
 const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
+const openedDetailWorkId = ref<number | null>(null);
 const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
@@ -510,12 +512,9 @@ function handleBannerTap(action: string, title: string) {
 async function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getUser(work.userId));
-  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  uni.navigateTo({
-    url: `/pages/work-detail/index?id=${work.id}`,
-    animationType: animated ? "none" : "pop-in",
-    animationDuration: animated ? 0 : 240
-  });
+  await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
+  openedDetailWorkId.value = work.id;
+  await nextTick();
   detailTransition.value?.finish();
 }
 
@@ -903,6 +902,7 @@ function getRatioClass(ratio: string) {
       </view>
     </scroll-view>
     <LumiWorkDetailTransition ref="detailTransition" />
+    <WorkDetailPage v-if="openedDetailWorkId" embedded :work-id="openedDetailWorkId" @close="openedDetailWorkId = null" />
 
     <view class="tab-bar">
       <view class="tab-item active">
