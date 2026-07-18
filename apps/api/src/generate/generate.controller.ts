@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
@@ -65,5 +65,16 @@ export class GenerateController {
   @Post("callback")
   handleCallback(@Body() body: Record<string, unknown>, @Query("secret") secret?: string) {
     return this.generate.handleCallback(body, secret);
+  }
+
+  @Post("transfers/complete")
+  completeImageTransfer(@Headers("x-lumi-transfer-token") token: string | undefined, @Body() body: Record<string, unknown>) {
+    return this.generate.completeImageTransfer(token, {
+      jobId: typeof body.jobId === "string" ? body.jobId : undefined,
+      resultId: typeof body.resultId === "string" ? body.resultId : undefined,
+      objectKey: typeof body.objectKey === "string" ? body.objectKey : undefined,
+      sizeBytes: typeof body.sizeBytes === "number" ? body.sizeBytes : undefined,
+      error: typeof body.error === "string" ? body.error : undefined
+    });
   }
 }

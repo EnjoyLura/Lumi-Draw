@@ -79,7 +79,7 @@ export interface CreatedDraftWork {
 
 export interface BackendGenerateResult {
   id: string;
-  status: "succeeded" | "failed";
+  status: "transferring" | "succeeded" | "failed";
   imageUrl?: string;
   errorMessage?: string;
   workId?: number;

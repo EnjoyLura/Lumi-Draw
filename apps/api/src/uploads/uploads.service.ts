@@ -114,6 +114,16 @@ export class UploadsService {
     return { imageUrl: policy.publicUrl, ossKey: policy.ossKey, sizeBytes: downloaded.buffer.byteLength, contentType: downloaded.contentType };
   }
 
+  reserveSystemImage(scene: string, contentType = "image/png") {
+    this.assertImageType(contentType);
+    const ossKey = this.createSystemKey(scene, contentType);
+    return { ossKey, imageUrl: this.objectUrl(ossKey) };
+  }
+
+  objectUrlForKey(ossKey: string) {
+    return this.objectUrl(ossKey);
+  }
+
   private assertUploadInput(filename: string, contentType: string, sizeBytes: number) {
     if (!filename.trim() || filename.includes("/") || filename.includes("\\")) throw new BadRequestException("文件名不合法");
     this.assertImageType(contentType);

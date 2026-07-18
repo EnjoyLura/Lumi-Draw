@@ -89,6 +89,7 @@ interface GenResult {
 }
 
 const generatedResults = ref<GenResult[]>([]);
+const isSavingOriginal = ref(false);
 const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
 const previewData = ref<{ src: string; resolution: string; size: string; ratio: string; resultId?: string; savedWorkId?: number } | null>(null);
 
@@ -618,6 +619,13 @@ function applyBackendJob(job: BackendGenerateJob) {
   progress.value = Math.max(progress.value, Math.min(job.progress || 0, 100));
   stageText.value = generationStageText(progress.value, job.status);
 
+  if (job.status === "finalizing" && job.results.length) {
+    isGenerating.value = false;
+    isSavingOriginal.value = true;
+    generatedResults.value = toGeneratedResults(job);
+    return;
+  }
+
   if (!isTerminalJob(job.status)) return;
 
   if (pollTimer) clearTimeout(pollTimer);
@@ -625,6 +633,7 @@ function applyBackendJob(job: BackendGenerateJob) {
   void syncCreditsAfterTerminalJob(job);
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
+  isSavingOriginal.value = false;
   generatedResults.value = toGeneratedResults(job);
   const elapsed = Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000);
   stopElapsedTimer(elapsed);
@@ -660,6 +669,7 @@ async function resumeBackendJob(jobId: string) {
   if (pollTimer) clearTimeout(pollTimer);
 
   isGenerating.value = true;
+  isSavingOriginal.value = false;
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
@@ -710,6 +720,7 @@ async function startBackendGenerate(prompt: string) {
   if (pollTimer) clearTimeout(pollTimer);
 
   isGenerating.value = true;
+  isSavingOriginal.value = false;
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
@@ -766,6 +777,7 @@ async function startGenerate() {
   if (pollTimer) clearTimeout(pollTimer);
 
   isGenerating.value = true;
+  isSavingOriginal.value = false;
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
@@ -1091,17 +1103,21 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text v-if="successCount > 0">{{ failCount }}张生成失败，已退还 {{ refundCredits }} 积分</text>
               <text v-else>全部失败，已退还 {{ totalCost }} 积分</text>
             </view>
+            <view v-if="isSavingOriginal" class="draft-saved-note">
+              <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
+              <text>图片已生成，正在保存高清原图到画廊，请勿关闭页面。</text>
+            </view>
             <view v-if="genMeta" class="result-meta">
               <text class="meta-item">耗时 {{ genMeta.time }}s</text>
               <text class="meta-item">{{ genMeta.resolution }}</text>
               <text class="meta-item">{{ genMeta.size }}</text>
               <text class="meta-item">{{ selectedModel.name }}</text>
             </view>
-            <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
+            <view v-if="!isSavingOriginal && hasAutoSavedDrafts" class="draft-saved-note">
               <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
               <text>生成作品已自动保存到画廊，可在画廊发布和下载作品。</text>
             </view>
-            <view class="result-actions">
+            <view v-if="!isSavingOriginal" class="result-actions">
               <button class="result-action ghost" @click="goPublish">
                 <LumiIcon class="result-action-icon" name="send" :size="15" />
                 <text>发布作品</text>

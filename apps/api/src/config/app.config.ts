@@ -66,6 +66,10 @@ export const appConfig = registerAs("app", () => ({
     apiBase: process.env.AINB_API_BASE ?? "https://ainb.plus",
     imageApiKey: process.env.AINB_IMAGE_API_KEY ?? ""
   },
+  imageTransfer: {
+    functionUrl: process.env.IMAGE_TRANSFER_FUNCTION_URL ?? "",
+    bearerToken: process.env.IMAGE_TRANSFER_BEARER_TOKEN ?? ""
+  },
   generate: {
     allowMock: process.env.GENERATE_ALLOW_MOCK === "true"
   },

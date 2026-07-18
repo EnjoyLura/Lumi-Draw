@@ -8,10 +8,11 @@ import { GenerateService } from "./generate.service";
 import { KieClient } from "./kie.client";
 import { Change2ProClient } from "./change2pro.client";
 import { AinbClient } from "./ainb.client";
+import { ImageTransferClient } from "./image-transfer.client";
 
 @Module({
   imports: [AuthModule, CreditsModule, PrismaModule, UploadsModule],
   controllers: [GenerateController],
-  providers: [GenerateService, KieClient, Change2ProClient, AinbClient]
+  providers: [GenerateService, KieClient, Change2ProClient, AinbClient, ImageTransferClient]
 })
 export class GenerateModule {}
