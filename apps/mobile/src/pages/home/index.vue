@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, 
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
-import LumiWorkDetailTransition from "../../components/LumiWorkDetailTransition.vue";
 import CreatePage from "../create/index.vue";
 import GalleryPage from "../gallery/index.vue";
 import MinePage from "../mine/index.vue";
@@ -44,7 +43,6 @@ const FEED_PAGE_SIZE = 8;
 const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
-const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
 const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
@@ -507,16 +505,10 @@ function handleBannerTap(action: string, title: string) {
   showUnsupportedBanner(title);
 }
 
-async function openWorkDetail(work: HomeWork) {
+function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getUser(work.userId));
-  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  uni.navigateTo({
-    url: `/pages/work-detail/index?id=${work.id}`,
-    animationType: animated ? "none" : "pop-in",
-    animationDuration: animated ? 0 : 240
-  });
-  detailTransition.value?.finish();
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 function clearWorksSwitchTimers() {
@@ -902,7 +894,6 @@ function getRatioClass(ratio: string) {
         </template>
       </view>
     </scroll-view>
-    <LumiWorkDetailTransition ref="detailTransition" />
 
     <view class="tab-bar">
       <view class="tab-item active">

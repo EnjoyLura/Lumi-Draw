@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue"
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
-import LumiWorkDetailTransition from "../../components/LumiWorkDetailTransition.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -150,7 +149,6 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
-const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -820,7 +818,7 @@ function statusBadgeClass(work: HomeWork) {
   };
 }
 
-async function openWork(work: HomeWork) {
+function openWork(work: HomeWork) {
   if (!ensureLogin()) return;
   if (manageMode.value) {
     toggleWorkSelection(work.id);
@@ -828,9 +826,7 @@ async function openWork(work: HomeWork) {
   }
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getWorkAuthor(work));
-  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}`, animationType: animated ? "none" : "pop-in", animationDuration: animated ? 0 : 240 });
-  detailTransition.value?.finish();
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 </script>
@@ -1042,7 +1038,6 @@ async function openWork(work: HomeWork) {
       </view>
 
     </scroll-view>
-    <LumiWorkDetailTransition ref="detailTransition" />
 
     <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
       <text class="selected-count">已选择 {{ selectedCount }} 项</text>
