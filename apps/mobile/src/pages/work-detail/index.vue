@@ -22,6 +22,7 @@ import { imageSaveFailureMessage, saveImageToDevice } from "../../services/image
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
+import { getWorkDetailPreview } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -45,6 +46,8 @@ const favoritePulse = ref(false);
 const isDeleting = ref(false);
 const isInitialContentReady = ref(false);
 const isDetailLoading = ref(true);
+const listPreviewImage = ref("");
+const isDetailPreviewReady = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -168,6 +171,8 @@ async function loadDetail() {
   favorited.value = false;
   following.value = false;
   isDetailLoading.value = true;
+  listPreviewImage.value = getWorkDetailPreview(workId.value);
+  isDetailPreviewReady.value = false;
   work.value = undefined;
   user.value = undefined;
 
@@ -531,6 +536,10 @@ async function removeOwnWork() {
 function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
 }
+
+function handleDetailPreviewLoad() {
+  isDetailPreviewReady.value = true;
+}
 </script>
 
 <template>
@@ -539,19 +548,29 @@ function showToast(title: string) {
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <template v-else-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
-        <image
-          class="detail-image"
-          :src="work.previewImage || work.image"
-          mode="aspectFill"
-          :style="detailImageStyle"
-          @click="previewWorkImage"
-          @longpress="openLongPressSheet"
-          @mousedown="startLongPress"
-          @mouseup="cancelLongPress"
-          @mouseleave="cancelLongPress"
-          @touchstart="startLongPress"
-          @touchend="cancelLongPress"
-        />
+        <view class="detail-image-frame" :style="detailImageStyle">
+          <image
+            v-if="listPreviewImage"
+            class="detail-image detail-image-placeholder"
+            :src="listPreviewImage"
+            mode="aspectFill"
+          />
+          <image
+            class="detail-image detail-image-full"
+            :class="{ ready: isDetailPreviewReady }"
+            :src="work.previewImage || work.image"
+            mode="aspectFill"
+            @load="handleDetailPreviewLoad"
+            @error="handleDetailPreviewLoad"
+            @click="previewWorkImage"
+            @longpress="openLongPressSheet"
+            @mousedown="startLongPress"
+            @mouseup="cancelLongPress"
+            @mouseleave="cancelLongPress"
+            @touchstart="startLongPress"
+            @touchend="cancelLongPress"
+          />
+        </view>
 
         <view class="detail-body">
           <view class="author-row">
@@ -754,13 +773,37 @@ function showToast(title: string) {
   inset: 0 0 var(--lumi-detail-action-height);
 }
 
-.detail-image {
-  display: block;
+.detail-image-frame {
+  position: relative;
   width: 100%;
   min-height: 260px;
   max-height: 560px;
-  object-fit: cover;
+  overflow: hidden;
   background: var(--bg-soft);
+}
+
+.detail-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-image-placeholder {
+  position: absolute;
+  inset: 0;
+  transform: scale(1.015);
+  filter: blur(8px);
+}
+
+.detail-image-full {
+  position: relative;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.detail-image-full.ready {
+  opacity: 1;
 }
 
 .detail-body {

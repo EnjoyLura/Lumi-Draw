@@ -12,6 +12,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
+import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -804,6 +805,7 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
+  primeWorkDetailPreview(work.id, work.image);
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
@@ -1925,7 +1927,7 @@ function openWork(work: HomeWork) {
 }
 
 .work-body {
-  padding: 6px 8px 5px;
+  padding: 3px 8px 5px;
 }
 
 .work-title {

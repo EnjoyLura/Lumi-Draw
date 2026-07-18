@@ -9,6 +9,7 @@ import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searc
 import { fetchHotSearches, searchWorks } from "./searchService";
 import { useTheme } from "../../services/theme";
 import { galleryUser, galleryWorks } from "../gallery/galleryData";
+import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 
@@ -179,8 +180,9 @@ function clearSearchHistory() {
   uni.showToast({ title: "已清空搜索历史", icon: "none" });
 }
 
-function openWorkDetail(workId: number) {
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
+function openWorkDetail(work: HomeWork) {
+  primeWorkDetailPreview(work.id, work.image);
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 function goUserProfile(userId: number) {
@@ -250,7 +252,7 @@ function handleReachBottom() {
 
         <view v-else-if="results.length" class="waterfall">
           <view class="waterfall-column">
-            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
+            <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work)">
               <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
@@ -266,7 +268,7 @@ function handleReachBottom() {
           </view>
 
           <view class="waterfall-column">
-            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work.id)">
+            <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work)">
               <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
@@ -544,7 +546,7 @@ function handleReachBottom() {
 }
 
 .work-body {
-  padding: 6px 8px 5px;
+  padding: 3px 8px 5px;
 }
 
 .work-title {

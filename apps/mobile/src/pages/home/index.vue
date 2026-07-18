@@ -28,6 +28,7 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
+import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -481,9 +482,10 @@ function handleBannerTap(action: string, title: string) {
   showUnsupportedBanner(title);
 }
 
-function openWorkDetail(workId: number) {
+function openWorkDetail(work: HomeWork) {
+  primeWorkDetailPreview(work.id, work.image);
   uni.navigateTo({
-    url: `/pages/work-detail/index?id=${workId}`
+    url: `/pages/work-detail/index?id=${work.id}`
   });
 }
 
@@ -801,7 +803,7 @@ function getRatioClass(ratio: string) {
           <view v-else :key="worksRenderKey" class="waterfall" :class="waterfallAnimationClass">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :key="work.id" class="work-card">
-                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
+                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
@@ -828,7 +830,7 @@ function getRatioClass(ratio: string) {
 
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :key="work.id" class="work-card">
-                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work.id)">
+                <view class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">

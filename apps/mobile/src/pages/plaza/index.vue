@@ -12,6 +12,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
+import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -457,8 +458,9 @@ function goUserProfile(userId: number) {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
-function openWorkDetail(workId: number) {
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
+function openWorkDetail(work: HomeWork) {
+  primeWorkDetailPreview(work.id, work.image);
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {

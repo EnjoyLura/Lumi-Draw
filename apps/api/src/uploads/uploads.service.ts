@@ -7,7 +7,7 @@ const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 const LIST_IMAGE_PROCESS = "image/resize,w_720/quality,q_85/format,webp";
-const DETAIL_IMAGE_PROCESS = "image/resize,w_1440/quality,q_90/format,webp";
+const DETAIL_IMAGE_PROCESS = "image/resize,w_1280/quality,q_85/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
