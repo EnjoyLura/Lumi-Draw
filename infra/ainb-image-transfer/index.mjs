@@ -40,7 +40,6 @@ export const handler = async (event, context) => {
   let payload;
   try {
     const request = parseEvent(event);
-    if (request.method !== "POST") return response(405, { message: "method not allowed" });
     payload = request.body;
     if (![payload.jobId, payload.resultId, payload.sourceUrl, payload.objectKey].every((item) => typeof item === "string" && item)) {
       return response(400, { message: "invalid transfer request" });
