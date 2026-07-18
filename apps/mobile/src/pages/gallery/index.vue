@@ -33,7 +33,8 @@ import {
   fetchGalleryTerminalGenerateJobs,
   fetchGalleryUser,
   fetchGalleryWorks,
-  moveGalleryWorksToDraft
+  moveGalleryWorksToDraft,
+  type GalleryWorkPage
 } from "./galleryService";
 import {
   getWaterfallAnimationClass,
@@ -147,6 +148,7 @@ let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
+let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -276,6 +278,22 @@ function getStatusForTab(tab = renderedTab.value) {
   if (tab === "published") return "published";
   if (tab === "draft") return "draft";
   return undefined;
+}
+
+function galleryFeedKey() {
+  return `${props.pageMode}|${renderedTab.value}|${getStatusForTab() || "all"}`;
+}
+
+function prefetchNextGalleryPage() {
+  if (useMockData.value || renderedTab.value === "favorite" || !pageState.hasMore) return;
+  const page = pageState.page + 1;
+  const key = galleryFeedKey();
+  if (prefetchedGalleryPage?.key === key && prefetchedGalleryPage.page === page) return;
+  const request = fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE });
+  prefetchedGalleryPage = { key, page, request };
+  void request.catch(() => {
+    if (prefetchedGalleryPage?.request === request) prefetchedGalleryPage = undefined;
+  });
 }
 
 function resetMockGalleryData() {
@@ -423,15 +441,15 @@ async function loadGalleryPage(page = 1, append = false) {
     pageState.hasMore = result.hasMore;
     return;
   }
-  const result = await fetchGalleryWorks({
-    status: getStatusForTab(),
-    page,
-    pageSize: PAGE_SIZE
-  });
+  const key = galleryFeedKey();
+  const cached = append && prefetchedGalleryPage?.key === key && prefetchedGalleryPage.page === page ? prefetchedGalleryPage : undefined;
+  if (cached) prefetchedGalleryPage = undefined;
+  const result = await (cached?.request ?? fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE }));
   works.value = append ? [...works.value, ...result.works] : result.works;
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   waterfallEnterKey.value += 1;
+  void prefetchNextGalleryPage();
 }
 
 function syncWorkImageRatio(workId: number, event: Event) {

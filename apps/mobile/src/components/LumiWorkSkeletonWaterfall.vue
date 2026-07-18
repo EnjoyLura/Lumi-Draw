@@ -1,5 +1,6 @@
 <template>
   <view class="skeleton-waterfall" aria-label="正在加载作品">
+    <view class="skeleton-loading-ring" />
     <view class="skeleton-column">
       <view class="skeleton-card portrait">
         <view class="skeleton-image" />
@@ -25,10 +26,24 @@
 
 <style scoped>
 .skeleton-waterfall {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 2px 8px 12px;
+}
+.skeleton-loading-ring {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: lumi-skeleton-spin .72s linear infinite;
 }
 
 .skeleton-column { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -47,4 +62,5 @@
 .skeleton-line.medium { width: 62px; }
 .skeleton-line.tiny { width: 22px; margin-left: auto; }
 @keyframes lumi-skeleton-shimmer { to { background-position: -140% 0; } }
+@keyframes lumi-skeleton-spin { to { transform: rotate(360deg); } }
 </style>

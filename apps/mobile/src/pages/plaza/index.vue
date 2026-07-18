@@ -19,7 +19,7 @@ import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/m
 import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
-import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption } from "./plazaService";
+import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption, type PlazaWorkPage } from "./plazaService";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -167,6 +167,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastLoadedAt = 0;
+let prefetchedPlazaPage: { key: string; page: number; request: Promise<PlazaWorkPage> } | undefined;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const waterfallColumns = computed(() => {
@@ -299,6 +300,46 @@ function getPlazaSort() {
   return renderedTab.value === "new" ? "latest" : "hot";
 }
 
+function plazaFeedKey() {
+  return [
+    renderedTab.value,
+    renderedCategoryIndex.value,
+    selectedCategoryIds().join(","),
+    selectedOptionValues(modelFilterOptions.value, filterSelection.model).join(","),
+    selectedOptionValues(sizeFilterOptions.value, filterSelection.size).join(","),
+    selectedOptionValues(qualityFilterOptions.value, filterSelection.quality).join(","),
+    getPlazaSort(),
+    isLoggedIn.value ? "auth" : "guest"
+  ].join("|");
+}
+
+function getPlazaFeedParams(page: number) {
+  const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[renderedCategoryIndex.value]?.id;
+  return {
+    categoryId,
+    categoryIds: selectedCategoryIds(),
+    modelIds: selectedOptionValues(modelFilterOptions.value, filterSelection.model),
+    ratios: selectedOptionValues(sizeFilterOptions.value, filterSelection.size),
+    qualities: selectedOptionValues(qualityFilterOptions.value, filterSelection.quality),
+    sort: getPlazaSort(),
+    page,
+    pageSize: 10,
+    skipAuth: !isLoggedIn.value
+  } as const;
+}
+
+function prefetchNextPlazaPage() {
+  if (useMockData.value || renderedTab.value === "favorite" || !pageState.hasMore) return;
+  const page = pageState.page + 1;
+  const key = plazaFeedKey();
+  if (prefetchedPlazaPage?.key === key && prefetchedPlazaPage.page === page) return;
+  const request = fetchPlazaWorks(getPlazaFeedParams(page));
+  prefetchedPlazaPage = { key, page, request };
+  void request.catch(() => {
+    if (prefetchedPlazaPage?.request === request) prefetchedPlazaPage = undefined;
+  });
+}
+
 async function loadFavoritePage(page = 1, append = false) {
   const result = await fetchFavorites(page, 10);
   const works = result.items.map(toHomeWork);
@@ -322,23 +363,16 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
     return;
   }
 
-  const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[renderedCategoryIndex.value]?.id;
-  const result = await fetchPlazaWorks({
-    categoryId,
-    categoryIds: selectedCategoryIds(),
-    modelIds: selectedOptionValues(modelFilterOptions.value, filterSelection.model),
-    ratios: selectedOptionValues(sizeFilterOptions.value, filterSelection.size),
-    qualities: selectedOptionValues(qualityFilterOptions.value, filterSelection.quality),
-    sort: getPlazaSort(),
-    page,
-    pageSize: 10,
-    skipAuth: !isLoggedIn.value
-  });
+  const key = plazaFeedKey();
+  const cached = append && prefetchedPlazaPage?.key === key && prefetchedPlazaPage.page === page ? prefetchedPlazaPage : undefined;
+  if (cached) prefetchedPlazaPage = undefined;
+  const result = await (cached?.request ?? fetchPlazaWorks(getPlazaFeedParams(page)));
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
   mergeUsers(result.users);
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
+  void prefetchNextPlazaPage();
 }
 
 function syncWorkImageRatio(workId: number, event: Event) {

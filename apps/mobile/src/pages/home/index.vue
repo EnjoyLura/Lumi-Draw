@@ -19,7 +19,7 @@ import {
   type HomeUser,
   type HomeWork
 } from "./homeData";
-import { fetchHomeBootstrap, fetchHomeFeed } from "./homeService";
+import { fetchHomeBootstrap, fetchHomeFeed, type HomeFeedView } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
@@ -42,6 +42,7 @@ type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
 const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
+const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
 const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
@@ -257,6 +258,8 @@ async function loadHomeData(force = false) {
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
     visibleWorkCount.value = 8;
     worksRenderKey.value += 1;
+    void prefetchNextFeed("recommend");
+    void prefetchNextFeed("new");
     scheduleAnnouncementPopup();
   } catch (error) {
     if (!recommendWorks.value.length && !latestWorks.value.length) clearRealHomeData();
@@ -396,6 +399,25 @@ function resolvePageAction(action: string) {
 
 function selectGameplay(name: string) {
   openEmbeddedCreate({ gameplay: name });
+}
+
+function feedPrefetchKey(tab: HomeTab, page: number) {
+  return `${tab}:${page}:${isLoggedIn.value ? "auth" : "guest"}`;
+}
+
+function prefetchNextFeed(tab: HomeTab) {
+  if (useMockData.value) return;
+  const state = tab === "new" ? feedState.new : feedState.recommend;
+  if (!state.hasMore) return;
+  const page = state.page + 1;
+  const key = feedPrefetchKey(tab, page);
+  if (prefetchedFeeds.has(key)) return;
+  const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
+  const request = fetchHomeFeed(tab === "new" ? "latest" : "recommend", page, FEED_PAGE_SIZE, requestOptions);
+  prefetchedFeeds.set(key, request);
+  void request.catch(() => {
+    if (prefetchedFeeds.get(key) === request) prefetchedFeeds.delete(key);
+  });
 }
 
 function goCreate() {
@@ -542,7 +564,9 @@ async function loadMoreFeed() {
   try {
     const nextPage = state.page + 1;
     const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
-    const feed = await fetchHomeFeed(tab === "new" ? "latest" : "recommend", nextPage, FEED_PAGE_SIZE, requestOptions);
+    const prefetchKey = feedPrefetchKey(tab, nextPage);
+    const feed = await (prefetchedFeeds.get(prefetchKey) ?? fetchHomeFeed(tab === "new" ? "latest" : "recommend", nextPage, FEED_PAGE_SIZE, requestOptions));
+    prefetchedFeeds.delete(prefetchKey);
     if (tab === "new") {
       latestWorks.value = [...latestWorks.value, ...feed.works];
       feedState.new = { page: feed.page, hasMore: feed.hasMore };
@@ -552,6 +576,7 @@ async function loadMoreFeed() {
     }
     syncLikedWorkIds(feed.works, likedWorkIds.value);
     mergeUsers(feed.users);
+    void prefetchNextFeed(tab);
     return feed.works.length > 0;
   } catch {
     uni.showToast({ title: "加载失败，请稍后重试", icon: "none" });
@@ -1396,7 +1421,11 @@ function getRatioClass(ratio: string) {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 10px;
+  animation: home-card-rise .36s cubic-bezier(.16, 1, .3, 1) both;
 }
+
+.waterfall-col:nth-child(2) .work-card { animation-delay: .06s; }
+@keyframes home-card-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
 .works-loading {
   display: flex;

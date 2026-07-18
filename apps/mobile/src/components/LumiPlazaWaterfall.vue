@@ -87,7 +87,11 @@ const emit = defineEmits<{
   border: 1px solid var(--card-border);
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
+  animation: plaza-card-rise .36s cubic-bezier(.16, 1, .3, 1) both;
 }
+
+.waterfall-column:nth-child(2) .work-card { animation-delay: .06s; }
+@keyframes plaza-card-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
 .work-img {
   display: block;
