@@ -95,14 +95,15 @@ const emit = defineEmits<{
 }
 
 .work-body {
-  padding: 8px 10px 6px;
+  padding: 6px 8px 5px;
 }
 
 .work-title {
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 17px;
   color: var(--fg-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -116,12 +117,12 @@ const emit = defineEmits<{
 }
 
 .work-meta {
-  gap: 6px;
+  gap: 4px;
 }
 
 .author {
   flex: 1;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -130,9 +131,9 @@ const emit = defineEmits<{
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  font-size: 10px;
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
   font-weight: 700;
   color: #fff;
   border-radius: 50%;
@@ -141,17 +142,17 @@ const emit = defineEmits<{
 .author-name {
   flex: 1;
   overflow: hidden;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--fg-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .like {
-  gap: 3px;
+  gap: 2px;
   align-items: center;
-  padding: 2px 4px;
-  font-size: 13px;
+  padding: 1px 2px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--fg-muted);
   border-radius: 8px;

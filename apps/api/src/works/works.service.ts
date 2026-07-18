@@ -181,7 +181,7 @@ export class WorksService {
     return {
       id: work.id,
       imageUrl: this.uploads.readUrl(work.imageUrl, visibility),
-      previewUrl: visibility === "public" ? this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-preview") : this.uploads.readUrl(work.imageUrl, visibility),
+      previewUrl: this.uploads.readDetailPreviewImageUrl(work.imageUrl, visibility),
       title: work.title,
       description: work.description,
       prompt: work.prompt,

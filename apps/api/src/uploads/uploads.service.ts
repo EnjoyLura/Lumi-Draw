@@ -7,6 +7,7 @@ const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 const LIST_IMAGE_PROCESS = "image/resize,w_720/quality,q_85/format,webp";
+const DETAIL_IMAGE_PROCESS = "image/resize,w_1440/quality,q_90/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -108,6 +109,14 @@ export class UploadsService {
   }
 
   readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, LIST_IMAGE_PROCESS);
+  }
+
+  readDetailPreviewImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, DETAIL_IMAGE_PROCESS);
+  }
+
+  private readProcessedImageUrl(url: string, visibility: "private" | "public", imageProcess: string) {
     const oss = this.ossConfig();
     if (!url) return url;
     const host = this.objectHost(oss);
@@ -115,9 +124,9 @@ export class UploadsService {
     const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
     if (!ossKey) return url;
     if (visibility === "public" && oss.cdnBaseUrl) {
-      return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=${encodeURIComponent(LIST_IMAGE_PROCESS)}`;
+      return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=${encodeURIComponent(imageProcess)}`;
     }
-    return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry(), LIST_IMAGE_PROCESS);
+    return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry(), imageProcess);
   }
 
   async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
