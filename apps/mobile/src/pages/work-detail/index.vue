@@ -44,6 +44,7 @@ const likePulse = ref(false);
 const favoritePulse = ref(false);
 const isDeleting = ref(false);
 const isInitialContentReady = ref(false);
+const isDetailLoading = ref(true);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -166,12 +167,15 @@ async function loadDetail() {
   liked.value = false;
   favorited.value = false;
   following.value = false;
-  if (useMockData.value) {
-    loadMockDetail();
-    return;
-  }
+  isDetailLoading.value = true;
+  work.value = undefined;
+  user.value = undefined;
 
   try {
+    if (useMockData.value) {
+      loadMockDetail();
+      return;
+    }
     const detail = await fetchWorkDetail(workId.value);
     work.value = detail.work;
     user.value = detail.user;
@@ -187,6 +191,8 @@ async function loadDetail() {
     work.value = undefined;
     user.value = undefined;
     uni.showToast({ title: "作品详情加载失败", icon: "none" });
+  } finally {
+    isDetailLoading.value = false;
   }
 }
 
@@ -716,6 +722,9 @@ function showToast(title: string) {
       </view>
     </template>
 
+    <view v-else-if="isDetailLoading" class="detail-loading-state">
+      <view class="detail-loading-spinner" />
+    </view>
     <view v-else class="empty-state">
       <view class="empty-icon"><LumiIcon name="images" :size="30" /></view>
       <view class="empty-title">作品不存在</view>
@@ -1407,6 +1416,26 @@ function showToast(title: string) {
   justify-content: center;
   height: 100%;
   color: var(--fg-muted);
+}
+
+.detail-loading-state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: detail-loading-spin 0.72s linear infinite;
+}
+
+@keyframes detail-loading-spin {
+  to { transform: rotate(360deg); }
 }
 
 .empty-icon {

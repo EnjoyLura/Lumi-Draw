@@ -7,7 +7,6 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
-import { hydrateImageRatios } from "../../services/imageDimensions";
 import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
@@ -178,8 +177,22 @@ const filteredWorks = computed(() => {
 });
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleCount.value));
-const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 0));
-const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
+const waterfallColumns = computed(() => {
+  const columns: [HomeWork[], HomeWork[]] = [[], []];
+  const heights = [0, 0];
+
+  displayedWorks.value.forEach((work) => {
+    const [width, height] = work.ratio.split(":").map(Number);
+    const estimatedHeight = width && height ? height / width + 0.34 : 1.34;
+    const columnIndex = heights[0] <= heights[1] ? 0 : 1;
+    columns[columnIndex].push(work);
+    heights[columnIndex] += estimatedHeight;
+  });
+
+  return columns;
+});
+const leftColumnWorks = computed(() => waterfallColumns.value[0]);
+const rightColumnWorks = computed(() => waterfallColumns.value[1]);
 const hasMore = computed(() => visibleCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.value);
 const selectedCount = computed(() => selectedIds.value.size);
@@ -417,10 +430,16 @@ async function loadGalleryPage(page = 1, append = false) {
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   waterfallEnterKey.value += 1;
-  void hydrateImageRatios(result.works).then((resolvedWorks) => {
-    const resolvedById = new Map(resolvedWorks.map((work) => [work.id, work]));
-    works.value = works.value.map((work) => resolvedById.get(work.id) || work);
-  });
+}
+
+function syncWorkImageRatio(workId: number, event: Event) {
+  const detail = (event as unknown as { detail?: { width?: number; height?: number } }).detail;
+  const width = Number(detail?.width);
+  const height = Number(detail?.height);
+  if (!width || !height) return;
+
+  const ratio = `${width}:${height}`;
+  works.value = works.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
 }
 
 async function reloadGalleryData() {
@@ -943,7 +962,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @load="syncWorkImageRatio(work.id, $event)" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -961,7 +980,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @load="syncWorkImageRatio(work.id, $event)" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">

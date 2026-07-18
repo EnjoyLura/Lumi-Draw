@@ -17,6 +17,7 @@ const emit = defineEmits<{
   openWork: [workId: number];
   openUser: [userId: number];
   toggleLike: [event: Event, workId: number];
+  imageLoad: [workId: number, event: Event];
 }>();
 </script>
 
@@ -24,7 +25,7 @@ const emit = defineEmits<{
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
       <view v-for="work in leftWorks" :key="work.id" class="work-card">
-        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" />
+        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
@@ -43,7 +44,7 @@ const emit = defineEmits<{
 
     <view class="waterfall-column">
       <view v-for="work in rightWorks" :key="work.id" class="work-card">
-        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" />
+        <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="emit('openWork', work.id)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">

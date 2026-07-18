@@ -8,7 +8,6 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
-import { hydrateImageRatios } from "../../services/imageDimensions";
 import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -335,13 +334,19 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   });
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
-    mergeUsers(result.users);
-    pageState.page = result.page;
-    pageState.hasMore = result.hasMore;
-  void hydrateImageRatios(result.works).then((resolvedWorks) => {
-    const resolvedById = new Map(resolvedWorks.map((work) => [work.id, work]));
-    workList.value = workList.value.map((work) => resolvedById.get(work.id) || work);
-  });
+  mergeUsers(result.users);
+  pageState.page = result.page;
+  pageState.hasMore = result.hasMore;
+}
+
+function syncWorkImageRatio(workId: number, event: Event) {
+  const detail = (event as unknown as { detail?: { width?: number; height?: number } }).detail;
+  const width = Number(detail?.width);
+  const height = Number(detail?.height);
+  if (!width || !height) return;
+
+  const ratio = `${width}:${height}`;
+  workList.value = workList.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
 }
 
 function syncInteractionIds(works: HomeWork[], append: boolean) {
@@ -798,6 +803,7 @@ function handleReachBottom() {
           :render-key="renderKey"
           :right-works="rightColumnWorks"
           :switching="isWaterfallSwitching"
+          @image-load="syncWorkImageRatio"
           @open-work="openWorkDetail"
           @open-user="goUserProfile"
           @toggle-like="toggleLike"
