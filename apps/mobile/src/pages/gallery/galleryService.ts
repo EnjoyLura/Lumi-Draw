@@ -91,9 +91,7 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
 function toHomeWork(item: BackendWork): HomeWork {
   return {
     id: item.id,
-    // `lumi-card` is a fixed square OSS transform. Using it here makes the
-    // native image load report 1:1 and destroys the waterfall's real ratio.
-    image: item.imageUrl,
+    image: item.thumbnailUrl || item.imageUrl,
     userId: 0,
     title: item.title,
     prompt: item.prompt || item.title,

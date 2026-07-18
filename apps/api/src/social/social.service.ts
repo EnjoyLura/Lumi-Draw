@@ -89,7 +89,7 @@ export class SocialService {
     return {
       ...toWorkCard(work),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
-      thumbnailUrl: this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-card")
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
     };
   }
 

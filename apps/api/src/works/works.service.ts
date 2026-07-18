@@ -99,7 +99,7 @@ export class WorksService {
     return {
       ...toCard(work),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
-      thumbnailUrl: this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-card")
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
     };
   }
 
@@ -345,10 +345,7 @@ export class WorksService {
     const items = rows.map((w) => ({
       id: w.id,
       imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
-      thumbnailUrl:
-        w.status === "published" && w.isPublic
-          ? this.uploads.readStyledPublicUrl(w.imageUrl, "lumi-card")
-          : this.uploads.readUrl(w.imageUrl, "private"),
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
       title: w.title,
       ratio: w.ratio,
       status: w.status,

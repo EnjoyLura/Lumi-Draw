@@ -6,6 +6,7 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
+const LIST_IMAGE_PROCESS = "image/resize,w_720/quality,q_85/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -106,6 +107,19 @@ export class UploadsService {
     return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=style/${encodeURIComponent(styleName)}`;
   }
 
+  readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
+    const oss = this.ossConfig();
+    if (!url) return url;
+    const host = this.objectHost(oss);
+    if (!url.startsWith(`${host}/`)) return url;
+    const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
+    if (!ossKey) return url;
+    if (visibility === "public" && oss.cdnBaseUrl) {
+      return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=${encodeURIComponent(LIST_IMAGE_PROCESS)}`;
+    }
+    return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry(), LIST_IMAGE_PROCESS);
+  }
+
   async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
     const downloaded = await this.downloadImage(sourceUrl);
     const policy = this.createPutPolicy(this.createSystemKey(scene, downloaded.contentType), downloaded.contentType);
@@ -185,12 +199,21 @@ export class UploadsService {
     return `${this.objectHost(this.ossConfig())}/${encodeKeyPath(ossKey)}`;
   }
 
-  private signedObjectUrl(method: "GET" | "PUT" | "HEAD" | "DELETE", ossKey: string, ttlSeconds: number, contentType = "", expiresAt?: number) {
+  private signedObjectUrl(
+    method: "GET" | "PUT" | "HEAD" | "DELETE",
+    ossKey: string,
+    ttlSeconds: number,
+    contentType = "",
+    expiresAt?: number,
+    imageProcess?: string,
+  ) {
     const oss = this.ossConfig();
     const expires = expiresAt ?? Math.floor(Date.now() / 1000) + ttlSeconds;
     const resource = `/${oss.bucket}/${ossKey}`;
-    const signature = createHmac("sha1", oss.accessKeySecret).update(`${method}\n\n${contentType}\n${expires}\n${resource}`).digest("base64");
-    const query = `OSSAccessKeyId=${encodeURIComponent(oss.accessKeyId)}&Expires=${expires}&Signature=${encodeURIComponent(signature)}`;
+    const canonicalResource = imageProcess ? `${resource}?x-oss-process=${imageProcess}` : resource;
+    const signature = createHmac("sha1", oss.accessKeySecret).update(`${method}\n\n${contentType}\n${expires}\n${canonicalResource}`).digest("base64");
+    const processQuery = imageProcess ? `x-oss-process=${encodeURIComponent(imageProcess)}&` : "";
+    const query = `${processQuery}OSSAccessKeyId=${encodeURIComponent(oss.accessKeyId)}&Expires=${expires}&Signature=${encodeURIComponent(signature)}`;
     return `${this.objectHost(oss)}/${encodeKeyPath(ossKey)}?${query}`;
   }
 
