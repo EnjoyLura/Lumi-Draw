@@ -167,6 +167,11 @@ export async function fetchGalleryGenerateTasks() {
     .map(toGalleryGenTask);
 }
 
+export async function fetchGalleryGenerateTask(id: string) {
+  const job = await api.get<BackendGenerateJob>(`/generate/jobs/${encodeURIComponent(id)}`);
+  return ["running", "queued", "finalizing"].includes(job.status) ? toGalleryGenTask(job) : undefined;
+}
+
 async function fetchTerminalGenerateJobsByStatuses(statuses: GalleryTerminalGenerateJob["status"][]) {
   const statusQuery = encodeURIComponent(statuses.join(","));
   const result = await api.get<PageResult<GalleryTerminalGenerateJob>>(`/generate/jobs?status=${statusQuery}&page=1&pageSize=20`);

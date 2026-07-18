@@ -6,6 +6,8 @@ interface BackendDraftWork {
   imageUrl: string;
   title: string;
   ratio: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 interface BackendWorkDetail {
@@ -44,14 +46,36 @@ function toDraftWork(item: BackendDraftWork): DraftWork {
     image: item.imageUrl,
     title: item.title || "未命名作品",
     ratio: item.ratio || "1:1",
-    resolution: ratioToResolution(item.ratio || "1:1"),
+    resolution: formatResolution(item.width, item.height, item.ratio),
     source: "backend"
   };
 }
 
+function formatResolution(width: number | null | undefined, height: number | null | undefined, ratio: string) {
+  if (Number.isInteger(width) && Number.isInteger(height) && width! > 0 && height! > 0) return `${width}x${height}`;
+  return ratioToResolution(ratio || "1:1");
+}
+
+function readImageResolution(src: string) {
+  return new Promise<{ width: number; height: number } | undefined>((resolve) => {
+    uni.getImageInfo({
+      src,
+      success: (info) => resolve(info.width > 0 && info.height > 0 ? { width: info.width, height: info.height } : undefined),
+      fail: () => resolve(undefined)
+    });
+  });
+}
+
 export async function fetchPublishDrafts() {
   const result = await api.get<PageResult<BackendDraftWork>>("/works/me/drafts?page=1&pageSize=50");
-  return result.items.map(toDraftWork);
+  return Promise.all(
+    result.items.map(async (item) => {
+      const draft = toDraftWork(item);
+      const actual = await readImageResolution(draft.image);
+      if (actual) draft.resolution = `${actual.width}x${actual.height}`;
+      return draft;
+    })
+  );
 }
 
 export async function publishWork(payload: PublishWorkPayload) {

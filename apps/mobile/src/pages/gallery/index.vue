@@ -26,6 +26,7 @@ import { fetchCreateConfig } from "../create/createService";
 import { galleryGenTasks, galleryUser, galleryWorks, type GalleryGenTask, type GalleryTab, type GalleryUser } from "./galleryData";
 import {
   deleteGalleryWorks,
+  fetchGalleryGenerateTask,
   fetchGalleryGenerateTasks,
   fetchGalleryTerminalGenerateJobs,
   fetchGalleryUser,
@@ -327,6 +328,12 @@ async function loadGenerateTasks(scheduleNext = false) {
   let loadedTasks = false;
   try {
     nextTasks = await fetchGalleryGenerateTasks();
+    const listedIds = new Set(nextTasks.map((task) => String(task.id)));
+    const missingActiveIds = [...previousIds].filter((id) => !listedIds.has(id));
+    if (missingActiveIds.length) {
+      const recovered = await Promise.all(missingActiveIds.map((id) => fetchGalleryGenerateTask(id).catch(() => undefined)));
+      nextTasks.push(...recovered.filter((task): task is GalleryGenTask => Boolean(task)));
+    }
     genTasks.value = nextTasks;
     loadedTasks = true;
   } catch {
@@ -1215,6 +1222,12 @@ function openWork(work: HomeWork) {
   background: var(--accent-soft);
   border: none;
   border-radius: 999px;
+}
+
+.select-all-btn::after,
+.draft-btn::after,
+.delete-btn::after {
+  border: none;
 }
 
 .profile-row {
