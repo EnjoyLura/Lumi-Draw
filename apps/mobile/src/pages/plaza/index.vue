@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
@@ -15,7 +15,6 @@ import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
-import WorkDetailPage from "../work-detail/index.vue";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -171,7 +170,6 @@ let lastMockMode: boolean | null = useMockData.value ? true : null;
 let lastLoadedAt = 0;
 let prefetchedPlazaPage: { key: string; page: number; request: Promise<PlazaWorkPage> } | undefined;
 const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
-const openedDetailWorkId = ref<number | null>(null);
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
 const waterfallColumns = computed(() => {
@@ -500,9 +498,8 @@ function goUserProfile(userId: number) {
 async function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getUser(work));
-  await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  openedDetailWorkId.value = work.id;
-  await nextTick();
+  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}`, animationType: animated ? "none" : "pop-in", animationDuration: animated ? 0 : 240 });
   detailTransition.value?.finish();
 }
 
@@ -873,7 +870,6 @@ function handleReachBottom() {
       </view>
     </scroll-view>
     <LumiWorkDetailTransition ref="detailTransition" />
-    <WorkDetailPage v-if="openedDetailWorkId" embedded :work-id="openedDetailWorkId" @close="openedDetailWorkId = null" />
 
     <view class="tab-bar">
       <view class="tab-item" @click="goHome">

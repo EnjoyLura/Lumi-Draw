@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
@@ -15,7 +15,6 @@ import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/pri
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
-import WorkDetailPage from "../work-detail/index.vue";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -152,7 +151,6 @@ let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 const detailTransition = ref<{ play: (options: { selector: string; image: string; ratio: string }) => Promise<boolean>; finish: () => void } | null>(null);
-const openedDetailWorkId = ref<number | null>(null);
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -830,9 +828,8 @@ async function openWork(work: HomeWork) {
   }
   primeWorkDetailPreview(work.id, work.image);
   primeWorkDetailSnapshot(work, getWorkAuthor(work));
-  await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
-  openedDetailWorkId.value = work.id;
-  await nextTick();
+  const animated = await detailTransition.value?.play({ selector: `#lumi-work-card-${work.id}`, image: work.image, ratio: work.ratio });
+  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}`, animationType: animated ? "none" : "pop-in", animationDuration: animated ? 0 : 240 });
   detailTransition.value?.finish();
 }
 
@@ -1046,7 +1043,6 @@ async function openWork(work: HomeWork) {
 
     </scroll-view>
     <LumiWorkDetailTransition ref="detailTransition" />
-    <WorkDetailPage v-if="openedDetailWorkId" embedded :work-id="openedDetailWorkId" @close="openedDetailWorkId = null" />
 
     <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
       <text class="selected-count">已选择 {{ selectedCount }} 项</text>
