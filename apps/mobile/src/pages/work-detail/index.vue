@@ -589,7 +589,31 @@ function handleDetailPreviewLoad() {
 <template>
   <view class="detail-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
     <LumiPageHeader title="作品详情" />
-    <view v-if="!isInitialContentReady" class="page-first-frame" />
+    <view v-if="!isInitialContentReady" class="page-first-frame" aria-label="作品详情加载中">
+      <view class="detail-first-image skeleton-shimmer" />
+      <view class="detail-first-body">
+        <view class="detail-first-author">
+          <view class="detail-first-avatar skeleton-shimmer" />
+          <view class="detail-first-author-copy">
+            <view class="detail-first-line name skeleton-shimmer" />
+            <view class="detail-first-line sub skeleton-shimmer" />
+          </view>
+          <view class="detail-first-follow skeleton-shimmer" />
+        </view>
+        <view class="detail-first-title skeleton-shimmer" />
+        <view class="detail-first-tags">
+          <view class="detail-first-tag skeleton-shimmer" />
+          <view class="detail-first-tag short skeleton-shimmer" />
+          <view class="detail-first-tag tiny skeleton-shimmer" />
+        </view>
+        <view class="detail-first-prompt skeleton-shimmer" />
+      </view>
+      <view class="detail-first-bottom">
+        <view class="detail-first-action skeleton-shimmer" />
+        <view class="detail-first-action skeleton-shimmer" />
+        <view class="detail-first-remake skeleton-shimmer" />
+      </view>
+    </view>
     <template v-else-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
         <view class="detail-image-frame" :style="detailImageStyle">
@@ -802,8 +826,86 @@ function handleDetailPreviewLoad() {
 }
 
 .page-first-frame {
+  position: relative;
   flex: 1;
-  background: var(--page-bg);
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(100deg, var(--bg-soft) 18%, var(--bg-card) 48%, var(--bg-soft) 78%);
+  background-size: 240% 100%;
+  animation: detail-skeleton-shimmer 1.15s ease-in-out infinite;
+}
+
+.detail-first-image {
+  width: 100%;
+  height: min(60vw, 460px);
+  min-height: 260px;
+}
+
+.detail-first-body {
+  padding: 16px;
+}
+
+.detail-first-author {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.detail-first-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.detail-first-author-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.detail-first-line,
+.detail-first-title,
+.detail-first-tag,
+.detail-first-prompt,
+.detail-first-follow,
+.detail-first-action,
+.detail-first-remake {
+  border-radius: 999px;
+}
+
+.detail-first-line.name { width: 84px; height: 14px; }
+.detail-first-line.sub { width: 132px; height: 10px; }
+.detail-first-follow { width: 64px; height: 30px; }
+.detail-first-title { width: 58%; height: 20px; margin-top: 20px; }
+.detail-first-tags { display: flex; gap: 6px; margin-top: 14px; }
+.detail-first-tag { width: 72px; height: 24px; }
+.detail-first-tag.short { width: 48px; }
+.detail-first-tag.tiny { width: 56px; }
+.detail-first-prompt { width: 100%; height: 78px; margin-top: 18px; border-radius: 10px; }
+
+.detail-first-bottom {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  height: 72px;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  background: var(--bg-base);
+}
+
+.detail-first-action { width: 44px; height: 36px; }
+.detail-first-remake { flex: 1; height: 44px; }
+
+@keyframes detail-skeleton-shimmer {
+  to { background-position: -140% 0; }
 }
 
 .detail-scroll {
