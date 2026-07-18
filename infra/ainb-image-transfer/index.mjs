@@ -10,9 +10,9 @@ function response(statusCode, body) {
 
 function parseEvent(event) {
   const value = typeof event === "string" ? JSON.parse(event) : event;
-  let body = value?.body || "";
-  if (value?.isBase64Encoded) body = Buffer.from(body, "base64").toString("utf8");
-  return { method: String(value?.requestContext?.http?.method || value?.httpMethod || value?.method || "").toUpperCase(), body: JSON.parse(body || "{}") };
+  let body = value?.body ?? value;
+  if (value?.isBase64Encoded && typeof body === "string") body = Buffer.from(body, "base64").toString("utf8");
+  return { body: typeof body === "string" ? JSON.parse(body || "{}") : body || {} };
 }
 
 function limitStream() {
