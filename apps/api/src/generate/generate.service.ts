@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
 import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
+import { AinbClient } from "./ainb.client";
 import { KieClient } from "./kie.client";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
@@ -62,6 +63,7 @@ export class GenerateService implements OnApplicationBootstrap {
     private readonly credits: CreditsService,
     private readonly kie: KieClient,
     private readonly change2pro: Change2ProClient,
+    private readonly ainb: AinbClient,
     private readonly config: ConfigService,
     private readonly uploads: UploadsService
   ) {}
@@ -73,6 +75,23 @@ export class GenerateService implements OnApplicationBootstrap {
     });
     for (const job of interrupted) {
       await this.failAndRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
+    }
+    await this.resumeAinbJobsAfterRestart();
+  }
+
+  private async resumeAinbJobsAfterRestart() {
+    const jobs = await this.prisma.generateJob.findMany({
+      where: { provider: "ainb", status: { in: ["queued", "running", "finalizing"] } },
+      include: { results: true }
+    });
+    for (const job of jobs) {
+      if (!job.kieTaskId || job.status === "finalizing") {
+        await this.failAndRefund(job.id, "generation service restarted before task could resume").catch(() => undefined);
+        continue;
+      }
+      void this.completeAinbJob(job).catch(async (error) => {
+        await this.failProviderJobIfActive(job.id, error instanceof Error ? error.message : "Ainb generation failed");
+      });
     }
   }
 
@@ -91,8 +110,9 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
 
-    const useChange2Pro = this.change2pro.isConfiguredFor(model.id);
-    if (useChange2Pro && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
+    const useAinb = this.ainb.isConfiguredFor(model.id, normalized.mode);
+    const useChange2Pro = !useAinb && this.change2pro.isConfiguredFor(model.id);
+    if ((useAinb || useChange2Pro) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.create({
@@ -100,8 +120,8 @@ export class GenerateService implements OnApplicationBootstrap {
           userId,
           mode: normalized.mode,
           modelId: model.id,
-          provider: useChange2Pro ? "change2pro" : model.provider,
-          providerModel: useChange2Pro ? this.change2pro.providerModel(model.id) || model.providerModel : model.providerModel,
+          provider: useAinb ? "ainb" : useChange2Pro ? "change2pro" : model.provider,
+          providerModel: useAinb ? "gpt-image-2" : useChange2Pro ? this.change2pro.providerModel(model.id) || model.providerModel : model.providerModel,
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
           gameplayId: normalized.gameplayId,
@@ -317,7 +337,7 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async syncProviderJob(job: JobWithResults) {
-    if (TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured()) return job;
+    if (job.provider !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured()) return job;
 
     try {
       const detail = await this.kie.getTaskDetail(job.kieTaskId);
@@ -426,6 +446,39 @@ export class GenerateService implements OnApplicationBootstrap {
     }
 
     const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
+    if (this.ainb.isConfiguredFor(model.id, job.mode)) {
+      try {
+        const submitted = await this.ainb.submit({
+          mode: job.mode,
+          prompt: job.prompt,
+          inputImageUrl: job.inputImageUrl,
+          ratio: job.ratio,
+          quality: job.quality,
+          count: job.count
+        });
+        const updated = await this.prisma.generateJob.update({
+          where: { id: job.id },
+          data: {
+            provider: "ainb",
+            providerModel: "gpt-image-2",
+            kieTaskId: submitted.taskId,
+            status: "running",
+            progress: 8,
+            stageText: "任务已提交，正在生成",
+            startedAt: new Date()
+          },
+          include: { results: true }
+        });
+        void this.completeAinbJob(updated).catch(async (error) => {
+          await this.failProviderJobIfActive(updated.id, error instanceof Error ? error.message : "Ainb generation failed");
+        });
+        return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
+      } catch (error) {
+        const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "Ainb submit failed");
+        return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
+      }
+    }
+
     if (this.change2pro.isConfiguredFor(model.id)) {
       const updated = await this.prisma.generateJob.update({
         where: { id: job.id },
@@ -440,7 +493,7 @@ export class GenerateService implements OnApplicationBootstrap {
         include: { results: true }
       });
       void this.completeChange2ProJob(updated, model.id).catch(async (error) => {
-        await this.failChange2ProJobIfActive(updated.id, error instanceof Error ? error.message : "Change2Pro generation failed");
+        await this.failProviderJobIfActive(updated.id, error instanceof Error ? error.message : "Change2Pro generation failed");
       });
       return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
     }
@@ -495,6 +548,23 @@ export class GenerateService implements OnApplicationBootstrap {
     return this.finishJobWithDrafts(current, results, "生成完成");
   }
 
+  private async completeAinbJob(job: JobWithResults) {
+    if (!job.kieTaskId) throw new Error("Ainb task id is missing");
+    const startedAt = job.startedAt?.getTime() ?? Date.now();
+    const outputs = await this.ainb.waitForOutputs(job.kieTaskId, async (providerElapsedMs) => {
+      const elapsedMs = Math.max(providerElapsedMs, Date.now() - startedAt);
+      const progress = Math.min(90, 8 + Math.floor(elapsedMs / 10_000) * 3);
+      await this.prisma.generateJob.updateMany({
+        where: { id: job.id, status: "running" },
+        data: { progress, stageText: "AI 正在生成中" }
+      });
+    });
+    const results = await this.storeChange2ProOutputs(outputs);
+    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+    if (TERMINAL_STATUSES.has(current.status)) return current;
+    return this.finishJobWithDrafts(current, results, "生成完成");
+  }
+
   private async storeChange2ProOutputs(outputs: Change2ProOutput[]) {
     const results: GeneratedImage[] = [];
     for (const output of outputs) {
@@ -508,7 +578,7 @@ export class GenerateService implements OnApplicationBootstrap {
     return results;
   }
 
-  private async failChange2ProJobIfActive(jobId: string, message: string) {
+  private async failProviderJobIfActive(jobId: string, message: string) {
     try {
       const job = await this.prisma.generateJob.findUnique({ where: { id: jobId }, select: { status: true } });
       if (job && !TERMINAL_STATUSES.has(job.status)) await this.failAndRefund(jobId, message);

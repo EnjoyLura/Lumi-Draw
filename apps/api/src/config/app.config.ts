@@ -62,6 +62,10 @@ export const appConfig = registerAs("app", () => ({
     imageApiKey: process.env.CHANGE2PRO_IMAGE_API_KEY ?? "",
     bananaApiKey: process.env.CHANGE2PRO_BANANA_API_KEY ?? ""
   },
+  ainb: {
+    apiBase: process.env.AINB_API_BASE ?? "https://ainb.plus",
+    imageApiKey: process.env.AINB_IMAGE_API_KEY ?? ""
+  },
   generate: {
     allowMock: process.env.GENERATE_ALLOW_MOCK === "true"
   },
