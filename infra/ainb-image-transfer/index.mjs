@@ -12,7 +12,7 @@ function parseEvent(event) {
   const value = typeof event === "string" ? JSON.parse(event) : event;
   let body = value?.body || "";
   if (value?.isBase64Encoded) body = Buffer.from(body, "base64").toString("utf8");
-  return { method: String(value?.requestContext?.http?.method || value?.method || "").toUpperCase(), body: JSON.parse(body || "{}") };
+  return { method: String(value?.requestContext?.http?.method || value?.httpMethod || value?.method || "").toUpperCase(), body: JSON.parse(body || "{}") };
 }
 
 function limitStream() {
