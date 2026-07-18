@@ -12,7 +12,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
-import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
+import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -460,6 +460,7 @@ function goUserProfile(userId: number) {
 
 function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
+  primeWorkDetailSnapshot(work, getUser(work));
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
@@ -729,7 +730,7 @@ function handleReachBottom() {
 
 <template>
   <view class="plaza-page" :class="themeClass">
-    <scroll-view class="plaza-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
+    <scroll-view class="plaza-scroll" scroll-y :lower-threshold="320" @scrolltolower="handleReachBottom">
       <view class="plaza-content">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />

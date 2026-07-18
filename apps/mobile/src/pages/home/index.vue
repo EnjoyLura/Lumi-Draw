@@ -28,7 +28,7 @@ import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
+import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -484,6 +484,7 @@ function handleBannerTap(action: string, title: string) {
 
 function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
+  primeWorkDetailSnapshot(work, getUser(work.userId));
   uni.navigateTo({
     url: `/pages/work-detail/index?id=${work.id}`
   });
@@ -685,7 +686,7 @@ function getRatioClass(ratio: string) {
     <scroll-view
       class="content-area"
       scroll-y
-      :lower-threshold="80"
+      :lower-threshold="320"
       @scrolltolower="handleReachBottom"
     >
       <view class="nav-header">

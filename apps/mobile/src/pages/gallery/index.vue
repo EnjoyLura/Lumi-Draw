@@ -12,7 +12,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
-import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
+import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -806,6 +806,7 @@ function openWork(work: HomeWork) {
     return;
   }
   primeWorkDetailPreview(work.id, work.image);
+  primeWorkDetailSnapshot(work, getWorkAuthor(work));
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
@@ -813,7 +814,7 @@ function openWork(work: HomeWork) {
 
 <template>
   <view class="gallery-page" :class="themeClass">
-    <scroll-view class="gallery-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
+    <scroll-view class="gallery-scroll" scroll-y :lower-threshold="320" @scrolltolower="handleReachBottom">
       <view class="header-bg">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />

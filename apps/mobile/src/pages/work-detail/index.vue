@@ -22,7 +22,7 @@ import { imageSaveFailureMessage, saveImageToDevice } from "../../services/image
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
-import { getWorkDetailPreview } from "../../services/workDetailPreviewCache";
+import { getWorkDetailPreview, getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
@@ -156,6 +156,28 @@ function loadMockDetail() {
   user.value = item ? getWorkUser(item) : undefined;
 }
 
+function hydrateDetailSnapshot() {
+  const snapshot = getWorkDetailSnapshot(workId.value);
+  if (!snapshot) return false;
+  const item = snapshot.work;
+  work.value = {
+    ...item,
+    previewImage: item.image,
+    description: "",
+    modelId: "",
+    modelName: item.modelName || "AI 绘画",
+    quality: "",
+    styleName: "",
+    tags: [],
+    editTags: [],
+    favorites: 0,
+    remakes: 0,
+    time: ""
+  };
+  user.value = snapshot.user;
+  return true;
+}
+
 function resetTransientState() {
   cancelLongPress();
   confirmFollowOpen.value = false;
@@ -173,8 +195,11 @@ async function loadDetail() {
   isDetailLoading.value = true;
   listPreviewImage.value = getWorkDetailPreview(workId.value);
   isDetailPreviewReady.value = false;
-  work.value = undefined;
-  user.value = undefined;
+  const hasVisibleDetail = work.value?.id === workId.value && Boolean(user.value);
+  if (!hasVisibleDetail && !hydrateDetailSnapshot()) {
+    work.value = undefined;
+    user.value = undefined;
+  }
 
   try {
     if (useMockData.value) {
@@ -193,8 +218,10 @@ async function loadDetail() {
       following.value = stateResult.value.following;
     }
   } catch {
-    work.value = undefined;
-    user.value = undefined;
+    if (!work.value || !user.value) {
+      work.value = undefined;
+      user.value = undefined;
+    }
     uni.showToast({ title: "作品详情加载失败", icon: "none" });
   } finally {
     isDetailLoading.value = false;

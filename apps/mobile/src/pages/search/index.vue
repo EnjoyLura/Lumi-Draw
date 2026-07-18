@@ -9,7 +9,7 @@ import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searc
 import { fetchHotSearches, searchWorks } from "./searchService";
 import { useTheme } from "../../services/theme";
 import { galleryUser, galleryWorks } from "../gallery/galleryData";
-import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
+import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 
@@ -182,6 +182,7 @@ function clearSearchHistory() {
 
 function openWorkDetail(work: HomeWork) {
   primeWorkDetailPreview(work.id, work.image);
+  primeWorkDetailSnapshot(work, getUser(work));
   uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
 }
 
@@ -198,7 +199,7 @@ function handleReachBottom() {
 <template>
   <view class="search-page" :class="themeClass">
     <LumiPageHeader :title="searchTitle" />
-    <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="handleReachBottom">
+    <scroll-view class="page-scroll" scroll-y :lower-threshold="320" @scrolltolower="handleReachBottom">
       <view class="search-wrap">
         <view class="search-row">
           <view class="input-wrap">
