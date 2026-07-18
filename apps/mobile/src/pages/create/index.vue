@@ -264,7 +264,7 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
-  if (activeBackendJobId && isGenerating.value) {
+  if (activeBackendJobId && (isGenerating.value || isSavingOriginal.value)) {
     void pollBackendJob(activeBackendJobId);
   } else {
     void restoreActiveBackendJob();
