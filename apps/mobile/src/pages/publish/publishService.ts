@@ -56,26 +56,9 @@ function formatResolution(width: number | null | undefined, height: number | nul
   return ratioToResolution(ratio || "1:1");
 }
 
-function readImageResolution(src: string) {
-  return new Promise<{ width: number; height: number } | undefined>((resolve) => {
-    uni.getImageInfo({
-      src,
-      success: (info) => resolve(info.width > 0 && info.height > 0 ? { width: info.width, height: info.height } : undefined),
-      fail: () => resolve(undefined)
-    });
-  });
-}
-
 export async function fetchPublishDrafts() {
   const result = await api.get<PageResult<BackendDraftWork>>("/works/me/drafts?page=1&pageSize=50");
-  return Promise.all(
-    result.items.map(async (item) => {
-      const draft = toDraftWork(item);
-      const actual = await readImageResolution(draft.image);
-      if (actual) draft.resolution = `${actual.width}x${actual.height}`;
-      return draft;
-    })
-  );
+  return result.items.map(toDraftWork);
 }
 
 export async function publishWork(payload: PublishWorkPayload) {

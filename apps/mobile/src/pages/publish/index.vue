@@ -124,6 +124,7 @@ function clearPublishForm() {
 }
 
 async function loadDrafts() {
+  if (isLoadingDrafts.value) return;
   if (useMockData.value) {
     backendDrafts.value = [];
     loginRequired.value = false;
@@ -193,7 +194,7 @@ async function login() {
 
 function openPicker() {
   pickerOpen.value = true;
-  void loadDrafts();
+  if (!useMockData.value && !backendDrafts.value.length) void loadDrafts();
 }
 
 function closePicker() {
@@ -205,6 +206,19 @@ function selectDraft(draft: DraftWork) {
   if (!title.value) title.value = draft.title;
   if (!desc.value && draft.prompt) desc.value = draft.prompt.slice(0, 200);
   closePicker();
+}
+
+function syncDraftResolution(draftId: number, event: Event) {
+  const detail = (event as unknown as { detail?: { width?: number; height?: number } }).detail;
+  const width = Number(detail?.width);
+  const height = Number(detail?.height);
+  if (!width || !height) return;
+
+  const resolution = `${width}x${height}`;
+  backendDrafts.value = backendDrafts.value.map((draft) => (draft.id === draftId && draft.resolution !== resolution ? { ...draft, resolution } : draft));
+  if (selectedDraft.value?.id === draftId && selectedDraft.value.resolution !== resolution) {
+    selectedDraft.value = { ...selectedDraft.value, resolution };
+  }
 }
 
 function applyPendingDraft() {
@@ -309,7 +323,7 @@ async function submit() {
               </view>
             </template>
             <template v-else>
-              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" @click.stop="previewDraftImage" />
+              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" @click.stop="previewDraftImage" @load="syncDraftResolution(selectedDraft.id, $event)" />
               <view class="draft-selected-text">
                 <view class="draft-selected-title">{{ selectedDraft.title }}</view>
                 <view class="draft-selected-sub">{{ selectedDraft.resolution }}</view>
@@ -371,7 +385,7 @@ async function submit() {
         <view class="picker-title">选择草稿作品</view>
       </view>
       <scroll-view class="picker-scroll" scroll-y>
-        <view v-if="isLoadingDrafts" class="picker-state">草稿加载中...</view>
+        <view v-if="isLoadingDrafts && !draftOptions.length" class="picker-state">草稿加载中...</view>
         <view v-else-if="!draftOptions.length" class="picker-state">暂无可发布草稿</view>
         <view v-else class="picker-grid">
           <view
@@ -381,7 +395,7 @@ async function submit() {
             :class="{ active: selectedDraft && selectedDraft.id === draft.id }"
             @click="selectDraft(draft)"
           >
-            <image class="picker-thumb" :src="draft.image" mode="aspectFill" />
+            <image class="picker-thumb" :src="draft.image" mode="aspectFill" @load="syncDraftResolution(draft.id, $event)" />
             <view class="picker-info">
               <view class="picker-name">{{ draft.title }}</view>
               <view class="picker-res">{{ draft.resolution }}</view>
