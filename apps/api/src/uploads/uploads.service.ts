@@ -97,6 +97,15 @@ export class UploadsService {
     return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry());
   }
 
+  readStyledPublicUrl(url: string, styleName: string) {
+    const oss = this.ossConfig();
+    const host = this.objectHost(oss);
+    if (!url || !styleName || !oss.cdnBaseUrl || !url.startsWith(`${host}/`)) return this.readUrl(url, "public");
+    const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
+    if (!ossKey) return this.readUrl(url, "public");
+    return `${oss.cdnBaseUrl}/${encodeKeyPath(ossKey)}?x-oss-process=style/${encodeURIComponent(styleName)}`;
+  }
+
   async transferRemoteImage(scene: string, sourceUrl: string): Promise<TransferRemoteImageResult> {
     const downloaded = await this.downloadImage(sourceUrl);
     const policy = this.createPutPolicy(this.createSystemKey(scene, downloaded.contentType), downloaded.contentType);

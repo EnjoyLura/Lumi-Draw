@@ -6,6 +6,7 @@ import type { DetailWork } from "./workDetailData";
 interface BackendWorkDetail {
   id: number;
   imageUrl: string;
+  previewUrl?: string;
   title: string;
   description?: string | null;
   prompt: string;
@@ -58,6 +59,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
     work: {
       id: item.id,
       image: item.imageUrl,
+      previewImage: item.previewUrl || item.imageUrl,
       userId: item.author.id,
       title,
       prompt: item.prompt,

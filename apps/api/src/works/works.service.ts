@@ -96,7 +96,11 @@ export class WorksService {
   ) {}
 
   private toCard(work: WorkWithAuthor) {
-    return { ...toCard(work), imageUrl: this.uploads.readUrl(work.imageUrl, "public") };
+    return {
+      ...toCard(work),
+      imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-card")
+    };
   }
 
   private async listCards(
@@ -160,9 +164,11 @@ export class WorksService {
     const model = work.modelId
       ? await this.prisma.modelConfig.findUnique({ where: { id: work.modelId } })
       : null;
+    const visibility = work.status === "published" && work.isPublic ? "public" : "private";
     return {
       id: work.id,
-      imageUrl: this.uploads.readUrl(work.imageUrl, work.status === "published" && work.isPublic ? "public" : "private"),
+      imageUrl: this.uploads.readUrl(work.imageUrl, visibility),
+      previewUrl: visibility === "public" ? this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-preview") : this.uploads.readUrl(work.imageUrl, visibility),
       title: work.title,
       description: work.description,
       prompt: work.prompt,
@@ -326,6 +332,10 @@ export class WorksService {
     const items = rows.map((w) => ({
       id: w.id,
       imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
+      thumbnailUrl:
+        w.status === "published" && w.isPublic
+          ? this.uploads.readStyledPublicUrl(w.imageUrl, "lumi-card")
+          : this.uploads.readUrl(w.imageUrl, "private"),
       title: w.title,
       ratio: w.ratio,
       status: w.status,

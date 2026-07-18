@@ -36,6 +36,7 @@ export interface BackendUserProfile extends BackendAuthor {
 export interface BackendWorkCard {
   id: number;
   imageUrl: string;
+  thumbnailUrl?: string;
   title: string;
   prompt: string;
   ratio: string;
@@ -103,7 +104,7 @@ export function toHomeUser(author: BackendAuthor): HomeUser {
 export function toHomeWork(item: BackendWorkCard): HomeWork {
   return {
     id: item.id,
-    image: item.imageUrl,
+    image: item.thumbnailUrl || item.imageUrl,
     userId: item.author.id,
     title: item.title,
     prompt: item.prompt,

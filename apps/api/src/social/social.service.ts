@@ -86,7 +86,11 @@ export class SocialService {
   ) {}
 
   private toWorkCard(work: WorkWithAuthor) {
-    return { ...toWorkCard(work), imageUrl: this.uploads.readUrl(work.imageUrl, "public") };
+    return {
+      ...toWorkCard(work),
+      imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readStyledPublicUrl(work.imageUrl, "lumi-card")
+    };
   }
 
   private async publicWork(id: number) {

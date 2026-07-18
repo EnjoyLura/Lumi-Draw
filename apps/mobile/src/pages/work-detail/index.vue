@@ -535,7 +535,7 @@ function showToast(title: string) {
       <scroll-view class="detail-scroll" scroll-y>
         <image
           class="detail-image"
-          :src="work.image"
+          :src="work.previewImage || work.image"
           mode="aspectFill"
           :style="detailImageStyle"
           @click="previewWorkImage"

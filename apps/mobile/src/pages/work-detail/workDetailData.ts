@@ -3,6 +3,7 @@ import { galleryWorks } from "../gallery/galleryData";
 import { createModels } from "../create/createData";
 
 export interface DetailWork extends HomeWork {
+  previewImage?: string;
   description: string;
   modelId?: string;
   modelName: string;

@@ -22,6 +22,7 @@ interface BackendUser {
 interface BackendWork {
   id: number;
   imageUrl: string;
+  thumbnailUrl?: string;
   title: string;
   prompt?: string;
   ratio: string;
@@ -90,7 +91,7 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
 function toHomeWork(item: BackendWork): HomeWork {
   return {
     id: item.id,
-    image: item.imageUrl,
+    image: item.thumbnailUrl || item.imageUrl,
     userId: 0,
     title: item.title,
     prompt: item.prompt || item.title,
