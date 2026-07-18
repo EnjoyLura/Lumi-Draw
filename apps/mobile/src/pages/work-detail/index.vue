@@ -18,7 +18,7 @@ import { getWorkById, getWorkUser, type DetailWork } from "./workDetailData";
 import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "./workDetailService";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
-import { saveImageToDevice } from "../../services/imageSave";
+import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
@@ -395,8 +395,8 @@ async function saveWorkImage() {
   try {
     await saveImageToDevice(work.value.image, `lumi-work-${work.value.id}.jpg`);
     uni.showToast({ title: "已保存到相册", icon: "none" });
-  } catch {
-    uni.showToast({ title: "保存失败，请检查相册权限", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: imageSaveFailureMessage(error), icon: "none" });
   }
 }
 

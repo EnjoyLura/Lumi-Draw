@@ -10,6 +10,9 @@
     "darkmode": true,
     "themeLocation": "theme.json",
     "lazyCodeLoading": "requiredComponents",
+    "requiredPrivateInfos": [
+      "saveImageToPhotosAlbum"
+    ],
     "setting": {
       "urlCheck": true,
       "minified": true

@@ -24,7 +24,7 @@ import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { goRootTab } from "../../services/tabNavigation";
-import { saveImageToDevice } from "../../services/imageSave";
+import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
 
 const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
@@ -904,8 +904,8 @@ async function savePreview() {
     await saveImageToDevice(previewData.value.src, `lumi-generation-${Date.now()}.jpg`);
     showToast("已保存到手机相册");
     closePreview();
-  } catch {
-    showToast("保存失败，请检查相册权限");
+  } catch (error) {
+    showToast(imageSaveFailureMessage(error));
   } finally {
     isSavingDrafts.value = false;
   }
