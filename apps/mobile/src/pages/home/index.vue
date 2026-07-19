@@ -196,7 +196,7 @@ function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
     detailOverlayContentTimer = setTimeout(() => {
       detailOverlayContentVisible.value = true;
       detailOverlayContentTimer = undefined;
-    }, 30);
+    }, 10);
   });
 }
 
@@ -1007,7 +1007,7 @@ function getRatioClass(ratio: string) {
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
-  <view v-if="detailOverlayWorkId" class="work-detail-overlay" :class="{ open: detailOverlayOpen }" @touchmove.stop.prevent>
+  <view v-if="detailOverlayWorkId" class="work-detail-overlay" :class="{ open: detailOverlayOpen, closing: !detailOverlayOpen }" @touchmove.stop.prevent>
     <view class="work-detail-overlay-backdrop" />
     <view class="work-detail-overlay-surface" :class="{ 'from-source': detailOverlaySharedActive }" :style="detailOverlaySurfaceStyle">
       <WorkDetailPage
@@ -1616,6 +1616,11 @@ function getRatioClass(ratio: string) {
 .work-detail-overlay.open .work-detail-overlay-surface.from-source {
   border-radius: 0;
   transform: translate(0, 0) scale(1, 1);
+}
+
+.work-detail-overlay.closing .work-detail-overlay-surface,
+.work-detail-overlay.closing .work-detail-overlay-surface :deep(.detail-page) {
+  background: transparent;
 }
 
 .work-title {
