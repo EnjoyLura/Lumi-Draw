@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, reactive, ref } from "vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
+import { computed, getCurrentInstance, reactive, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { galleryUser, galleryWorks, type GalleryUser } from "../gallery/galleryData";
 import { fetchGalleryUser, fetchGalleryWorks } from "../gallery/galleryService";
-import type { HomeWork } from "../home/homeData";
+import type { HomeUser, HomeWork } from "../home/homeData";
 import { useTheme } from "../../services/theme";
+import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 
 const { themeClass } = useTheme();
+const pageInstance = getCurrentInstance();
 
 const PAGE_SIZE = 12;
 
@@ -44,6 +48,21 @@ const drafts = computed(() => (useMockData.value ? galleryWorks.filter((work) =>
 const leftColumn = computed(() => drafts.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => drafts.value.filter((_, index) => index % 2 === 1));
 const hasMore = computed(() => !useMockData.value && pageState.hasMore);
+const detailAuthor = computed<HomeUser>(() => ({
+  id: profile.value.id,
+  name: profile.value.name,
+  avatar: profile.value.avatar,
+  color: profile.value.color,
+  worksCount: profile.value.worksCount ?? profile.value.works,
+  likesCount: profile.value.likesCount ?? 0,
+  followers: profile.value.followersCount ?? (Number(profile.value.followers) || 0)
+}));
+
+watch(
+  [drafts, detailAuthor],
+  ([works, author]) => preloadWorkDetailSnapshots(works.map((work) => ({ work, user: author }))),
+  { immediate: true }
+);
 
 onShow(() => {
   if (lastMode !== useMockData.value) {
@@ -71,7 +90,7 @@ function getAspectRatio(ratio: string) {
 }
 
 function openWork(work: HomeWork) {
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  void openPreloadedWorkDetail(work, detailAuthor.value, `lumi-draft-work-media-${work.id}`, pageInstance?.proxy);
 }
 
 function goCreate() {
@@ -158,7 +177,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
@@ -172,7 +191,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
@@ -199,6 +218,7 @@ async function login() {
     </scroll-view>
     </LumiDeferredPageContent>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
+    <LumiWorkDetailOverlay owner-route="pages/drafts/index" />
   </view>
 </template>
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
@@ -46,8 +47,10 @@ import {
 } from "../../services/waterfallTransition";
 
 const PAGE_SIZE = 10;
+const pageInstance = getCurrentInstance();
 const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine" }>(), { pageMode: "gallery" });
 const isMineMode = computed(() => props.pageMode === "mine");
+const detailOverlayOwnerRoute = computed(() => (isMineMode.value ? "pages/mine/index" : "pages/gallery/index"));
 const workspaceTabs = computed(() =>
   isMineMode.value
     ? ([{ key: "all", label: "我的作品" }, { key: "favorite", label: "我的收藏" }] as const)
@@ -835,7 +838,7 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
-  void openPreloadedWorkDetail(work, getWorkAuthor(work), `lumi-gallery-work-media-${work.id}`);
+  void openPreloadedWorkDetail(work, getWorkAuthor(work), `lumi-gallery-work-media-${work.id}`, pageInstance?.proxy);
 }
 
 </script>
@@ -1111,6 +1114,7 @@ function openWork(work: HomeWork) {
       @navigate="navigateSide"
     />
     <LumiLoginSheet v-if="loginSheetMounted" :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
+    <LumiWorkDetailOverlay :owner-route="detailOverlayOwnerRoute" />
   </view>
 </template>
 

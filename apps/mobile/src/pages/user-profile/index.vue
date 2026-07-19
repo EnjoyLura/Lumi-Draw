@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
+import { computed, getCurrentInstance, onMounted, onUnmounted, ref, watch } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -16,11 +17,14 @@ import {
   type BackendWorkCard,
   type BackendUserProfile
 } from "../../services/social";
-import type { HomeWork } from "../home/homeData";
+import type { HomeUser, HomeWork } from "../home/homeData";
 import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userProfileData";
 import { useTheme } from "../../services/theme";
+import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 
 const { themeClass } = useTheme();
+const pageInstance = getCurrentInstance();
 
 const PAGE_SIZE = 20;
 const userId = ref(1);
@@ -77,6 +81,19 @@ const allWorks = computed(() => (useMockData.value ? getUserWorks(userId.value) 
 const leftColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 0));
 const rightColumn = computed(() => allWorks.value.filter((_, index) => index % 2 === 1));
 const hasGenderIcon = computed(() => user.value.gender === "female" || user.value.gender === "male");
+const detailAuthor = computed<HomeUser>(() => ({
+  id: user.value.id,
+  name: user.value.name,
+  avatar: user.value.avatar,
+  color: user.value.color,
+  worksCount: user.value.works
+}));
+
+watch(
+  allWorks,
+  (works) => preloadWorkDetailSnapshots(works.map((work) => ({ work, user: detailAuthor.value }))),
+  { immediate: true }
+);
 onLoad((query) => {
   userId.value = resolveRouteId(query);
   lastMode = null;
@@ -221,7 +238,12 @@ function displayLikeCount(work: HomeWork) {
 }
 
 function openWork(work: HomeWork) {
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  void openPreloadedWorkDetail(
+    { ...work, liked: likedWorkIds.value.has(work.id) },
+    detailAuthor.value,
+    `lumi-profile-work-media-${work.id}`,
+    pageInstance?.proxy
+  );
 }
 
 function openLoginSheet() {
@@ -369,7 +391,7 @@ async function confirmUnfollow() {
         <view v-if="allWorks.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image :id="`lumi-profile-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -385,7 +407,7 @@ async function confirmUnfollow() {
           </view>
           <view class="waterfall-column">
             <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <image :id="`lumi-profile-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -421,6 +443,7 @@ async function confirmUnfollow() {
       </view>
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
+    <LumiWorkDetailOverlay owner-route="pages/user-profile/index" />
   </view>
 </template>
 

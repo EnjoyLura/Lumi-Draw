@@ -20,7 +20,7 @@ export interface WorkDetailSourceRect {
  * The primary shell listens for this event and renders the established detail
  * page as an in-place layer, avoiding mp-weixin's native page transition.
  */
-export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, sourceId?: string) {
+export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, sourceId?: string, sourceContext?: object | null) {
   primeWorkDetailPreview(work.id, work.image);
   const cached = getWorkDetailSnapshot(work.id);
   const seedWork = cached
@@ -36,13 +36,15 @@ export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, so
     : work;
   const seedUser = cached ? { ...cached.user, ...user } : user;
   primeWorkDetailSnapshot(seedWork, seedUser);
-  const sourceRect = sourceId ? await getSourceRect(sourceId) : null;
+  const sourceRect = sourceId ? await getSourceRect(sourceId, sourceContext) : null;
   uni.$emit(WORK_DETAIL_OVERLAY_OPEN_EVENT, { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload);
 }
 
-function getSourceRect(sourceId: string) {
+function getSourceRect(sourceId: string, sourceContext?: object | null) {
   return new Promise<WorkDetailSourceRect | null>((resolve) => {
-    uni.createSelectorQuery()
+    const query = uni.createSelectorQuery();
+    const scopedQuery = sourceContext ? query.in(sourceContext as never) : query;
+    scopedQuery
       .select(`#${sourceId}`)
       .boundingClientRect((result) => {
         const rect = Array.isArray(result) ? result[0] : result;

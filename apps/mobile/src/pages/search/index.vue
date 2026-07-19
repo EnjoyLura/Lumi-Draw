@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, reactive, ref } from "vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
+import { computed, getCurrentInstance, reactive, ref, watch } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -9,9 +10,11 @@ import { hotSearches, initialSearchHistory, searchKeywordAliases } from "./searc
 import { fetchHotSearches, searchWorks } from "./searchService";
 import { useTheme } from "../../services/theme";
 import { galleryUser, galleryWorks } from "../gallery/galleryData";
-import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 
 const { themeClass } = useTheme();
+const pageInstance = getCurrentInstance();
 
 const PAGE_SIZE = 12;
 const SEARCH_HISTORY_KEY = "lumi-search-history";
@@ -51,6 +54,12 @@ const results = computed(() => {
 const leftColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 0));
 const rightColumnWorks = computed(() => results.value.filter((_, index) => index % 2 === 1));
 const hasMore = computed(() => !useMockData.value && pageState.hasMore);
+
+watch(
+  results,
+  (works) => preloadWorkDetailSnapshots(works.map((work) => ({ work, user: getUser(work) }))),
+  { immediate: true }
+);
 
 onLoad((query) => {
   const scope = query?.scope;
@@ -181,9 +190,7 @@ function clearSearchHistory() {
 }
 
 function openWorkDetail(work: HomeWork) {
-  primeWorkDetailPreview(work.id, work.image);
-  primeWorkDetailSnapshot(work, getUser(work));
-  uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  void openPreloadedWorkDetail(work, getUser(work), `lumi-search-work-media-${work.id}`, pageInstance?.proxy);
 }
 
 function goUserProfile(userId: number) {
@@ -254,7 +261,7 @@ function handleReachBottom() {
         <view v-else-if="results.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work)">
-              <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
+              <image :id="`lumi-search-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -270,7 +277,7 @@ function handleReachBottom() {
 
           <view class="waterfall-column">
             <view v-for="work in rightColumnWorks" :key="work.id" class="work-card" @click="openWorkDetail(work)">
-              <image class="work-img" :src="work.image" mode="widthFix" lazy-load />
+              <image :id="`lumi-search-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load />
               <view class="work-body">
                 <view class="work-title">{{ work.title }}</view>
                 <view class="work-meta">
@@ -297,6 +304,7 @@ function handleReachBottom() {
         </view>
       </view>
     </scroll-view>
+    <LumiWorkDetailOverlay owner-route="pages/search/index" />
   </view>
 </template>
 

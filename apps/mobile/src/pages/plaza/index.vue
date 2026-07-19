@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
+import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
@@ -35,6 +36,8 @@ type SideQuick = {
   url: string;
   gradient: string;
 };
+
+const pageInstance = getCurrentInstance();
 
 type SideRow = {
   icon: string;
@@ -496,7 +499,12 @@ function goUserProfile(userId: number) {
 }
 
 function openWorkDetail(work: HomeWork) {
-  void openPreloadedWorkDetail({ ...work, liked: likedWorkIds.value.has(work.id) }, getUser(work), `lumi-plaza-work-media-${work.id}`);
+  void openPreloadedWorkDetail(
+    { ...work, liked: likedWorkIds.value.has(work.id) },
+    getUser(work),
+    `lumi-plaza-work-media-${work.id}`,
+    pageInstance?.proxy
+  );
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {
@@ -967,6 +975,7 @@ function handleReachBottom() {
       </view>
       </view>
     </template>
+    <LumiWorkDetailOverlay owner-route="pages/plaza/index" />
   </view>
 </template>
 
