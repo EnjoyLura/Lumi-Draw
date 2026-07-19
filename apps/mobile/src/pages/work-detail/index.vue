@@ -247,10 +247,9 @@ async function refreshEmbeddedDetail() {
     ]);
     if (detailResult.status === "fulfilled" && work.value?.id === id) {
       const latest = detailResult.value;
-      // Keep the list preview in place. The detail endpoint image URL is not
-      // used until the user explicitly previews or downloads the work.
-      work.value = { ...work.value, ...latest.work, image: work.value.image, previewImage: work.value.previewImage };
-      user.value = latest.user;
+      // Static detail fields were populated while the card list was loading.
+      // Do not replace them after open, or labels visibly pop into the page.
+      work.value = { ...work.value, likes: latest.work.likes, favorites: latest.work.favorites, remakes: latest.work.remakes };
     }
     if (stateResult.status === "fulfilled" && stateResult.value) {
       liked.value = stateResult.value.liked;

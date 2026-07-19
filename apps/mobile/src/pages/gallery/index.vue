@@ -14,6 +14,7 @@ import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/pri
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -437,6 +438,7 @@ async function loadGalleryPage(page = 1, append = false) {
     nextAuthors.forEach((user) => authorMap.set(user.id, user));
     workAuthors.value = Array.from(authorMap.values());
     works.value = append ? [...works.value, ...favorites] : favorites;
+    preloadWorkDetailSnapshots(favorites.map((work) => ({ work, user: getWorkAuthor(work) })));
     pageState.page = result.page;
     pageState.hasMore = result.hasMore;
     return;
@@ -446,6 +448,7 @@ async function loadGalleryPage(page = 1, append = false) {
   if (cached) prefetchedGalleryPage = undefined;
   const result = await (cached?.request ?? fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE }));
   works.value = append ? [...works.value, ...result.works] : result.works;
+  preloadWorkDetailSnapshots(result.works.map((work) => ({ work, user: getWorkAuthor(work) })));
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   waterfallEnterKey.value += 1;

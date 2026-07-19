@@ -31,6 +31,7 @@ import { savePendingInviteCode, useAuth } from "../../services/auth";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail, WORK_DETAIL_OVERLAY_OPEN_EVENT, type WorkDetailOverlayOpenPayload, type WorkDetailSourceRect } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -328,6 +329,10 @@ async function loadHomeData(force = false) {
     syncLikedWorkIds([...recommendFeed.works, ...latestFeed.works]);
     userList.value = [];
     mergeUsers([...recommendFeed.users, ...latestFeed.users]);
+    preloadWorkDetailSnapshots([
+      ...recommendFeed.works.map((work) => ({ work, user: recommendFeed.users.find((user) => user.id === work.userId) ?? getUser(work.userId) })),
+      ...latestFeed.works.map((work) => ({ work, user: latestFeed.users.find((user) => user.id === work.userId) ?? getUser(work.userId) }))
+    ]);
     feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
     feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
     visibleWorkCount.value = 8;

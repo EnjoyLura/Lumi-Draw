@@ -1,5 +1,5 @@
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
-import { primeWorkDetailPreview, primeWorkDetailSnapshot } from "./workDetailPreviewCache";
+import { getWorkDetailSnapshot, primeWorkDetailPreview, primeWorkDetailSnapshot } from "./workDetailPreviewCache";
 
 export const WORK_DETAIL_OVERLAY_OPEN_EVENT = "lumi:work-detail-overlay-open";
 
@@ -22,9 +22,14 @@ export interface WorkDetailSourceRect {
  */
 export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, sourceId?: string) {
   primeWorkDetailPreview(work.id, work.image);
-  primeWorkDetailSnapshot(work, user);
+  const cached = getWorkDetailSnapshot(work.id);
+  const seedWork = cached
+    ? { ...cached.work, image: work.image, previewImage: work.image, likes: work.likes, liked: work.liked, favorited: work.favorited }
+    : work;
+  const seedUser = cached ? { ...cached.user, ...user } : user;
+  primeWorkDetailSnapshot(seedWork, seedUser);
   const sourceRect = sourceId ? await getSourceRect(sourceId) : null;
-  uni.$emit(WORK_DETAIL_OVERLAY_OPEN_EVENT, { work, user, sourceRect } satisfies WorkDetailOverlayOpenPayload);
+  uni.$emit(WORK_DETAIL_OVERLAY_OPEN_EVENT, { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload);
 }
 
 function getSourceRect(sourceId: string) {

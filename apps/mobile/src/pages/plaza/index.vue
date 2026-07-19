@@ -14,6 +14,7 @@ import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -370,6 +371,7 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
   mergeUsers(result.users);
+  preloadWorkDetailSnapshots(result.works.map((work) => ({ work, user: result.users.find((user) => user.id === work.userId) ?? getUser(work) })));
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   void prefetchNextPlazaPage();
