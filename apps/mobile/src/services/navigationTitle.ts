@@ -1,3 +1,5 @@
+import { parseQueryString } from "./routeQuery";
+
 export function refreshNavigationTitle(title: string) {
   uni.setNavigationBarTitle({ title });
 
@@ -70,7 +72,7 @@ function readCurrentRoute() {
     const hash = window.location.hash.replace(/^#\/?/, "");
     const [hashRoute, query = ""] = hash.split("?");
     route = hashRoute || route;
-    new URLSearchParams(query).forEach((value, key) => {
+    Object.entries(parseQueryString(query)).forEach(([key, value]) => {
       options[key] = value;
     });
   }

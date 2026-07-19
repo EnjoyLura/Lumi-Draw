@@ -32,6 +32,7 @@ import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { parseQueryString } from "../../services/routeQuery";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -481,11 +482,7 @@ function handleBannerTap(action: string, title: string) {
     if (route.startsWith("/pages/home/index")) return;
     if (route.startsWith("/pages/create/index")) {
       const [, queryString = ""] = route.split("?");
-      const query: Record<string, string> = {};
-      new URLSearchParams(queryString).forEach((value, key) => {
-        query[key] = value;
-      });
-      openEmbeddedCreate(query);
+      openEmbeddedCreate(parseQueryString(queryString));
       return;
     }
     if (route.startsWith("/pages/plaza/index")) {

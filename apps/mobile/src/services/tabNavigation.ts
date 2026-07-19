@@ -1,4 +1,5 @@
 import { openEmbeddedCreate, setEmbeddedPrimaryTab } from "./primaryShell";
+import { parseQueryString } from "./routeQuery";
 
 const TAB_ROUTES = new Set([
   "/pages/home/index",
@@ -17,11 +18,7 @@ function normalizeRoute(route: string) {
 
 function readQuery(url: string) {
   const queryString = url.split("?")[1] || "";
-  const query: Record<string, string> = {};
-  new URLSearchParams(queryString).forEach((value, key) => {
-    query[key] = value;
-  });
-  return query;
+  return parseQueryString(queryString);
 }
 
 function currentRoute() {

@@ -23,6 +23,7 @@ import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
+import { parseQueryString } from "../../services/routeQuery";
 import { goRootTab } from "../../services/tabNavigation";
 import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
 
@@ -327,8 +328,8 @@ function readRouteQuery(query?: Record<string, unknown>) {
 
   if (typeof window !== "undefined") {
     const queryString = window.location.hash.split("?")[1] || "";
-    new URLSearchParams(queryString).forEach((value, key) => {
-      if (value) routeQuery[key] = decodeURIComponent(value);
+    Object.entries(parseQueryString(queryString)).forEach(([key, value]) => {
+      if (value) routeQuery[key] = value;
     });
   }
 
