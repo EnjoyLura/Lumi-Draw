@@ -41,7 +41,9 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ close: [] }>();
 const { themeClass } = useTheme();
-const bottomSafeArea = getNavigationMetrics().bottomSafeArea;
+const navigationMetrics = getNavigationMetrics();
+const bottomSafeArea = navigationMetrics.bottomSafeArea;
+const headerHeight = navigationMetrics.statusBarHeight + navigationMetrics.navigationBarHeight;
 
 const workId = ref(1);
 const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -680,7 +682,11 @@ function handleDetailPreviewLoad() {
 </script>
 
 <template>
-  <view class="detail-page" :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible }]" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
+  <view
+    class="detail-page"
+    :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible }]"
+    :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px`, '--lumi-detail-header-height': `${headerHeight}px` }"
+  >
     <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="props.embedded ? emit('close') : undefined" />
     <view v-if="!isInitialContentReady" class="page-first-frame" aria-label="作品详情加载中">
       <view class="detail-first-image skeleton-shimmer" />
@@ -1003,7 +1009,7 @@ function handleDetailPreviewLoad() {
 
 .detail-scroll {
   position: absolute;
-  inset: 0 0 var(--lumi-detail-action-height);
+  inset: var(--lumi-detail-header-height) 0 var(--lumi-detail-action-height);
 }
 
 .detail-image-frame {
@@ -1035,17 +1041,16 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded .bottom-safe-area {
   opacity: 0;
   transform: translateY(18px);
-  transition: opacity 300ms cubic-bezier(.7, 0, .84, 0), transform 340ms cubic-bezier(.7, 0, .84, 0);
+  transition: opacity 300ms cubic-bezier(.4, 0, .2, 1), transform 340ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .detail-page.embedded:not(.detail-content-visible) :deep(.lumi-page-header) {
   opacity: 0;
-  transition: opacity 240ms cubic-bezier(.7, 0, .84, 0);
+  transition: opacity 240ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .detail-page.embedded.detail-content-visible :deep(.lumi-page-header) {
   opacity: 1;
-  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
 }
 
 .detail-page.embedded.detail-content-visible .detail-body,
@@ -1053,7 +1058,6 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded.detail-content-visible .bottom-safe-area {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 300ms cubic-bezier(.16, 1, .3, 1), transform 340ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .detail-body {
