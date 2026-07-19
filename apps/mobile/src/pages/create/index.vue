@@ -556,7 +556,7 @@ async function uploadPromptImage() {
 
   isUploadingPromptImage.value = true;
   try {
-    const image = await chooseLocalImage();
+    const image = await chooseLocalImage({ optimizeForGeneration: true });
     promptImage.value = image.path;
     promptLocalImage.value = image;
     promptUploadedImageUrl.value = "";
@@ -1029,6 +1029,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               class="prompt-input"
               maxlength="1200"
               placeholder="描述你想要生成的图片，越详细效果越好..."
+              placeholder-class="prompt-placeholder"
             />
             <text class="prompt-count">{{ promptText.length }}/1200</text>
           </view>
@@ -1906,6 +1907,12 @@ function goMine() { goRootTab("/pages/mine/index"); }
   color: var(--accent-deep);
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+:global(.prompt-placeholder),
+.prompt-input::placeholder {
+  color: var(--fg-muted);
+  opacity: 1;
 }
 
 .option-icon {

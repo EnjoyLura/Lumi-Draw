@@ -23,11 +23,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
     const status = exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const body = exception instanceof HttpException ? (exception.getResponse() as ErrorBody | string) : undefined;
-    const message = this.resolveMessage(body, exception);
+    const internalMessage = this.resolveMessage(body, exception);
+    const message = status >= 500 ? "服务暂时不可用，请稍后重试" : internalMessage;
     const code = this.resolveCode(status, body);
 
     if (status >= 500) {
-      this.logger.error(message, exception instanceof Error ? exception.stack : undefined);
+      this.logger.error(internalMessage, exception instanceof Error ? exception.stack : undefined);
     }
 
     response.status(status).json({

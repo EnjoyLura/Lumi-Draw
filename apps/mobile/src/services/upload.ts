@@ -35,6 +35,9 @@ const EXT_CONTENT_TYPE: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif"
 };
+const GENERATION_REFERENCE_MAX_EDGE = 2048;
+const GENERATION_REFERENCE_MAX_BYTES = 2 * 1024 * 1024;
+const GENERATION_REFERENCE_QUALITY = 88;
 
 function fileNameFromPath(path: string) {
   const clean = path.split("?")[0] || "";
@@ -84,11 +87,11 @@ function completeUpload(ossKey: string, uploadToken: string) {
   return api.post<UploadedImage>("/uploads/complete", { ossKey, uploadToken });
 }
 
-function chooseSingleImage(): Promise<ChosenImage> {
+function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
   return new Promise((resolve, reject) => {
     uni.chooseImage({
       count: 1,
-      sizeType: ["compressed"],
+      sizeType: useOriginal ? ["original"] : ["compressed"],
       sourceType: ["album", "camera"],
       success(result) {
         const rawTempFiles = result.tempFiles;
@@ -121,11 +124,11 @@ function chooseSingleImage(): Promise<ChosenImage> {
 }
 
 function getImageInfoByUni(path: string) {
-  return new Promise<{ width: number; height: number }>((resolve, reject) => {
+  return new Promise<{ width: number; height: number; type?: string }>((resolve, reject) => {
     uni.getImageInfo({
       src: path,
       success(result) {
-        resolve({ width: result.width, height: result.height });
+        resolve({ width: result.width, height: result.height, type: result.type });
       },
       fail(error) {
         reject(new Error(error.errMsg || "getImageInfo failed"));
@@ -173,6 +176,55 @@ async function resolveUploadSize(image: Pick<ChosenImage, "path" | "file" | "siz
     return (await blobFromPath(image.path)).size;
   }
   throw new Error("无法读取图片大小，请重新选择图片");
+}
+
+function getLocalFileSize(path: string) {
+  return new Promise<number>((resolve, reject) => {
+    uni.getFileInfo({
+      filePath: path,
+      success: (result) => resolve(result.size),
+      fail: (error) => reject(new Error(error.errMsg || "getFileInfo failed"))
+    });
+  });
+}
+
+function compressLocalImage(path: string, width: number, height: number) {
+  return new Promise<string>((resolve, reject) => {
+    uni.compressImage({
+      src: path,
+      quality: GENERATION_REFERENCE_QUALITY,
+      compressedWidth: width,
+      compressedHeight: height,
+      success: (result) => resolve(result.tempFilePath),
+      fail: (error) => reject(new Error(error.errMsg || "compressImage failed"))
+    });
+  });
+}
+
+async function optimizeGenerationReference(image: ChosenImage): Promise<ChosenImage> {
+  const [size, sizeBytes] = await Promise.all([resolveImageSize(image), resolveUploadSize(image)]);
+  if (!size) return image;
+  const longestEdge = Math.max(size.width, size.height);
+  if (longestEdge <= GENERATION_REFERENCE_MAX_EDGE && sizeBytes <= GENERATION_REFERENCE_MAX_BYTES) return image;
+
+  const scale = Math.min(1, GENERATION_REFERENCE_MAX_EDGE / longestEdge);
+  try {
+    const path = await compressLocalImage(image.path, Math.round(size.width * scale), Math.round(size.height * scale));
+    const optimizedInfo = await getImageInfoByUni(path);
+    const optimizedSizeBytes = await getLocalFileSize(path);
+    const contentType = optimizedInfo.type ? contentTypeFromName(`image.${optimizedInfo.type}`, image.contentType) : image.contentType;
+    return {
+      ...image,
+      path,
+      file: undefined,
+      contentType,
+      sizeBytes: optimizedSizeBytes,
+      width: optimizedInfo.width,
+      height: optimizedInfo.height
+    };
+  } catch {
+    return image;
+  }
 }
 
 async function putWithFetch(policy: UploadPolicy, body: Blob) {
@@ -233,8 +285,9 @@ async function putObject(policy: UploadPolicy, image: Pick<ChosenImage, "path" |
   await putWithUniRequest(policy, image.path);
 }
 
-export function chooseLocalImage() {
-  return chooseSingleImage();
+export async function chooseLocalImage(options?: { optimizeForGeneration?: boolean }) {
+  const image = await chooseSingleImage(Boolean(options?.optimizeForGeneration));
+  return options?.optimizeForGeneration ? optimizeGenerationReference(image) : image;
 }
 
 export async function uploadSelectedImage(scene: string, image: ChosenImage): Promise<UploadedImage> {

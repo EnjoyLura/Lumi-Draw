@@ -149,7 +149,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
       // Serialize per user so rapid taps and parallel clients cannot consume credits twice.
-      await tx.$queryRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
       const activeJob = await tx.generateJob.findFirst({
         where: { userId, status: { in: ACTIVE_JOB_STATUSES } },
         select: { id: true }
