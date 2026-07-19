@@ -88,6 +88,48 @@ test("submits Ainb image edits as async multipart requests", async () => {
   }
 });
 
+test("splits multi-image Ainb edits into independent single-image tasks", async () => {
+  const originalFetch = globalThis.fetch;
+  const submittedForms: FormData[] = [];
+  let referenceDownloads = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    if (url === "https://cdn.example.com/reference.png") {
+      referenceDownloads += 1;
+      return new Response(Buffer.from([137, 80, 78, 71]), { headers: { "Content-Type": "image/png" } });
+    }
+    if (url.includes("/v1/images/tasks/")) {
+      const id = decodeURIComponent(url.split("/").at(-1) || "");
+      return jsonResponse({ data: { status: "SUCCESS", data: { data: [{ url: `https://image.example.com/${id}.png` }] } } });
+    }
+    submittedForms.push(init?.body as FormData);
+    return jsonResponse({ task_id: `task-edit-${submittedForms.length}` });
+  };
+
+  try {
+    const provider = client();
+    const { taskId } = await provider.submit({
+      mode: "image-to-image",
+      prompt: "watercolor",
+      inputImageUrl: "https://cdn.example.com/reference.png",
+      ratio: "3:4",
+      quality: "2K",
+      count: 2
+    });
+    const outputs = await provider.waitForOutputs(taskId);
+
+    assert.equal(referenceDownloads, 1);
+    assert.equal(submittedForms.length, 2);
+    assert.deepEqual(submittedForms.map((form) => form.get("n")), ["1", "1"]);
+    assert.deepEqual(outputs, [
+      { url: "https://image.example.com/task-edit-1.png" },
+      { url: "https://image.example.com/task-edit-2.png" }
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("uses the configured full endpoint and forwards administrator-defined parameters", async () => {
   const originalFetch = globalThis.fetch;
   let request: { url: string; headers?: RequestInit["headers"]; body?: string } | undefined;

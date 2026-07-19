@@ -21,6 +21,7 @@ type AinbGenerateInput = {
 };
 
 const IMAGE_2_MODEL_ID = "gpt-image-2";
+const BATCH_TASK_PREFIX = "ainb-batch:";
 const POLL_INTERVAL_MS = 3_000;
 const GENERATION_TIMEOUT_MS = 30 * 60 * 1_000;
 const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
@@ -31,6 +32,8 @@ type OssReferenceConfig = {
   endpoint: string;
   cdnBaseUrl?: string;
 };
+
+type ReferenceImage = { buffer: Buffer; contentType: string };
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
@@ -51,6 +54,20 @@ export class AinbClient {
   async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {
     const config = this.getConfig(runtime);
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
+    if (input.mode === "image-to-image" && input.count > 1) {
+      if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
+      const reference = await this.downloadReferenceImage(input.inputImageUrl);
+      const submitted = await Promise.allSettled(
+        Array.from({ length: input.count }, () => this.submitEdit(config, { ...input, count: 1 }, reference))
+      );
+      const taskIds = submitted.flatMap((item) => item.status === "fulfilled" ? [this.extractTaskId(item.value)] : []);
+      if (!taskIds.length) {
+        const firstFailure = submitted.find((item): item is PromiseRejectedResult => item.status === "rejected");
+        throw firstFailure?.reason instanceof Error ? firstFailure.reason : new Error("Ainb batch submission failed");
+      }
+      if (taskIds.length < input.count) this.logger.warn(`Ainb batch submitted ${taskIds.length} of ${input.count} task(s)`);
+      return { taskId: this.encodeTaskIds(taskIds) };
+    }
     const payload =
       input.mode === "image-to-image"
         ? await this.submitEdit(config, input)
@@ -67,16 +84,26 @@ export class AinbClient {
               n: input.count
             })
           });
-    const record = asRecord(payload);
-    const data = asRecord(record?.data);
-    const taskId = this.stringValue(record?.task_id) || this.stringValue(data?.task_id) || this.stringValue(data?.id);
-    if (!taskId) throw new Error("Ainb response did not include task_id");
-    return { taskId };
+    return { taskId: this.extractTaskId(payload) };
   }
 
   async waitForOutputs(taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
     const config = this.getConfig(runtime);
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
+    const taskIds = this.decodeTaskIds(taskId);
+    if (taskIds.length === 1) return this.waitForSingleOutput(config, taskIds[0], onInProgress);
+    const settled = await Promise.allSettled(taskIds.map((id) => this.waitForSingleOutput(config, id, onInProgress)));
+    const outputs = settled.flatMap((item) => item.status === "fulfilled" ? item.value : []);
+    if (outputs.length) {
+      const failedCount = settled.length - outputs.length;
+      if (failedCount) this.logger.warn(`Ainb batch ${taskId} completed with ${failedCount} failed task(s)`);
+      return outputs;
+    }
+    const firstFailure = settled.find((item): item is PromiseRejectedResult => item.status === "rejected");
+    throw firstFailure?.reason instanceof Error ? firstFailure.reason : new Error("Ainb batch generation failed");
+  }
+
+  private async waitForSingleOutput(config: AinbConfig, taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void) {
     const startedAt = Date.now();
     while (Date.now() - startedAt < GENERATION_TIMEOUT_MS) {
       const payload = await this.requestJson(`${config.apiBase}/v1/images/tasks/${encodeURIComponent(taskId)}`, {
@@ -112,9 +139,9 @@ export class AinbClient {
     return urls;
   }
 
-  private async submitEdit(config: AinbConfig, input: AinbGenerateInput) {
+  private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage) {
     if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-    const reference = await this.downloadReferenceImage(input.inputImageUrl);
+    const reference = suppliedReference ?? await this.downloadReferenceImage(input.inputImageUrl);
     const form = new FormData();
     form.append("model", IMAGE_2_MODEL_ID);
     form.append("prompt", input.prompt);
@@ -130,6 +157,30 @@ export class AinbClient {
       headers: this.authHeaders(config.imageApiKey),
       body: form
     });
+  }
+
+  private extractTaskId(payload: unknown) {
+    const record = asRecord(payload);
+    const data = asRecord(record?.data);
+    const taskId = this.stringValue(record?.task_id) || this.stringValue(data?.task_id) || this.stringValue(data?.id);
+    if (!taskId) throw new Error("Ainb response did not include task_id");
+    return taskId;
+  }
+
+  private encodeTaskIds(taskIds: string[]) {
+    if (taskIds.length === 1) return taskIds[0];
+    return `${BATCH_TASK_PREFIX}${Buffer.from(JSON.stringify(taskIds), "utf8").toString("base64url")}`;
+  }
+
+  private decodeTaskIds(taskId: string) {
+    if (!taskId.startsWith(BATCH_TASK_PREFIX)) return [taskId];
+    try {
+      const parsed = JSON.parse(Buffer.from(taskId.slice(BATCH_TASK_PREFIX.length), "base64url").toString("utf8"));
+      if (!Array.isArray(parsed) || !parsed.length || parsed.some((item) => typeof item !== "string" || !item)) throw new Error();
+      return parsed as string[];
+    } catch {
+      throw new Error("Ainb batch task id is invalid");
+    }
   }
 
   private async requestJson(url: string, init: RequestInit) {

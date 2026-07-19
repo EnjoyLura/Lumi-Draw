@@ -26,6 +26,7 @@ import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { parseQueryString } from "../../services/routeQuery";
 import { goRootTab } from "../../services/tabNavigation";
 import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
+import { invalidateTabPages } from "../../services/tabPageCache";
 
 const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
@@ -662,6 +663,7 @@ function applyBackendJob(job: BackendGenerateJob) {
   };
 
   const autoSaved = job.results.some((item) => item.workId);
+  if (autoSaved) invalidateTabPages("gallery:");
   if (job.status === "succeeded") showToast(autoSaved ? "生成成功，已自动保存到画廊" : "生成成功");
   else if (job.status === "partial_failed") showToast(autoSaved ? "部分图片已自动保存到画廊" : "部分图片生成成功");
   else showToast(job.errorMessage || job.stageText || "生成失败，积分已按规则退回");

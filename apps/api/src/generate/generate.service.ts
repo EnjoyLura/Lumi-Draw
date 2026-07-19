@@ -33,6 +33,17 @@ const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "can
 const ACTIVE_JOB_STATUSES = ["queued", "running", "finalizing"];
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
+
+export function calculatePartialRefund(costCredits: number, refundCredits: number, requestedCount: number, resultCount: number) {
+  const safeCount = Math.max(1, requestedCount);
+  const missingCount = Math.max(0, safeCount - Math.min(resultCount, safeCount));
+  if (!missingCount) return { missingCount: 0, refundCredits: 0 };
+  const remainingCredits = Math.max(0, costCredits - refundCredits);
+  return {
+    missingCount,
+    refundCredits: Math.min(remainingCredits, Math.floor((costCredits * missingCount) / safeCount))
+  };
+}
 const REVERSE_PROMPT_COST = 2;
 
 function userFacingGenerateError(errorMessage: string) {
@@ -745,6 +756,10 @@ export class GenerateService implements OnApplicationBootstrap {
     allowedStatuses: string[] = ["queued", "running"],
     expectedProgress?: number
   ) {
+    const acceptedResults = results.slice(0, job.count);
+    const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, acceptedResults.length);
+    const { missingCount } = partial;
+    const partialRefund = partial.refundCredits;
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.generateJob.updateMany({
         where: { id: job.id, status: { in: allowedStatuses }, ...(expectedProgress === undefined ? {} : { progress: expectedProgress }) },
@@ -754,11 +769,11 @@ export class GenerateService implements OnApplicationBootstrap {
         return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
       }
       await tx.generateResult.deleteMany({ where: { jobId: job.id } });
-      for (const [index, result] of results.entries()) {
+      for (const [index, result] of acceptedResults.entries()) {
         const work = await tx.work.create({
           data: {
             userId: job.userId,
-            title: this.draftTitle(job.prompt, results.length > 1 ? index + 1 : undefined),
+            title: this.draftTitle(job.prompt, acceptedResults.length > 1 ? index + 1 : undefined),
             description: "",
             prompt: job.prompt,
             imageUrl: result.imageUrl,
@@ -781,16 +796,20 @@ export class GenerateService implements OnApplicationBootstrap {
           }
         });
       }
-      if (results.length) {
-        await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: results.length } } });
+      if (acceptedResults.length) {
+        await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: acceptedResults.length } } });
+      }
+      if (partialRefund > 0) {
+        await this.credits.addTransactionInTx(tx, job.userId, "refund", partialRefund, "AI生成部分失败返还", job.id);
       }
       return tx.generateJob.update({
         where: { id: job.id },
         data: {
-          status: "succeeded",
+          status: missingCount ? "partial_failed" : "succeeded",
           progress: 100,
-          stageText,
-          errorMessage: "",
+          stageText: missingCount ? "部分图片生成完成，缺少结果已返还积分" : stageText,
+          errorMessage: missingCount ? `有 ${missingCount} 张图片未生成，已返还 ${partialRefund} 积分` : "",
+          refundCredits: job.refundCredits + partialRefund,
           startedAt: job.startedAt ?? new Date(),
           finishedAt: new Date()
         },
