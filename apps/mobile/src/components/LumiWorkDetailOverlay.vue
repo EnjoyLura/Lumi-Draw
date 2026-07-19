@@ -24,6 +24,7 @@ const surfaceVisible = ref(false);
 const contentVisible = ref(false);
 const sharedActive = ref(false);
 const sharedImageVisible = ref(false);
+const detailReady = ref(false);
 const sharedImage = ref("");
 const sourceRect = ref<WorkDetailSourceRect | null>(null);
 const workRatio = ref("1:1");
@@ -32,6 +33,7 @@ let openTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let contentTimer: ReturnType<typeof setTimeout> | undefined;
 let sharedImageTimer: ReturnType<typeof setTimeout> | undefined;
+let detailReadyTimer: ReturnType<typeof setTimeout> | undefined;
 let unregisterOverlay: (() => void) | undefined;
 let activeSourceId: string | undefined;
 let activeSourceContext: object | null | undefined;
@@ -85,6 +87,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   activeSourceContext = payload.sourceContext;
   sharedActive.value = Boolean(payload.sourceRect);
   sharedImageVisible.value = Boolean(payload.sourceRect && sharedImage.value);
+  detailReady.value = false;
   closing = false;
 
   void nextTick(() => {
@@ -95,15 +98,19 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
       openTimer = undefined;
       if (!payload.sourceRect) {
         contentVisible.value = true;
-        return;
+      } else {
+        contentTimer = setTimeout(() => {
+          contentVisible.value = true;
+          contentTimer = undefined;
+        }, 10);
+        sharedImageTimer = setTimeout(() => {
+          sharedImageVisible.value = false;
+          sharedImageTimer = undefined;
+        }, OPEN_DURATION + FINAL_FRAME_DELAY);
       }
-      contentTimer = setTimeout(() => {
-        contentVisible.value = true;
-        contentTimer = undefined;
-      }, 10);
-      sharedImageTimer = setTimeout(() => {
-        sharedImageVisible.value = false;
-        sharedImageTimer = undefined;
+      detailReadyTimer = setTimeout(() => {
+        detailReady.value = true;
+        detailReadyTimer = undefined;
       }, OPEN_DURATION + FINAL_FRAME_DELAY);
     }, 16);
   });
@@ -112,6 +119,8 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
 async function closeOverlay() {
   if (closing || !workId.value) return;
   closing = true;
+  detailReady.value = false;
+  if (detailReadyTimer) clearTimeout(detailReadyTimer);
   if (activeSourceId) {
     const latestRect = await resolveWorkDetailSourceRect(activeSourceId, activeSourceContext);
     if (latestRect) {
@@ -147,6 +156,7 @@ function finishClose() {
   workId.value = null;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
+  detailReady.value = false;
   sharedImageVisible.value = false;
   sharedImage.value = "";
   activeSourceId = undefined;
@@ -164,10 +174,12 @@ function clearTimers() {
   if (closeTimer) clearTimeout(closeTimer);
   if (contentTimer) clearTimeout(contentTimer);
   if (sharedImageTimer) clearTimeout(sharedImageTimer);
+  if (detailReadyTimer) clearTimeout(detailReadyTimer);
   openTimer = undefined;
   closeTimer = undefined;
   contentTimer = undefined;
   sharedImageTimer = undefined;
+  detailReadyTimer = undefined;
 }
 </script>
 
@@ -200,6 +212,7 @@ function clearTimers() {
         :initial-work-id="workId"
         :shared-transitioning="sharedImageVisible"
         :content-visible="contentVisible"
+        :detail-ready="detailReady"
         @close="void closeOverlay()"
       />
     </view>

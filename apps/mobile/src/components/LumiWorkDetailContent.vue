@@ -31,6 +31,7 @@ const props = withDefaults(defineProps<{
   initialWorkId?: number | null;
   sharedTransitioning?: boolean;
   contentVisible?: boolean;
+  detailReady?: boolean;
   refreshVersion?: number;
 }>(), {
   embedded: false,
@@ -38,6 +39,7 @@ const props = withDefaults(defineProps<{
   initialWorkId: null,
   sharedTransitioning: false,
   contentVisible: true,
+  detailReady: false,
   refreshVersion: 0
 });
 
@@ -69,6 +71,8 @@ const isInitialContentReady = ref(props.embedded);
 const isDetailLoading = ref(!props.embedded);
 const isDetailPreviewReady = ref(false);
 const highImage = ref("");
+const pendingPreviewImage = ref("");
+const pendingPreviewWorkId = ref(0);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -200,6 +204,13 @@ watch(
 );
 
 watch(
+  () => props.detailReady,
+  (ready) => {
+    if (props.embedded && props.open && ready) void refreshEmbeddedDetail();
+  }
+);
+
+watch(
   () => [props.initialWorkId, props.refreshVersion] as const,
   () => {
     if (!props.embedded) syncStandaloneDetail();
@@ -237,6 +248,8 @@ function syncEmbeddedDetail() {
     favorited.value = false;
     following.value = false;
     highImage.value = "";
+    pendingPreviewImage.value = "";
+    pendingPreviewWorkId.value = 0;
     hydrateDetailSnapshot();
   }
   isDetailPreviewReady.value = Boolean(work.value);
@@ -248,9 +261,7 @@ function syncEmbeddedDetail() {
     void loadDetail();
     return;
   }
-  // The animation owns the first frame. Refresh fields afterwards without
-  // assigning the high-resolution image to the rendered <image>.
-  if (props.open) setTimeout(() => void refreshEmbeddedDetail(), 260);
+  if (props.open && props.detailReady) void refreshEmbeddedDetail();
 }
 
 async function refreshEmbeddedDetail() {
@@ -263,11 +274,28 @@ async function refreshEmbeddedDetail() {
       // Static detail fields were populated while the card list was loading.
       // Do not replace them after open, or labels visibly pop into the page.
       work.value = { ...work.value, likes: latest.work.likes, favorites: latest.work.favorites, remakes: latest.work.remakes };
+      const previewUrl = latest.work.previewImage;
+      if (previewUrl && previewUrl !== work.value.previewImage) {
+        pendingPreviewWorkId.value = id;
+        pendingPreviewImage.value = previewUrl;
+      }
     }
     if (isLoggedIn.value && work.value?.published) void recordWorkView(id);
   } catch {
     // Cached content remains interactive when the background refresh fails.
   }
+}
+
+function handlePendingPreviewLoad() {
+  if (!work.value || pendingPreviewWorkId.value !== work.value.id || !pendingPreviewImage.value) return;
+  work.value = { ...work.value, previewImage: pendingPreviewImage.value };
+  pendingPreviewImage.value = "";
+  pendingPreviewWorkId.value = 0;
+}
+
+function handlePendingPreviewError() {
+  pendingPreviewImage.value = "";
+  pendingPreviewWorkId.value = 0;
 }
 
 function resetTransientState() {
@@ -713,6 +741,14 @@ function handleDetailPreviewLoad() {
       </view>
     </view>
     <template v-else-if="work && user">
+      <image
+        v-if="pendingPreviewImage"
+        class="detail-preview-preloader"
+        :src="pendingPreviewImage"
+        mode="aspectFit"
+        @load="handlePendingPreviewLoad"
+        @error="handlePendingPreviewError"
+      />
       <scroll-view class="detail-scroll" scroll-y>
         <view class="detail-image-frame" :class="{ 'shared-transitioning': props.sharedTransitioning }" :style="detailImageStyle">
           <image
@@ -1769,5 +1805,15 @@ function handleDetailPreviewLoad() {
   flex: 1;
   min-height: 0;
   height: auto;
+}
+
+.detail-preview-preloader {
+  position: fixed;
+  left: -2px;
+  top: -2px;
+  width: 1px;
+  height: 1px;
+  opacity: 0.01;
+  pointer-events: none;
 }
 </style>

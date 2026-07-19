@@ -9,8 +9,8 @@ const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 // A short, stable URL bucket lets WeChat reuse the same image cache entry while
 // leaving ample headroom for the CDN's Type A authentication validity window.
 const CDN_AUTH_URL_WINDOW_SECONDS = 5 * 60;
-const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,q_70/format,webp";
-const DETAIL_IMAGE_PROCESS = LIST_IMAGE_PROCESS;
+const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,q_80/format,webp";
+const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_1440,h_1440/quality,q_85/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
 const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {

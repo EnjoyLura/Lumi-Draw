@@ -31,6 +31,24 @@ test("builds lightweight admin thumbnails from OSS origin URLs", () => {
   assert.match(decodeURIComponent(url), /image\/resize,w_480\/quality,q_70\/format,webp/);
 });
 
+test("builds 640px q80 WebP images for work cards", () => {
+  const url = service().readResponsiveImageUrl(
+    "https://bucket.oss.example.com/uploads/work/image.png",
+    "public"
+  );
+
+  assert.match(decodeURIComponent(url), /image\/resize,w_640\/quality,q_80\/format,webp/);
+});
+
+test("builds non-cropping 1440px q85 WebP images for work detail previews", () => {
+  const url = service().readDetailPreviewImageUrl(
+    "https://bucket.oss.example.com/uploads/work/image.png",
+    "public"
+  );
+
+  assert.match(decodeURIComponent(url), /image\/resize,m_lfit,w_1440,h_1440\/quality,q_85\/format,webp/);
+});
+
 test("reprocesses historical CDN URLs instead of leaving the original image", () => {
   const url = service().readAdminPreviewImageUrl(
     "https://cdn.example.com/uploads/work/image.png?auth_key=old&x-oss-process=old",
