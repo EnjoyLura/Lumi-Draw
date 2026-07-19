@@ -57,7 +57,7 @@ function emptyProvider(): AdminGenerationProvider {
   };
 }
 
-function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerationProvider; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
+function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: AdminGenerationProvider; providers: AdminGenerationProvider[]; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const originalId = item?.id || "";
   const [value, setValue] = useState<AdminGenerationProvider>(() => item ? {
@@ -74,6 +74,10 @@ function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerati
   const save = async () => {
     if (!value.id.trim() || !value.name.trim() || (!value.apiKeyConfigured && !value.apiKey.trim())) {
       toast("请填写平台标识、名称和 API Key");
+      return;
+    }
+    if (!originalId && providers.some((provider) => provider.id === value.id.trim().toLowerCase())) {
+      toast("平台标识已存在，请更换一个标识");
       return;
     }
     if (!value.textToImageEnabled && !value.imageToImageEnabled) {
@@ -183,7 +187,7 @@ export function OpsApiProvider() {
   const providers = useMock ? GENERATION_PROVIDERS : state.data?.providers ?? [];
   const models = useMock ? MODELS : state.data?.models ?? [];
   const reload = () => useMock ? refresh() : state.reload();
-  const openForm = (provider?: AdminGenerationProvider) => openSheet(provider ? "编辑 API 平台" : "新增 API 平台", <ProviderForm item={provider} models={models} useMock={useMock} onSaved={reload} />);
+  const openForm = (provider?: AdminGenerationProvider) => openSheet(provider ? "编辑 API 平台" : "新增 API 平台", <ProviderForm item={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
 
   const toggle = async (provider: AdminGenerationProvider) => {
     try {

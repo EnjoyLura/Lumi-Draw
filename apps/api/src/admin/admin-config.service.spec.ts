@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { ConflictException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerationProvider } from "@prisma/client";
 import { decryptProviderApiKey } from "../generate/provider-secret";
@@ -12,6 +13,11 @@ const MASTER_KEY = "test-generation-provider-encryption-key-123456";
 function service() {
   const config = { get: (name: string) => name === "app.generationProviderEncryptionKey" ? MASTER_KEY : undefined } as ConfigService;
   return new AdminConfigService({} as PrismaService, {} as UploadsService, config);
+}
+
+function serviceWithPrisma(prisma: unknown) {
+  const config = { get: (name: string) => name === "app.generationProviderEncryptionKey" ? MASTER_KEY : undefined } as ConfigService;
+  return new AdminConfigService(prisma as PrismaService, {} as UploadsService, config);
 }
 
 function normalize(body: Record<string, unknown>, creating: boolean) {
@@ -125,4 +131,23 @@ test("never exposes encrypted or environment key fields in administrator respons
   assert.equal("apiKeyEnv" in view, false);
   assert.equal(view.apiKeyConfigured, true);
   assert.equal(view.apiKeySource, "admin");
+});
+
+test("reports a duplicate provider identifier as a conflict before creating it", async () => {
+  const fakePrisma = {
+    modelConfig: { findMany: async () => [] },
+    generationProvider: { findUnique: async () => ({ id: "existing-provider" }) }
+  };
+  const configService = serviceWithPrisma(fakePrisma);
+
+  await assert.rejects(
+    () => configService.createGenerationProvider({
+      id: "existing-provider",
+      name: "Existing provider",
+      adapter: "change2pro",
+      apiKey: "sk-test",
+      baseUrl: "https://images.example.com/v1/images/generations"
+    }),
+    (error: unknown) => error instanceof ConflictException && error.message === "平台标识已存在，请更换一个标识"
+  );
 });

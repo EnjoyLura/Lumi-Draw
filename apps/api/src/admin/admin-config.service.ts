@@ -1,6 +1,6 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { GenerationProvider } from "@prisma/client";
+import { Prisma, type GenerationProvider } from "@prisma/client";
 import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../generate/provider-secret";
 import { normalizeProviderRouting } from "../generate/provider-routing";
 import { PrismaService } from "../prisma/prisma.service";
@@ -241,12 +241,21 @@ export class AdminConfigService {
     const data = this.normalizeGenerationProvider(body, true);
     this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
     await this.assertProviderModels(data.provider.adapter, data.modelIds);
-    await this.prisma.$transaction(async (tx) => {
-      await tx.generationProvider.create({ data: data.provider as never });
-      if (data.modelIds.length) {
-        await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: data.provider.id } });
+    const existing = await this.prisma.generationProvider.findUnique({ where: { id: data.provider.id }, select: { id: true } });
+    if (existing) throw new ConflictException("平台标识已存在，请更换一个标识");
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.generationProvider.create({ data: data.provider as never });
+        if (data.modelIds.length) {
+          await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: data.provider.id } });
+        }
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new ConflictException("平台标识已存在，请更换一个标识");
       }
-    });
+      throw error;
+    }
     return this.generationProvider(data.provider.id);
   }
 
