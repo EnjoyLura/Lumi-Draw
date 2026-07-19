@@ -22,7 +22,11 @@ import { imageSaveFailureMessage, saveImageToDevice } from "../services/imageSav
 import { openEmbeddedCreate } from "../services/primaryShell";
 import { invalidateTabPages } from "../services/tabPageCache";
 import { consumeWorkDetailStale } from "../services/workDetailRefresh";
-import { getWorkDetailSnapshot } from "../services/workDetailPreviewCache";
+import {
+  getWorkDetailQualityPreview,
+  getWorkDetailSnapshot,
+  primeWorkDetailQualityPreview
+} from "../services/workDetailPreviewCache";
 import { resolveWorkDetailImageHeight } from "../services/workDetailLayout";
 
 const props = withDefaults(defineProps<{
@@ -91,6 +95,7 @@ const managePrimaryText = computed(() => {
 });
 const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value && liked.value ? 1 : 0));
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
+const qualityTag = computed(() => work.value?.quality?.match(/(?:1|2|4)\s*K/i)?.[0].replace(/\s/g, "").toUpperCase() || "");
 const authorSub = computed(() => {
   if (!user.value) return "";
   if ("worksText" in user.value) {
@@ -168,9 +173,10 @@ function hydrateDetailSnapshot() {
   const snapshot = getWorkDetailSnapshot(workId.value);
   if (!snapshot) return false;
   const item = snapshot.work;
+  const cachedPreview = getWorkDetailQualityPreview(workId.value, item.image);
   work.value = {
     ...item,
-    previewImage: item.image,
+    previewImage: cachedPreview || item.image,
     description: item.description || "",
     modelId: item.modelId || "",
     modelName: item.modelName || "AI 绘画",
@@ -275,7 +281,10 @@ async function refreshEmbeddedDetail() {
       // Do not replace them after open, or labels visibly pop into the page.
       work.value = { ...work.value, likes: latest.work.likes, favorites: latest.work.favorites, remakes: latest.work.remakes };
       const previewUrl = latest.work.previewImage;
-      if (previewUrl && previewUrl !== work.value.previewImage) {
+      const cachedPreview = getWorkDetailQualityPreview(id, previewUrl);
+      if (cachedPreview) {
+        work.value = { ...work.value, previewImage: cachedPreview };
+      } else if (previewUrl && previewUrl !== work.value.previewImage) {
         pendingPreviewWorkId.value = id;
         pendingPreviewImage.value = previewUrl;
       }
@@ -286,14 +295,21 @@ async function refreshEmbeddedDetail() {
   }
 }
 
-function handlePendingPreviewLoad() {
-  if (!work.value || pendingPreviewWorkId.value !== work.value.id || !pendingPreviewImage.value) return;
+function pendingPreviewEventUrl(event: Event) {
+  return (event.currentTarget as (EventTarget & { dataset?: { url?: string } }) | null)?.dataset?.url || "";
+}
+
+function handlePendingPreviewLoad(event: Event) {
+  const loadedUrl = pendingPreviewEventUrl(event);
+  if (!work.value || pendingPreviewWorkId.value !== work.value.id || !pendingPreviewImage.value || loadedUrl !== pendingPreviewImage.value) return;
+  primeWorkDetailQualityPreview(work.value.id, pendingPreviewImage.value);
   work.value = { ...work.value, previewImage: pendingPreviewImage.value };
   pendingPreviewImage.value = "";
   pendingPreviewWorkId.value = 0;
 }
 
-function handlePendingPreviewError() {
+function handlePendingPreviewError(event: Event) {
+  if (pendingPreviewEventUrl(event) !== pendingPreviewImage.value) return;
   pendingPreviewImage.value = "";
   pendingPreviewWorkId.value = 0;
 }
@@ -745,6 +761,7 @@ function handleDetailPreviewLoad() {
         v-if="pendingPreviewImage"
         class="detail-preview-preloader"
         :src="pendingPreviewImage"
+        :data-url="pendingPreviewImage"
         mode="aspectFit"
         @load="handlePendingPreviewLoad"
         @error="handlePendingPreviewError"
@@ -795,6 +812,7 @@ function handleDetailPreviewLoad() {
           <view class="tag-row">
             <text class="tag accent">{{ work.modelName }}</text>
             <text class="tag mint">{{ work.ratio }}</text>
+            <text v-if="qualityTag" class="tag lavender">{{ qualityTag }}</text>
             <text class="tag lavender">{{ work.styleName }}</text>
             <text v-for="tag in work.tags" :key="tag" class="tag peach">{{ tag }}</text>
           </view>
