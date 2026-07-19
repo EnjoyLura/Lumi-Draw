@@ -73,7 +73,7 @@ async function loadChangelog() {
         <view class="app-head">
           <view class="app-logo">L</view>
           <view class="app-main">
-            <view class="app-name">Lumi-Draw</view>
+            <view class="app-name">露米绘画AI</view>
             <view class="app-version">当前版本 {{ latestVersion }}</view>
           </view>
           <view v-if="isLoading" class="spinner" />

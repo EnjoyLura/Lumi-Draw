@@ -16,7 +16,6 @@ const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const versionMeta = ref(currentVersion);
-const cacheMeta = ref("12.5MB");
 const isInitialContentReady = ref(false);
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -39,7 +38,6 @@ const featureItems: FeatureItem[] = [
 const visibleAboutItems = computed(() =>
   aboutItems.map((item) => {
     if (item.key === "version") return { ...item, meta: versionMeta.value };
-    if (item.key === "cache") return { ...item, meta: cacheMeta.value };
     return item;
   })
 );
@@ -90,27 +88,6 @@ function openFeature(item: FeatureItem) {
   uni.navigateTo({ url: item.url });
 }
 
-function clearAppCache() {
-  const cacheKeys = [
-    "lumi-home-announcement-dismissed-week",
-    "lumiReadMessageCategories",
-    "lumi-search-history",
-    "lumiCreatePromptDraft",
-    "lumi-draw:active-generate-jobs",
-    "lumi-draw:notified-generate-jobs"
-  ];
-
-  cacheKeys.forEach((key) => {
-    try {
-      uni.removeStorageSync(key);
-    } catch {
-      // Ignore storage errors in preview runtimes.
-    }
-  });
-  cacheMeta.value = "0MB";
-  uni.showToast({ title: "缓存已清除", icon: "none" });
-}
-
 function handleAbout(item: SettingsLink) {
   const agreementTypes: Record<string, string> = {
     agreement: "user",
@@ -123,10 +100,6 @@ function handleAbout(item: SettingsLink) {
   }
   if (item.key === "version") {
     uni.navigateTo({ url: "/pages/changelog/index" });
-    return;
-  }
-  if (item.key === "cache") {
-    clearAppCache();
     return;
   }
   uni.showToast({ title: item.label, icon: "none" });
