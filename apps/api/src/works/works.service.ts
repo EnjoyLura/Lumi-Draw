@@ -196,6 +196,7 @@ export class WorksService {
       id: work.id,
       imageUrl: this.uploads.readUrl(work.imageUrl, visibility),
       previewUrl: this.uploads.readDetailPreviewImageUrl(work.imageUrl, visibility),
+      fullscreenUrl: this.uploads.readFullscreenImageUrl(work.imageUrl, visibility),
       title: work.title,
       description: work.description,
       prompt: work.prompt,

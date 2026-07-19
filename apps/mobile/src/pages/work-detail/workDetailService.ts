@@ -7,6 +7,7 @@ interface BackendWorkDetail {
   id: number;
   imageUrl: string;
   previewUrl?: string;
+  fullscreenUrl?: string;
   title: string;
   description?: string | null;
   prompt: string;
@@ -60,6 +61,8 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       id: item.id,
       image: item.imageUrl,
       previewImage: item.previewUrl || item.imageUrl,
+      fullscreenImage: item.fullscreenUrl || item.imageUrl,
+      originalImage: item.imageUrl,
       userId: item.author.id,
       title,
       prompt: item.prompt,

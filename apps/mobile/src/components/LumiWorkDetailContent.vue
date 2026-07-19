@@ -139,6 +139,7 @@ function handleHashChange() {
   const nextId = resolveRouteId();
   if (nextId === workId.value) return;
   workId.value = nextId;
+  highImage.value = "";
   lastMode = useMockData.value;
   void loadDetail();
 }
@@ -227,6 +228,7 @@ function syncStandaloneDetail() {
   const nextId = props.initialWorkId || resolveRouteId();
   if (nextId !== workId.value) {
     workId.value = nextId;
+    highImage.value = "";
     lastMode = useMockData.value;
     isInitialContentReady.value = true;
     void loadDetail();
@@ -279,7 +281,14 @@ async function refreshEmbeddedDetail() {
       const latest = detailResult;
       // Static detail fields were populated while the card list was loading.
       // Do not replace them after open, or labels visibly pop into the page.
-      work.value = { ...work.value, likes: latest.work.likes, favorites: latest.work.favorites, remakes: latest.work.remakes };
+      work.value = {
+        ...work.value,
+        likes: latest.work.likes,
+        favorites: latest.work.favorites,
+        remakes: latest.work.remakes,
+        fullscreenImage: latest.work.fullscreenImage,
+        originalImage: latest.work.originalImage
+      };
       const previewUrl = latest.work.previewImage;
       const cachedPreview = getWorkDetailQualityPreview(id, previewUrl);
       if (cachedPreview) {
@@ -515,14 +524,42 @@ function goUserProfile() {
 
 function previewWorkImage() {
   if (!work.value) return;
-  void resolveHighImage().then((url) => uni.previewImage({ urls: [url], current: url }));
+  void resolveFullscreenImage().then((url) => uni.previewImage({ urls: [url], current: url }));
 }
 
-async function resolveHighImage() {
-  if (!props.embedded || highImage.value || !work.value) return highImage.value || work.value?.image || "";
+async function resolveFullscreenImage() {
+  if (highImage.value) return highImage.value;
+  if (!work.value) return "";
+  if (work.value.fullscreenImage) {
+    highImage.value = work.value.fullscreenImage;
+    return highImage.value;
+  }
+  if (!props.embedded) return work.value.originalImage || work.value.image;
   const detail = await fetchWorkDetail(work.value.id);
-  highImage.value = detail.work.image;
+  highImage.value = detail.work.fullscreenImage || detail.work.originalImage || detail.work.image;
+  work.value = {
+    ...work.value,
+    fullscreenImage: detail.work.fullscreenImage,
+    originalImage: detail.work.originalImage
+  };
   return highImage.value;
+}
+
+async function resolveOriginalImage() {
+  if (!work.value) return "";
+  if (work.value.originalImage) return work.value.originalImage;
+  const detail = await fetchWorkDetail(work.value.id);
+  work.value = {
+    ...work.value,
+    fullscreenImage: detail.work.fullscreenImage,
+    originalImage: detail.work.originalImage
+  };
+  return detail.work.originalImage || detail.work.image;
+}
+
+function originalImageFilename(url: string, workId: number) {
+  const extension = url.split(/[?#]/, 1)[0]?.match(/\.(png|jpe?g|webp)$/i)?.[1]?.toLowerCase() || "png";
+  return `lumi-work-${workId}.${extension === "jpeg" ? "jpg" : extension}`;
 }
 
 function openLongPressSheet() {
@@ -575,8 +612,8 @@ function shareWork() {
 async function saveWorkImage() {
   if (!work.value) return;
   try {
-    const imageUrl = await resolveHighImage();
-    await saveImageToDevice(imageUrl, `lumi-work-${work.value.id}.jpg`);
+    const imageUrl = await resolveOriginalImage();
+    await saveImageToDevice(imageUrl, originalImageFilename(imageUrl, work.value.id));
     uni.showToast({ title: "已保存到相册", icon: "none" });
   } catch (error) {
     uni.showToast({ title: imageSaveFailureMessage(error), icon: "none" });

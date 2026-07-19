@@ -4,6 +4,8 @@ import { createModels } from "../create/createData";
 
 export interface DetailWork extends HomeWork {
   previewImage?: string;
+  fullscreenImage?: string;
+  originalImage?: string;
   description: string;
   modelId?: string;
   modelName: string;

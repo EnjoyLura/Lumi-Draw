@@ -9,8 +9,9 @@ const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 // A short, stable URL bucket lets WeChat reuse the same image cache entry while
 // leaving ample headroom for the CDN's Type A authentication validity window.
 const CDN_AUTH_URL_WINDOW_SECONDS = 5 * 60;
-const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,q_80/format,webp";
-const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_1440,h_1440/quality,q_85/format,webp";
+const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,Q_85/format,webp";
+const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_1440,h_1440/quality,Q_92/format,webp";
+const FULLSCREEN_IMAGE_PROCESS = "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
 const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
@@ -77,7 +78,9 @@ export class UploadsService {
       await this.deleteObject(ossKey).catch(() => undefined);
       throw error;
     }
-    return { ok: true, ossKey, publicUrl: this.objectUrl(ossKey) };
+    const publicUrl = this.objectUrl(ossKey);
+    if (this.isWorkImageKey(ossKey)) void this.prewarmWorkImageVariants(publicUrl);
+    return { ok: true, ossKey, publicUrl };
   }
 
   async uploadBuffer(scene: string, filename: string, contentType: string, buffer: Buffer) {
@@ -88,6 +91,7 @@ export class UploadsService {
     const policy = this.createPutPolicy(this.createSystemKey(scene, contentType), contentType);
     const uploaded = await fetch(policy.uploadUrl, { method: "PUT", headers: policy.headers, body: buffer });
     if (!uploaded.ok) throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
+    if (this.isWorkImageScene(scene)) void this.prewarmWorkImageVariants(policy.publicUrl);
     return { imageUrl: policy.publicUrl, ossKey: policy.ossKey, sizeBytes: buffer.byteLength, contentType };
   }
 
@@ -119,6 +123,19 @@ export class UploadsService {
     return this.readProcessedImageUrl(url, visibility, DETAIL_IMAGE_PROCESS);
   }
 
+  readFullscreenImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, FULLSCREEN_IMAGE_PROCESS);
+  }
+
+  async prewarmWorkImageVariants(url: string) {
+    const variants = [
+      this.readResponsiveImageUrl(url, "public"),
+      this.readDetailPreviewImageUrl(url, "public"),
+      this.readFullscreenImageUrl(url, "public")
+    ];
+    await Promise.allSettled(variants.map((variant) => this.downloadWarmVariant(variant)));
+  }
+
   readAdminThumbnailImageUrl(url: string, visibility: "private" | "public" = "private") {
     return this.readProcessedImageUrl(url, visibility, ADMIN_THUMBNAIL_IMAGE_PROCESS);
   }
@@ -143,6 +160,7 @@ export class UploadsService {
     const policy = this.createPutPolicy(this.createSystemKey(scene, downloaded.contentType), downloaded.contentType);
     const uploaded = await fetch(policy.uploadUrl, { method: "PUT", headers: policy.headers, body: downloaded.buffer });
     if (!uploaded.ok) throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
+    if (this.isWorkImageScene(scene)) void this.prewarmWorkImageVariants(policy.publicUrl);
     return { imageUrl: policy.publicUrl, ossKey: policy.ossKey, sizeBytes: downloaded.buffer.byteLength, contentType: downloaded.contentType };
   }
 
@@ -161,6 +179,25 @@ export class UploadsService {
     this.assertImageType(contentType);
     if (!Number.isInteger(sizeBytes) || sizeBytes < 1 || sizeBytes > MAX_UPLOAD_BYTES) {
       throw new BadRequestException("上传图片不能超过 10MB");
+    }
+  }
+
+  private isWorkImageScene(scene: string) {
+    return scene === "work" || scene === "generate";
+  }
+
+  private isWorkImageKey(ossKey: string) {
+    return /\/(?:work|generate)\//.test(ossKey);
+  }
+
+  private async downloadWarmVariant(url: string) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2 * 60_000);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (response.ok) await response.arrayBuffer();
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
