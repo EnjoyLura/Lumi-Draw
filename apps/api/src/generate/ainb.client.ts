@@ -47,9 +47,9 @@ export class AinbClient {
 
   constructor(private readonly config: ConfigService) {}
 
-  isConfiguredFor(modelId: string, mode: string) {
+  isConfiguredFor(_modelId: string, mode: string) {
     const config = this.getConfig();
-    return modelId === IMAGE_2_MODEL_ID && ["text-to-image", "image-to-image"].includes(mode) && Boolean(config.apiBase && config.imageApiKey);
+    return ["text-to-image", "image-to-image"].includes(mode) && Boolean(config.apiBase && config.imageApiKey);
   }
 
   async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {

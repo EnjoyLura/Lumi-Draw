@@ -173,8 +173,6 @@ export class GenerateService implements OnApplicationBootstrap {
     }
     const apiKey = this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv);
     if (!apiKey) throw new BadRequestException("该模型的 API 密钥尚未配置");
-    if (provider.adapter === "ainb" && model.id !== "gpt-image-2") throw new BadRequestException("当前 API 平台不支持该模型");
-    if (provider.adapter === "change2pro" && !this.change2pro.providerModel(model.id)) throw new BadRequestException("当前 API 平台不支持该模型");
     if (["ainb", "change2pro"].includes(provider.adapter) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {

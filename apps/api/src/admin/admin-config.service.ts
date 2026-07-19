@@ -227,20 +227,20 @@ export class AdminConfigService {
     const providerIds = [...new Set([defaultProvider, ...Object.values(routing)])];
     const providers = await this.prisma.generationProvider.findMany({
       where: { id: { in: providerIds } },
-      select: { id: true, enabled: true, adapter: true }
+      select: { id: true, enabled: true }
     });
     if (providers.length !== providerIds.length) throw new BadRequestException("分辨率路由包含不存在的 API 平台");
     if (modelEnabled && providers.some((provider) => !provider.enabled)) {
       throw new BadRequestException("已上线模型不能使用已停用的 API 平台");
     }
-    for (const provider of providers) await this.assertProviderModels(provider.adapter, [modelId]);
+    await this.assertModelsExist([modelId]);
   }
 
   // ---------- 生图 API 平台 ----------
   async createGenerationProvider(body: Record<string, unknown>) {
     const data = this.normalizeGenerationProvider(body, true);
     this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
-    await this.assertProviderModels(data.provider.adapter, data.modelIds);
+    await this.assertModelsExist(data.modelIds);
     const existing = await this.prisma.generationProvider.findUnique({ where: { id: data.provider.id }, select: { id: true } });
     if (existing) throw new ConflictException("平台标识已存在，请更换一个标识");
     try {
@@ -264,7 +264,7 @@ export class AdminConfigService {
     if (!current) throw new BadRequestException("API 平台不存在");
     const data = this.normalizeGenerationProvider({ ...current, ...body, id }, false);
     this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
-    await this.assertProviderModels(data.provider.adapter, data.modelIds);
+    await this.assertModelsExist(data.modelIds);
     if (!data.provider.enabled) {
       const activeModels = await this.countEnabledModelsUsingProvider(id);
       if (activeModels) throw new BadRequestException("请先把生效模型切换到其他 API 平台");
@@ -395,16 +395,10 @@ export class AdminConfigService {
     return this.config.get<string>("app.generationProviderEncryptionKey") || "";
   }
 
-  private async assertProviderModels(adapter: string, modelIds: string[]) {
+  private async assertModelsExist(modelIds: string[]) {
     if (!modelIds.length) return;
     const models = await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true } });
     if (models.length !== modelIds.length) throw new BadRequestException("包含不存在的创作模型");
-    if (adapter === "ainb" && modelIds.some((id) => id !== "gpt-image-2")) {
-      throw new BadRequestException("Ainb 异步接口当前只支持 GPT Image 2");
-    }
-    if (adapter === "change2pro" && modelIds.some((id) => !["gpt-image-2", "nano-banana-2", "nano-banana-pro"].includes(id))) {
-      throw new BadRequestException("OpenAI Images 兼容接口暂不支持所选模型");
-    }
   }
 
   private assertEnabledProviderBindings(enabled: boolean, modelIds: string[]) {

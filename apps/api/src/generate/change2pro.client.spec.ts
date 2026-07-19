@@ -137,6 +137,36 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   assert.equal(request?.payload.model, "image2-vip");
 });
 
+test("Images-compatible runtime accepts an arbitrary creative model id", async () => {
+  const provider = client();
+  let request: { url: string; payload: Record<string, unknown> } | undefined;
+  (provider as unknown as {
+    requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  }).requestImage2Json = async (url, _key, _id, payload) => {
+    request = { url, payload };
+    return { data: [{ url: "https://images.example.com/result.png" }] };
+  };
+
+  await provider.generate({
+    jobId: "custom-model",
+    modelId: "custom-creative-model",
+    providerModel: "image2-vip",
+    mode: "text-to-image",
+    prompt: "orange cat",
+    inputImageUrl: "",
+    ratio: "1:1",
+    quality: "1K",
+    count: 1
+  }, {
+    apiBase: "https://custom.example.com/v1/images/generations",
+    apiKey: "runtime-key",
+    params: { model: "image2-vip", quality: "high" }
+  });
+
+  assert.equal(request?.url, "https://custom.example.com/v1/images/generations");
+  assert.equal(request?.payload.model, "image2-vip");
+});
+
 test("Banana supports text generation and inline reference image generation", async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies: Array<Record<string, unknown>> = [];

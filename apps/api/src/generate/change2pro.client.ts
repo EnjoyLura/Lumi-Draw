@@ -109,7 +109,10 @@ export class Change2ProClient {
   }
 
   async generate(input: Change2ProGenerateInput, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
-    const route = resolveChange2ProModel(input.modelId);
+    const route = resolveChange2ProModel(input.modelId) ?? (runtime ? {
+      kind: "image2" as const,
+      providerModel: input.providerModel || runtime.params.model || input.modelId
+    } : undefined);
     if (!route || !(runtime ? runtime.apiBase && runtime.apiKey : this.isConfiguredFor(input.modelId))) throw new Error("Change2Pro provider is not configured for this model");
     if (input.mode === "image-to-image" && !input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
     return route.kind === "image2"
