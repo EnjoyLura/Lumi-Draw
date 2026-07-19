@@ -192,11 +192,12 @@ export class WorksService {
       ? await this.prisma.modelConfig.findUnique({ where: { id: work.modelId } })
       : null;
     const visibility = work.status === "published" && work.isPublic ? "public" : "private";
+    const previewUrl = this.uploads.readDetailPreviewImageUrl(work.imageUrl, visibility);
     return {
       id: work.id,
       imageUrl: this.uploads.readUrl(work.imageUrl, visibility),
-      previewUrl: this.uploads.readDetailPreviewImageUrl(work.imageUrl, visibility),
-      fullscreenUrl: this.uploads.readFullscreenImageUrl(work.imageUrl, visibility),
+      previewUrl,
+      fullscreenUrl: previewUrl,
       title: work.title,
       description: work.description,
       prompt: work.prompt,
