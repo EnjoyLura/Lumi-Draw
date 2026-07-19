@@ -108,6 +108,7 @@ model ModelConfig {
 model GenerationProvider {
   id            String   @id
   name          String
+  groupName     String   @default("")
   adapter       String
   baseUrl       String
   imageEndpoint String   @default("")

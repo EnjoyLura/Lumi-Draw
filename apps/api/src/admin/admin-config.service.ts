@@ -311,6 +311,7 @@ export class AdminConfigService {
   private normalizeGenerationProvider(body: Record<string, unknown>, creating: boolean) {
     requireFields(body, ["id", "name", "adapter"]);
     const id = String(body.id).trim().toLowerCase();
+    const groupName = String(body.groupName || "").trim();
     const adapter = String(body.adapter).trim();
     const baseUrl = String(body.baseUrl || "").trim();
     const imageEndpoint = String(body.imageEndpoint || "").trim();
@@ -318,6 +319,7 @@ export class AdminConfigService {
     const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
     const apiKeyEnv = String(body.apiKeyEnv || `GENERATION_PROVIDER_${id.replace(/-/g, "_").toUpperCase()}_API_KEY`).trim();
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
+    if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
     if (!textToImageEnabled && !imageToImageEnabled) throw new BadRequestException("请至少启用文生图或图生图能力");
     this.assertGenerationEndpoint(baseUrl, "文生图", textToImageEnabled);
@@ -338,6 +340,7 @@ export class AdminConfigService {
       provider: {
         id,
         name: String(body.name).trim(),
+        groupName,
         adapter,
         baseUrl,
         imageEndpoint,

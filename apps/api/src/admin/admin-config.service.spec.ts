@@ -82,6 +82,19 @@ test("stores independent mode endpoints and arbitrary administrator parameters",
   assert.deepEqual(result.provider.imageRequestParams, { model: "image2-edit-vip", response_format: "url", input_fidelity: "high" });
 });
 
+test("stores a normalized custom provider group", () => {
+  const result = normalize({
+    id: "grouped-provider",
+    name: "Grouped provider",
+    groupName: "  Banana 线路  ",
+    adapter: "change2pro",
+    apiKey: "sk-grouped-secret",
+    baseUrl: "https://images.example.com/v1/images/generations"
+  }, true);
+
+  assert.equal(result.provider.groupName, "Banana 线路");
+});
+
 test("allows an empty image endpoint when image generation is disabled", () => {
   const result = normalize({
     id: "text-only",
@@ -109,6 +122,7 @@ test("never exposes encrypted or environment key fields in administrator respons
   const provider = {
     id: "safe-view",
     name: "Safe view",
+    groupName: "Primary",
     adapter: "ainb",
     baseUrl: "https://images.example.com/v1/images/generations",
     imageEndpoint: "",

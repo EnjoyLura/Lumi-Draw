@@ -95,6 +95,7 @@ export interface MemberPlan {
 export interface AdminGenerationProvider {
   id: string;
   name: string;
+  groupName: string;
   adapter: "ainb" | "change2pro" | "kie";
   baseUrl: string;
   imageEndpoint: string;
@@ -232,9 +233,9 @@ export const BANNERS: AdminBanner[] = [
 ];
 
 export const GENERATION_PROVIDERS: AdminGenerationProvider[] = [
-  { id: "ainb", name: "Ainb", adapter: "ainb", baseUrl: "https://ainb.plus/v1/images/generations?async=true", imageEndpoint: "https://ainb.plus/v1/images/edits?async=true", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••drug", apiKeySource: "environment", requestParams: { quality: "high", response_format: "url", output_format: "png" }, imageRequestParams: { quality: "high", input_fidelity: "high", response_format: "url" }, modelIds: ["gpt2"], sort: 1, on: true },
-  { id: "change2pro", name: "Change2Pro Banana", adapter: "change2pro", baseUrl: "https://api.change2pro.com/v1beta/models/{model}:generateContent", imageEndpoint: "https://api.change2pro.com/v1beta/models/{model}:generateContent", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••f10d", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, modelIds: ["nano"], sort: 2, on: true },
-  { id: "kie", name: "KIE", adapter: "kie", baseUrl: "https://api.kie.ai/api/v1/jobs/createTask", imageEndpoint: "https://api.kie.ai/api/v1/jobs/createTask", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••已配置", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, modelIds: ["flux", "sdxl", "dalle3", "mj"], sort: 3, on: true }
+  { id: "ainb", name: "Ainb", groupName: "Image2", adapter: "ainb", baseUrl: "https://ainb.plus/v1/images/generations?async=true", imageEndpoint: "https://ainb.plus/v1/images/edits?async=true", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••drug", apiKeySource: "environment", requestParams: { quality: "high", response_format: "url", output_format: "png" }, imageRequestParams: { quality: "high", input_fidelity: "high", response_format: "url" }, modelIds: ["gpt2"], sort: 1, on: true },
+  { id: "change2pro", name: "Change2Pro Banana", groupName: "Banana", adapter: "change2pro", baseUrl: "https://api.change2pro.com/v1beta/models/{model}:generateContent", imageEndpoint: "https://api.change2pro.com/v1beta/models/{model}:generateContent", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••f10d", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, modelIds: ["nano"], sort: 2, on: true },
+  { id: "kie", name: "KIE", groupName: "其他", adapter: "kie", baseUrl: "https://api.kie.ai/api/v1/jobs/createTask", imageEndpoint: "https://api.kie.ai/api/v1/jobs/createTask", textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••已配置", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, modelIds: ["flux", "sdxl", "dalle3", "mj"], sort: 3, on: true }
 ];
 
 export const GAMEPLAYS: AdminGameplay[] = [

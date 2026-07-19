@@ -499,6 +499,7 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
 interface ApiGenerationProvider {
   id: string;
   name: string;
+  groupName: string;
   adapter: "ainb" | "change2pro" | "kie";
   baseUrl: string;
   imageEndpoint: string;
@@ -533,6 +534,7 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
   const body = {
     id: values.id,
     name: values.name,
+    groupName: values.groupName,
     adapter: values.adapter,
     baseUrl: values.baseUrl,
     imageEndpoint: values.imageEndpoint,

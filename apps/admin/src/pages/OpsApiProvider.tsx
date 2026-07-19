@@ -4,7 +4,7 @@ import { useAdminSession } from "../data/adminSession";
 import { GENERATION_PROVIDERS, MODELS, type AdminGenerationProvider, type AdminModel } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
+import { AddBtn, Badge, Chips, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const ADAPTERS = [
@@ -40,6 +40,7 @@ function emptyProvider(): AdminGenerationProvider {
   return {
     id: "",
     name: "",
+    groupName: "",
     adapter: "ainb",
     baseUrl: "",
     imageEndpoint: "",
@@ -120,6 +121,18 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       <input className="input" value={value.id} disabled={Boolean(originalId)} onChange={(event) => update("id", event.target.value.toLowerCase())} placeholder="如 ainb-backup" />
       <label className="field-label" style={{ marginTop: 12 }}>平台名称</label>
       <input className="input" value={value.name} onChange={(event) => update("name", event.target.value)} placeholder="如 Ainb 备用线路" />
+      <label className="field-label" style={{ marginTop: 12 }}>所属分组</label>
+      <input
+        className="input"
+        list="generation-provider-groups"
+        maxLength={30}
+        value={value.groupName}
+        onChange={(event) => update("groupName", event.target.value)}
+        placeholder="输入新分组，或选择已有分组"
+      />
+      <datalist id="generation-provider-groups">
+        {[...new Set(providers.map((provider) => provider.groupName).filter(Boolean))].map((group) => <option key={group} value={group} />)}
+      </datalist>
       <label className="field-label" style={{ marginTop: 12 }}>接口类型</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
         {ADAPTERS.map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
@@ -180,12 +193,19 @@ export function OpsApiProvider() {
   const { useMock } = useAdminSession();
   const { openSheet, toast, confirmDlg } = useNav();
   const refresh = useRefresh();
+  const [groupFilter, setGroupFilter] = useState("全部");
   const state = useAsyncData(useMock ? null : async () => {
     const [providers, models] = await Promise.all([apiGetGenerationProviders(), apiGetModels()]);
     return { providers, models };
   }, [useMock]);
   const providers = useMock ? GENERATION_PROVIDERS : state.data?.providers ?? [];
   const models = useMock ? MODELS : state.data?.models ?? [];
+  const groups = [...new Set(providers.map((provider) => provider.groupName).filter(Boolean))];
+  const hasUngrouped = providers.some((provider) => !provider.groupName);
+  const groupFilters = ["全部", ...groups, ...(hasUngrouped ? ["未分组"] : [])];
+  const activeGroupFilter = groupFilters.includes(groupFilter) ? groupFilter : "全部";
+  const visibleProviders = providers.filter((provider) => activeGroupFilter === "全部"
+    || (activeGroupFilter === "未分组" ? !provider.groupName : provider.groupName === activeGroupFilter));
   const reload = () => useMock ? refresh() : state.reload();
   const openForm = (provider?: AdminGenerationProvider) => openSheet(provider ? "编辑 API 平台" : "新增 API 平台", <ProviderForm item={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
 
@@ -217,14 +237,17 @@ export function OpsApiProvider() {
   return (
     <>
       <AddBtn text="新增 API 平台" onClick={() => openForm()} />
+      {providers.length ? <Chips items={groupFilters} active={activeGroupFilter} onPick={setGroupFilter} /> : null}
       {state.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
       {state.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{state.error}</div></div> : null}
-      {providers.map((provider) => (
+      {!state.loading && !state.error && providers.length > 0 && visibleProviders.length === 0 ? <div className="empty"><i className="ri-inbox-2-line" /><div className="et">该分组暂无 API 平台</div></div> : null}
+      {visibleProviders.map((provider) => (
         <div key={provider.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div className="lr-ico" style={{ color: "#5B9FE8", background: "var(--info-soft)", flexShrink: 0 }}><i className="ri-server-line" /></div>
             <div className="lr-main">
               <div className="lr-t">{provider.name} <Badge text={provider.apiKeyConfigured ? `密钥已配置 ${provider.apiKeyHint}` : "密钥未配置"} type={provider.apiKeyConfigured ? "success" : "danger"} /></div>
+              <div style={{ marginTop: 4 }}><Badge text={provider.groupName || "未分组"} type={provider.groupName ? "info" : "muted"} /></div>
               <div className="lr-s" style={{ wordBreak: "break-all" }}>{provider.baseUrl}</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
