@@ -23,12 +23,15 @@ const backGuardVisible = ref(false);
 const surfaceVisible = ref(false);
 const contentVisible = ref(false);
 const sharedActive = ref(false);
+const sharedImageVisible = ref(false);
+const sharedImage = ref("");
 const sourceRect = ref<WorkDetailSourceRect | null>(null);
 const workRatio = ref("1:1");
 
 let openTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let contentTimer: ReturnType<typeof setTimeout> | undefined;
+let sharedImageTimer: ReturnType<typeof setTimeout> | undefined;
 let unregisterOverlay: (() => void) | undefined;
 let activeSourceId: string | undefined;
 let activeSourceContext: object | null | undefined;
@@ -45,11 +48,15 @@ const surfaceStyle = computed(() => {
   const imageBottom = Math.max(0, windowHeight - imageTop - destinationHeight);
   return {
     "--detail-source-x": `${source.left}px`,
+    "--detail-source-top": `${source.top}px`,
+    "--detail-source-width": `${source.width}px`,
+    "--detail-source-height": `${source.height}px`,
     "--detail-source-y": `${source.top - imageTop * (source.height / destinationHeight)}px`,
     "--detail-source-scale-x": String(source.width / windowWidth),
     "--detail-source-scale-y": String(source.height / destinationHeight),
     "--detail-image-top": `${imageTop}px`,
     "--detail-image-bottom": `${imageBottom}px`,
+    "--detail-image-height": `${destinationHeight}px`,
     "--detail-surface-height": `${windowHeight}px`
   };
 });
@@ -72,10 +79,12 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   contentVisible.value = false;
   workId.value = payload.work.id;
   workRatio.value = payload.work.ratio || "1:1";
+  sharedImage.value = payload.work.image;
   sourceRect.value = payload.sourceRect;
   activeSourceId = payload.sourceId;
   activeSourceContext = payload.sourceContext;
   sharedActive.value = Boolean(payload.sourceRect);
+  sharedImageVisible.value = Boolean(payload.sourceRect && sharedImage.value);
   closing = false;
 
   void nextTick(() => {
@@ -92,6 +101,10 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
         contentVisible.value = true;
         contentTimer = undefined;
       }, 10);
+      sharedImageTimer = setTimeout(() => {
+        sharedImageVisible.value = false;
+        sharedImageTimer = undefined;
+      }, OPEN_DURATION + FINAL_FRAME_DELAY);
     }, 16);
   });
 }
@@ -108,12 +121,18 @@ async function closeOverlay() {
     }
   }
   if (openTimer) clearTimeout(openTimer);
-  isOpen.value = false;
   backGuardVisible.value = false;
   contentVisible.value = false;
   if (contentTimer) clearTimeout(contentTimer);
+  if (sharedImageTimer) clearTimeout(sharedImageTimer);
   if (closeTimer) clearTimeout(closeTimer);
-  closeTimer = setTimeout(finishClose, CLOSE_DURATION + 60);
+  sharedImageVisible.value = Boolean(sharedActive.value && sharedImage.value);
+  await nextTick();
+  openTimer = setTimeout(() => {
+    isOpen.value = false;
+    openTimer = undefined;
+    closeTimer = setTimeout(finishClose, CLOSE_DURATION + 60);
+  }, 16);
 }
 
 function handleTransitionEnd() {
@@ -128,6 +147,8 @@ function finishClose() {
   workId.value = null;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
+  sharedImageVisible.value = false;
+  sharedImage.value = "";
   activeSourceId = undefined;
   activeSourceContext = undefined;
   closing = false;
@@ -142,9 +163,11 @@ function clearTimers() {
   if (openTimer) clearTimeout(openTimer);
   if (closeTimer) clearTimeout(closeTimer);
   if (contentTimer) clearTimeout(contentTimer);
+  if (sharedImageTimer) clearTimeout(sharedImageTimer);
   openTimer = undefined;
   closeTimer = undefined;
   contentTimer = undefined;
+  sharedImageTimer = undefined;
 }
 </script>
 
@@ -175,10 +198,17 @@ function clearTimers() {
         embedded
         :open="isOpen"
         :initial-work-id="workId"
-        :shared-transitioning="false"
+        :shared-transitioning="sharedImageVisible"
         :content-visible="contentVisible"
         @close="void closeOverlay()"
       />
+    </view>
+    <view
+      v-if="sharedImageVisible && sharedImage"
+      class="work-detail-shared-image-frame"
+      :style="surfaceStyle"
+    >
+      <image class="work-detail-shared-image" :src="sharedImage" mode="aspectFill" />
     </view>
   </view>
 </template>
@@ -238,5 +268,39 @@ function clearTimers() {
   clip-path: inset(0 0 0 0 round 0);
   transform: translate(0, 0) scale(1, 1);
   transition: opacity 60ms ease, transform 320ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 320ms cubic-bezier(.4, 0, .2, 1), clip-path 320ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.work-detail-shared-image-frame {
+  position: absolute;
+  z-index: 2;
+  top: var(--detail-source-top);
+  left: var(--detail-source-x);
+  width: var(--detail-source-width);
+  height: var(--detail-source-height);
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 10px;
+  transition:
+    top 390ms cubic-bezier(.4, 0, .2, 1),
+    left 390ms cubic-bezier(.4, 0, .2, 1),
+    width 390ms cubic-bezier(.4, 0, .2, 1),
+    height 390ms cubic-bezier(.4, 0, .2, 1),
+    border-radius 390ms cubic-bezier(.4, 0, .2, 1);
+  will-change: top, left, width, height, border-radius;
+}
+
+.work-detail-overlay.open .work-detail-shared-image-frame {
+  top: var(--detail-image-top);
+  left: 0;
+  width: 100%;
+  height: var(--detail-image-height);
+  border-radius: 0;
+  transition-duration: 320ms;
+}
+
+.work-detail-shared-image {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 </style>

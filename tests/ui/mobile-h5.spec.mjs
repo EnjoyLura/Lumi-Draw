@@ -202,6 +202,37 @@ for (const [name, url] of [
   });
 }
 
+test("mobile h5 closes a 9:16 work exactly into its gallery card", async ({ page }) => {
+  const runtimeErrors = collectRuntimeErrors(page);
+  await page.goto("/#/pages/gallery/index");
+
+  const source = page.locator("#lumi-gallery-work-media-5");
+  await expect(source).toBeVisible();
+
+  await page.locator("#lumi-work-card-5").click();
+  await expect(page.locator(".work-detail-overlay.open")).toBeVisible();
+  await expect(page.locator(".work-detail-shared-image-frame")).toHaveCount(0);
+
+  await page.addStyleTag({
+    content: ".work-detail-shared-image-frame { transition-duration: 0ms !important; }"
+  });
+  await page.locator(".work-detail-overlay .lumi-back").click();
+
+  const closingImage = page.locator(".work-detail-overlay:not(.open) .work-detail-shared-image-frame");
+  await expect(closingImage).toBeVisible();
+  const sourceBox = await source.boundingBox();
+  const closingBox = await closingImage.boundingBox();
+  expect(sourceBox).not.toBeNull();
+  expect(closingBox).not.toBeNull();
+  expect(Math.abs(closingBox.x - sourceBox.x)).toBeLessThan(1);
+  expect(Math.abs(closingBox.y - sourceBox.y)).toBeLessThan(1);
+  expect(Math.abs(closingBox.width - sourceBox.width)).toBeLessThan(1);
+  expect(Math.abs(closingBox.height - sourceBox.height)).toBeLessThan(1);
+
+  await expect(page.locator(".work-detail-overlay")).toHaveCount(0);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test("mobile h5 settings toggles mock data switch", async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/#/pages/settings/index");
