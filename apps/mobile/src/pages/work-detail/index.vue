@@ -1035,21 +1035,25 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded .bottom-safe-area {
   opacity: 0;
   transform: translateY(18px);
-  transition: opacity 300ms ease, transform 340ms cubic-bezier(.16, 1, .3, 1);
+  transition: opacity 300ms cubic-bezier(.7, 0, .84, 0), transform 340ms cubic-bezier(.7, 0, .84, 0);
 }
 
 .detail-page.embedded:not(.detail-content-visible) :deep(.lumi-page-header) {
   opacity: 0;
-  transition: opacity 240ms ease;
+  transition: opacity 240ms cubic-bezier(.7, 0, .84, 0);
 }
 
-.detail-page.embedded.detail-content-visible :deep(.lumi-page-header) { opacity: 1; }
+.detail-page.embedded.detail-content-visible :deep(.lumi-page-header) {
+  opacity: 1;
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
 
 .detail-page.embedded.detail-content-visible .detail-body,
 .detail-page.embedded.detail-content-visible .detail-bottom,
 .detail-page.embedded.detail-content-visible .bottom-safe-area {
   opacity: 1;
   transform: translateY(0);
+  transition: opacity 300ms cubic-bezier(.16, 1, .3, 1), transform 340ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .detail-body {

@@ -1585,11 +1585,12 @@ function getRatioClass(ratio: string) {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0);
-  transition: background 420ms ease;
+  transition: background 420ms cubic-bezier(.7, 0, .84, 0);
 }
 
 .work-detail-overlay.open .work-detail-overlay-backdrop {
   background: rgba(0, 0, 0, .58);
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
 }
 
 .work-detail-overlay-surface {
@@ -1605,7 +1606,7 @@ function getRatioClass(ratio: string) {
 .work-detail-overlay-surface.from-source {
   border-radius: 10px;
   transform: translate(var(--detail-source-x), var(--detail-source-y)) scale(var(--detail-source-scale-x), var(--detail-source-scale-y));
-  transition: transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 420ms ease;
+  transition: transform 420ms cubic-bezier(.7, 0, .84, 0), border-radius 420ms cubic-bezier(.7, 0, .84, 0);
   will-change: transform, border-radius;
 }
 
@@ -1616,6 +1617,7 @@ function getRatioClass(ratio: string) {
 .work-detail-overlay.open .work-detail-overlay-surface.from-source {
   border-radius: 0;
   transform: translate(0, 0) scale(1, 1);
+  transition: transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 420ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .work-detail-overlay.closing .work-detail-overlay-surface,
