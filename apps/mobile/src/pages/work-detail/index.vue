@@ -1020,7 +1020,6 @@ function handleDetailPreviewLoad() {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: opacity 70ms ease;
 }
 
 .detail-image-full {

@@ -82,10 +82,8 @@ const detailOverlayWorkId = ref<number | null>(null);
 const detailOverlayOpen = ref(false);
 const detailOverlayContentVisible = ref(false);
 const detailOverlaySharedActive = ref(false);
-const detailOverlayImageTransitioning = ref(false);
 const detailOverlaySourceRect = ref<WorkDetailSourceRect | null>(null);
 const detailOverlayRatio = ref("1:1");
-const detailOverlayPreviewImage = ref("");
 const { themeClass } = useTheme();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
@@ -101,8 +99,6 @@ let lastLoadKey = useMockData.value ? "mock" : "";
 let lastInviteCode = "";
 let detailOverlayCloseTimer: ReturnType<typeof setTimeout> | undefined;
 let detailOverlayContentTimer: ReturnType<typeof setTimeout> | undefined;
-let detailOverlayImageTimer: ReturnType<typeof setTimeout> | undefined;
-let detailOverlayCloseStartTimer: ReturnType<typeof setTimeout> | undefined;
 
 const currentTabWorks = computed(() => {
   return renderedHomeTab.value === "new" ? latestWorks.value : recommendWorks.value;
@@ -116,10 +112,11 @@ const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.val
 const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
 const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
 const isWaterfallSwitching = computed(() => selectedHomeTab.value !== renderedHomeTab.value);
-const detailOverlaySharedImageStyle = computed(() => {
+const detailOverlaySurfaceStyle = computed(() => {
   const source = detailOverlaySourceRect.value;
   if (!source) return {};
   const windowWidth = uni.getSystemInfoSync().windowWidth || 375;
+  const windowHeight = uni.getSystemInfoSync().windowHeight || 760;
   const [ratioWidth, ratioHeight] = detailOverlayRatio.value.split(":").map(Number);
   const rpx = windowWidth / 750;
   const destinationHeight = Math.max((ratioHeight / ratioWidth) * windowWidth || windowWidth, 640 * rpx);
@@ -131,8 +128,7 @@ const detailOverlaySharedImageStyle = computed(() => {
     "--detail-source-y": `${source.top - imageTop * scaleY}px`,
     "--detail-source-scale-x": String(scaleX),
     "--detail-source-scale-y": String(scaleY),
-    "--detail-shared-image-width": `${windowWidth}px`,
-    "--detail-shared-image-height": `${destinationHeight}px`
+    "--detail-surface-height": `${windowHeight}px`
   };
 });
 
@@ -176,8 +172,6 @@ onBeforeUnmount(() => {
   clearWorksSwitchTimers();
   if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
   if (detailOverlayContentTimer) clearTimeout(detailOverlayContentTimer);
-  if (detailOverlayImageTimer) clearTimeout(detailOverlayImageTimer);
-  if (detailOverlayCloseStartTimer) clearTimeout(detailOverlayCloseStartTimer);
 });
 
 function handleHashChange() {
@@ -187,16 +181,12 @@ function handleHashChange() {
 function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
   if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
   if (detailOverlayContentTimer) clearTimeout(detailOverlayContentTimer);
-  if (detailOverlayImageTimer) clearTimeout(detailOverlayImageTimer);
-  if (detailOverlayCloseStartTimer) clearTimeout(detailOverlayCloseStartTimer);
   detailOverlayOpen.value = false;
   detailOverlayContentVisible.value = false;
   detailOverlayWorkId.value = payload.work.id;
   detailOverlayRatio.value = payload.work.ratio || "1:1";
-  detailOverlayPreviewImage.value = payload.work.image;
   detailOverlaySourceRect.value = payload.sourceRect;
   detailOverlaySharedActive.value = Boolean(payload.sourceRect);
-  detailOverlayImageTransitioning.value = Boolean(payload.sourceRect && payload.work.image);
   void nextTick(() => {
     detailOverlayOpen.value = true;
     if (!payload.sourceRect) {
@@ -207,40 +197,18 @@ function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
       detailOverlayContentVisible.value = true;
       detailOverlayContentTimer = undefined;
     }, 10);
-    detailOverlayImageTimer = setTimeout(() => {
-      detailOverlayImageTransitioning.value = false;
-      detailOverlayImageTimer = undefined;
-    }, 420);
   });
 }
 
 function closeDetailOverlay() {
+  detailOverlayOpen.value = false;
   detailOverlayContentVisible.value = false;
   if (detailOverlayContentTimer) clearTimeout(detailOverlayContentTimer);
   if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
-  if (detailOverlayImageTimer) clearTimeout(detailOverlayImageTimer);
-  if (detailOverlayCloseStartTimer) clearTimeout(detailOverlayCloseStartTimer);
-
-  const finishClose = () => {
-    detailOverlayOpen.value = false;
-    detailOverlayCloseTimer = setTimeout(() => {
-      detailOverlayWorkId.value = null;
-      detailOverlayImageTransitioning.value = false;
-      detailOverlayPreviewImage.value = "";
-      detailOverlayCloseTimer = undefined;
-    }, 440);
-  };
-
-  if (!detailOverlaySharedActive.value || !detailOverlayPreviewImage.value) {
-    finishClose();
-    return;
-  }
-
-  detailOverlayImageTransitioning.value = true;
-  detailOverlayCloseStartTimer = setTimeout(() => {
-    finishClose();
-    detailOverlayCloseStartTimer = undefined;
-  }, 32);
+  detailOverlayCloseTimer = setTimeout(() => {
+    detailOverlayWorkId.value = null;
+    detailOverlayCloseTimer = undefined;
+  }, 450);
 }
 
 function resolveInviteCode(query?: Record<string, unknown>) {
@@ -1039,26 +1007,18 @@ function getRatioClass(ratio: string) {
   <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
   <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
-  <view v-if="detailOverlayWorkId" class="work-detail-overlay" :class="{ open: detailOverlayOpen }" @touchmove.stop.prevent>
+  <view v-if="detailOverlayWorkId" class="work-detail-overlay" :class="{ open: detailOverlayOpen, closing: !detailOverlayOpen }" @touchmove.stop.prevent>
     <view class="work-detail-overlay-backdrop" />
-    <view class="work-detail-overlay-surface">
+    <view class="work-detail-overlay-surface" :class="{ 'from-source': detailOverlaySharedActive }" :style="detailOverlaySurfaceStyle">
       <WorkDetailPage
         embedded
         :open="detailOverlayOpen"
         :initial-work-id="detailOverlayWorkId"
-        :shared-transitioning="detailOverlayImageTransitioning"
+        :shared-transitioning="false"
         :content-visible="detailOverlayContentVisible"
         @close="closeDetailOverlay"
       />
     </view>
-    <image
-      v-if="detailOverlaySharedActive && detailOverlayPreviewImage"
-      class="work-detail-shared-image"
-      :class="{ active: detailOverlayImageTransitioning }"
-      :style="detailOverlaySharedImageStyle"
-      :src="detailOverlayPreviewImage"
-      mode="aspectFill"
-    />
   </view>
 </template>
 
@@ -1637,48 +1597,32 @@ function getRatioClass(ratio: string) {
   position: relative;
   z-index: 1;
   width: 100%;
-  height: 100%;
+  height: var(--detail-surface-height, 100%);
   overflow: hidden;
   background: var(--bg-base);
-  opacity: 0;
-  transition: opacity 180ms cubic-bezier(.7, 0, .84, 0);
+  transform-origin: top left;
+}
+
+.work-detail-overlay-surface.from-source {
+  border-radius: 10px;
+  transform: translate(var(--detail-source-x), var(--detail-source-y)) scale(var(--detail-source-scale-x), var(--detail-source-scale-y));
+  transition: transform 420ms cubic-bezier(.7, 0, .84, 0), border-radius 420ms cubic-bezier(.7, 0, .84, 0);
+  will-change: transform, border-radius;
 }
 
 .work-detail-overlay.open {
   pointer-events: auto;
 }
 
-.work-detail-overlay.open .work-detail-overlay-surface {
-  opacity: 1;
-  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
-}
-
-.work-detail-shared-image {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  left: 0;
-  display: block;
-  width: var(--detail-shared-image-width);
-  height: var(--detail-shared-image-height);
-  opacity: 0;
-  overflow: hidden;
-  background: var(--bg-soft);
-  border-radius: 10px;
-  transform: translate(var(--detail-source-x), var(--detail-source-y)) scale(var(--detail-source-scale-x), var(--detail-source-scale-y));
-  transform-origin: top left;
-  transition: opacity 70ms ease, transform 420ms cubic-bezier(.7, 0, .84, 0), border-radius 420ms cubic-bezier(.7, 0, .84, 0);
-  will-change: transform, border-radius;
-}
-
-.work-detail-shared-image.active {
-  opacity: 1;
-}
-
-.work-detail-overlay.open .work-detail-shared-image {
+.work-detail-overlay.open .work-detail-overlay-surface.from-source {
   border-radius: 0;
   transform: translate(0, 0) scale(1, 1);
-  transition: opacity 70ms ease, transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 420ms cubic-bezier(.16, 1, .3, 1);
+  transition: transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 420ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.work-detail-overlay.closing .work-detail-overlay-surface,
+.work-detail-overlay.closing .work-detail-overlay-surface :deep(.detail-page) {
+  background: transparent;
 }
 
 .work-title {
