@@ -70,6 +70,7 @@ test("submits Ainb image edits as async multipart requests", async () => {
     const provider = client();
     const { taskId } = await provider.submit({
       mode: "image-to-image",
+      providerModel: "image2-edit-vip",
       prompt: "把背景换成蓝天白云",
       inputImageUrl: "https://cdn.example.com/reference.png",
       ratio: "1:1",
@@ -81,6 +82,7 @@ test("submits Ainb image edits as async multipart requests", async () => {
     assert.equal(taskId, "task-edit");
     assert.equal(request?.url, "https://ainb.example.com/v1/images/edits?async=true");
     assert.equal(form.get("image[]") instanceof Blob, true);
+    assert.equal(form.get("model"), "image2-edit-vip");
     assert.equal(form.get("response_format"), "url");
     assert.equal(form.get("size"), "1024x1024");
   } finally {
@@ -149,13 +151,14 @@ test("uses the configured full endpoint and forwards administrator-defined param
     }, {
       apiBase: "https://backup.example.com/custom/generate?async=true",
       apiKey: "backup-key",
-      params: { response_format: "url", background: "transparent" }
+      params: { model: "image2-vip", response_format: "url", background: "transparent" }
     });
     const payload = JSON.parse(request?.body || "{}") as Record<string, unknown>;
     assert.equal(request?.url, "https://backup.example.com/custom/generate?async=true");
     assert.equal((request?.headers as Record<string, string>)?.Authorization, "Bearer backup-key");
     assert.equal(payload.response_format, "url");
     assert.equal(payload.background, "transparent");
+    assert.equal(payload.model, "image2-vip");
     assert.equal("quality" in payload, false);
     assert.equal("output_format" in payload, false);
   } finally {

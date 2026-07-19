@@ -13,6 +13,7 @@ type AinbConfig = {
 
 type AinbGenerateInput = {
   mode: string;
+  providerModel?: string;
   prompt: string;
   inputImageUrl: string;
   ratio: string;
@@ -53,6 +54,7 @@ export class AinbClient {
 
   async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {
     const config = this.getConfig(runtime);
+    const providerModel = input.providerModel || ("model" in config.params ? String(config.params.model) : "") || IMAGE_2_MODEL_ID;
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
     if (input.mode === "image-to-image" && input.count > 1) {
       if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
@@ -70,7 +72,7 @@ export class AinbClient {
     }
     const payload =
       input.mode === "image-to-image"
-        ? await this.submitEdit(config, input)
+        ? await this.submitEdit(config, input, undefined, providerModel)
         : await this.requestJson(config.endpoint || `${config.apiBase}/v1/images/generations?async=true`, {
             method: "POST",
             headers: this.jsonHeaders(config.imageApiKey),
@@ -78,7 +80,7 @@ export class AinbClient {
               ...pickProviderParams(config.params, config.dynamicParams
                 ? Object.keys(config.params)
                 : ["quality", "output_format", "response_format", "moderation", "output_compression"]),
-              model: IMAGE_2_MODEL_ID,
+              model: providerModel,
               prompt: input.prompt,
               size: normalizeImage2Size(input.ratio, input.quality),
               n: input.count
@@ -139,11 +141,12 @@ export class AinbClient {
     return urls;
   }
 
-  private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage) {
+  private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage, providerModel?: string) {
     if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
     const reference = suppliedReference ?? await this.downloadReferenceImage(input.inputImageUrl);
     const form = new FormData();
-    form.append("model", IMAGE_2_MODEL_ID);
+    const configuredModel = "model" in config.params ? String(config.params.model) : "";
+    form.append("model", providerModel || input.providerModel || configuredModel || IMAGE_2_MODEL_ID);
     form.append("prompt", input.prompt);
     form.append("size", normalizeImage2Size(input.ratio, input.quality));
     form.append("n", String(input.count));

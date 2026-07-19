@@ -49,8 +49,8 @@ function emptyProvider(): AdminGenerationProvider {
     apiKeyConfigured: false,
     apiKeyHint: "",
     apiKeySource: "none",
-    requestParams: {},
-    imageRequestParams: {},
+    requestParams: { model: "" },
+    imageRequestParams: { model: "" },
     modelIds: [],
     sort: GENERATION_PROVIDERS.length + 1,
     on: true
@@ -60,7 +60,13 @@ function emptyProvider(): AdminGenerationProvider {
 function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerationProvider; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const originalId = item?.id || "";
-  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? { ...item, apiKey: "", requestParams: { ...item.requestParams }, imageRequestParams: { ...item.imageRequestParams }, modelIds: [...item.modelIds] } : emptyProvider());
+  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? {
+    ...item,
+    apiKey: "",
+    requestParams: { model: "", ...item.requestParams },
+    imageRequestParams: { model: "", ...item.imageRequestParams },
+    modelIds: [...item.modelIds]
+  } : emptyProvider());
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof AdminGenerationProvider>(key: K, next: AdminGenerationProvider[K]) => setValue((current) => ({ ...current, [key]: next }));
   const toggleModel = (modelId: string) => update("modelIds", value.modelIds.includes(modelId) ? value.modelIds.filter((id) => id !== modelId) : [...value.modelIds, modelId]);

@@ -514,7 +514,14 @@ interface ApiGenerationProvider {
 }
 
 function mapGenerationProvider(provider: ApiGenerationProvider): AdminGenerationProvider {
-  return { ...provider, apiKey: "", requestParams: provider.requestParams || {}, imageRequestParams: provider.imageRequestParams || {}, modelIds: provider.modelIds || [], on: provider.enabled };
+  return {
+    ...provider,
+    apiKey: "",
+    requestParams: { model: "", ...(provider.requestParams || {}) },
+    imageRequestParams: { model: "", ...(provider.imageRequestParams || {}) },
+    modelIds: provider.modelIds || [],
+    on: provider.enabled
+  };
 }
 
 export async function apiGetGenerationProviders() {

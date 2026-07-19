@@ -69,6 +69,7 @@ test("Image 2 supports both text generation and image edits", async () => {
     await provider.generate({
       jobId: "job-edit",
       modelId: "gpt-image-2",
+      providerModel: "image2-edit-vip",
       mode: "image-to-image",
       prompt: "watercolor style",
       inputImageUrl: "https://cdn.example.com/reference.png",
@@ -98,6 +99,7 @@ test("Image 2 supports both text generation and image edits", async () => {
     assert.equal(requests[1].input?.prompt, "watercolor style");
     assert.equal(requests[1].input?.ratio, "3:4");
     assert.equal(requests[1].input?.quality, "2K");
+    assert.equal(requests[1].input?.providerModel, "image2-edit-vip");
     assert.equal(calls[0].url, "https://cdn.example.com/reference.png");
   } finally {
     globalThis.fetch = originalFetch;
@@ -126,13 +128,13 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   }, {
     apiBase: "https://custom.example.com/image/create",
     apiKey: "runtime-key",
-    params: { quality: "high", background: "transparent", model: "must-not-override" }
+    params: { quality: "high", background: "transparent", model: "image2-vip" }
   });
 
   assert.equal(request?.url, "https://custom.example.com/image/create");
   assert.equal(request?.payload.background, "transparent");
   assert.equal(request?.payload.quality, "high");
-  assert.equal(request?.payload.model, "gpt-image-2");
+  assert.equal(request?.payload.model, "image2-vip");
 });
 
 test("Banana supports text generation and inline reference image generation", async () => {

@@ -24,6 +24,7 @@ type OssReferenceConfig = {
 export type Change2ProGenerateInput = {
   jobId: string;
   modelId: string;
+  providerModel?: string;
   mode: string;
   prompt: string;
   inputImageUrl: string;
@@ -111,11 +112,14 @@ export class Change2ProClient {
     const route = resolveChange2ProModel(input.modelId);
     if (!route || !(runtime ? runtime.apiBase && runtime.apiKey : this.isConfiguredFor(input.modelId))) throw new Error("Change2Pro provider is not configured for this model");
     if (input.mode === "image-to-image" && !input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-    return route.kind === "image2" ? this.generateImage2(input, runtime) : this.generateBanana(input, route.providerModel, runtime);
+    return route.kind === "image2"
+      ? this.generateImage2(input, runtime)
+      : this.generateBanana(input, input.providerModel || runtime?.params.model || route.providerModel, runtime);
   }
 
   private async generateImage2(input: Change2ProGenerateInput, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
     const config = this.getConfig(runtime);
+    const providerModel = input.providerModel || ("model" in config.params ? String(config.params.model) : "") || "gpt-image-2";
     const endpoint = input.mode === "image-to-image" ? "/images/edits" : "/images/generations";
     let payload: Record<string, unknown>;
 
@@ -134,7 +138,7 @@ export class Change2ProClient {
         ...pickProviderParams(config.params, config.dynamicParams
           ? Object.keys(config.params)
           : ["quality", "moderation", "output_format", "output_compression", "response_format"]),
-        model: "gpt-image-2",
+        model: providerModel,
         prompt: input.prompt,
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
@@ -173,7 +177,7 @@ export class Change2ProClient {
       const referencePath = join(temp, `reference.${this.extension(reference.contentType)}`);
       await writeFile(referencePath, reference.buffer);
       const args = [
-        "--form-string", "model=gpt-image-2",
+        "--form-string", `model=${input.providerModel || params.model || "gpt-image-2"}`,
         "--form-string", `prompt=${input.prompt}`,
         "--form-string", `n=${input.count}`,
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
@@ -324,7 +328,7 @@ export class Change2ProClient {
           contents: [{ role: "user", parts }],
           generationConfig: {
             imageConfig: {
-              ...pickProviderParams(config.params, Object.keys(config.params)),
+              ...pickProviderParams(config.params, Object.keys(config.params).filter((key) => key !== "model")),
               imageSize: normalizeBananaQuality(input.quality),
               aspectRatio: normalizeBananaRatio(input.ratio)
             }

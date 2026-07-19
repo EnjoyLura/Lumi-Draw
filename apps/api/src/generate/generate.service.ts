@@ -164,6 +164,8 @@ export class GenerateService implements OnApplicationBootstrap {
     const providerModeEnabled = isImageToImage ? provider.imageToImageEnabled : provider.textToImageEnabled;
     const providerEndpoint = isImageToImage ? provider.imageEndpoint : provider.baseUrl;
     const providerParams = isImageToImage ? provider.imageRequestParams : provider.requestParams;
+    const normalizedProviderParams = normalizeProviderParams(providerParams);
+    const providerModel = normalizedProviderParams.model || model.providerModel;
     if (!providerModeEnabled || !providerEndpoint) {
       throw new BadRequestException(isImageToImage ? "当前 API 平台未启用图生图" : "当前 API 平台未启用文生图");
     }
@@ -192,8 +194,8 @@ export class GenerateService implements OnApplicationBootstrap {
           providerBaseUrl: providerEndpoint,
           providerApiKeyEnv: provider.apiKeyEnv,
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
-          providerParams: normalizeProviderParams(providerParams),
-          providerModel: model.providerModel,
+          providerParams: normalizedProviderParams,
+          providerModel,
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
           gameplayId: normalized.gameplayId,
@@ -525,6 +527,7 @@ export class GenerateService implements OnApplicationBootstrap {
       try {
         const submitted = await this.ainb.submit({
           mode: job.mode,
+          providerModel: job.providerModel,
           prompt: job.prompt,
           inputImageUrl: job.inputImageUrl,
           ratio: job.ratio,
@@ -536,7 +539,7 @@ export class GenerateService implements OnApplicationBootstrap {
           data: {
             provider: job.provider,
             providerAdapter: "ainb",
-            providerModel: "gpt-image-2",
+            providerModel: job.providerModel,
             kieTaskId: submitted.taskId,
             status: "running",
             progress: 8,
@@ -561,7 +564,7 @@ export class GenerateService implements OnApplicationBootstrap {
         data: {
           provider: job.provider,
           providerAdapter: "change2pro",
-          providerModel: this.change2pro.providerModel(model.id) || model.providerModel,
+          providerModel: job.providerModel,
           status: "running",
           progress: 5,
           stageText: "任务已提交，正在生成",
@@ -612,6 +615,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const outputs = await this.change2pro.generate({
       jobId: job.id,
       modelId,
+      providerModel: job.providerModel,
       mode: job.mode,
       prompt: job.prompt,
       inputImageUrl: job.inputImageUrl,

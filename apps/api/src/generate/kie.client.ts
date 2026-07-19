@@ -91,10 +91,11 @@ export class KieClient {
   }
 
   private buildCreateTaskBody(input: SubmitGenerateJobInput, callbackUrl: string, params: Record<string, string> = {}) {
-    const model = this.resolveKieModel(input);
+    const { model: configuredModel, ...inputParams } = params;
+    const model = configuredModel || this.resolveKieModel(input);
     const body: Record<string, unknown> = {
       model,
-      input: { ...params, ...this.buildInput(input, model) }
+      input: { ...inputParams, ...this.buildInput(input, model) }
     };
 
     const securedCallbackUrl = this.buildCallbackUrl(callbackUrl);

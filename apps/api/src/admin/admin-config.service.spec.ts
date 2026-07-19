@@ -66,14 +66,14 @@ test("stores independent mode endpoints and arbitrary administrator parameters",
     imageEndpoint: "https://images.example.com/image/edit",
     textToImageEnabled: true,
     imageToImageEnabled: true,
-    requestParams: { quality: "high", background: "transparent", vendor_option: "fast" },
-    imageRequestParams: { response_format: "url", input_fidelity: "high" }
+    requestParams: { model: "image2-vip", quality: "high", background: "transparent", vendor_option: "fast" },
+    imageRequestParams: { model: "image2-edit-vip", response_format: "url", input_fidelity: "high" }
   }, true);
 
   assert.equal(result.provider.baseUrl, "https://images.example.com/text/generate");
   assert.equal(result.provider.imageEndpoint, "https://images.example.com/image/edit");
-  assert.deepEqual(result.provider.requestParams, { quality: "high", background: "transparent", vendor_option: "fast" });
-  assert.deepEqual(result.provider.imageRequestParams, { response_format: "url", input_fidelity: "high" });
+  assert.deepEqual(result.provider.requestParams, { model: "image2-vip", quality: "high", background: "transparent", vendor_option: "fast" });
+  assert.deepEqual(result.provider.imageRequestParams, { model: "image2-edit-vip", response_format: "url", input_fidelity: "high" });
 });
 
 test("allows an empty image endpoint when image generation is disabled", () => {
