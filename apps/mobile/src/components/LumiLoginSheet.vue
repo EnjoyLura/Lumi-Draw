@@ -1,5 +1,8 @@
 <script setup lang="ts">
-defineProps<{
+import { ref, watch } from "vue";
+import { useAuth } from "../services/auth";
+
+const props = defineProps<{
   open: boolean;
 }>();
 
@@ -7,6 +10,33 @@ const emit = defineEmits<{
   close: [];
   login: [];
 }>();
+
+const { isLoggingIn } = useAuth();
+const agreed = ref(false);
+
+watch(
+  () => props.open,
+  (open) => {
+    if (!open) agreed.value = false;
+  }
+);
+
+function handleAgreementChange(event: { detail: { value: string[] } }) {
+  agreed.value = event.detail.value.includes("accepted");
+}
+
+function openAgreement(type: "user" | "privacy") {
+  uni.navigateTo({ url: `/pages/agreement/index?type=${type}` });
+}
+
+function submitLogin() {
+  if (isLoggingIn.value) return;
+  if (!agreed.value) {
+    uni.showToast({ title: "请先阅读并同意用户协议和隐私政策", icon: "none" });
+    return;
+  }
+  emit("login");
+}
 </script>
 
 <template>
@@ -16,10 +46,20 @@ const emit = defineEmits<{
     <view class="login-logo"><LumiIcon name="pencil" :size="30" /></view>
     <view class="login-title">登录露米绘画</view>
     <view class="login-sub">登录后即可体验AI创作、收藏作品等功能</view>
-    <button class="login-primary" @click="emit('login')"><LumiIcon name="log-in" :size="18" />微信一键登录</button>
-    <view class="login-agree">
-      登录即代表同意 <text class="agree-link">用户协议</text> 和 <text class="agree-link">隐私政策</text>
-    </view>
+    <button class="login-primary" :disabled="isLoggingIn" @click="submitLogin">
+      <view v-if="isLoggingIn" class="login-spinner" />
+      <LumiIcon v-else name="log-in" :size="18" />
+      <text>{{ isLoggingIn ? "登录中..." : "微信一键登录" }}</text>
+    </button>
+    <checkbox-group class="login-agree" @change="handleAgreementChange">
+      <label class="agree-label">
+        <checkbox class="agree-checkbox" value="accepted" :checked="agreed" color="var(--accent)" />
+        <text>我已阅读并同意</text>
+      </label>
+      <text class="agree-link" @click.stop="openAgreement('user')">用户协议</text>
+      <text>和</text>
+      <text class="agree-link" @click.stop="openAgreement('privacy')">隐私政策</text>
+    </checkbox-group>
   </view>
 </template>
 
@@ -106,12 +146,38 @@ const emit = defineEmits<{
 }
 
 .login-agree {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 6px;
   font-size: 11px;
   color: var(--fg-muted);
 }
 
+.agree-label {
+  display: inline-flex;
+  align-items: center;
+}
+
+.agree-checkbox {
+  margin-right: 2px;
+  transform: scale(0.72);
+}
+
 .agree-link {
   color: var(--accent);
+}
+
+.login-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: login-spin 0.7s linear infinite;
+}
+
+@keyframes login-spin {
+  to { transform: rotate(360deg); }
 }
 </style>

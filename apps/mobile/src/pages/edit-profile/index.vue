@@ -7,7 +7,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
-import { uploadChosenImage } from "../../services/upload";
+import { uploadLocalImagePath } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 import { useTheme } from "../../services/theme";
 import { invalidateTabPages } from "../../services/tabPageCache";
@@ -126,17 +126,19 @@ async function login() {
   }
 }
 
-async function pickAvatar() {
-  if (!ensureLogin() || isUploading.value) return;
-
+function handleAvatarButtonClick() {
   if (useMockData.value) {
     uni.showToast({ title: "头像已更新", icon: "none" });
-    return;
   }
+}
+
+async function chooseOfficialAvatar(event: { detail: { avatarUrl?: string } }) {
+  const localPath = event.detail.avatarUrl || "";
+  if (!localPath || !ensureLogin() || isUploading.value || useMockData.value) return;
 
   isUploading.value = true;
   try {
-    const uploaded = await uploadChosenImage("avatar");
+    const uploaded = await uploadLocalImagePath("avatar", localPath);
     avatarUrl.value = uploaded.publicUrl;
     uni.showToast({ title: "头像已上传", icon: "none" });
   } catch {
@@ -210,13 +212,13 @@ async function save() {
         <button class="empty-btn" @click="loadProfile">重新加载</button>
       </view>
 
-      <view v-else class="edit-content">
+      <form v-else class="edit-content" @submit="save">
         <view class="avatar-block">
-          <view class="avatar-wrap" @click="pickAvatar">
+          <button class="avatar-wrap" open-type="chooseAvatar" @click="handleAvatarButtonClick" @chooseavatar="chooseOfficialAvatar">
             <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
             <view v-else class="avatar" :style="{ background: avatarColor }">{{ avatarText }}</view>
             <view class="avatar-cam"><text v-if="isUploading">...</text><LumiIcon v-else name="camera" :size="15" /></view>
-          </view>
+          </button>
           <view class="avatar-tip">点击更换头像</view>
         </view>
 
@@ -225,7 +227,7 @@ async function save() {
           <input
             class="input"
             :class="{ focused: focusedField === 'nickname' }"
-            type="text"
+            type="nickname"
             v-model="nickname"
             placeholder="请输入昵称"
             :maxlength="20"
@@ -267,8 +269,8 @@ async function save() {
           <view class="lock-tip">账号ID不可修改</view>
         </view>
 
-        <button class="save-btn" :disabled="isSaving || loadFailed" @click="save">{{ isSaving ? "保存中..." : "保存" }}</button>
-      </view>
+        <button class="save-btn" form-type="submit" :disabled="isSaving || loadFailed">{{ isSaving ? "保存中..." : "保存" }}</button>
+      </form>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
@@ -361,7 +363,14 @@ async function save() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+  background: transparent;
+  border: none;
 }
+
+.avatar-wrap::after { border: none; }
 
 .avatar {
   display: flex;

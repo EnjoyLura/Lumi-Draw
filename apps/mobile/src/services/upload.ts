@@ -304,6 +304,21 @@ export async function uploadChosenImage(scene: string): Promise<UploadedImage> {
   return uploadSelectedImage(scene, image);
 }
 
+export async function uploadLocalImagePath(scene: string, path: string): Promise<UploadedImage> {
+  const info = await getImageInfoByUni(path).catch(() => undefined);
+  const imageType = info?.type?.toLowerCase() || "jpg";
+  const normalizedType = imageType === "jpeg" ? "jpg" : imageType;
+  const image: ChosenImage = {
+    path,
+    name: `avatar-${Date.now()}.${normalizedType}`,
+    contentType: contentTypeFromName(`image.${normalizedType}`),
+    sizeBytes: await getLocalFileSize(path),
+    width: info?.width,
+    height: info?.height
+  };
+  return uploadSelectedImage(scene, image);
+}
+
 export async function uploadRemoteImage(url: string, scene: string, filename = `image-${Date.now()}.jpg`): Promise<UploadedImage> {
   const blob = await blobFromPath(url);
   const contentType = blob.type || contentTypeFromName(filename);

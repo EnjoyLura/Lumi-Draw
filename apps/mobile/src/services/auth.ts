@@ -29,7 +29,9 @@ interface LoginResponse {
 
 const isLoggedIn = ref(false);
 const currentUser = ref<MobileUser | null>(null);
+const isLoggingIn = ref(false);
 let initialized = false;
+let loginPromise: Promise<void> | undefined;
 
 export function initAuth() {
   if (initialized) return;
@@ -219,12 +221,20 @@ export function useAuth() {
     }
   }
 
-  async function login() {
-    if (!isMockMode()) {
-      await loginWithBackend();
-      return;
-    }
-    persistLoginState(true);
+  function login() {
+    if (loginPromise) return loginPromise;
+    isLoggingIn.value = true;
+    loginPromise = (async () => {
+      if (!isMockMode()) {
+        await loginWithBackend();
+        return;
+      }
+      persistLoginState(true);
+    })().finally(() => {
+      isLoggingIn.value = false;
+      loginPromise = undefined;
+    });
+    return loginPromise;
   }
 
   async function logout() {
@@ -245,6 +255,7 @@ export function useAuth() {
 
   return {
     isLoggedIn,
+    isLoggingIn,
     currentUser,
     login,
     logout,
