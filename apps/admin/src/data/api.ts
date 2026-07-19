@@ -460,7 +460,7 @@ export async function apiDeleteHotSearch(id: number) {
 }
 
 interface ApiModelConfig {
-  id: string; provider?: string; providerModel: string; name: string; description: string;
+  id: string; provider?: string; providerRouting?: Partial<Record<"1K" | "2K" | "4K", string>>; providerModel: string; name: string; description: string;
   tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
   supportsTextToImage: boolean; supportsImageToImage: boolean;
 }
@@ -470,7 +470,7 @@ function modelTags(tags: string[] | string) {
 }
 
 function mapModelConfig(m: ApiModelConfig): AdminModel {
-  return { id: m.id, provider: m.provider, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+  return { id: m.id, provider: m.provider, providerRouting: m.providerRouting || {}, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
 }
 
 export async function apiGetModels() {
@@ -482,6 +482,7 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
   const body = {
     id: modelId,
     provider: values.provider || "kie",
+    providerRouting: values.providerRouting || {},
     providerModel: values.providerModel || modelId,
     name: values.name,
     description: values.desc,

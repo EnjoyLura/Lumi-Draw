@@ -87,6 +87,7 @@ model HotSearch {
 model ModelConfig {
   id                   String   @id
   provider             String   @default("kie")
+  providerRouting      Json     @default("{}")
   providerModel        String
   name                 String
   description          String

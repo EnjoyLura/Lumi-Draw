@@ -12,6 +12,7 @@ import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
 import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
+import { resolveProviderId } from "./provider-routing";
 import { decryptProviderApiKey } from "./provider-secret";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
@@ -158,8 +159,9 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
 
-    const provider = await this.prisma.generationProvider.findFirst({ where: { id: model.provider, enabled: true } });
-    if (!provider) throw new BadRequestException("该模型暂未配置可用的 API 平台");
+    const providerId = resolveProviderId(model.provider, model.providerRouting, quality.label);
+    const provider = await this.prisma.generationProvider.findFirst({ where: { id: providerId, enabled: true } });
+    if (!provider) throw new BadRequestException("所选分辨率配置的 API 平台不可用，请联系管理员");
     const isImageToImage = normalized.mode === "image-to-image";
     const providerModeEnabled = isImageToImage ? provider.imageToImageEnabled : provider.textToImageEnabled;
     const providerEndpoint = isImageToImage ? provider.imageEndpoint : provider.baseUrl;

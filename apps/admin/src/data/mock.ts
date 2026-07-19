@@ -50,6 +50,7 @@ export interface AdminWork {
 export interface AdminModel {
   id: string;
   provider?: string;
+  providerRouting?: Partial<Record<"1K" | "2K" | "4K", string>>;
   providerModel?: string;
   name: string;
   desc: string;

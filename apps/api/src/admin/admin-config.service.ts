@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerationProvider } from "@prisma/client";
 import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../generate/provider-secret";
+import { normalizeProviderRouting } from "../generate/provider-routing";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 
@@ -31,7 +32,7 @@ const FIELDS = {
   style: ["name", "prompt", "uses", "imageUrl", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
   hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
-  modelConfig: ["id", "provider", "providerModel", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
+  modelConfig: ["id", "provider", "providerRouting", "providerModel", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
   qualityConfig: ["label", "pixel", "multiplier", "enabled", "sort"],
   ratioConfig: ["label", "description", "enabled", "sort"],
   rechargeTier: ["price", "credits", "bonus", "enabled", "sort"],
@@ -196,17 +197,43 @@ export class AdminConfigService {
   deleteVersion(id: number) { return this.removeNumeric(this.prisma.appVersion, id); }
 
   // ---------- 模型（字符串主键，需前端给 id）----------
-  createModel(b: Record<string, unknown>) {
+  async createModel(b: Record<string, unknown>) {
     requireFields(b, ["id", "providerModel", "name", "description"]);
-    return this.prisma.modelConfig.create({ data: pick(b, FIELDS.modelConfig) as never });
+    const data = pick(b, FIELDS.modelConfig);
+    data.providerRouting = normalizeProviderRouting(data.providerRouting);
+    await this.assertModelProviderRouting(String(data.id), String(data.provider || "kie"), data.providerRouting, Boolean(data.enabled ?? true));
+    return this.prisma.modelConfig.create({ data: data as never });
   }
-  updateModel(id: string, b: Record<string, unknown>) {
+  async updateModel(id: string, b: Record<string, unknown>) {
+    const current = await this.prisma.modelConfig.findUnique({ where: { id } });
+    if (!current) throw new BadRequestException("创作模型不存在");
     const data = pick(b, FIELDS.modelConfig);
     delete data.id;
+    if (data.providerRouting !== undefined) data.providerRouting = normalizeProviderRouting(data.providerRouting);
+    await this.assertModelProviderRouting(
+      id,
+      String(data.provider ?? current.provider),
+      data.providerRouting ?? current.providerRouting,
+      Boolean(data.enabled ?? current.enabled)
+    );
     return this.prisma.modelConfig.update({ where: { id }, data });
   }
   deleteModel(id: string) {
     return this.prisma.modelConfig.delete({ where: { id } });
+  }
+
+  private async assertModelProviderRouting(modelId: string, defaultProvider: string, routingValue: unknown, modelEnabled: boolean) {
+    const routing = normalizeProviderRouting(routingValue);
+    const providerIds = [...new Set([defaultProvider, ...Object.values(routing)])];
+    const providers = await this.prisma.generationProvider.findMany({
+      where: { id: { in: providerIds } },
+      select: { id: true, enabled: true, adapter: true }
+    });
+    if (providers.length !== providerIds.length) throw new BadRequestException("分辨率路由包含不存在的 API 平台");
+    if (modelEnabled && providers.some((provider) => !provider.enabled)) {
+      throw new BadRequestException("已上线模型不能使用已停用的 API 平台");
+    }
+    for (const provider of providers) await this.assertProviderModels(provider.adapter, [modelId]);
   }
 
   // ---------- 生图 API 平台 ----------
@@ -230,7 +257,7 @@ export class AdminConfigService {
     this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
     await this.assertProviderModels(data.provider.adapter, data.modelIds);
     if (!data.provider.enabled) {
-      const activeModels = await this.prisma.modelConfig.count({ where: { provider: id, enabled: true } });
+      const activeModels = await this.countEnabledModelsUsingProvider(id);
       if (activeModels) throw new BadRequestException("请先把生效模型切换到其他 API 平台");
     }
     await this.prisma.$transaction(async (tx) => {
@@ -247,9 +274,23 @@ export class AdminConfigService {
   }
 
   async deleteGenerationProvider(id: string) {
-    const activeModels = await this.prisma.modelConfig.count({ where: { provider: id } });
+    const activeModels = await this.countModelsUsingProvider(id);
     if (activeModels) throw new BadRequestException("请先把关联模型切换到其他 API 平台");
     return this.prisma.generationProvider.delete({ where: { id } });
+  }
+
+  private async countModelsUsingProvider(providerId: string, enabled?: boolean) {
+    const models = await this.prisma.modelConfig.findMany({
+      where: enabled === undefined ? undefined : { enabled },
+      select: { provider: true, providerRouting: true }
+    });
+    return models.filter((model) => (
+      model.provider === providerId || Object.values(normalizeProviderRouting(model.providerRouting)).includes(providerId)
+    )).length;
+  }
+
+  private countEnabledModelsUsingProvider(providerId: string) {
+    return this.countModelsUsingProvider(providerId, true);
   }
 
   private async generationProvider(id: string) {

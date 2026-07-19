@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
-import { apiDeleteModel, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
+import { apiDeleteModel, apiGetGenerationProviders, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { IMG, MODEL_BADGES, MODELS, type AdminModel } from "../data/mock";
+import { GENERATION_PROVIDERS, IMG, MODEL_BADGES, MODELS, type AdminGenerationProvider, type AdminModel } from "../data/mock";
 import { getModels } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
@@ -12,7 +12,9 @@ import { useRefresh } from "./opsShared";
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const ICON_STYLE: React.CSSProperties = { height: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fg-muted)", borderStyle: "dashed" };
 
-function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminModel; useMock: boolean; onSaved: () => void }) {
+const QUALITY_TIERS = ["1K", "2K", "4K"] as const;
+
+function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item?: AdminModel; providers: AdminGenerationProvider[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const m = item ?? (id ? MODELS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(m?.name ?? "");
@@ -20,6 +22,7 @@ function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminMod
   const [tags, setTags] = useState((m?.tags ?? []).join("、"));
   const [cost, setCost] = useState(String(m?.cost ?? 10));
   const [badge, setBadge] = useState(m?.badge ?? "");
+  const [providerRouting, setProviderRouting] = useState<Partial<Record<(typeof QUALITY_TIERS)[number], string>>>(m?.providerRouting ?? {});
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -31,6 +34,7 @@ function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminMod
       cost: parseInt(cost) || 0,
       badge: badge === "无" ? "" : badge,
       provider: m?.provider,
+      providerRouting,
       providerModel: m?.providerModel
     };
     setSaving(true);
@@ -70,6 +74,27 @@ function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminMod
       <select className="input" value={badge || "无"} onChange={(e) => setBadge(e.target.value)}>
         {MODEL_BADGES.map((o) => <option key={o}>{o}</option>)}
       </select>
+      <label className="field-label" style={{ marginTop: 12 }}>分辨率 API 平台</label>
+      <div className="card" style={{ padding: "4px 12px" }}>
+        {QUALITY_TIERS.map((tier) => (
+          <div key={tier} className="lrow" style={{ padding: "10px 0" }}>
+            <div style={{ width: 34, fontWeight: 700 }}>{tier}</div>
+            <select
+              className="input"
+              style={{ flex: 1 }}
+              value={providerRouting[tier] || ""}
+              onChange={(e) => setProviderRouting((current) => ({ ...current, [tier]: e.target.value || undefined }))}
+            >
+              <option value="">沿用默认 API 平台</option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id} disabled={!provider.on}>
+                  {provider.name}{provider.on ? "" : "（已停用）"}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
@@ -83,10 +108,13 @@ export function OpsModel() {
   const { useMock } = useAdminSession();
   const refresh = useRefresh();
   const { data, loading, error, reload } = useAsyncData<AdminModel[]>(useMock ? null : () => apiGetModels(), [useMock]);
+  const { data: providerData, loading: providersLoading, error: providersError } = useAsyncData<AdminGenerationProvider[]>(useMock ? null : () => apiGetGenerationProviders(), [useMock]);
   const models = useMock ? getModels() : data ?? [];
+  const providers = useMock ? GENERATION_PROVIDERS : providerData ?? [];
+  const providerName = (id?: string) => providers.find((provider) => provider.id === id)?.name || id || "未配置";
   const afterSaved = () => useMock ? refresh() : reload();
 
-  const openForm = (id: string) => openSheet(id ? "编辑模型" : "新增模型", <ModelForm id={id} item={models.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
+  const openForm = (id: string) => openSheet(id ? "编辑模型" : "新增模型", <ModelForm id={id} item={models.find((x) => x.id === id)} providers={providers} useMock={useMock} onSaved={afterSaved} />);
   const toggle = async (m: AdminModel) => {
     const next = !m.on;
     try {
@@ -125,6 +153,8 @@ export function OpsModel() {
       <AddBtn text="新增模型" onClick={() => openForm("")} />
       {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载模型中</div></div> : null}
       {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
+      {providersLoading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
+      {providersError ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{providersError}</div></div> : null}
       <div className="card">
         {models.map((m) => (
           <div key={m.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
@@ -138,6 +168,9 @@ export function OpsModel() {
                 </div>
               ) : null}
               <div className="lr-s" style={{ marginTop: 3 }}>消耗 {m.cost} 积分/次</div>
+              <div className="lr-s" style={{ marginTop: 3, lineHeight: 1.55 }}>
+                {QUALITY_TIERS.map((tier) => `${tier} ${providerName(m.providerRouting?.[tier] || m.provider)}`).join(" · ")}
+              </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
               <Switch on={m.on} onToggle={() => toggle(m)} />
