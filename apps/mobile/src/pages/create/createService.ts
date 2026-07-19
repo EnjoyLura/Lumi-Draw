@@ -81,6 +81,9 @@ export interface BackendGenerateResult {
   id: string;
   status: "transferring" | "succeeded" | "failed";
   imageUrl?: string;
+  cardUrl?: string;
+  previewUrl?: string;
+  originalUrl?: string;
   errorMessage?: string;
   workId?: number;
 }

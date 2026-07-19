@@ -93,6 +93,9 @@ interface GenResult {
   failed: boolean;
   seed: string;
   imageUrl?: string;
+  cardUrl?: string;
+  previewUrl?: string;
+  originalUrl?: string;
   resultId?: string;
   savedWorkId?: number;
   error: string;
@@ -101,7 +104,17 @@ interface GenResult {
 const generatedResults = ref<GenResult[]>([]);
 const isSavingOriginal = ref(false);
 const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
-const previewData = ref<{ src: string; resolution: string; size: string; ratio: string; resultId?: string; savedWorkId?: number } | null>(null);
+const previewData = ref<{
+  key: string;
+  src: string;
+  fullscreenSrc: string;
+  originalSrc: string;
+  resolution: string;
+  size: string;
+  ratio: string;
+  resultId?: string;
+  savedWorkId?: number;
+} | null>(null);
 
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
@@ -113,7 +126,10 @@ let nextPollErrorToastAt = 0;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
+let previewWarmRequest = 0;
 const syncedTerminalJobIds = new Set<string>();
+const warmedPreviewUrls = new Set<string>();
+const MAX_WARMED_PREVIEWS = 12;
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
 const selectedModel = computed(() => modelOptions.value[selectedModelIndex.value] ?? (useMockData.value ? createModels[0] : EMPTY_MODEL));
@@ -396,8 +412,16 @@ function generatedImageUrl(seed: string, size = 800) {
   return mockImage(seed, size, size);
 }
 
-function resultImageSrc(item: GenResult, size = 800) {
-  return item.imageUrl || generatedImageUrl(item.seed, size);
+function resultCardImageSrc(item: GenResult, size = 800) {
+  return item.cardUrl || item.previewUrl || item.imageUrl || generatedImageUrl(item.seed, size);
+}
+
+function resultPreviewImageSrc(item: GenResult) {
+  return item.previewUrl || item.cardUrl || item.imageUrl || generatedImageUrl(item.seed);
+}
+
+function resultOriginalImageSrc(item: GenResult) {
+  return item.originalUrl || item.imageUrl || resultPreviewImageSrc(item);
 }
 
 function draftTitle(index = 0) {
@@ -622,6 +646,9 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
     failed: item.status === "failed" || !item.imageUrl,
     seed: item.id || `${job.id}-${index}`,
     imageUrl: item.imageUrl,
+    cardUrl: item.cardUrl,
+    previewUrl: item.previewUrl,
+    originalUrl: item.originalUrl,
     savedWorkId: item.workId,
     error: item.errorMessage || "生成失败"
   }));
@@ -645,7 +672,9 @@ function applyBackendJob(job: BackendGenerateJob) {
   if (job.status === "finalizing" && job.results.length) {
     isGenerating.value = false;
     isSavingOriginal.value = true;
-    generatedResults.value = toGeneratedResults(job);
+    const results = toGeneratedResults(job);
+    generatedResults.value = results;
+    syncOpenPreviewResult(results);
     return;
   }
 
@@ -658,7 +687,9 @@ function applyBackendJob(job: BackendGenerateJob) {
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
   isSavingOriginal.value = false;
-  generatedResults.value = toGeneratedResults(job);
+  const results = toGeneratedResults(job);
+  generatedResults.value = results;
+  syncOpenPreviewResult(results);
   const elapsed = Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000);
   stopElapsedTimer(elapsed);
   genMeta.value = {
@@ -877,8 +908,14 @@ async function startGenerate() {
 
 function openPreview(item: GenResult) {
   if (item.failed || !genMeta.value) return;
+  const key = item.resultId || item.id;
+  const cardSrc = resultCardImageSrc(item);
+  const fullscreenSrc = resultPreviewImageSrc(item);
   previewData.value = {
-    src: resultImageSrc(item),
+    key,
+    src: warmedPreviewUrls.has(fullscreenSrc) ? fullscreenSrc : cardSrc,
+    fullscreenSrc,
+    originalSrc: resultOriginalImageSrc(item),
     resolution: genMeta.value.resolution,
     size: genMeta.value.size,
     ratio: selectedRatio.value.label,
@@ -886,22 +923,69 @@ function openPreview(item: GenResult) {
     savedWorkId: item.savedWorkId
   };
   previewSheetOpen.value = true;
+  void warmOpenPreview(key, fullscreenSrc);
+}
+
+function preloadImage(src: string) {
+  if (warmedPreviewUrls.has(src)) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    uni.getImageInfo({
+      src,
+      success: () => {
+        warmedPreviewUrls.add(src);
+        if (warmedPreviewUrls.size > MAX_WARMED_PREVIEWS) {
+          const oldest = warmedPreviewUrls.values().next().value;
+          if (typeof oldest === "string") warmedPreviewUrls.delete(oldest);
+        }
+        resolve();
+      },
+      fail: reject
+    });
+  });
+}
+
+async function warmOpenPreview(key: string, src: string) {
+  const request = ++previewWarmRequest;
+  try {
+    await preloadImage(src);
+    if (request === previewWarmRequest && previewData.value?.key === key) {
+      previewData.value = { ...previewData.value, src };
+    }
+  } catch {
+    // Keep the already-rendered card image when the quality preview is unavailable.
+  }
+}
+
+function syncOpenPreviewResult(results: GenResult[]) {
+  if (!previewSheetOpen.value || !previewData.value) return;
+  const item = results.find((result) => (result.resultId || result.id) === previewData.value?.key);
+  if (!item || item.failed) return;
+  const fullscreenSrc = resultPreviewImageSrc(item);
+  previewData.value = {
+    ...previewData.value,
+    fullscreenSrc,
+    originalSrc: resultOriginalImageSrc(item),
+    savedWorkId: item.savedWorkId
+  };
+  void warmOpenPreview(previewData.value.key, fullscreenSrc);
 }
 
 function closePreview() {
   previewSheetOpen.value = false;
 }
 
-function zoomPreview() {
+async function zoomPreview() {
   if (!previewData.value) return;
-  uni.previewImage({ urls: [previewData.value.src], current: previewData.value.src });
+  const { fullscreenSrc } = previewData.value;
+  await preloadImage(fullscreenSrc).catch(() => undefined);
+  uni.previewImage({ urls: [fullscreenSrc], current: fullscreenSrc });
 }
 
 async function savePreview() {
   if (!previewData.value || isSavingDrafts.value) return;
   isSavingDrafts.value = true;
   try {
-    await saveImageToDevice(previewData.value.src, `lumi-generation-${Date.now()}.jpg`);
+    await saveImageToDevice(previewData.value.originalSrc, `lumi-generation-${Date.now()}.png`);
     showToast("已保存到手机相册");
     closePreview();
   } catch (error) {
@@ -1148,7 +1232,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
                   <text class="fail-msg">{{ item.error }}</text>
                 </view>
                 <view v-else class="result-img" @click="openPreview(item)">
-                  <image :src="resultImageSrc(item, 400)" mode="aspectFill" />
+                  <image :src="resultCardImageSrc(item, 400)" mode="aspectFill" />
                 </view>
               </template>
             </view>

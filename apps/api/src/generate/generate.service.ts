@@ -952,18 +952,24 @@ export class GenerateService implements OnApplicationBootstrap {
       kieTaskId: job.kieTaskId ?? undefined,
       errorMessage: job.errorMessage || undefined,
       retryOfJobId: job.retryOfJobId || undefined,
-      results: job.results.map((result) => ({
-        id: result.id,
-        status: result.status,
-        imageUrl: result.imageUrl ? this.uploads.readUrl(result.imageUrl, "private") : undefined,
-        width: result.width ?? undefined,
-        height: result.height ?? undefined,
-        sizeBytes: result.sizeBytes ?? undefined,
-        ossKey: result.ossKey || undefined,
-        errorMessage: result.errorMessage || undefined,
-        workId: result.workId ?? undefined,
-        createdAt: result.createdAt.toISOString()
-      })),
+      results: job.results.map((result) => {
+        const imageUrl = result.imageUrl ? this.uploads.readUrl(result.imageUrl, "private") : undefined;
+        return {
+          id: result.id,
+          status: result.status,
+          imageUrl,
+          cardUrl: result.imageUrl ? this.uploads.readResponsiveImageUrl(result.imageUrl, "private") : undefined,
+          previewUrl: result.imageUrl ? this.uploads.readDetailPreviewImageUrl(result.imageUrl, "private") : undefined,
+          originalUrl: imageUrl,
+          width: result.width ?? undefined,
+          height: result.height ?? undefined,
+          sizeBytes: result.sizeBytes ?? undefined,
+          ossKey: result.ossKey || undefined,
+          errorMessage: result.errorMessage || undefined,
+          workId: result.workId ?? undefined,
+          createdAt: result.createdAt.toISOString()
+        };
+      }),
       createdAt: job.createdAt.toISOString(),
       updatedAt: job.updatedAt.toISOString(),
       cancelledAt: job.cancelledAt?.toISOString(),
