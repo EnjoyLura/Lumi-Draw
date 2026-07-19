@@ -1031,6 +1031,10 @@ function handleDetailPreviewLoad() {
   transition: opacity 180ms ease, transform 220ms cubic-bezier(.16, 1, .3, 1);
 }
 
+.detail-page.embedded:not(.detail-content-visible) :deep(.lumi-page-header) {
+  opacity: 0;
+}
+
 .detail-page.embedded.detail-content-visible .detail-body,
 .detail-page.embedded.detail-content-visible .detail-bottom,
 .detail-page.embedded.detail-content-visible .bottom-safe-area {
