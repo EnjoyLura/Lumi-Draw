@@ -39,11 +39,13 @@ import {
   WATERFALL_LOADING_FRAME_DELAY,
   WATERFALL_SWITCH_DELAY
 } from "../../services/waterfallTransition";
+import { resolveWorkDetailImageHeight } from "../../services/workDetailLayout";
 
 type HomeTab = "recommend" | "new";
 const FEED_PAGE_SIZE = 8;
-const DETAIL_OVERLAY_DURATION = 390;
+const DETAIL_OVERLAY_CLOSE_DURATION = 390;
 const DETAIL_OVERLAY_HANDOFF_AT = 330;
+const DETAIL_OVERLAY_FINAL_FRAME_DELAY = 24;
 const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
@@ -123,11 +125,7 @@ const detailOverlaySurfaceStyle = computed(() => {
   if (!source) return {};
   const windowWidth = uni.getSystemInfoSync().windowWidth || 375;
   const windowHeight = uni.getSystemInfoSync().windowHeight || 760;
-  const [ratioWidth, ratioHeight] = detailOverlayRatio.value.split(":").map(Number);
-  const rpx = windowWidth / 750;
-  const ratioBasedHeight = (ratioHeight / ratioWidth) * windowWidth || windowWidth;
-  const landscapeMinHeight = ratioWidth > ratioHeight ? 640 * rpx : 0;
-  const destinationHeight = Math.min(560, Math.max(260, ratioBasedHeight, landscapeMinHeight));
+  const destinationHeight = resolveWorkDetailImageHeight(detailOverlayRatio.value, windowWidth);
   const imageTop = statusBarHeight.value + navigationBarHeight.value;
   const imageBottom = Math.max(0, windowHeight - imageTop - destinationHeight);
   const scaleX = source.width / windowWidth;
@@ -234,7 +232,13 @@ function closeDetailOverlay() {
     detailOverlaySurfaceVisible.value = false;
     detailOverlayHandoffTimer = undefined;
   }, detailOverlaySharedActive.value ? DETAIL_OVERLAY_HANDOFF_AT : 0);
-  detailOverlayCloseTimer = setTimeout(finishDetailOverlayClose, DETAIL_OVERLAY_DURATION + 60);
+  detailOverlayCloseTimer = setTimeout(finishDetailOverlayClose, DETAIL_OVERLAY_CLOSE_DURATION + 60);
+}
+
+function handleDetailOverlayTransitionEnd() {
+  if (detailOverlayOpen.value) return;
+  if (detailOverlayCloseTimer) clearTimeout(detailOverlayCloseTimer);
+  detailOverlayCloseTimer = setTimeout(finishDetailOverlayClose, DETAIL_OVERLAY_FINAL_FRAME_DELAY);
 }
 
 function finishDetailOverlayClose() {
@@ -1069,7 +1073,7 @@ function getRatioClass(ratio: string) {
       class="work-detail-overlay-surface"
       :class="{ 'from-source': detailOverlaySharedActive }"
       :style="detailOverlaySurfaceStyle"
-      @transitionend.self="finishDetailOverlayClose"
+      @transitionend.self="handleDetailOverlayTransitionEnd"
     >
       <WorkDetailPage
         embedded
@@ -1651,6 +1655,7 @@ function getRatioClass(ratio: string) {
 
 .work-detail-overlay.open .work-detail-overlay-backdrop {
   background: rgba(0, 0, 0, .58);
+  transition-duration: 350ms;
 }
 
 .work-detail-overlay-surface {
@@ -1685,6 +1690,7 @@ function getRatioClass(ratio: string) {
   -webkit-clip-path: inset(0 0 0 0 round 0);
   clip-path: inset(0 0 0 0 round 0);
   transform: translate(0, 0) scale(1, 1);
+  transition: opacity 60ms ease, transform 350ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 350ms cubic-bezier(.4, 0, .2, 1), clip-path 350ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .work-title {

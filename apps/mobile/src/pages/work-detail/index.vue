@@ -24,6 +24,7 @@ import { openEmbeddedCreate } from "../../services/primaryShell";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { consumeWorkDetailStale } from "../../services/workDetailRefresh";
 import { getWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { resolveWorkDetailImageHeight } from "../../services/workDetailLayout";
 
 const props = withDefaults(defineProps<{
   embedded?: boolean;
@@ -44,6 +45,7 @@ const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
 const bottomSafeArea = navigationMetrics.bottomSafeArea;
 const headerHeight = navigationMetrics.statusBarHeight + navigationMetrics.navigationBarHeight;
+const detailWindowWidth = navigationMetrics.windowWidth || uni.getSystemInfoSync().windowWidth || 375;
 
 const workId = ref(1);
 const { currentUser, isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -93,11 +95,7 @@ const authorSub = computed(() => {
 });
 const detailImageStyle = computed(() => {
   if (!work.value) return {};
-  const [width, height] = work.value.ratio.split(":").map(Number);
-  if (!width || !height) return {};
-  const ratioHeight = Math.round((height / width) * 750);
-  const minHeight = width > height ? 640 : 0;
-  return { height: `${Math.max(ratioHeight, minHeight)}rpx` };
+  return { height: `${resolveWorkDetailImageHeight(work.value.ratio, detailWindowWidth)}px` };
 });
 
 // The embedded host has the work id before its first paint. Use the list
