@@ -832,7 +832,7 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
-  openPreloadedWorkDetail(work, getWorkAuthor(work));
+  void openPreloadedWorkDetail(work, getWorkAuthor(work), `lumi-gallery-work-media-${work.id}`);
 }
 
 </script>
@@ -992,7 +992,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
+              <image :id="`lumi-gallery-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -1010,7 +1010,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <image class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
+              <image :id="`lumi-gallery-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">

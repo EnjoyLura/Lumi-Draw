@@ -494,7 +494,7 @@ function goUserProfile(userId: number) {
 }
 
 function openWorkDetail(work: HomeWork) {
-  openPreloadedWorkDetail(work, getUser(work));
+  void openPreloadedWorkDetail(work, getUser(work), `lumi-plaza-work-media-${work.id}`);
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {

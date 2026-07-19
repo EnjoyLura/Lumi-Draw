@@ -29,10 +29,14 @@ const props = withDefaults(defineProps<{
   embedded?: boolean;
   open?: boolean;
   initialWorkId?: number | null;
+  sharedTransitioning?: boolean;
+  contentVisible?: boolean;
 }>(), {
   embedded: false,
   open: false,
-  initialWorkId: null
+  initialWorkId: null,
+  sharedTransitioning: false,
+  contentVisible: true
 });
 
 const emit = defineEmits<{ close: [] }>();
@@ -670,7 +674,7 @@ function handleDetailPreviewLoad() {
 </script>
 
 <template>
-  <view class="detail-page" :class="themeClass" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
+  <view class="detail-page" :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible }]" :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px` }">
     <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="props.embedded ? emit('close') : undefined" />
     <view v-if="!isInitialContentReady" class="page-first-frame" aria-label="作品详情加载中">
       <view class="detail-first-image skeleton-shimmer" />
@@ -699,7 +703,7 @@ function handleDetailPreviewLoad() {
     </view>
     <template v-else-if="work && user">
       <scroll-view class="detail-scroll" scroll-y>
-        <view class="detail-image-frame" :style="detailImageStyle">
+        <view class="detail-image-frame" :class="{ 'shared-transitioning': props.sharedTransitioning }" :style="detailImageStyle">
           <image
             class="detail-image detail-image-full"
             :class="{ ready: isDetailPreviewReady }"
@@ -1014,6 +1018,25 @@ function handleDetailPreviewLoad() {
 
 .detail-image-full {
   position: relative;
+}
+
+.detail-page.embedded .detail-image-frame.shared-transitioning .detail-image {
+  opacity: 0;
+}
+
+.detail-page.embedded .detail-body,
+.detail-page.embedded .detail-bottom,
+.detail-page.embedded .bottom-safe-area {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.detail-page.embedded.detail-content-visible .detail-body,
+.detail-page.embedded.detail-content-visible .detail-bottom,
+.detail-page.embedded.detail-content-visible .bottom-safe-area {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .detail-body {
