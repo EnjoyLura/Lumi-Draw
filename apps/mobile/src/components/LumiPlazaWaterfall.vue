@@ -28,13 +28,21 @@ async function openWork(work: HomeWork) {
   const sourceRect = await resolveWorkDetailSourceRect(`lumi-plaza-work-media-${work.id}`, sourceContext);
   emit("openWork", work, sourceRect);
 }
+
+function getAspectRatio(ratio: string) {
+  const [width, height] = ratio.split(":").map(Number);
+  if (!width || !height) return "1 / 1";
+  return `${width} / ${height}`;
+}
 </script>
 
 <template>
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
       <view v-for="work in leftWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="openWork(work)" @load="emit('imageLoad', work.id, $event)" />
+        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWork(work)">
+          <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="emit('imageLoad', work.id, $event)" />
+        </view>
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
@@ -53,7 +61,9 @@ async function openWork(work: HomeWork) {
 
     <view class="waterfall-column">
       <view v-for="work in rightWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="openWork(work)" @load="emit('imageLoad', work.id, $event)" />
+        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWork(work)">
+          <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="emit('imageLoad', work.id, $event)" />
+        </view>
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
@@ -103,9 +113,17 @@ async function openWork(work: HomeWork) {
 .waterfall-column:nth-child(2) .work-card { animation-delay: .06s; }
 @keyframes plaza-card-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 
+.work-media {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
 .work-img {
   display: block;
   width: 100%;
+  height: 100%;
 }
 
 .work-body {

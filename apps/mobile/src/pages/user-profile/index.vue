@@ -91,7 +91,10 @@ const detailAuthor = computed<HomeUser>(() => ({
 
 watch(
   allWorks,
-  (works) => preloadWorkDetailSnapshots(works.map((work) => ({ work, user: detailAuthor.value }))),
+  (works) => {
+    if (useMockData.value) return;
+    preloadWorkDetailSnapshots(works.map((work) => ({ work, user: detailAuthor.value })));
+  },
   { immediate: true }
 );
 onLoad((query) => {
@@ -392,7 +395,9 @@ async function confirmUnfollow() {
         <view v-if="allWorks.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image :id="`lumi-profile-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load />
+              </view>
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -408,7 +413,9 @@ async function confirmUnfollow() {
           </view>
           <view class="waterfall-column">
             <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <image :id="`lumi-profile-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load />
+              </view>
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
                 <view class="work-meta">
@@ -749,9 +756,17 @@ async function confirmUnfollow() {
   box-shadow: 0 2px 8px rgba(91, 159, 232, 0.05);
 }
 
+.work-media {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-soft);
+}
+
 .work-img {
   display: block;
   width: 100%;
+  height: 100%;
 }
 
 .work-body {

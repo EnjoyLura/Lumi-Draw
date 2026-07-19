@@ -183,7 +183,8 @@ test("mobile h5 toggles work detail like and favorite", async ({ page }) => {
 for (const [name, url] of [
   ["plaza", "/#/pages/plaza/index"],
   ["gallery", "/#/pages/gallery/index"],
-  ["mine", "/#/pages/mine/index"]
+  ["mine", "/#/pages/mine/index"],
+  ["user profile", "/#/pages/user-profile/index?id=2"]
 ]) {
   test(`mobile h5 opens ${name} work detail in the custom overlay`, async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);
