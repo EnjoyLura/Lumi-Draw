@@ -165,3 +165,58 @@ test("uses the configured full endpoint and forwards administrator-defined param
     globalThis.fetch = originalFetch;
   }
 });
+
+test("uses custom task paths, query endpoint, and provider progress", async () => {
+  const originalFetch = globalThis.fetch;
+  let queryCount = 0;
+  const observedProgress: number[] = [];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("/jobs/")) {
+      queryCount += 1;
+      return queryCount === 1
+        ? jsonResponse({ job: { state: "running", progress: 42 } })
+        : jsonResponse({ job: { state: "done", progress: 100, outputs: [{ src: "https://image.example.com/custom.png" }] } });
+    }
+    return jsonResponse({ job: { id: "custom-task" } });
+  };
+
+  try {
+    const runtime = {
+      apiBase: "https://custom.example.com/v1/generate",
+      apiKey: "custom-key",
+      params: { model: "gpt-image-2" },
+      requestMode: "async" as const,
+      queryEndpoint: "https://custom.example.com/jobs/{task_id}",
+      statusEnabled: true,
+      responseMapping: {
+        taskIdPath: "job.id",
+        statusPath: "job.state",
+        progressPath: "job.progress",
+        resultUrlPath: "job.outputs[].src",
+        errorPath: "job.error",
+        successValue: "done",
+        failureValue: "failed",
+        pendingValue: "running"
+      }
+    };
+    const provider = client();
+    const submitted = await provider.submit({
+      mode: "text-to-image",
+      prompt: "custom polling",
+      inputImageUrl: "",
+      ratio: "1:1",
+      quality: "1K",
+      count: 1
+    }, runtime);
+    const outputs = await provider.waitForOutputs(submitted.taskId, (_elapsed, progress) => {
+      if (progress !== undefined) observedProgress.push(progress);
+    }, runtime);
+
+    assert.equal(submitted.taskId, "custom-task");
+    assert.deepEqual(observedProgress, [42]);
+    assert.deepEqual(outputs, [{ url: "https://image.example.com/custom.png" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

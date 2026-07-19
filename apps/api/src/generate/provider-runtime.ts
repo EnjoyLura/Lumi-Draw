@@ -4,6 +4,10 @@ export interface ProviderRuntimeConfig {
   apiBase: string;
   apiKey: string;
   params: ProviderRequestParams;
+  requestMode?: "sync" | "async";
+  queryEndpoint?: string;
+  statusEnabled?: boolean;
+  responseMapping?: ProviderRequestParams;
 }
 
 export function normalizeProviderParams(value: unknown): ProviderRequestParams {

@@ -110,8 +110,12 @@ model GenerationProvider {
   name          String
   groupName     String   @default("")
   adapter       String
+  requestMode   String   @default("sync")
   baseUrl       String
   imageEndpoint String   @default("")
+  queryEndpoint String   @default("")
+  statusEnabled Boolean  @default(false)
+  responseMapping Json   @default("{}")
   textToImageEnabled Boolean @default(true)
   imageToImageEnabled Boolean @default(false)
   apiKeyEnv     String
@@ -481,6 +485,10 @@ model GenerateJob {
   provider      String   @default("kie")
   providerAdapter String @default("")
   providerBaseUrl String @default("")
+  providerRequestMode String @default("sync")
+  providerQueryEndpoint String @default("")
+  providerStatusEnabled Boolean @default(false)
+  providerResponseMapping Json?
   providerApiKeyEnv String @default("")
   providerApiKeyEncrypted String @default("")
   providerParams Json?

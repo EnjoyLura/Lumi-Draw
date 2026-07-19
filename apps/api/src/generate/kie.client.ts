@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { ModelConfig } from "@prisma/client";
 import type { ProviderRuntimeConfig } from "./provider-runtime";
+import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "./provider-response";
 
 type KieConfig = {
   apiBase: string;
@@ -62,7 +63,9 @@ export class KieClient {
       throw new Error(payload?.msg || `KIE request failed with HTTP ${res.status}`);
     }
 
-    const taskId = payload.data?.taskId;
+    const taskId = runtime?.responseMapping?.taskIdPath
+      ? firstStringAtPath(payload, runtime.responseMapping.taskIdPath)
+      : payload.data?.taskId;
     if (!taskId) throw new Error("KIE response missing taskId");
     return { taskId, requestBody: body };
   }
@@ -71,8 +74,11 @@ export class KieClient {
     const kie = this.getConfig(runtime);
     if (!kie.apiKey) throw new Error("KIE_API_KEY is not configured");
 
-    const url = new URL(`${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/recordInfo`);
-    url.searchParams.set("taskId", taskId);
+    const queryEndpoint = runtime?.queryEndpoint;
+    const url = queryEndpoint
+      ? new URL(queryEndpoint.replaceAll("{task_id}", encodeURIComponent(taskId)).replaceAll("{taskId}", encodeURIComponent(taskId)))
+      : new URL(`${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/recordInfo`);
+    if (!queryEndpoint) url.searchParams.set("taskId", taskId);
 
     const res = await fetch(url, {
       method: "GET",
@@ -86,8 +92,26 @@ export class KieClient {
     if (!res.ok || !payload || (payload.code !== undefined && ![200, 500, 505].includes(payload.code))) {
       throw new Error(payload?.msg || `KIE recordInfo failed with HTTP ${res.status}`);
     }
-    if (!payload.data) throw new Error("KIE recordInfo response missing data");
-    return payload.data;
+    if (!payload.data && !runtime?.responseMapping?.statusPath) throw new Error("KIE recordInfo response missing data");
+    if (!runtime?.responseMapping?.statusPath) return payload.data as KieTaskRecord;
+    const mapping = runtime.responseMapping;
+    const originalData = payload.data ?? {};
+    const rawStatus = firstStringAtPath(payload, mapping.statusPath);
+    const normalizedStatus = rawStatus.toLowerCase() === String(mapping.successValue || "").toLowerCase()
+      ? "completed"
+      : rawStatus.toLowerCase() === String(mapping.failureValue || "").toLowerCase()
+        ? "failed"
+        : rawStatus.toLowerCase() === String(mapping.pendingValue || "").toLowerCase()
+          ? "running"
+          : rawStatus;
+    const imageUrls = stringValuesAtPath(payload, mapping.resultUrlPath || "");
+    return {
+      taskId: firstStringAtPath(payload, mapping.taskIdPath || "") || taskId,
+      status: normalizedStatus,
+      resultJson: imageUrls.length ? JSON.stringify({ resultUrls: imageUrls }) : originalData.resultJson,
+      failMsg: firstStringAtPath(payload, mapping.errorPath || "") || originalData.failMsg,
+      progress: runtime.statusEnabled ? firstNumberAtPath(payload, mapping.progressPath || "") : undefined
+    };
   }
 
   private buildCreateTaskBody(input: SubmitGenerateJobInput, callbackUrl: string, params: Record<string, string> = {}) {

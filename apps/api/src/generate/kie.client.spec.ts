@@ -32,3 +32,57 @@ test("uses the administrator model parameter as the top-level KIE model", () => 
     resolution: "1K"
   });
 });
+
+test("uses administrator task and status response mappings", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    return new Response(JSON.stringify(url.includes("/status/")
+      ? { job: { id: "mapped-task", state: "done", progress: 100, images: [{ url: "https://image.example.com/result.png" }] } }
+      : { job: { id: "mapped-task" } }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  try {
+    const config = { get: () => ({ callbackUrl: "" }) } as unknown as ConfigService;
+    const client = new KieClient(config);
+    const runtime = {
+      apiBase: "https://custom.example.com/create",
+      apiKey: "test-key",
+      params: {},
+      requestMode: "async" as const,
+      queryEndpoint: "https://custom.example.com/status/{task_id}",
+      statusEnabled: true,
+      responseMapping: {
+        taskIdPath: "job.id",
+        statusPath: "job.state",
+        progressPath: "job.progress",
+        resultUrlPath: "job.images[].url",
+        errorPath: "job.error",
+        successValue: "done",
+        failureValue: "failed",
+        pendingValue: "running"
+      }
+    };
+    const submitted = await client.submitGenerateJob({
+      jobId: "job-id",
+      mode: "text-to-image",
+      model: { id: "custom", providerModel: "custom" } as ModelConfig,
+      prompt: "test",
+      inputImageUrl: "",
+      ratio: "1:1",
+      quality: "1K",
+      count: 1
+    }, runtime);
+    const detail = await client.getTaskDetail(submitted.taskId, runtime);
+
+    assert.equal(submitted.taskId, "mapped-task");
+    assert.equal(calls[1], "https://custom.example.com/status/mapped-task");
+    assert.equal(detail.status, "completed");
+    assert.equal(detail.progress, 100);
+    assert.equal(detail.resultJson, JSON.stringify({ resultUrls: ["https://image.example.com/result.png"] }));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

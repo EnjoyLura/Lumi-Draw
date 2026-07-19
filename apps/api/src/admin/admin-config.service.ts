@@ -313,17 +313,25 @@ export class AdminConfigService {
     const id = String(body.id).trim().toLowerCase();
     const groupName = String(body.groupName || "").trim();
     const adapter = String(body.adapter).trim();
+    const requestMode = String(body.requestMode || (adapter === "change2pro" ? "sync" : "async")).trim();
     const baseUrl = String(body.baseUrl || "").trim();
     const imageEndpoint = String(body.imageEndpoint || "").trim();
+    const queryEndpoint = String(body.queryEndpoint || "").trim();
+    const statusEnabled = requestMode === "async" && Boolean(body.statusEnabled);
     const textToImageEnabled = body.textToImageEnabled === undefined ? true : Boolean(body.textToImageEnabled);
     const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
     const apiKeyEnv = String(body.apiKeyEnv || `GENERATION_PROVIDER_${id.replace(/-/g, "_").toUpperCase()}_API_KEY`).trim();
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
+    if (!new Set(["sync", "async"]).has(requestMode)) throw new BadRequestException("调用方式只能是普通或异步");
+    if ((adapter === "change2pro") !== (requestMode === "sync")) {
+      throw new BadRequestException("请求协议与接口类型不匹配");
+    }
     if (!textToImageEnabled && !imageToImageEnabled) throw new BadRequestException("请至少启用文生图或图生图能力");
     this.assertGenerationEndpoint(baseUrl, "文生图", textToImageEnabled);
     this.assertGenerationEndpoint(imageEndpoint, "图生图", imageToImageEnabled);
+    this.assertQueryEndpoint(queryEndpoint, requestMode === "async");
     if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(apiKeyEnv)) throw new BadRequestException("密钥变量名格式不正确");
     const rawApiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
     if (rawApiKey.length > 512) throw new BadRequestException("API Key 长度不能超过 512 个字符");
@@ -335,6 +343,7 @@ export class AdminConfigService {
     if (creating && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("请填写 API Key");
     const requestParams = this.normalizeGenerationParams(body.requestParams);
     const imageRequestParams = this.normalizeGenerationParams(body.imageRequestParams);
+    const responseMapping = this.normalizeResponseMapping(body.responseMapping, adapter, requestMode);
     const modelIds = Array.isArray(body.modelIds) ? [...new Set(body.modelIds.map(String).filter(Boolean))] : [];
     return {
       provider: {
@@ -342,8 +351,12 @@ export class AdminConfigService {
         name: String(body.name).trim(),
         groupName,
         adapter,
+        requestMode,
         baseUrl,
         imageEndpoint,
+        queryEndpoint,
+        statusEnabled,
+        responseMapping,
         textToImageEnabled,
         imageToImageEnabled,
         apiKeyEnv,
@@ -379,6 +392,33 @@ export class AdminConfigService {
     } catch {
       throw new BadRequestException(`${label}接口必须是包含完整路径的 HTTPS URL`);
     }
+  }
+
+  private assertQueryEndpoint(endpoint: string, enabled: boolean) {
+    if (!enabled) return;
+    this.assertGenerationEndpoint(endpoint, "查询任务结果", true);
+    if (!endpoint.includes("{task_id}") && !endpoint.includes("{taskId}")) {
+      throw new BadRequestException("查询任务结果 URL 必须包含 {task_id} 占位符");
+    }
+  }
+
+  private normalizeResponseMapping(value: unknown, adapter: string, requestMode: string) {
+    if (requestMode !== "async") return {};
+    const defaults = adapter === "ainb" ? {
+      taskIdPath: "task_id",
+      statusPath: "data.status",
+      progressPath: "data.progress",
+      resultUrlPath: "data.data.data[].url",
+      errorPath: "data.fail_reason",
+      successValue: "SUCCESS",
+      failureValue: "FAILURE",
+      pendingValue: "IN_PROGRESS"
+    } : {};
+    const mapping = { ...defaults, ...this.normalizeGenerationParams(value) };
+    if (adapter === "ainb" && (!mapping.taskIdPath || !mapping.statusPath || !mapping.resultUrlPath)) {
+      throw new BadRequestException("异步接口必须配置任务 ID、状态和结果图片的数据路径");
+    }
+    return mapping;
   }
 
   private generationProviderView(provider: GenerationProvider, modelIds: string[]) {

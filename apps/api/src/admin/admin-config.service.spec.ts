@@ -51,7 +51,8 @@ test("keeps the existing encrypted key when an edit leaves API Key empty", () =>
     name: "Custom provider",
     adapter: "ainb",
     apiKey: "sk-existing-secret",
-    baseUrl: "https://images.example.com/v1/images/generations"
+    baseUrl: "https://images.example.com/v1/images/generations",
+    queryEndpoint: "https://images.example.com/v1/tasks/{task_id}"
   }, true);
   const edited = normalize({
     ...created.provider,
@@ -102,6 +103,7 @@ test("allows an empty image endpoint when image generation is disabled", () => {
     adapter: "kie",
     apiKey: "sk-text-only",
     baseUrl: "https://images.example.com/jobs/create",
+    queryEndpoint: "https://images.example.com/jobs/{task_id}",
     imageEndpoint: "",
     textToImageEnabled: true,
     imageToImageEnabled: false
@@ -117,15 +119,20 @@ test("never exposes encrypted or environment key fields in administrator respons
     name: "Safe view",
     adapter: "ainb",
     apiKey: "sk-safe-view",
-    baseUrl: "https://images.example.com/v1/images/generations"
+    baseUrl: "https://images.example.com/v1/images/generations",
+    queryEndpoint: "https://images.example.com/v1/tasks/{task_id}"
   }, true).provider.apiKeyEncrypted);
   const provider = {
     id: "safe-view",
     name: "Safe view",
     groupName: "Primary",
     adapter: "ainb",
+    requestMode: "async",
     baseUrl: "https://images.example.com/v1/images/generations",
     imageEndpoint: "",
+    queryEndpoint: "https://images.example.com/v1/tasks/{task_id}",
+    statusEnabled: true,
+    responseMapping: {},
     textToImageEnabled: true,
     imageToImageEnabled: false,
     apiKeyEnv: "GENERATION_PROVIDER_SAFE_VIEW_API_KEY",
@@ -145,6 +152,43 @@ test("never exposes encrypted or environment key fields in administrator respons
   assert.equal("apiKeyEnv" in view, false);
   assert.equal(view.apiKeyConfigured, true);
   assert.equal(view.apiKeySource, "admin");
+});
+
+test("stores asynchronous polling and status response configuration", () => {
+  const result = normalize({
+    id: "async-provider",
+    name: "Async provider",
+    adapter: "ainb",
+    requestMode: "async",
+    apiKey: "sk-async-secret",
+    baseUrl: "https://images.example.com/v1/generate",
+    queryEndpoint: "https://images.example.com/v1/tasks/{task_id}",
+    statusEnabled: true,
+    responseMapping: {
+      taskIdPath: "job.id",
+      statusPath: "job.state",
+      progressPath: "job.progress",
+      resultUrlPath: "job.outputs[].url",
+      errorPath: "job.error",
+      successValue: "done",
+      failureValue: "failed",
+      pendingValue: "running"
+    }
+  }, true);
+
+  assert.equal(result.provider.requestMode, "async");
+  assert.equal(result.provider.queryEndpoint, "https://images.example.com/v1/tasks/{task_id}");
+  assert.equal(result.provider.statusEnabled, true);
+  assert.deepEqual(result.provider.responseMapping, {
+    taskIdPath: "job.id",
+    statusPath: "job.state",
+    progressPath: "job.progress",
+    resultUrlPath: "job.outputs[].url",
+    errorPath: "job.error",
+    successValue: "done",
+    failureValue: "failed",
+    pendingValue: "running"
+  });
 });
 
 test("reports a duplicate provider identifier as a conflict before creating it", async () => {

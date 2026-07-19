@@ -8,10 +8,24 @@ import { AddBtn, Badge, Chips, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const ADAPTERS = [
-  { value: "ainb", label: "Ainb 异步任务接口" },
-  { value: "change2pro", label: "Images 兼容接口" },
-  { value: "kie", label: "KIE 任务接口" }
+  { value: "ainb", label: "OpenAI Images 异步协议" },
+  { value: "change2pro", label: "OpenAI Images / Gemini 普通协议" },
+  { value: "kie", label: "KIE 任务协议" }
 ] as const;
+const REQUEST_MODES = [
+  { value: "sync", label: "普通接口" },
+  { value: "async", label: "异步接口" }
+] as const;
+const DEFAULT_ASYNC_MAPPING = {
+  taskIdPath: "task_id",
+  statusPath: "data.status",
+  progressPath: "data.progress",
+  resultUrlPath: "data.data.data[].url",
+  errorPath: "data.fail_reason",
+  successValue: "SUCCESS",
+  failureValue: "FAILURE",
+  pendingValue: "IN_PROGRESS"
+};
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 
 function ParamEditor({ value, onChange }: { value: Record<string, string>; onChange: (value: Record<string, string>) => void }) {
@@ -36,14 +50,27 @@ function ParamEditor({ value, onChange }: { value: Record<string, string>; onCha
   );
 }
 
+function MappingField({ label, value, placeholder, onChange }: { label: string; value: string; placeholder: string; onChange: (value: string) => void }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span className="field-label">{label}</span>
+      <input className="input" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </label>
+  );
+}
+
 function emptyProvider(): AdminGenerationProvider {
   return {
     id: "",
     name: "",
     groupName: "",
     adapter: "ainb",
+    requestMode: "async",
     baseUrl: "",
     imageEndpoint: "",
+    queryEndpoint: "",
+    statusEnabled: false,
+    responseMapping: { ...DEFAULT_ASYNC_MAPPING },
     textToImageEnabled: true,
     imageToImageEnabled: false,
     apiKey: "",
@@ -66,6 +93,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     apiKey: "",
     requestParams: { model: "", ...item.requestParams },
     imageRequestParams: { model: "", ...item.imageRequestParams },
+    responseMapping: { ...(item.requestMode === "async" ? DEFAULT_ASYNC_MAPPING : {}), ...item.responseMapping },
     modelIds: [...item.modelIds]
   } : emptyProvider());
   const [saving, setSaving] = useState(false);
@@ -87,6 +115,10 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     }
     if ((value.textToImageEnabled && !value.baseUrl.trim()) || (value.imageToImageEnabled && !value.imageEndpoint.trim())) {
       toast("请填写已启用能力的完整接口 URL");
+      return;
+    }
+    if (value.requestMode === "async" && (!value.queryEndpoint.trim() || (!value.queryEndpoint.includes("{task_id}") && !value.queryEndpoint.includes("{taskId}")))) {
+      toast("异步接口的查询 URL 必须包含 {task_id}");
       return;
     }
     setSaving(true);
@@ -134,8 +166,22 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         {[...new Set(providers.map((provider) => provider.groupName).filter(Boolean))].map((group) => <option key={group} value={group} />)}
       </datalist>
       <label className="field-label" style={{ marginTop: 12 }}>接口类型</label>
+      <select className="input" value={value.requestMode} onChange={(event) => {
+        const requestMode = event.target.value as AdminGenerationProvider["requestMode"];
+        setValue((current) => ({
+          ...current,
+          requestMode,
+          adapter: requestMode === "sync" ? "change2pro" : current.adapter === "change2pro" ? "ainb" : current.adapter,
+          statusEnabled: requestMode === "async" && current.statusEnabled,
+          responseMapping: requestMode === "async" ? { ...DEFAULT_ASYNC_MAPPING, ...current.responseMapping } : {}
+        }));
+      }}>
+        {REQUEST_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+      </select>
+      <label className="field-label" style={{ marginTop: 12 }}>请求协议</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
-        {ADAPTERS.map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
+        {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
+          .map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>API Key</label>
       <input
@@ -146,6 +192,33 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         onChange={(event) => update("apiKey", event.target.value)}
         placeholder={value.apiKeyConfigured ? `已配置 ${value.apiKeyHint}，留空则保持不变` : "请输入平台 API Key"}
       />
+
+      {value.requestMode === "async" ? <>
+        <label className="field-label" style={{ marginTop: 12 }}>查询任务结果完整 URL</label>
+        <input
+          className="input"
+          value={value.queryEndpoint}
+          onChange={(event) => update("queryEndpoint", event.target.value)}
+          placeholder="https://api.example.com/v1/tasks/{task_id}"
+        />
+        <div className="lr-s" style={{ marginTop: 5 }}>使用 <code>{"{task_id}"}</code> 标记任务 ID 所在位置</div>
+        <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <MappingField label="任务 ID 数据路径" value={value.responseMapping.taskIdPath || ""} placeholder="task_id" onChange={(next) => update("responseMapping", { ...value.responseMapping, taskIdPath: next })} />
+          <MappingField label="任务状态数据路径" value={value.responseMapping.statusPath || ""} placeholder="data.status" onChange={(next) => update("responseMapping", { ...value.responseMapping, statusPath: next })} />
+          <MappingField label="结果图片 URL 数据路径" value={value.responseMapping.resultUrlPath || ""} placeholder="data.data[].url" onChange={(next) => update("responseMapping", { ...value.responseMapping, resultUrlPath: next })} />
+          <MappingField label="失败原因数据路径" value={value.responseMapping.errorPath || ""} placeholder="data.fail_reason" onChange={(next) => update("responseMapping", { ...value.responseMapping, errorPath: next })} />
+          <div style={{ display: "grid", gap: 10 }}>
+            <MappingField label="成功状态值" value={value.responseMapping.successValue || ""} placeholder="SUCCESS" onChange={(next) => update("responseMapping", { ...value.responseMapping, successValue: next })} />
+            <MappingField label="失败状态值" value={value.responseMapping.failureValue || ""} placeholder="FAILURE" onChange={(next) => update("responseMapping", { ...value.responseMapping, failureValue: next })} />
+            <MappingField label="处理中状态值" value={value.responseMapping.pendingValue || ""} placeholder="IN_PROGRESS" onChange={(next) => update("responseMapping", { ...value.responseMapping, pendingValue: next })} />
+          </div>
+        </div>
+        <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
+          <input type="checkbox" checked={value.statusEnabled} onChange={(event) => update("statusEnabled", event.target.checked)} />
+          <div className="lr-main"><div className="lr-t">读取真实处理进度</div><div className="lr-s">状态接口返回进度时，用于小程序生成进度条</div></div>
+        </label>
+        {value.statusEnabled ? <MappingField label="任务进度数据路径" value={value.responseMapping.progressPath || ""} placeholder="data.progress" onChange={(next) => update("responseMapping", { ...value.responseMapping, progressPath: next })} /> : null}
+      </> : null}
 
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
         <input type="checkbox" checked={value.textToImageEnabled} onChange={(event) => update("textToImageEnabled", event.target.checked)} />
@@ -252,6 +325,8 @@ export function OpsApiProvider() {
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
                 {provider.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
+                <Badge text={provider.requestMode === "async" ? "异步" : "普通"} type={provider.requestMode === "async" ? "info" : "muted"} />
+                {provider.statusEnabled ? <Badge text="真实进度" type="success" /> : null}
               </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}

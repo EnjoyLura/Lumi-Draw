@@ -133,7 +133,11 @@ export class GenerateService implements OnApplicationBootstrap {
     return {
       apiBase: job.providerBaseUrl,
       apiKey: this.resolveProviderApiKey(job.providerApiKeyEncrypted, job.providerApiKeyEnv),
-      params: normalizeProviderParams(job.providerParams)
+      params: normalizeProviderParams(job.providerParams),
+      requestMode: job.providerRequestMode === "async" ? "async" : "sync",
+      queryEndpoint: job.providerQueryEndpoint,
+      statusEnabled: job.providerStatusEnabled,
+      responseMapping: normalizeProviderParams(job.providerResponseMapping)
     };
   }
 
@@ -192,6 +196,10 @@ export class GenerateService implements OnApplicationBootstrap {
           provider: provider.id,
           providerAdapter: provider.adapter,
           providerBaseUrl: providerEndpoint,
+          providerRequestMode: provider.requestMode,
+          providerQueryEndpoint: provider.queryEndpoint,
+          providerStatusEnabled: provider.statusEnabled,
+          providerResponseMapping: normalizeProviderParams(provider.responseMapping),
           providerApiKeyEnv: provider.apiKeyEnv,
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
           providerParams: normalizedProviderParams,
@@ -632,9 +640,12 @@ export class GenerateService implements OnApplicationBootstrap {
   private async completeAinbJob(job: JobWithResults) {
     if (!job.kieTaskId) throw new Error("Ainb task id is missing");
     const startedAt = job.startedAt?.getTime() ?? Date.now();
-    const outputs = await this.ainb.waitForOutputs(job.kieTaskId, async (providerElapsedMs) => {
+    const outputs = await this.ainb.waitForOutputs(job.kieTaskId, async (providerElapsedMs, providerProgress) => {
       const elapsedMs = Math.max(providerElapsedMs, Date.now() - startedAt);
-      const progress = Math.min(90, 8 + Math.floor(elapsedMs / 10_000) * 3);
+      const simulatedProgress = Math.min(90, 8 + Math.floor(elapsedMs / 10_000) * 3);
+      const progress = Number.isFinite(providerProgress)
+        ? Math.max(8, Math.min(95, Math.round(providerProgress as number)))
+        : simulatedProgress;
       await this.prisma.generateJob.updateMany({
         where: { id: job.id, status: "running" },
         data: { progress, stageText: "AI 正在生成中" }

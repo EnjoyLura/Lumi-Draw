@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
+import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "./provider-response";
 
 type AinbConfig = {
   apiBase: string;
@@ -9,6 +10,9 @@ type AinbConfig = {
   imageApiKey: string;
   params: Record<string, string>;
   dynamicParams: boolean;
+  queryEndpoint: string;
+  statusEnabled: boolean;
+  responseMapping: Record<string, string>;
 };
 
 type AinbGenerateInput = {
@@ -62,7 +66,7 @@ export class AinbClient {
       const submitted = await Promise.allSettled(
         Array.from({ length: input.count }, () => this.submitEdit(config, { ...input, count: 1 }, reference))
       );
-      const taskIds = submitted.flatMap((item) => item.status === "fulfilled" ? [this.extractTaskId(item.value)] : []);
+      const taskIds = submitted.flatMap((item) => item.status === "fulfilled" ? [this.extractTaskId(item.value, config.responseMapping)] : []);
       if (!taskIds.length) {
         const firstFailure = submitted.find((item): item is PromiseRejectedResult => item.status === "rejected");
         throw firstFailure?.reason instanceof Error ? firstFailure.reason : new Error("Ainb batch submission failed");
@@ -86,10 +90,10 @@ export class AinbClient {
               n: input.count
             })
           });
-    return { taskId: this.extractTaskId(payload) };
+    return { taskId: this.extractTaskId(payload, config.responseMapping) };
   }
 
-  async waitForOutputs(taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
+  async waitForOutputs(taskId: string, onInProgress?: (elapsedMs: number, providerProgress?: number) => Promise<void> | void, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
     const config = this.getConfig(runtime);
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
     const taskIds = this.decodeTaskIds(taskId);
@@ -105,40 +109,31 @@ export class AinbClient {
     throw firstFailure?.reason instanceof Error ? firstFailure.reason : new Error("Ainb batch generation failed");
   }
 
-  private async waitForSingleOutput(config: AinbConfig, taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void) {
+  private async waitForSingleOutput(config: AinbConfig, taskId: string, onInProgress?: (elapsedMs: number, providerProgress?: number) => Promise<void> | void) {
     const startedAt = Date.now();
     while (Date.now() - startedAt < GENERATION_TIMEOUT_MS) {
-      const payload = await this.requestJson(`${config.apiBase}/v1/images/tasks/${encodeURIComponent(taskId)}`, {
+      const payload = await this.requestJson(this.queryUrl(config.queryEndpoint, taskId), {
         headers: this.authHeaders(config.imageApiKey)
       });
-      const data = asRecord(asRecord(payload)?.data);
-      const status = this.stringValue(data?.status).toUpperCase();
-      if (status === "SUCCESS") {
-        if (!data) throw new Error("Ainb result payload is invalid");
-        const outputs = this.extractOutputs(data);
+      const status = firstStringAtPath(payload, config.responseMapping.statusPath).toUpperCase();
+      if (status === config.responseMapping.successValue.toUpperCase()) {
+        const outputs = stringValuesAtPath(payload, config.responseMapping.resultUrlPath).map((url) => ({ url }));
         if (!outputs.length) throw new Error("Ainb result did not include an image URL");
         return outputs;
       }
-      if (status === "FAILURE") {
-        throw new Error(this.stringValue(data?.fail_reason) || "Ainb generation failed");
+      if (status === config.responseMapping.failureValue.toUpperCase()) {
+        throw new Error(firstStringAtPath(payload, config.responseMapping.errorPath) || "Ainb generation failed");
       }
-      if (status && status !== "IN_PROGRESS") {
+      if (status && status !== config.responseMapping.pendingValue.toUpperCase()) {
         this.logger.warn(`Ainb task ${taskId} returned unexpected status: ${status}`);
       }
-      await onInProgress?.(Date.now() - startedAt);
+      const providerProgress = config.statusEnabled
+        ? firstNumberAtPath(payload, config.responseMapping.progressPath)
+        : undefined;
+      await onInProgress?.(Date.now() - startedAt, providerProgress);
       await this.delay(POLL_INTERVAL_MS);
     }
     throw new Error("Ainb generation timeout");
-  }
-
-  private extractOutputs(data: Record<string, unknown>) {
-    const nested = asRecord(data.data);
-    const candidates = Array.isArray(nested?.data) ? nested.data : [];
-    const urls = candidates
-      .map((item) => this.stringValue(asRecord(item)?.url))
-      .filter(Boolean)
-      .map((url) => ({ url }));
-    return urls;
   }
 
   private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage, providerModel?: string) {
@@ -162,7 +157,11 @@ export class AinbClient {
     });
   }
 
-  private extractTaskId(payload: unknown) {
+  private extractTaskId(payload: unknown, mapping?: Record<string, string>) {
+    if (mapping?.taskIdPath) {
+      const configuredTaskId = firstStringAtPath(payload, mapping.taskIdPath);
+      if (configuredTaskId) return configuredTaskId;
+    }
     const record = asRecord(payload);
     const data = asRecord(record?.data);
     const taskId = this.stringValue(record?.task_id) || this.stringValue(data?.task_id) || this.stringValue(data?.id);
@@ -223,7 +222,10 @@ export class AinbClient {
         endpoint,
         imageApiKey: runtime.apiKey,
         params: runtime.params,
-        dynamicParams: Boolean(endpoint)
+        dynamicParams: Boolean(endpoint),
+        queryEndpoint: runtime.queryEndpoint || `${configuredUrl.origin}/v1/images/tasks/{task_id}`,
+        statusEnabled: Boolean(runtime.statusEnabled),
+        responseMapping: this.responseMapping(runtime.responseMapping)
       };
     }
     const value = this.config.get<Omit<AinbConfig, "params">>("app.ainb");
@@ -231,8 +233,29 @@ export class AinbClient {
       apiBase: (value?.apiBase || "https://ainb.plus").replace(/\/+$/, ""),
       imageApiKey: value?.imageApiKey || "",
       params: { quality: "high", response_format: "url", output_format: "png" },
-      dynamicParams: false
+      dynamicParams: false,
+      queryEndpoint: `${(value?.apiBase || "https://ainb.plus").replace(/\/+$/, "")}/v1/images/tasks/{task_id}`,
+      statusEnabled: false,
+      responseMapping: this.responseMapping()
     };
+  }
+
+  private responseMapping(value: Record<string, string> = {}) {
+    return {
+      taskIdPath: value.taskIdPath || "task_id",
+      statusPath: value.statusPath || "data.status",
+      progressPath: value.progressPath || "data.progress",
+      resultUrlPath: value.resultUrlPath || "data.data.data[].url",
+      errorPath: value.errorPath || "data.fail_reason",
+      successValue: value.successValue || "SUCCESS",
+      failureValue: value.failureValue || "FAILURE",
+      pendingValue: value.pendingValue || "IN_PROGRESS"
+    };
+  }
+
+  private queryUrl(template: string, taskId: string) {
+    const encoded = encodeURIComponent(taskId);
+    return template.replaceAll("{task_id}", encoded).replaceAll("{taskId}", encoded);
   }
 
   private stringValue(value: unknown) {
