@@ -196,7 +196,7 @@ function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
     detailOverlayContentTimer = setTimeout(() => {
       detailOverlayContentVisible.value = true;
       detailOverlayContentTimer = undefined;
-    }, 60);
+    }, 30);
   });
 }
 
@@ -208,7 +208,7 @@ function closeDetailOverlay() {
   detailOverlayCloseTimer = setTimeout(() => {
     detailOverlayWorkId.value = null;
     detailOverlayCloseTimer = undefined;
-  }, 280);
+  }, 450);
 }
 
 function resolveInviteCode(query?: Record<string, unknown>) {
@@ -1585,7 +1585,7 @@ function getRatioClass(ratio: string) {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0);
-  transition: background 360ms ease;
+  transition: background 420ms ease;
 }
 
 .work-detail-overlay.open .work-detail-overlay-backdrop {
@@ -1605,7 +1605,7 @@ function getRatioClass(ratio: string) {
 .work-detail-overlay-surface.from-source {
   border-radius: 10px;
   transform: translate(var(--detail-source-x), var(--detail-source-y)) scale(var(--detail-source-scale-x), var(--detail-source-scale-y));
-  transition: transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 300ms ease;
+  transition: transform 420ms cubic-bezier(.16, 1, .3, 1), border-radius 420ms ease;
   will-change: transform, border-radius;
 }
 

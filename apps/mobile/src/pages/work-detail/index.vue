@@ -212,6 +212,10 @@ function hydrateDetailSnapshot() {
     followersText: formatCompactNumber(snapshot.user.followers || 0),
     followersCount: snapshot.user.followers || 0
   };
+  // These interaction flags are fetched with the list metadata. Hydrate them
+  // before the overlay's first frame so filled icons never visibly correct.
+  liked.value = Boolean(item.liked);
+  favorited.value = Boolean(item.favorited);
   return Boolean(item.isDetailPreloaded);
 }
 
@@ -252,20 +256,12 @@ async function refreshEmbeddedDetail() {
   if (!props.embedded || !props.open || !work.value) return;
   const id = work.value.id;
   try {
-    const [detailResult, stateResult] = await Promise.allSettled([
-      fetchWorkDetail(id),
-      isLoggedIn.value && work.value.published ? fetchWorkState(id) : Promise.resolve(null)
-    ]);
-    if (detailResult.status === "fulfilled" && work.value?.id === id) {
-      const latest = detailResult.value;
+    const detailResult = await fetchWorkDetail(id);
+    if (work.value?.id === id) {
+      const latest = detailResult;
       // Static detail fields were populated while the card list was loading.
       // Do not replace them after open, or labels visibly pop into the page.
       work.value = { ...work.value, likes: latest.work.likes, favorites: latest.work.favorites, remakes: latest.work.remakes };
-    }
-    if (stateResult.status === "fulfilled" && stateResult.value) {
-      liked.value = stateResult.value.liked;
-      favorited.value = stateResult.value.favorited;
-      following.value = stateResult.value.following;
     }
     if (isLoggedIn.value && work.value?.published) void recordWorkView(id);
   } catch {

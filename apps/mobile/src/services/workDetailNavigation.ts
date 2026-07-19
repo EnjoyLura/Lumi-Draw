@@ -24,7 +24,15 @@ export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, so
   primeWorkDetailPreview(work.id, work.image);
   const cached = getWorkDetailSnapshot(work.id);
   const seedWork = cached
-    ? { ...cached.work, image: work.image, previewImage: work.image, likes: work.likes, liked: work.liked, favorited: work.favorited }
+    ? {
+        ...cached.work,
+        image: work.image,
+        previewImage: work.image,
+        likes: work.likes,
+        favorites: work.favorites,
+        liked: work.liked ?? cached.work.liked,
+        favorited: work.favorited ?? cached.work.favorited
+      }
     : work;
   const seedUser = cached ? { ...cached.user, ...user } : user;
   primeWorkDetailSnapshot(seedWork, seedUser);

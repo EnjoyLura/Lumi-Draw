@@ -1,6 +1,8 @@
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
 import { fetchWorkDetail } from "../pages/work-detail/workDetailService";
 import { getWorkDetailSnapshot, primeWorkDetailSnapshot } from "./workDetailPreviewCache";
+import { fetchWorkState } from "./social";
+import { useAuth } from "./auth";
 
 type WorkSeed = { work: HomeWork; user: HomeUser };
 
@@ -9,6 +11,7 @@ const queuedIds = new Set<number>();
 const completedIds = new Set<number>();
 const queue: WorkSeed[] = [];
 let activeRequests = 0;
+const { isLoggedIn } = useAuth();
 
 /**
  * List cards already carry most detail fields. Fetch the remaining canonical
@@ -37,7 +40,10 @@ function drainQueue() {
 
 async function preloadOne({ work, user }: WorkSeed) {
   try {
-    const detail = await fetchWorkDetail(work.id);
+    const [detail, state] = await Promise.all([
+      fetchWorkDetail(work.id),
+      isLoggedIn.value ? fetchWorkState(work.id).catch(() => null) : Promise.resolve(null)
+    ]);
     const cached = getWorkDetailSnapshot(work.id);
     const listWork = cached?.work ?? work;
     const listUser = cached?.user ?? user;
@@ -48,6 +54,8 @@ async function preloadOne({ work, user }: WorkSeed) {
         ...listWork,
         ...detail.work,
         image: listWork.image,
+        liked: state?.liked ?? listWork.liked,
+        favorited: state?.favorited ?? listWork.favorited,
         isDetailPreloaded: true
       },
       { ...listUser, ...detail.user }
