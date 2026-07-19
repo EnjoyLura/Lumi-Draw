@@ -45,7 +45,11 @@ export class AdminConfigService {
   // ---------- 读 ----------
   async banners() {
     const rows = await this.prisma.banner.findMany(bySort);
-    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
+    return rows.map((row) => ({
+      ...row,
+      imageUrl: this.uploads.readUrl(row.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(row.imageUrl, "public")
+    }));
   }
 
   uploadBannerImage(file?: UploadedImage) {
@@ -61,11 +65,19 @@ export class AdminConfigService {
 
   async gameplays() {
     const rows = await this.prisma.gameplay.findMany(bySort);
-    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
+    return rows.map((row) => ({
+      ...row,
+      imageUrl: this.uploads.readUrl(row.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(row.imageUrl, "public")
+    }));
   }
   async styles() {
     const rows = await this.prisma.style.findMany(bySort);
-    return rows.map((row) => ({ ...row, imageUrl: this.uploads.readUrl(row.imageUrl, "public") }));
+    return rows.map((row) => ({
+      ...row,
+      imageUrl: this.uploads.readUrl(row.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(row.imageUrl, "public")
+    }));
   }
   categories() {
     return this.prisma.category.findMany(bySort);

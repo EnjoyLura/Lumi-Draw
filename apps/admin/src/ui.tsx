@@ -1,5 +1,6 @@
 // 通用展示组件（移植自 prototype/admin-prototype.html 的 statCard/avatar/badge/searchBar/sec 等辅助函数）
 import { useState } from "react";
+import { AdminImage } from "./components/AdminImage";
 import { IMG, statusType, userName, type AdminWork } from "./data/mock";
 import { useNav } from "./shell/NavContext";
 
@@ -81,7 +82,7 @@ export function WorkCard({ w }: { w: AdminWork }) {
   return (
     <div className="wcard" onClick={() => go("workDetail", String(w.id))}>
       <div style={{ position: "relative" }}>
-        <img className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
+        <AdminImage className="thumb" src={w.thumbnailUrl || w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
         <span style={{ position: "absolute", top: 6, left: 6, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: "calc(100% - 12px)" }}>
           {featured ? <span className="badge" style={{ color: "#B86B00", background: "rgba(255,255,255,.94)", border: "1px solid rgba(184,107,0,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-star-fill" />精选</span> : null}
           {w.recommend ? <span className="badge" style={{ color: "#347CC2", background: "rgba(255,255,255,.94)", border: "1px solid rgba(52,124,194,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-home-heart-fill" />首页推荐</span> : null}

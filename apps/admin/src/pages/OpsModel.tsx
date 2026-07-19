@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import { apiDeleteModel, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { IMG, MODEL_BADGES, MODELS, type AdminModel } from "../data/mock";
@@ -52,7 +53,7 @@ function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminMod
     <>
       <label className="field-label">模型图标</label>
       <div className="card" style={ICON_STYLE}>
-        {id ? <img className="thumb" src={IMG("model" + id)} style={{ width: 56, height: 56 }} alt="" /> : null}
+        {id ? <AdminImage eager className="thumb" src={IMG("model" + id)} style={{ width: 56, height: 56 }} alt="" /> : null}
         <div style={{ textAlign: "center" }}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} /><div style={{ fontSize: 12 }}>点击上传</div></div>
       </div>
       <label className="field-label" style={{ marginTop: 12 }}>模型名称</label>
@@ -125,7 +126,7 @@ export function OpsModel() {
       <div className="card">
         {models.map((m) => (
           <div key={m.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <img className="thumb" src={IMG("model" + m.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
+            <AdminImage className="thumb" src={IMG("model" + m.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{m.name}{m.badge ? <>&nbsp;<Badge text={m.badge} type="info" /></> : null}</div>
               <div className="lr-s">{m.desc}</div>

@@ -43,6 +43,7 @@ export interface AdminWork {
   time: string;
   tags?: string[];
   imageUrl?: string;
+  thumbnailUrl?: string;
   authorName?: string;
 }
 
@@ -132,6 +133,7 @@ export interface AdminStyle {
   s: number;
   prompt: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export const STYLES: AdminStyle[] = [
@@ -152,6 +154,7 @@ export interface AdminBanner {
   title: string;
   desc: string;
   imageUrl?: string;
+  thumbnailUrl?: string;
   action: string;
   sort: number;
   on: boolean;
@@ -165,6 +168,7 @@ export interface AdminGameplay {
   hot: boolean;
   on: boolean;
   imageUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export interface AdminCategory {

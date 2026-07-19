@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import { apiDeleteAnnouncement, apiGetAnnouncements, apiSaveAnnouncement, apiSetAnnouncementPopup } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { ANNOUNCEMENTS, ANNOUNCE_ACTIONS, IMG, nextId, type AdminAnnounce } from "../data/mock";
@@ -45,7 +46,7 @@ function AnnForm({ id, item, useMock, onSaved }: { id: number; item?: AdminAnnou
     <>
       <label className="field-label">封面图片</label>
       <div className="card" style={UPLOAD_STYLE}>
-        {id ? <img src={IMG("announce" + id)} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : (
+        {id ? <AdminImage eager src={IMG("announce" + id)} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : (
           <div style={{ textAlign: "center" }}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} /><div style={{ fontSize: 12 }}>点击上传（建议 600×280）</div></div>
         )}
       </div>
@@ -119,7 +120,7 @@ export function MsgAnnounce() {
       {list.map((a) => (
         <div key={a.id} className="card" style={{ marginBottom: 10, overflow: "hidden" }}>
           <div style={{ position: "relative" }}>
-            <img src={IMG("announce" + a.id)} style={{ width: "100%", height: 96, objectFit: "cover", display: "block" }} alt="" />
+            <AdminImage src={IMG("announce" + a.id)} style={{ width: "100%", height: 96, objectFit: "cover", display: "block" }} alt="" />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg,rgba(0,0,0,.55),transparent 60%)" }} />
             <div style={{ position: "absolute", left: 12, bottom: 8, right: 12, color: "#fff", fontSize: 14, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,.4)" }}>{a.title}</div>
           </div>

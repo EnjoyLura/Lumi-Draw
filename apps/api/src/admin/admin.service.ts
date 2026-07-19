@@ -61,9 +61,11 @@ export class AdminService {
   ) {}
 
   private adminWorkRow(work: Work & { user?: User | null }) {
+    const visibility = work.status === "published" && work.isPublic ? "public" : "private";
     return {
       ...workRow(work),
-      imageUrl: this.uploads.readUrl(work.imageUrl, work.status === "published" && work.isPublic ? "public" : "private")
+      imageUrl: this.uploads.readAdminPreviewImageUrl(work.imageUrl, visibility),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(work.imageUrl, visibility)
     };
   }
 

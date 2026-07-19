@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ConfigImagePicker } from "../components/ConfigImagePicker";
+import { AdminImage } from "../components/AdminImage";
 import { apiDeleteGameplay, apiGetGameplays, apiSaveGameplay, apiSetGameplayEnabled } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { GAMEPLAYS, IMG, nextId, type AdminGameplay } from "../data/mock";
@@ -118,7 +119,7 @@ export function OpsGameplay() {
       <div className="card">
         {gameplays.map((g) => (
           <div key={g.id} className="lrow" style={{ cursor: "default" }}>
-            <img className="thumb" src={g.imageUrl || IMG("gp" + g.id)} style={{ width: 44, height: 44 }} alt="" />
+            <AdminImage className="thumb" src={g.thumbnailUrl || g.imageUrl || IMG("gp" + g.id)} style={{ width: 44, height: 44 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{g.name}{g.hot ? <>&nbsp;<Badge text="HOT" type="danger" /></> : null}</div>
               <div className="lr-s">{g.desc}</div>

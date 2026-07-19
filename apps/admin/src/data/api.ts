@@ -55,7 +55,7 @@ interface ApiWork {
   id: number; userId: number; authorName?: string; title: string; modelId: string;
   ratio: string; quality: string; style: string; status: string; featured: boolean;
   recommend: boolean; likes: number; favorites: number; remakes: number; createdAt: string;
-  description?: string; prompt?: string; imageUrl?: string;
+  description?: string; prompt?: string; imageUrl?: string; thumbnailUrl?: string;
   author?: { id: number; nickname: string; avatarText: string; avatarColor: string } | null;
 }
 
@@ -92,6 +92,7 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
     recommend: w.recommend,
     time: (w.createdAt ?? "").slice(0, 10),
     imageUrl: w.imageUrl,
+    thumbnailUrl: w.thumbnailUrl,
     authorName: w.author?.nickname ?? w.authorName,
     author: w.author
       ? { id: w.author.id, name: w.author.nickname, avatar: w.author.avatarText, color: w.author.avatarColor }
@@ -224,7 +225,7 @@ export async function apiCreateAdminWork(input: AdminCreateWorkInput) {
 }
 
 interface ApiReviewWork {
-  id: number; title: string; imageUrl?: string; prompt: string; style: string;
+  id: number; title: string; imageUrl?: string; thumbnailUrl?: string; prompt: string; style: string;
   status: string; authorName: string; createdAt: string;
 }
 
@@ -247,6 +248,7 @@ function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
     recommend: false,
     time: (w.createdAt ?? "").slice(0, 10),
     imageUrl: w.imageUrl,
+    thumbnailUrl: w.thumbnailUrl,
     author: { id: 0, name: w.authorName, avatar: w.authorName.slice(0, 1), color: "#5B9FE8" }
   };
 }
@@ -333,11 +335,11 @@ export async function apiReplyFeedback(id: number, reply: string) {
 }
 
 interface ApiBanner {
-  id: number; title: string; description: string; imageUrl?: string; action: string; sort: number; enabled: boolean;
+  id: number; title: string; description: string; imageUrl?: string; thumbnailUrl?: string; action: string; sort: number; enabled: boolean;
 }
 
 function mapBanner(b: ApiBanner): AdminBanner {
-  return { id: b.id, title: b.title, desc: b.description, imageUrl: b.imageUrl, action: b.action, sort: b.sort, on: b.enabled };
+  return { id: b.id, title: b.title, desc: b.description, imageUrl: b.imageUrl, thumbnailUrl: b.thumbnailUrl, action: b.action, sort: b.sort, on: b.enabled };
 }
 
 export async function apiGetBanners() {
@@ -364,11 +366,11 @@ export async function apiSetBannerEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiGameplay {
-  id: number; name: string; description: string; uses: string | number; hot: boolean; imageUrl?: string; enabled: boolean; sort: number;
+  id: number; name: string; description: string; uses: string | number; hot: boolean; imageUrl?: string; thumbnailUrl?: string; enabled: boolean; sort: number;
 }
 
 function mapGameplay(g: ApiGameplay): AdminGameplay {
-  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, imageUrl: g.imageUrl, on: g.enabled };
+  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, imageUrl: g.imageUrl, thumbnailUrl: g.thumbnailUrl, on: g.enabled };
 }
 
 export async function apiGetGameplays() {
@@ -389,11 +391,11 @@ export async function apiSetGameplayEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiStyle {
-  id: number; name: string; prompt: string; uses: number; imageUrl?: string; enabled: boolean; sort: number;
+  id: number; name: string; prompt: string; uses: number; imageUrl?: string; thumbnailUrl?: string; enabled: boolean; sort: number;
 }
 
 function mapStyle(s: ApiStyle): AdminStyle {
-  return { id: s.id, n: s.name, prompt: s.prompt, s: s.uses, imageUrl: s.imageUrl };
+  return { id: s.id, n: s.name, prompt: s.prompt, s: s.uses, imageUrl: s.imageUrl, thumbnailUrl: s.thumbnailUrl };
 }
 
 export async function apiGetStyles() {

@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { UploadsService } from "../uploads/uploads.service";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers } from "../common/creator-titles";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
@@ -18,7 +19,8 @@ const PUSH_FIELDS = ["title", "content", "target", "status"];
 export class ModerationService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly uploads: UploadsService
   ) {}
 
   // ---------- 内容审核（待审核作品）----------
@@ -31,7 +33,8 @@ export class ModerationService {
     const items = rows.map((w) => ({
       id: w.id,
       title: w.title,
-      imageUrl: w.imageUrl,
+      imageUrl: this.uploads.readAdminPreviewImageUrl(w.imageUrl, "private"),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(w.imageUrl, "private"),
       prompt: w.prompt,
       style: w.style,
       status: w.status,
@@ -105,7 +108,13 @@ export class ModerationService {
       this.prisma.feedback.count({ where })
     ]);
     return buildPage(
-      rows.map((f) => ({ ...f, imageUrls: f.imageUrls ? f.imageUrls.split(",").filter(Boolean) : [], createdAt: f.createdAt.toISOString() })),
+      rows.map((f) => ({
+        ...f,
+        imageUrls: f.imageUrls
+          ? f.imageUrls.split(",").filter(Boolean).map((url) => this.uploads.readAdminThumbnailImageUrl(url, "private"))
+          : [],
+        createdAt: f.createdAt.toISOString()
+      })),
       total,
       page,
       pageSize
@@ -115,7 +124,13 @@ export class ModerationService {
   async feedbackDetail(id: number) {
     const f = await this.prisma.feedback.findUnique({ where: { id } });
     if (!f) throw new NotFoundException("反馈不存在");
-    return { ...f, imageUrls: f.imageUrls ? f.imageUrls.split(",").filter(Boolean) : [], createdAt: f.createdAt.toISOString() };
+    return {
+      ...f,
+      imageUrls: f.imageUrls
+        ? f.imageUrls.split(",").filter(Boolean).map((url) => this.uploads.readAdminThumbnailImageUrl(url, "private"))
+        : [],
+      createdAt: f.createdAt.toISOString()
+    };
   }
 
   async updateFeedback(id: number, body: Record<string, unknown>) {

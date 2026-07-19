@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import {
   apiApproveReview,
   apiGetReports,
@@ -172,7 +173,7 @@ export function Review({ param }: { param?: string }) {
           ) : null}
           {pend.map((w) => (
             <div key={w.id} className="card" style={{ padding: 12, marginBottom: 10, display: "flex", gap: 12 }}>
-              <img className="thumb" src={getWorkImage(w)} style={{ width: 74, height: 74, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(w.id))} />
+              <AdminImage className="thumb" src={w.thumbnailUrl || getWorkImage(w)} style={{ width: 74, height: 74, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(w.id))} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.prompt}</div>
                 <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "6px 0 8px" }}>{getAuthorName(w)} · {w.model ? modelName(w.model) : w.style} · {w.time}</div>
@@ -197,7 +198,7 @@ export function Review({ param }: { param?: string }) {
             const reporter = hasReportData(r) ? r.reporterName : userName(r.reporter);
             return (
               <div key={r.id} className="card" style={{ padding: 12, marginBottom: 10, display: "flex", gap: 12 }}>
-                <img className="thumb" src={IMG("w" + r.workId)} style={{ width: 60, height: 60, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(r.workId))} />
+                <AdminImage className="thumb" src={IMG("w" + r.workId)} style={{ width: 60, height: 60, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(r.workId))} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>

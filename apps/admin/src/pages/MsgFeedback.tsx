@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import {
   apiGetFeedbacks,
   apiReplyFeedback,
@@ -79,7 +80,7 @@ export function MsgFeedback() {
           <>
             <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "14px 2px 6px" }}>附件图片</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {images.map((src, k) => <img key={src + k} className="thumb" src={src} style={{ width: 72, height: 72 }} alt="" />)}
+              {images.map((src, k) => <AdminImage key={src + k} className="thumb" src={src} style={{ width: 72, height: 72 }} alt="" />)}
             </div>
           </>
         ) : null}

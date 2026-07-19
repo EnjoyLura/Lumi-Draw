@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ConfigImagePicker } from "../components/ConfigImagePicker";
+import { AdminImage } from "../components/AdminImage";
 import { apiDeleteStyle, apiGetStyles, apiSaveStyle } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { IMG, nextId, STYLES, type AdminStyle } from "../data/mock";
@@ -104,7 +105,7 @@ export function OpsStyle() {
       <div className="card">
         {styles.map((s, i) => (
           <div key={s.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <img className="thumb" src={s.imageUrl || IMG("st" + s.n)} style={{ width: 40, height: 40, marginTop: 2 }} alt="" />
+            <AdminImage className="thumb" src={s.thumbnailUrl || s.imageUrl || IMG("st" + s.n)} style={{ width: 40, height: 40, marginTop: 2 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{s.n}</div>
               <div className="lr-s">使用 {s.s} 次 · 排序 {i + 1}</div>

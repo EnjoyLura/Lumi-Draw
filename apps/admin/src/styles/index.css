@@ -738,6 +738,21 @@ textarea.input { resize: none; line-height: 1.6; }
 .divider { height: 1px; background: var(--border); margin: 0 -14px; }
 .thumb { border-radius: 10px; object-fit: cover; background: var(--bg-soft); display: block; }
 
+.admin-image {
+  background-color: var(--bg-soft);
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+
+.admin-image.loaded { opacity: 1; }
+
+.admin-image.failed {
+  opacity: 1;
+  background:
+    linear-gradient(135deg, transparent 48%, var(--border) 49%, var(--border) 51%, transparent 52%),
+    var(--bg-soft);
+}
+
 .wgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 .wcard {

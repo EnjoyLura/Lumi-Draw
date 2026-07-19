@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import {
   apiDeleteWork,
   apiFeatureWork,
@@ -186,7 +187,7 @@ export function WorkDetail({ param }: { param?: string }) {
 
   return (
     <>
-      <img className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1", borderRadius: 14 }} alt="" />
+      <AdminImage eager className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1", borderRadius: 14 }} alt="" />
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 2px 0" }}>
         <div style={{ fontSize: 17, fontWeight: 800 }}>{w.title || "未命名作品"}</div>
         <StatusBadge s={w.status} />

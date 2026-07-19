@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { apiUploadConfigImage } from "../data/api";
 import { useNav } from "../shell/NavContext";
+import { AdminImage } from "./AdminImage";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -65,7 +66,7 @@ export function ConfigImagePicker({
       >
         {value ? (
           <>
-            <img src={value} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="封面预览" />
+            <AdminImage eager src={value} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="封面预览" />
             <span style={{ position: "absolute", right: 8, bottom: 8, padding: "3px 8px", borderRadius: 999, color: "#fff", background: "rgba(0,0,0,.58)", fontSize: 12 }}>点击更换</span>
           </>
         ) : (

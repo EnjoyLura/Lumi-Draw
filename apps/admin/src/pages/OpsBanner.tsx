@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import { apiDeleteBanner, apiGetBanners, apiSaveBanner, apiSetBannerEnabled, apiUploadBannerImage } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { BANNERS, IMG, nextId, type AdminBanner } from "../data/mock";
@@ -113,7 +114,7 @@ function BannerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminBa
       >
         {imageUrl ? (
           <>
-            <img src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+            <AdminImage eager src={imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
             <span style={{ position: "absolute", right: 8, bottom: 8, padding: "3px 8px", borderRadius: 999, background: "rgba(0,0,0,.55)", color: "#fff", fontSize: 12 }}>点击更换</span>
           </>
         ) : (
@@ -187,7 +188,7 @@ export function OpsBanner() {
       {banners.map((b, i) => (
         <div key={b.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 12 }}>
-            <img className="thumb" src={b.imageUrl || IMG("banner" + b.id)} style={{ width: 80, height: 54, flexShrink: 0 }} alt="" />
+            <AdminImage className="thumb" src={b.thumbnailUrl || b.imageUrl || IMG("banner" + b.id)} style={{ width: 80, height: 54, flexShrink: 0 }} alt="" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 14, fontWeight: 700 }}>{b.title}</span>

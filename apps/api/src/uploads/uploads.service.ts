@@ -11,6 +11,8 @@ const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 const CDN_AUTH_URL_WINDOW_SECONDS = 5 * 60;
 const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,q_70/format,webp";
 const DETAIL_IMAGE_PROCESS = LIST_IMAGE_PROCESS;
+const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
+const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -92,9 +94,7 @@ export class UploadsService {
   readUrl(url: string, visibility: "private" | "public" = "private") {
     const oss = this.ossConfig();
     if (!url) return url;
-    const host = this.objectHost(oss);
-    if (!url.startsWith(`${host}/`)) return url;
-    const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
+    const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
     if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) return this.cdnObjectUrl(oss, ossKey);
     // Keep a private URL stable inside its existing 30-minute validity window.
@@ -105,9 +105,8 @@ export class UploadsService {
 
   readStyledPublicUrl(url: string, styleName: string) {
     const oss = this.ossConfig();
-    const host = this.objectHost(oss);
-    if (!url || !styleName || !oss.cdnBaseUrl || !url.startsWith(`${host}/`)) return this.readUrl(url, "public");
-    const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
+    if (!url || !styleName || !oss.cdnBaseUrl) return this.readUrl(url, "public");
+    const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return this.readUrl(url, "public");
     return this.cdnObjectUrl(oss, ossKey, `style/${encodeURIComponent(styleName)}`);
   }
@@ -120,12 +119,18 @@ export class UploadsService {
     return this.readProcessedImageUrl(url, visibility, DETAIL_IMAGE_PROCESS);
   }
 
+  readAdminThumbnailImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, ADMIN_THUMBNAIL_IMAGE_PROCESS);
+  }
+
+  readAdminPreviewImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, ADMIN_PREVIEW_IMAGE_PROCESS);
+  }
+
   private readProcessedImageUrl(url: string, visibility: "private" | "public", imageProcess: string) {
     const oss = this.ossConfig();
     if (!url) return url;
-    const host = this.objectHost(oss);
-    if (!url.startsWith(`${host}/`)) return url;
-    const ossKey = decodeURIComponent(url.slice(host.length + 1).split("?")[0] || "");
+    const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
     if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) {
       return this.cdnObjectUrl(oss, ossKey, imageProcess);
@@ -251,6 +256,22 @@ export class UploadsService {
 
   private objectHost(oss: OssConfig) {
     return `https://${oss.bucket}.${oss.endpoint}`;
+  }
+
+  private objectKeyFromUrl(url: string, oss: OssConfig) {
+    const sources = [this.objectHost(oss), oss.cdnBaseUrl].filter((value): value is string => Boolean(value));
+    for (const source of sources) {
+      try {
+        const base = new URL(`${source.replace(/\/+$/, "")}/`);
+        const candidate = new URL(url);
+        if (candidate.origin !== base.origin || !candidate.pathname.startsWith(base.pathname)) continue;
+        const encodedKey = candidate.pathname.slice(base.pathname.length);
+        if (encodedKey) return decodeURIComponent(encodedKey);
+      } catch {
+        // Non-HTTP and third-party image URLs are returned unchanged.
+      }
+    }
+    return "";
   }
 
   private ossConfig() {

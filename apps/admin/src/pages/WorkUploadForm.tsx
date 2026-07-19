@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminImage } from "../components/AdminImage";
 import {
   apiCreateAdminWork,
   apiGetCategories,
@@ -209,7 +210,7 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
         onClick={() => fileInput.current?.click()}
         disabled={saving}
       >
-        {preview ? <img src={preview} style={{ display: "block", width: "100%", maxHeight: 260, objectFit: "contain" }} alt="作品预览" /> : <span><i className="ri-upload-cloud-2-line" /> 点击选择本地图片</span>}
+        {preview ? <AdminImage eager src={preview} style={{ display: "block", width: "100%", maxHeight: 260, objectFit: "contain" }} alt="作品预览" /> : <span><i className="ri-upload-cloud-2-line" /> 点击选择本地图片</span>}
       </button>
       <div style={{ marginTop: 6, fontSize: 11, color: "var(--fg-muted)" }}>支持 JPG、PNG、WEBP、GIF，最大30MB</div>
 
