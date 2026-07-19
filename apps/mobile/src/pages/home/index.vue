@@ -516,7 +516,8 @@ function openWorkDetail(work: HomeWork) {
     { ...work, liked: likedWorkIds.value.has(work.id) },
     getUser(work.userId),
     `lumi-home-work-media-${work.id}`,
-    pageInstance?.proxy
+    pageInstance?.proxy,
+    "pages/home/index"
   );
 }
 
@@ -944,9 +945,9 @@ function getRatioClass(ratio: string) {
     </view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
-  <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" />
-  <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" />
-  <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" />
+  <PlazaPage v-if="plazaMounted" v-show="activeEmbeddedPrimaryTab === 'plaza'" detail-owner-route="pages/home/index" :render-detail-overlay="false" />
+  <GalleryPage v-if="galleryMounted" v-show="activeEmbeddedPrimaryTab === 'gallery'" detail-owner-route="pages/home/index" :render-detail-overlay="false" />
+  <MinePage v-if="mineMounted" v-show="activeEmbeddedPrimaryTab === 'mine'" detail-owner-route="pages/home/index" :render-detail-overlay="false" />
   <CreatePage v-if="createMounted" v-show="activeEmbeddedPrimaryTab === 'create'" :route-query="createRouteQuery" />
   <LumiWorkDetailOverlay owner-route="pages/home/index" />
 </template>

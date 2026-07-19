@@ -242,7 +242,8 @@ function openWork(work: HomeWork) {
     { ...work, liked: likedWorkIds.value.has(work.id) },
     detailAuthor.value,
     `lumi-profile-work-media-${work.id}`,
-    pageInstance?.proxy
+    pageInstance?.proxy,
+    "pages/user-profile/index"
   );
 }
 

@@ -48,9 +48,13 @@ import {
 
 const PAGE_SIZE = 10;
 const pageInstance = getCurrentInstance();
-const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine" }>(), { pageMode: "gallery" });
+const props = withDefaults(defineProps<{ pageMode?: "gallery" | "mine"; detailOwnerRoute?: string; renderDetailOverlay?: boolean }>(), {
+  pageMode: "gallery",
+  detailOwnerRoute: "",
+  renderDetailOverlay: true
+});
 const isMineMode = computed(() => props.pageMode === "mine");
-const detailOverlayOwnerRoute = computed(() => (isMineMode.value ? "pages/mine/index" : "pages/gallery/index"));
+const detailOverlayOwnerRoute = computed(() => props.detailOwnerRoute || (isMineMode.value ? "pages/mine/index" : "pages/gallery/index"));
 const workspaceTabs = computed(() =>
   isMineMode.value
     ? ([{ key: "all", label: "我的作品" }, { key: "favorite", label: "我的收藏" }] as const)
@@ -838,7 +842,13 @@ function openWork(work: HomeWork) {
     toggleWorkSelection(work.id);
     return;
   }
-  void openPreloadedWorkDetail(work, getWorkAuthor(work), `lumi-gallery-work-media-${work.id}`, pageInstance?.proxy);
+  void openPreloadedWorkDetail(
+    work,
+    getWorkAuthor(work),
+    `lumi-gallery-work-media-${work.id}`,
+    pageInstance?.proxy,
+    detailOverlayOwnerRoute.value
+  );
 }
 
 </script>
@@ -1114,7 +1124,7 @@ function openWork(work: HomeWork) {
       @navigate="navigateSide"
     />
     <LumiLoginSheet v-if="loginSheetMounted" :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
-    <LumiWorkDetailOverlay :owner-route="detailOverlayOwnerRoute" />
+    <LumiWorkDetailOverlay v-if="props.renderDetailOverlay" :owner-route="detailOverlayOwnerRoute" />
   </view>
 </template>
 

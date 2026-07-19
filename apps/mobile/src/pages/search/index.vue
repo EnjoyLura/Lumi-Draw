@@ -190,7 +190,7 @@ function clearSearchHistory() {
 }
 
 function openWorkDetail(work: HomeWork) {
-  void openPreloadedWorkDetail(work, getUser(work), `lumi-search-work-media-${work.id}`, pageInstance?.proxy);
+  void openPreloadedWorkDetail(work, getUser(work), `lumi-search-work-media-${work.id}`, pageInstance?.proxy, "pages/search/index");
 }
 
 function goUserProfile(userId: number) {

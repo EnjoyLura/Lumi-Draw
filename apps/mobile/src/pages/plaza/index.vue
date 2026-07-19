@@ -38,6 +38,10 @@ type SideQuick = {
 };
 
 const pageInstance = getCurrentInstance();
+const props = withDefaults(defineProps<{ detailOwnerRoute?: string; renderDetailOverlay?: boolean }>(), {
+  detailOwnerRoute: "pages/plaza/index",
+  renderDetailOverlay: true
+});
 
 type SideRow = {
   icon: string;
@@ -503,7 +507,8 @@ function openWorkDetail(work: HomeWork) {
     { ...work, liked: likedWorkIds.value.has(work.id) },
     getUser(work),
     `lumi-plaza-work-media-${work.id}`,
-    pageInstance?.proxy
+    pageInstance?.proxy,
+    props.detailOwnerRoute
   );
 }
 
@@ -975,7 +980,7 @@ function handleReachBottom() {
       </view>
       </view>
     </template>
-    <LumiWorkDetailOverlay owner-route="pages/plaza/index" />
+    <LumiWorkDetailOverlay v-if="props.renderDetailOverlay" :owner-route="props.detailOwnerRoute" />
   </view>
 </template>
 

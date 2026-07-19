@@ -90,7 +90,7 @@ function getAspectRatio(ratio: string) {
 }
 
 function openWork(work: HomeWork) {
-  void openPreloadedWorkDetail(work, detailAuthor.value, `lumi-draft-work-media-${work.id}`, pageInstance?.proxy);
+  void openPreloadedWorkDetail(work, detailAuthor.value, `lumi-draft-work-media-${work.id}`, pageInstance?.proxy, "pages/drafts/index");
 }
 
 function goCreate() {

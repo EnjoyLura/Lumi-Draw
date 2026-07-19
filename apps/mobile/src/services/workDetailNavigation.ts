@@ -33,7 +33,13 @@ export function registerWorkDetailOverlay(ownerRoute: string, handler: WorkDetai
  * The primary shell listens for this event and renders the established detail
  * page as an in-place layer, avoiding mp-weixin's native page transition.
  */
-export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, sourceId?: string, sourceContext?: object | null) {
+export async function openPreloadedWorkDetail(
+  work: HomeWork,
+  user: HomeUser,
+  sourceId?: string,
+  sourceContext?: object | null,
+  ownerRoute?: string
+) {
   primeWorkDetailPreview(work.id, work.image);
   const cached = getWorkDetailSnapshot(work.id);
   const seedWork = cached
@@ -58,13 +64,14 @@ export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, so
     }
   }
   const payload = { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload;
-  if (!openRegisteredOverlay(payload)) {
+  const handled = openRegisteredOverlay(payload, ownerRoute);
+  if (!handled) {
     uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
   }
 }
 
-function openRegisteredOverlay(payload: WorkDetailOverlayOpenPayload) {
-  const handlers = overlayHandlers.get(currentRoute());
+function openRegisteredOverlay(payload: WorkDetailOverlayOpenPayload, ownerRoute?: string) {
+  const handlers = overlayHandlers.get(ownerRoute ? normalizeRoute(ownerRoute) : currentRoute());
   const handlerList = handlers ? Array.from(handlers) : [];
   const handler = handlerList[handlerList.length - 1];
   if (!handler) return false;
