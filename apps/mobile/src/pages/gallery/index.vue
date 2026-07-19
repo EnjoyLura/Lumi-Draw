@@ -14,6 +14,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
+import { generationStageForPercent, simulateGenerationProgress } from "../../services/generationProgress";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { fetchUnreadMessageCount } from "../mine/mineService";
@@ -152,6 +153,7 @@ const sideRows = ref<SideRow[]>([
 let loadingTimer: ReturnType<typeof setTimeout> | undefined;
 let loadMoreTimer: ReturnType<typeof setTimeout> | undefined;
 let genTaskTimer: ReturnType<typeof setTimeout> | undefined;
+let genTaskAnimationTimer: ReturnType<typeof setInterval> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
@@ -250,6 +252,14 @@ onShow(() => {
 onMounted(() => {
   void loadModelOptions();
   markInitialContentReady();
+  genTaskAnimationTimer = setInterval(() => {
+    genTasks.value = genTasks.value.map((task) => {
+      const elapsed = task.elapsed + 1;
+      const simulated = simulateGenerationProgress(elapsed, task.quality);
+      const percent = Math.max(task.percent, simulated.percent);
+      return { ...task, elapsed, percent, stage: generationStageForPercent(percent) };
+    });
+  }, 1000);
 });
 const hasMembership = computed(() => Boolean(profile.value.memberPlan));
 const membershipTitle = computed(() => (hasMembership.value ? profile.value.memberPlan : "未开通会员"));
@@ -276,6 +286,7 @@ onBeforeUnmount(() => {
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
+  if (genTaskAnimationTimer) clearInterval(genTaskAnimationTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);
   if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
   clearWaterfallAnimation();

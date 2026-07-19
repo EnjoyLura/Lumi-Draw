@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { mergeGenerationProgress } from "../../services/generationProgress";
 import type { HomeWork } from "../home/homeData";
 import type { GalleryGenTask, GalleryUser } from "./galleryData";
 
@@ -157,7 +158,8 @@ function elapsedSeconds(createdAt: string) {
 }
 
 function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
-  const stage = job.stageText === "Generation is processing" ? "AI 正在生成中" : job.stageText;
+  const elapsed = elapsedSeconds(job.createdAt);
+  const simulated = mergeGenerationProgress(elapsed, job.quality, job.status, job.progress);
   return {
     id: job.id,
     prompt: job.prompt,
@@ -165,9 +167,9 @@ function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
     count: job.count,
     ratio: job.ratio,
     quality: job.quality,
-    percent: Math.max(0, Math.min(job.progress || (job.status === "queued" ? 2 : 10), 99)),
-    elapsed: elapsedSeconds(job.createdAt),
-    stage: stage || (job.status === "queued" ? "排队中..." : job.status === "finalizing" ? "正在保存作品..." : "AI绘制中...")
+    percent: simulated.percent,
+    elapsed,
+    stage: simulated.stage
   };
 }
 

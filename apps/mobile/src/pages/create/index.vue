@@ -27,6 +27,13 @@ import { parseQueryString } from "../../services/routeQuery";
 import { goRootTab } from "../../services/tabNavigation";
 import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
 import { invalidateTabPages } from "../../services/tabPageCache";
+import {
+  GENERATION_PROGRESS_STAGES,
+  generationDurationSeconds,
+  generationStageForPercent,
+  mergeGenerationProgress,
+  simulateGenerationProgress
+} from "../../services/generationProgress";
 
 const { themeClass } = useTheme();
 const navigationMetrics = getNavigationMetrics();
@@ -96,11 +103,11 @@ const isSavingOriginal = ref(false);
 const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
 const previewData = ref<{ src: string; resolution: string; size: string; ratio: string; resultId?: string; savedWorkId?: number } | null>(null);
 
-let progressTimer: ReturnType<typeof setInterval> | undefined;
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let elapsedTimer: ReturnType<typeof setInterval> | undefined;
 let generationStartedAt = 0;
+let activeGenerationQuality = "";
 let activeBackendJobId = "";
 let nextPollErrorToastAt = 0;
 let lastConfigMode: boolean | null = null;
@@ -138,28 +145,12 @@ const createConfigUnavailable = computed(
 );
 const isGenerationBusy = computed(() => isGenerating.value || isSavingOriginal.value || isSubmittingGenerate.value);
 
-const generationStages = [
-  "提交任务：正在整理创作参数",
-  "理解提示词：分析主题、风格与画面重点",
-  "构建画面：规划主体位置和背景层次",
-  "生成图像：绘制主体内容与关键细节",
-  "精修增强：优化光影、色彩和质感",
-  "保存作品：同步生成结果到画廊"
-];
-
 function generationStageText(progressValue: number, status?: BackendGenerateJob["status"]) {
-  if (status === "queued") return generationStages[0];
   if (status === "failed") return "生成失败：积分已按规则退回";
   if (status === "cancelled") return "任务已取消：未消耗积分将退回";
   if (status === "succeeded") return "生成完成：作品已保存到画廊";
   if (status === "partial_failed") return "部分完成：成功结果已保存到画廊";
-
-  if (progressValue < 12) return generationStages[0];
-  if (progressValue < 30) return generationStages[1];
-  if (progressValue < 50) return generationStages[2];
-  if (progressValue < 74) return generationStages[3];
-  if (progressValue < 92) return generationStages[4];
-  return generationStages[5];
+  return generationStageForPercent(progressValue);
 }
 
 const generationErrors = [
@@ -179,11 +170,17 @@ function selectQuality(index: number) {
   selectedQualityIndex.value = index;
 }
 
-function startElapsedTimer(startedAt = Date.now()) {
+function startElapsedTimer(startedAt = Date.now(), quality = selectedQuality.value.label) {
   if (elapsedTimer) clearInterval(elapsedTimer);
   generationStartedAt = startedAt;
+  activeGenerationQuality = quality;
   const update = () => {
     generationElapsedSeconds.value = Math.max(0, Math.floor((Date.now() - generationStartedAt) / 1000));
+    if (isGenerating.value || isSavingOriginal.value) {
+      const simulated = simulateGenerationProgress(generationElapsedSeconds.value, activeGenerationQuality);
+      progress.value = Math.max(progress.value, simulated.percent);
+      stageText.value = generationStageText(progress.value);
+    }
   };
   update();
   elapsedTimer = setInterval(update, 1000);
@@ -300,7 +297,6 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
   stopElapsedTimer();
@@ -633,8 +629,17 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
 
 function applyBackendJob(job: BackendGenerateJob) {
   const startedAt = new Date(job.createdAt).getTime();
-  if (!isTerminalJob(job.status) && Number.isFinite(startedAt) && startedAt !== generationStartedAt) startElapsedTimer(startedAt);
-  progress.value = Math.max(progress.value, Math.min(job.progress || 0, 100));
+  activeGenerationQuality = job.quality;
+  if (!isTerminalJob(job.status) && Number.isFinite(startedAt) && startedAt !== generationStartedAt) {
+    startElapsedTimer(startedAt, job.quality);
+  }
+  const elapsedSeconds = Number.isFinite(startedAt)
+    ? Math.max(0, (Date.now() - startedAt) / 1000)
+    : generationElapsedSeconds.value;
+  if (!isTerminalJob(job.status)) {
+    const merged = mergeGenerationProgress(elapsedSeconds, job.quality, job.status, job.progress);
+    progress.value = Math.max(progress.value, merged.percent);
+  }
   stageText.value = generationStageText(progress.value, job.status);
 
   if (job.status === "finalizing" && job.results.length) {
@@ -706,7 +711,6 @@ async function restoreActiveBackendJob() {
 }
 
 async function resumeBackendJob(jobId: string) {
-  if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
   activeBackendJobId = jobId;
@@ -759,7 +763,6 @@ async function resolvePromptImageUrl() {
 }
 
 async function startBackendGenerate(prompt: string) {
-  if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
 
@@ -827,7 +830,6 @@ async function startGenerate() {
     return;
   }
 
-  if (progressTimer) clearInterval(progressTimer);
   if (finishTimer) clearTimeout(finishTimer);
   if (pollTimer) clearTimeout(pollTimer);
 
@@ -836,17 +838,12 @@ async function startGenerate() {
   progress.value = 0;
   generatedResults.value = [];
   genMeta.value = null;
-  stageText.value = generationStageText(0);
-  startElapsedTimer();
+  stageText.value = GENERATION_PROGRESS_STAGES[0];
+  const mockDurationSeconds = generationDurationSeconds(selectedQuality.value.label);
+  startElapsedTimer(Date.now(), selectedQuality.value.label);
   showToast(`创作任务已提交，正在生成 ${selectedCount.value} 张图片`);
 
-  progressTimer = setInterval(() => {
-    progress.value = Math.min(progress.value + 11, 95);
-    stageText.value = generationStageText(progress.value);
-  }, 420);
-
   finishTimer = setTimeout(() => {
-    if (progressTimer) clearInterval(progressTimer);
     progress.value = 100;
     stageText.value = generationStageText(100, "succeeded");
 
@@ -863,7 +860,7 @@ async function startGenerate() {
     });
     generatedResults.value = results;
     genMeta.value = {
-      time: (Math.random() * 8 + 7).toFixed(1),
+      time: mockDurationSeconds.toFixed(1),
       resolution: qualityShortLabel(selectedQuality.value.label),
       size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`
     };
@@ -875,7 +872,7 @@ async function startGenerate() {
     if (fails === 0) showToast(`生成成功！消耗${totalCost.value}积分`);
     else if (fails === count) showToast(`全部生成失败，${totalCost.value}积分已退还`);
     else showToast(`${count - fails}张成功，${fails}张失败，退还${refund}积分`);
-  }, 3600);
+  }, mockDurationSeconds * 1000);
 }
 
 function openPreview(item: GenResult) {
