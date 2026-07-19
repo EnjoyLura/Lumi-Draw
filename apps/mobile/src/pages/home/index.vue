@@ -196,7 +196,7 @@ function openDetailOverlay(payload: WorkDetailOverlayOpenPayload) {
     detailOverlayContentTimer = setTimeout(() => {
       detailOverlayContentVisible.value = true;
       detailOverlayContentTimer = undefined;
-    }, 190);
+    }, 60);
   });
 }
 
@@ -576,7 +576,7 @@ function handleBannerTap(action: string, title: string) {
 }
 
 function openWorkDetail(work: HomeWork) {
-  void openPreloadedWorkDetail(work, getUser(work.userId), `lumi-home-work-media-${work.id}`);
+  void openPreloadedWorkDetail({ ...work, liked: likedWorkIds.value.has(work.id) }, getUser(work.userId), `lumi-home-work-media-${work.id}`);
 }
 
 function clearWorksSwitchTimers() {
@@ -711,8 +711,8 @@ function setPendingLike(workId: number, pending: boolean) {
   likePendingIds.value = next;
 }
 
-function updateWorkLikeCount(workId: number, likes: number) {
-  const update = (work: HomeWork) => (work.id === workId ? { ...work, likes } : work);
+function updateWorkLikeCount(workId: number, likes: number, liked?: boolean) {
+  const update = (work: HomeWork) => (work.id === workId ? { ...work, likes, ...(liked === undefined ? {} : { liked }) } : work);
   recommendWorks.value = recommendWorks.value.map(update);
   latestWorks.value = latestWorks.value.map(update);
 }
@@ -733,7 +733,7 @@ async function toggleLike(work: HomeWork) {
       if (result.liked) next.add(work.id);
       else next.delete(work.id);
       likedWorkIds.value = next;
-      updateWorkLikeCount(work.id, result.likes);
+      updateWorkLikeCount(work.id, result.likes, Boolean(result.liked));
     } catch {
       uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
     } finally {

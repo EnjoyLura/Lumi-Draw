@@ -60,8 +60,8 @@ const showLoginSheet = ref(false);
 const likePulse = ref(false);
 const favoritePulse = ref(false);
 const isDeleting = ref(false);
-const isInitialContentReady = ref(false);
-const isDetailLoading = ref(true);
+const isInitialContentReady = ref(props.embedded);
+const isDetailLoading = ref(!props.embedded);
 const isDetailPreviewReady = ref(false);
 const highImage = ref("");
 
@@ -97,6 +97,13 @@ const detailImageStyle = computed(() => {
   const minHeight = width > height ? 640 : 0;
   return { height: `${Math.max(ratioHeight, minHeight)}rpx` };
 });
+
+// The embedded host has the work id before its first paint. Use the list
+// snapshot in setup so opening never starts with a skeleton or empty state.
+if (props.embedded && props.initialWorkId) {
+  workId.value = props.initialWorkId;
+  hydrateDetailSnapshot();
+}
 
 onLoad((query) => {
   if (props.embedded) return;
@@ -216,17 +223,21 @@ watch(
 );
 
 function syncEmbeddedDetail() {
-  if (!props.embedded || !props.open || !props.initialWorkId) return;
-  workId.value = props.initialWorkId;
-  resetTransientState();
-  liked.value = false;
-  favorited.value = false;
-  following.value = false;
-  highImage.value = "";
-  isDetailPreviewReady.value = true;
+  if (!props.embedded || !props.initialWorkId) return;
+  const isSameWork = work.value?.id === props.initialWorkId && Boolean(user.value);
+  if (!isSameWork) {
+    workId.value = props.initialWorkId;
+    resetTransientState();
+    liked.value = false;
+    favorited.value = false;
+    following.value = false;
+    highImage.value = "";
+    hydrateDetailSnapshot();
+  }
+  isDetailPreviewReady.value = Boolean(work.value);
   isInitialContentReady.value = true;
   isDetailLoading.value = false;
-  const hasSnapshot = hydrateDetailSnapshot();
+  const hasSnapshot = Boolean(work.value && user.value);
   if (!hasSnapshot) {
     isDetailLoading.value = true;
     void loadDetail();
@@ -234,7 +245,7 @@ function syncEmbeddedDetail() {
   }
   // The animation owns the first frame. Refresh fields afterwards without
   // assigning the high-resolution image to the rendered <image>.
-  setTimeout(() => void refreshEmbeddedDetail(), 260);
+  if (props.open) setTimeout(() => void refreshEmbeddedDetail(), 260);
 }
 
 async function refreshEmbeddedDetail() {
@@ -1027,13 +1038,16 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded .detail-bottom,
 .detail-page.embedded .bottom-safe-area {
   opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 180ms ease, transform 220ms cubic-bezier(.16, 1, .3, 1);
+  transform: translateY(18px);
+  transition: opacity 300ms ease, transform 340ms cubic-bezier(.16, 1, .3, 1);
 }
 
 .detail-page.embedded:not(.detail-content-visible) :deep(.lumi-page-header) {
   opacity: 0;
+  transition: opacity 240ms ease;
 }
+
+.detail-page.embedded.detail-content-visible :deep(.lumi-page-header) { opacity: 1; }
 
 .detail-page.embedded.detail-content-visible .detail-body,
 .detail-page.embedded.detail-content-visible .detail-bottom,

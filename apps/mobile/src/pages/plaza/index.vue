@@ -496,7 +496,7 @@ function goUserProfile(userId: number) {
 }
 
 function openWorkDetail(work: HomeWork) {
-  void openPreloadedWorkDetail(work, getUser(work), `lumi-plaza-work-media-${work.id}`);
+  void openPreloadedWorkDetail({ ...work, liked: likedWorkIds.value.has(work.id) }, getUser(work), `lumi-plaza-work-media-${work.id}`);
 }
 
 function switchPlazaTab(tab: PlazaTab, index: number) {
@@ -652,8 +652,8 @@ function setPendingLike(workId: number, pending: boolean) {
   likePendingIds.value = next;
 }
 
-function updateWorkLikeCount(workId: number, likes: number) {
-  workList.value = workList.value.map((work) => (work.id === workId ? { ...work, likes } : work));
+function updateWorkLikeCount(workId: number, likes: number, liked?: boolean) {
+  workList.value = workList.value.map((work) => (work.id === workId ? { ...work, likes, ...(liked === undefined ? {} : { liked }) } : work));
 }
 
 function displayLikeCount(work: HomeWork) {
@@ -673,7 +673,7 @@ async function toggleLike(event: Event, workId: number) {
       if (result.liked) next.add(workId);
       else next.delete(workId);
       likedWorkIds.value = next;
-      updateWorkLikeCount(workId, result.likes);
+      updateWorkLikeCount(workId, result.likes, Boolean(result.liked));
     } catch {
       uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
     } finally {
