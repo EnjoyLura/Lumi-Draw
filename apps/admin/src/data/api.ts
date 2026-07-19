@@ -500,16 +500,21 @@ interface ApiGenerationProvider {
   name: string;
   adapter: "ainb" | "change2pro" | "kie";
   baseUrl: string;
-  apiKeyEnv: string;
+  imageEndpoint: string;
+  textToImageEnabled: boolean;
+  imageToImageEnabled: boolean;
   apiKeyConfigured: boolean;
+  apiKeyHint: string;
+  apiKeySource: "admin" | "environment" | "none";
   requestParams: Record<string, string>;
+  imageRequestParams: Record<string, string>;
   modelIds: string[];
   enabled: boolean;
   sort: number;
 }
 
 function mapGenerationProvider(provider: ApiGenerationProvider): AdminGenerationProvider {
-  return { ...provider, requestParams: provider.requestParams || {}, modelIds: provider.modelIds || [], on: provider.enabled };
+  return { ...provider, apiKey: "", requestParams: provider.requestParams || {}, imageRequestParams: provider.imageRequestParams || {}, modelIds: provider.modelIds || [], on: provider.enabled };
 }
 
 export async function apiGetGenerationProviders() {
@@ -522,8 +527,12 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     name: values.name,
     adapter: values.adapter,
     baseUrl: values.baseUrl,
-    apiKeyEnv: values.apiKeyEnv,
+    imageEndpoint: values.imageEndpoint,
+    textToImageEnabled: values.textToImageEnabled,
+    imageToImageEnabled: values.imageToImageEnabled,
+    apiKey: values.apiKey || undefined,
     requestParams: values.requestParams,
+    imageRequestParams: values.imageRequestParams,
     modelIds: values.modelIds,
     enabled: values.on,
     sort: values.sort

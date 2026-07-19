@@ -20,6 +20,7 @@ export function validateEnvironment(env: Env) {
     "JWT_SECRET",
     "ADMIN_JWT_SECRET",
     "CALLBACK_SECRET",
+    "GENERATION_PROVIDER_ENCRYPTION_KEY",
     "WX_APPID",
     "WX_APPSECRET",
     "KIE_API_KEY",

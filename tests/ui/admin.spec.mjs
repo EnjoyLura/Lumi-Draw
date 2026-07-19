@@ -79,14 +79,17 @@ test("admin manages generation API platforms and model bindings", async ({ page 
   await page.locator(".drawer.show .ditem", { hasText: "API 平台" }).click();
   const ainbCard = page.locator(".page-body .card", { hasText: "Ainb" }).first();
   await expect(ainbCard).toBeVisible();
-  await expect(ainbCard.getByText("密钥已配置", { exact: true })).toBeVisible();
+  await expect(ainbCard.getByText(/密钥已配置/)).toBeVisible();
   await page.getByRole("button", { name: "新增 API 平台" }).click();
 
   const sheet = page.locator(".sheet.show");
   await expect(sheet.getByText("接口类型", { exact: true })).toBeVisible();
   await expect(sheet.getByText("生效的创作模型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("可选请求参数", { exact: true })).toBeVisible();
-  await expect(sheet.locator('input[type="checkbox"]')).toHaveCount(MODEL_COUNT);
+  await expect(sheet.getByText("文生图完整接口 URL", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("文生图请求参数", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("启用图生图", { exact: true })).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "添加请求参数" })).toBeVisible();
+  await expect(sheet.locator('input[type="checkbox"]')).toHaveCount(MODEL_COUNT + 2);
   await expect(sheet.getByRole("button", { name: "保存" })).toBeVisible();
 });
 

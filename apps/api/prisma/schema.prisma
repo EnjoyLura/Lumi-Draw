@@ -109,8 +109,13 @@ model GenerationProvider {
   name          String
   adapter       String
   baseUrl       String
+  imageEndpoint String   @default("")
+  textToImageEnabled Boolean @default(true)
+  imageToImageEnabled Boolean @default(false)
   apiKeyEnv     String
+  apiKeyEncrypted String @default("")
   requestParams Json
+  imageRequestParams Json @default("{}")
   enabled       Boolean  @default(true)
   sort          Int      @default(0)
   createdAt     DateTime @default(now())
@@ -475,6 +480,7 @@ model GenerateJob {
   providerAdapter String @default("")
   providerBaseUrl String @default("")
   providerApiKeyEnv String @default("")
+  providerApiKeyEncrypted String @default("")
   providerParams Json?
   providerModel String   @default("")
   prompt        String

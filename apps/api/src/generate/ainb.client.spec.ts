@@ -88,7 +88,7 @@ test("submits Ainb image edits as async multipart requests", async () => {
   }
 });
 
-test("uses runtime platform config and omits unsupported optional parameters", async () => {
+test("uses the configured full endpoint and forwards administrator-defined parameters", async () => {
   const originalFetch = globalThis.fetch;
   let request: { url: string; headers?: RequestInit["headers"]; body?: string } | undefined;
   globalThis.fetch = async (input, init) => {
@@ -105,14 +105,15 @@ test("uses runtime platform config and omits unsupported optional parameters", a
       quality: "1K",
       count: 1
     }, {
-      apiBase: "https://backup.example.com",
+      apiBase: "https://backup.example.com/custom/generate?async=true",
       apiKey: "backup-key",
-      params: { response_format: "url" }
+      params: { response_format: "url", background: "transparent" }
     });
     const payload = JSON.parse(request?.body || "{}") as Record<string, unknown>;
-    assert.equal(request?.url, "https://backup.example.com/v1/images/generations?async=true");
+    assert.equal(request?.url, "https://backup.example.com/custom/generate?async=true");
     assert.equal((request?.headers as Record<string, string>)?.Authorization, "Bearer backup-key");
     assert.equal(payload.response_format, "url");
+    assert.equal(payload.background, "transparent");
     assert.equal("quality" in payload, false);
     assert.equal("output_format" in payload, false);
   } finally {

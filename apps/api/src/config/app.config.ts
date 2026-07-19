@@ -29,6 +29,7 @@ export const appConfig = registerAs("app", () => ({
   jwtSecret: process.env.JWT_SECRET ?? "dev-jwt-secret",
   adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? "dev-admin-jwt-secret",
   callbackSecret: process.env.CALLBACK_SECRET ?? "",
+  generationProviderEncryptionKey: process.env.GENERATION_PROVIDER_ENCRYPTION_KEY ?? "",
   auth: {
     // 开发环境默认允许 mock 登录；生产需显式开启
     allowMockLogin: (process.env.AUTH_ALLOW_MOCK_LOGIN ?? (process.env.NODE_ENV === "production" ? "false" : "true")) === "true",

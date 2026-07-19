@@ -8,8 +8,11 @@ import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runti
 
 type Change2ProConfig = {
   apiBase: string;
+  endpoint?: string;
   imageApiKey: string;
   bananaApiKey: string;
+  params: Record<string, string>;
+  dynamicParams: boolean;
 };
 
 type OssReferenceConfig = {
@@ -118,15 +121,24 @@ export class Change2ProClient {
 
     if (input.mode === "image-to-image") {
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
-      payload = await this.requestImage2Form(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input, reference, config.params);
+      payload = await this.requestImage2Form(
+        config.endpoint || this.image2Endpoint(config.apiBase, endpoint),
+        config.imageApiKey,
+        input,
+        reference,
+        config.params,
+        config.dynamicParams
+      );
     } else {
-      payload = await this.requestImage2Json(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input.jobId, {
+      payload = await this.requestImage2Json(config.endpoint || this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input.jobId, {
+        ...pickProviderParams(config.params, config.dynamicParams
+          ? Object.keys(config.params)
+          : ["quality", "moderation", "output_format", "output_compression", "response_format"]),
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
-        transparent_output: false,
-        ...pickProviderParams(config.params, ["quality", "moderation", "output_format", "output_compression", "response_format"])
+        transparent_output: false
       });
     }
 
@@ -154,7 +166,8 @@ export class Change2ProClient {
     apiKey: string,
     input: Change2ProGenerateInput,
     reference: { buffer: Buffer; contentType: string },
-    params: Record<string, string>
+    params: Record<string, string>,
+    dynamicParams: boolean
   ) {
     return this.requestImage2WithCurl(url, apiKey, input.jobId, async (temp) => {
       const referencePath = join(temp, `reference.${this.extension(reference.contentType)}`);
@@ -166,7 +179,9 @@ export class Change2ProClient {
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
         "--form-string", "transparent_output=false",
       ];
-      Object.entries(pickProviderParams(params, ["quality", "input_fidelity", "moderation", "output_format", "output_compression", "response_format"]))
+      Object.entries(pickProviderParams(params, dynamicParams
+        ? Object.keys(params).filter((key) => !["model", "prompt", "size", "n", "image", "image[]", "transparent_output"].includes(key))
+        : ["quality", "input_fidelity", "moderation", "output_format", "output_compression", "response_format"]))
         .forEach(([key, value]) => args.push("--form-string", `${key}=${value}`));
       args.push("--form", `image=@${referencePath};type=${reference.contentType}`);
       return args;
@@ -294,7 +309,10 @@ export class Change2ProClient {
       if (reference) {
         parts.push({ inlineData: { mimeType: reference.contentType, data: reference.buffer.toString("base64") } });
       }
-      const payload = await this.requestJson(`${config.apiBase}/v1beta/models/${encodeURIComponent(providerModel)}:generateContent`, {
+      const endpoint = config.endpoint
+        ? config.endpoint.replace("{model}", encodeURIComponent(providerModel))
+        : `${config.apiBase}/v1beta/models/${encodeURIComponent(providerModel)}:generateContent`;
+      const payload = await this.requestJson(endpoint, {
         method: "POST",
         headers: {
           "x-goog-api-key": config.bananaApiKey,
@@ -306,6 +324,7 @@ export class Change2ProClient {
           contents: [{ role: "user", parts }],
           generationConfig: {
             imageConfig: {
+              ...pickProviderParams(config.params, Object.keys(config.params)),
               imageSize: normalizeBananaQuality(input.quality),
               aspectRatio: normalizeBananaRatio(input.ratio)
             }
@@ -382,11 +401,15 @@ export class Change2ProClient {
 
   private getConfig(runtime?: ProviderRuntimeConfig) {
     if (runtime) {
+      const configuredUrl = new URL(runtime.apiBase.replace("{model}", "model"));
+      const endpoint = configuredUrl.pathname === "/" && !configuredUrl.search ? undefined : runtime.apiBase;
       return {
-        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        apiBase: configuredUrl.origin,
+        endpoint,
         imageApiKey: runtime.apiKey,
         bananaApiKey: runtime.apiKey,
-        params: runtime.params
+        params: runtime.params,
+        dynamicParams: Boolean(endpoint)
       };
     }
     const value = this.config.get<Change2ProConfig>("app.change2pro");
@@ -401,7 +424,8 @@ export class Change2ProClient {
         output_format: IMAGE_2_OUTPUT_FORMAT,
         output_compression: String(IMAGE_2_OUTPUT_COMPRESSION),
         response_format: "url"
-      }
+      },
+      dynamicParams: false
     };
   }
 

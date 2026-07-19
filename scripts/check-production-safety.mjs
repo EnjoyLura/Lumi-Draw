@@ -86,6 +86,7 @@ for (const name of ["AUTH_ALLOW_MOCK_LOGIN", "GENERATE_ALLOW_MOCK", "PAYMENT_ALL
 requireStrongSecret("JWT_SECRET", ["dev-jwt-secret", "change-me-in-production"]);
 requireStrongSecret("ADMIN_JWT_SECRET", ["dev-admin-jwt-secret", "change-me-in-production"]);
 requireStrongSecret("CALLBACK_SECRET", ["change-me-in-production"]);
+requireStrongSecret("GENERATION_PROVIDER_ENCRYPTION_KEY", ["change-me-in-production-with-at-least-32-characters"]);
 
 const adminPassword = value("ADMIN_PASSWORD");
 if (!adminPassword) {

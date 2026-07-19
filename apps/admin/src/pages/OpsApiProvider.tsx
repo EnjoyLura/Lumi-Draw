@@ -12,15 +12,29 @@ const ADAPTERS = [
   { value: "change2pro", label: "Images 兼容接口" },
   { value: "kie", label: "KIE 任务接口" }
 ] as const;
-const PARAM_FIELDS = [
-  ["quality", "质量参数", "如 high；留空不发送"],
-  ["input_fidelity", "参考图保真", "如 high；留空不发送"],
-  ["output_format", "输出格式", "如 png、webp"],
-  ["response_format", "返回格式", "如 url"],
-  ["moderation", "内容审核", "如 auto、low"],
-  ["output_compression", "压缩质量", "如 90；留空不发送"]
-] as const;
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
+
+function ParamEditor({ value, onChange }: { value: Record<string, string>; onChange: (value: Record<string, string>) => void }) {
+  const [rows, setRows] = useState(() => Object.entries(value).map(([key, item], index) => ({ id: `${index}-${key}`, key, value: item })));
+  const commit = (next: typeof rows) => {
+    setRows(next);
+    onChange(Object.fromEntries(next.filter((row) => row.key.trim()).map((row) => [row.key.trim(), row.value])));
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {rows.map((row, index) => (
+        <div key={row.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, .9fr) minmax(0, 1.1fr) 32px", gap: 6, alignItems: "center" }}>
+          <input className="input" value={row.key} onChange={(event) => commit(rows.map((item, rowIndex) => rowIndex === index ? { ...item, key: event.target.value } : item))} placeholder="参数名" />
+          <input className="input" value={row.value} onChange={(event) => commit(rows.map((item, rowIndex) => rowIndex === index ? { ...item, value: event.target.value } : item))} placeholder="参数值" />
+          <button className="nav-btn" type="button" aria-label="删除参数" onClick={() => commit(rows.filter((_, rowIndex) => rowIndex !== index))}><i className="ri-close-line" /></button>
+        </div>
+      ))}
+      <button className="btn btn-ghost" type="button" onClick={() => setRows((current) => [...current, { id: `${Date.now()}-${current.length}`, key: "", value: "" }])}>
+        <i className="ri-add-line" /> 添加请求参数
+      </button>
+    </div>
+  );
+}
 
 function emptyProvider(): AdminGenerationProvider {
   return {
@@ -28,9 +42,15 @@ function emptyProvider(): AdminGenerationProvider {
     name: "",
     adapter: "ainb",
     baseUrl: "",
-    apiKeyEnv: "",
+    imageEndpoint: "",
+    textToImageEnabled: true,
+    imageToImageEnabled: false,
+    apiKey: "",
     apiKeyConfigured: false,
+    apiKeyHint: "",
+    apiKeySource: "none",
     requestParams: {},
+    imageRequestParams: {},
     modelIds: [],
     sort: GENERATION_PROVIDERS.length + 1,
     on: true
@@ -40,23 +60,37 @@ function emptyProvider(): AdminGenerationProvider {
 function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerationProvider; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const originalId = item?.id || "";
-  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? { ...item, requestParams: { ...item.requestParams }, modelIds: [...item.modelIds] } : emptyProvider());
+  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? { ...item, apiKey: "", requestParams: { ...item.requestParams }, imageRequestParams: { ...item.imageRequestParams }, modelIds: [...item.modelIds] } : emptyProvider());
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof AdminGenerationProvider>(key: K, next: AdminGenerationProvider[K]) => setValue((current) => ({ ...current, [key]: next }));
-  const updateParam = (key: string, next: string) => update("requestParams", { ...value.requestParams, [key]: next });
   const toggleModel = (modelId: string) => update("modelIds", value.modelIds.includes(modelId) ? value.modelIds.filter((id) => id !== modelId) : [...value.modelIds, modelId]);
 
   const save = async () => {
-    if (!value.id.trim() || !value.name.trim() || !value.baseUrl.trim() || !value.apiKeyEnv.trim()) {
-      toast("请填写平台标识、名称、地址和密钥变量名");
+    if (!value.id.trim() || !value.name.trim() || (!value.apiKeyConfigured && !value.apiKey.trim())) {
+      toast("请填写平台标识、名称和 API Key");
+      return;
+    }
+    if (!value.textToImageEnabled && !value.imageToImageEnabled) {
+      toast("请至少启用文生图或图生图能力");
+      return;
+    }
+    if ((value.textToImageEnabled && !value.baseUrl.trim()) || (value.imageToImageEnabled && !value.imageEndpoint.trim())) {
+      toast("请填写已启用能力的完整接口 URL");
       return;
     }
     setSaving(true);
     try {
       if (useMock) {
+        const nextValue = {
+          ...value,
+          apiKey: "",
+          apiKeyConfigured: value.apiKeyConfigured || Boolean(value.apiKey),
+          apiKeyHint: value.apiKey ? `••••${value.apiKey.slice(-4)}` : value.apiKeyHint,
+          apiKeySource: value.apiKey ? "admin" as const : value.apiKeySource
+        };
         const existing = GENERATION_PROVIDERS.find((provider) => provider.id === originalId);
-        if (existing) Object.assign(existing, value);
-        else GENERATION_PROVIDERS.push({ ...value });
+        if (existing) Object.assign(existing, nextValue);
+        else GENERATION_PROVIDERS.push(nextValue);
       } else {
         await apiSaveGenerationProvider(originalId, value);
       }
@@ -80,10 +114,37 @@ function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerati
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
         {ADAPTERS.map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
       </select>
-      <label className="field-label" style={{ marginTop: 12 }}>Base URL</label>
-      <input className="input" value={value.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} placeholder="https://api.example.com" />
-      <label className="field-label" style={{ marginTop: 12 }}>密钥变量名</label>
-      <input className="input" value={value.apiKeyEnv} onChange={(event) => update("apiKeyEnv", event.target.value.toUpperCase())} placeholder="IMAGE_API_KEY" />
+      <label className="field-label" style={{ marginTop: 12 }}>API Key</label>
+      <input
+        className="input"
+        type="password"
+        autoComplete="new-password"
+        value={value.apiKey}
+        onChange={(event) => update("apiKey", event.target.value)}
+        placeholder={value.apiKeyConfigured ? `已配置 ${value.apiKeyHint}，留空则保持不变` : "请输入平台 API Key"}
+      />
+
+      <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
+        <input type="checkbox" checked={value.textToImageEnabled} onChange={(event) => update("textToImageEnabled", event.target.checked)} />
+        <div className="lr-main"><div className="lr-t">启用文生图</div><div className="lr-s">关闭后该平台不接受文生图任务</div></div>
+      </label>
+      {value.textToImageEnabled ? <>
+        <label className="field-label">文生图完整接口 URL</label>
+        <input className="input" value={value.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} placeholder="https://api.example.com/v1/images/generations" />
+        <label className="field-label" style={{ marginTop: 10 }}>文生图请求参数</label>
+        <ParamEditor value={value.requestParams} onChange={(params) => update("requestParams", params)} />
+      </> : null}
+
+      <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
+        <input type="checkbox" checked={value.imageToImageEnabled} onChange={(event) => update("imageToImageEnabled", event.target.checked)} />
+        <div className="lr-main"><div className="lr-t">启用图生图</div><div className="lr-s">接口不支持图生图时保持关闭</div></div>
+      </label>
+      {value.imageToImageEnabled ? <>
+        <label className="field-label">图生图完整接口 URL</label>
+        <input className="input" value={value.imageEndpoint} onChange={(event) => update("imageEndpoint", event.target.value)} placeholder="https://api.example.com/v1/images/edits" />
+        <label className="field-label" style={{ marginTop: 10 }}>图生图请求参数</label>
+        <ParamEditor value={value.imageRequestParams} onChange={(params) => update("imageRequestParams", params)} />
+      </> : null}
 
       <label className="field-label" style={{ marginTop: 12 }}>生效的创作模型</label>
       <div className="card" style={{ padding: "4px 12px" }}>
@@ -95,13 +156,6 @@ function ProviderForm({ item, models, useMock, onSaved }: { item?: AdminGenerati
         ))}
       </div>
 
-      <label className="field-label" style={{ marginTop: 12 }}>可选请求参数</label>
-      {PARAM_FIELDS.map(([key, label, placeholder]) => (
-        <div key={key} style={{ marginTop: 8 }}>
-          <div className="field-label">{label}</div>
-          <input className="input" value={value.requestParams[key] || ""} onChange={(event) => updateParam(key, event.target.value)} placeholder={placeholder} />
-        </div>
-      ))}
       <label className="field-label" style={{ marginTop: 12 }}>排序</label>
       <input className="input" type="number" value={value.sort} onChange={(event) => update("sort", Number(event.target.value) || 0)} />
       <div style={FOOT_STYLE}>
@@ -160,8 +214,12 @@ export function OpsApiProvider() {
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div className="lr-ico" style={{ color: "#5B9FE8", background: "var(--info-soft)", flexShrink: 0 }}><i className="ri-server-line" /></div>
             <div className="lr-main">
-              <div className="lr-t">{provider.name} <Badge text={provider.apiKeyConfigured ? "密钥已配置" : "密钥未配置"} type={provider.apiKeyConfigured ? "success" : "danger"} /></div>
+              <div className="lr-t">{provider.name} <Badge text={provider.apiKeyConfigured ? `密钥已配置 ${provider.apiKeyHint}` : "密钥未配置"} type={provider.apiKeyConfigured ? "success" : "danger"} /></div>
               <div className="lr-s" style={{ wordBreak: "break-all" }}>{provider.baseUrl}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
+                {provider.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
+              </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}
               </div>

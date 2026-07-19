@@ -5,6 +5,7 @@ import type { ProviderRuntimeConfig } from "./provider-runtime";
 
 type KieConfig = {
   apiBase: string;
+  createEndpoint?: string;
   apiKey: string;
   callbackUrl: string;
 };
@@ -44,8 +45,8 @@ export class KieClient {
     const kie = this.getConfig(runtime);
     if (!kie.apiKey) throw new Error("KIE_API_KEY is not configured");
 
-    const body = this.buildCreateTaskBody(input, kie.callbackUrl);
-    const res = await fetch(`${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/createTask`, {
+    const body = this.buildCreateTaskBody(input, kie.callbackUrl, runtime?.params);
+    const res = await fetch(kie.createEndpoint || `${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/createTask`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${kie.apiKey}`,
@@ -89,11 +90,11 @@ export class KieClient {
     return payload.data;
   }
 
-  private buildCreateTaskBody(input: SubmitGenerateJobInput, callbackUrl: string) {
+  private buildCreateTaskBody(input: SubmitGenerateJobInput, callbackUrl: string, params: Record<string, string> = {}) {
     const model = this.resolveKieModel(input);
     const body: Record<string, unknown> = {
       model,
-      input: this.buildInput(input, model)
+      input: { ...params, ...this.buildInput(input, model) }
     };
 
     const securedCallbackUrl = this.buildCallbackUrl(callbackUrl);
@@ -146,8 +147,11 @@ export class KieClient {
   private getConfig(runtime?: ProviderRuntimeConfig): KieConfig {
     const configured = this.config.get<KieConfig>("app.kie");
     if (runtime) {
+      const configuredUrl = new URL(runtime.apiBase);
+      const createEndpoint = configuredUrl.pathname === "/" && !configuredUrl.search ? undefined : runtime.apiBase;
       return {
-        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        apiBase: configuredUrl.origin,
+        createEndpoint,
         apiKey: runtime.apiKey,
         callbackUrl: configured?.callbackUrl || ""
       };

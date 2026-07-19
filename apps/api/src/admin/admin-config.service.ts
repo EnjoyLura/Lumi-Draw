@@ -1,4 +1,7 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import type { GenerationProvider } from "@prisma/client";
+import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../generate/provider-secret";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 
@@ -6,7 +9,6 @@ type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; s
 
 const bySort = { orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
 const GENERATION_PROVIDER_ADAPTERS = new Set(["ainb", "change2pro", "kie"]);
-const GENERATION_PARAM_KEYS = new Set(["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]);
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -41,7 +43,8 @@ const FIELDS = {
 export class AdminConfigService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly config: ConfigService
   ) {}
 
   // ---------- 读 ----------
@@ -95,11 +98,10 @@ export class AdminConfigService {
       this.prisma.generationProvider.findMany(bySort),
       this.prisma.modelConfig.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, name: true, provider: true } })
     ]);
-    return providers.map((provider) => ({
-      ...provider,
-      modelIds: models.filter((model) => model.provider === provider.id).map((model) => model.id),
-      apiKeyConfigured: Boolean(process.env[provider.apiKeyEnv])
-    }));
+    return providers.map((provider) => this.generationProviderView(
+      provider,
+      models.filter((model) => model.provider === provider.id).map((model) => model.id)
+    ));
   }
   qualities() {
     return this.prisma.qualityConfig.findMany(bySort);
@@ -253,32 +255,34 @@ export class AdminConfigService {
   private async generationProvider(id: string) {
     const provider = await this.prisma.generationProvider.findUniqueOrThrow({ where: { id } });
     const models = await this.prisma.modelConfig.findMany({ where: { provider: id }, orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true } });
-    return { ...provider, modelIds: models.map((model) => model.id), apiKeyConfigured: Boolean(process.env[provider.apiKeyEnv]) };
+    return this.generationProviderView(provider, models.map((model) => model.id));
   }
 
   private normalizeGenerationProvider(body: Record<string, unknown>, creating: boolean) {
-    requireFields(body, ["id", "name", "adapter", "baseUrl", "apiKeyEnv"]);
+    requireFields(body, ["id", "name", "adapter"]);
     const id = String(body.id).trim().toLowerCase();
     const adapter = String(body.adapter).trim();
-    const baseUrl = String(body.baseUrl).trim().replace(/\/+$/, "");
-    const apiKeyEnv = String(body.apiKeyEnv).trim();
+    const baseUrl = String(body.baseUrl || "").trim();
+    const imageEndpoint = String(body.imageEndpoint || "").trim();
+    const textToImageEnabled = body.textToImageEnabled === undefined ? true : Boolean(body.textToImageEnabled);
+    const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
+    const apiKeyEnv = String(body.apiKeyEnv || `GENERATION_PROVIDER_${id.replace(/-/g, "_").toUpperCase()}_API_KEY`).trim();
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
-    try {
-      const url = new URL(baseUrl);
-      if (url.protocol !== "https:") throw new Error();
-    } catch {
-      throw new BadRequestException("Base URL 必须是有效的 HTTPS 地址");
-    }
+    if (!textToImageEnabled && !imageToImageEnabled) throw new BadRequestException("请至少启用文生图或图生图能力");
+    this.assertGenerationEndpoint(baseUrl, "文生图", textToImageEnabled);
+    this.assertGenerationEndpoint(imageEndpoint, "图生图", imageToImageEnabled);
     if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(apiKeyEnv)) throw new BadRequestException("密钥变量名格式不正确");
-    const rawParams = body.requestParams && typeof body.requestParams === "object" && !Array.isArray(body.requestParams)
-      ? body.requestParams as Record<string, unknown>
-      : {};
-    const requestParams = Object.fromEntries(
-      Object.entries(rawParams)
-        .filter(([key, value]) => GENERATION_PARAM_KEYS.has(key) && value !== undefined && value !== null && String(value).trim())
-        .map(([key, value]) => [key, String(value).trim()])
-    );
+    const rawApiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+    if (rawApiKey.length > 512) throw new BadRequestException("API Key 长度不能超过 512 个字符");
+    const apiKeyEncrypted = body.clearApiKey === true
+      ? ""
+      : rawApiKey
+        ? encryptProviderApiKey(rawApiKey, this.providerEncryptionKey())
+        : String(body.apiKeyEncrypted || "");
+    if (creating && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("请填写 API Key");
+    const requestParams = this.normalizeGenerationParams(body.requestParams);
+    const imageRequestParams = this.normalizeGenerationParams(body.imageRequestParams);
     const modelIds = Array.isArray(body.modelIds) ? [...new Set(body.modelIds.map(String).filter(Boolean))] : [];
     return {
       provider: {
@@ -286,13 +290,59 @@ export class AdminConfigService {
         name: String(body.name).trim(),
         adapter,
         baseUrl,
+        imageEndpoint,
+        textToImageEnabled,
+        imageToImageEnabled,
         apiKeyEnv,
+        apiKeyEncrypted,
         requestParams,
+        imageRequestParams,
         enabled: body.enabled === undefined ? creating : Boolean(body.enabled),
         sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0
       },
       modelIds
     };
+  }
+
+  private normalizeGenerationParams(value: unknown) {
+    const params = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const entries = Object.entries(params)
+      .filter(([, item]) => item !== undefined && item !== null && String(item).trim())
+      .map(([key, item]) => [key.trim(), String(item).trim()] as const);
+    if (entries.length > 30) throw new BadRequestException("单个接口最多配置 30 个请求参数");
+    for (const [key, item] of entries) {
+      if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(key)) throw new BadRequestException(`请求参数名格式不正确: ${key}`);
+      if (item.length > 500) throw new BadRequestException(`请求参数值过长: ${key}`);
+    }
+    return Object.fromEntries(entries);
+  }
+
+  private assertGenerationEndpoint(endpoint: string, label: string, enabled: boolean) {
+    if (!enabled) return;
+    if (!endpoint) throw new BadRequestException(`请填写${label}完整接口 URL`);
+    try {
+      const url = new URL(endpoint);
+      if (url.protocol !== "https:" || !url.pathname || url.pathname === "/") throw new Error();
+    } catch {
+      throw new BadRequestException(`${label}接口必须是包含完整路径的 HTTPS URL`);
+    }
+  }
+
+  private generationProviderView(provider: GenerationProvider, modelIds: string[]) {
+    const { apiKeyEncrypted, apiKeyEnv, ...safeProvider } = provider;
+    const storedKey = apiKeyEncrypted ? decryptProviderApiKey(apiKeyEncrypted, this.providerEncryptionKey()) : "";
+    const apiKey = storedKey || process.env[apiKeyEnv] || "";
+    return {
+      ...safeProvider,
+      modelIds,
+      apiKeyConfigured: Boolean(apiKey),
+      apiKeyHint: providerApiKeyHint(apiKey),
+      apiKeySource: storedKey ? "admin" : apiKey ? "environment" : "none"
+    };
+  }
+
+  private providerEncryptionKey() {
+    return this.config.get<string>("app.generationProviderEncryptionKey") || "";
   }
 
   private async assertProviderModels(adapter: string, modelIds: string[]) {

@@ -104,6 +104,37 @@ test("Image 2 supports both text generation and image edits", async () => {
   }
 });
 
+test("Image 2 uses the full configured endpoint and forwards dynamic text parameters", async () => {
+  const provider = client();
+  let request: { url: string; payload: Record<string, unknown> } | undefined;
+  (provider as unknown as {
+    requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  }).requestImage2Json = async (url, _key, _id, payload) => {
+    request = { url, payload };
+    return { data: [{ url: "https://images.example.com/result.png" }] };
+  };
+
+  await provider.generate({
+    jobId: "dynamic-text",
+    modelId: "gpt-image-2",
+    mode: "text-to-image",
+    prompt: "orange cat",
+    inputImageUrl: "",
+    ratio: "1:1",
+    quality: "1K",
+    count: 1
+  }, {
+    apiBase: "https://custom.example.com/image/create",
+    apiKey: "runtime-key",
+    params: { quality: "high", background: "transparent", model: "must-not-override" }
+  });
+
+  assert.equal(request?.url, "https://custom.example.com/image/create");
+  assert.equal(request?.payload.background, "transparent");
+  assert.equal(request?.payload.quality, "high");
+  assert.equal(request?.payload.model, "gpt-image-2");
+});
+
 test("Banana supports text generation and inline reference image generation", async () => {
   const originalFetch = globalThis.fetch;
   const requestBodies: Array<Record<string, unknown>> = [];

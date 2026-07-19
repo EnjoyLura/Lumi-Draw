@@ -5,8 +5,10 @@ import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runti
 
 type AinbConfig = {
   apiBase: string;
+  endpoint?: string;
   imageApiKey: string;
   params: Record<string, string>;
+  dynamicParams: boolean;
 };
 
 type AinbGenerateInput = {
@@ -52,15 +54,17 @@ export class AinbClient {
     const payload =
       input.mode === "image-to-image"
         ? await this.submitEdit(config, input)
-        : await this.requestJson(`${config.apiBase}/v1/images/generations?async=true`, {
+        : await this.requestJson(config.endpoint || `${config.apiBase}/v1/images/generations?async=true`, {
             method: "POST",
             headers: this.jsonHeaders(config.imageApiKey),
             body: JSON.stringify({
+              ...pickProviderParams(config.params, config.dynamicParams
+                ? Object.keys(config.params)
+                : ["quality", "output_format", "response_format", "moderation", "output_compression"]),
               model: IMAGE_2_MODEL_ID,
               prompt: input.prompt,
               size: normalizeImage2Size(input.ratio, input.quality),
-              n: input.count,
-              ...pickProviderParams(config.params, ["quality", "output_format", "response_format", "moderation", "output_compression"])
+              n: input.count
             })
           });
     const record = asRecord(payload);
@@ -116,10 +120,12 @@ export class AinbClient {
     form.append("prompt", input.prompt);
     form.append("size", normalizeImage2Size(input.ratio, input.quality));
     form.append("n", String(input.count));
-    Object.entries(pickProviderParams(config.params, ["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]))
+    Object.entries(pickProviderParams(config.params, config.dynamicParams
+      ? Object.keys(config.params).filter((key) => !["model", "prompt", "size", "n", "image", "image[]"].includes(key))
+      : ["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]))
       .forEach(([key, value]) => form.append(key, String(value)));
     form.append("image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
-    return this.requestJson(`${config.apiBase}/v1/images/edits?async=true`, {
+    return this.requestJson(config.endpoint || `${config.apiBase}/v1/images/edits?async=true`, {
       method: "POST",
       headers: this.authHeaders(config.imageApiKey),
       body: form
@@ -156,17 +162,22 @@ export class AinbClient {
 
   private getConfig(runtime?: ProviderRuntimeConfig) {
     if (runtime) {
+      const configuredUrl = new URL(runtime.apiBase);
+      const endpoint = configuredUrl.pathname === "/" && !configuredUrl.search ? undefined : runtime.apiBase;
       return {
-        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        apiBase: configuredUrl.origin,
+        endpoint,
         imageApiKey: runtime.apiKey,
-        params: runtime.params
+        params: runtime.params,
+        dynamicParams: Boolean(endpoint)
       };
     }
     const value = this.config.get<Omit<AinbConfig, "params">>("app.ainb");
     return {
       apiBase: (value?.apiBase || "https://ainb.plus").replace(/\/+$/, ""),
       imageApiKey: value?.imageApiKey || "",
-      params: { quality: "high", response_format: "url", output_format: "png" }
+      params: { quality: "high", response_format: "url", output_format: "png" },
+      dynamicParams: false
     };
   }
 

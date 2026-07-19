@@ -12,6 +12,7 @@ import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
 import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
+import { decryptProviderApiKey } from "./provider-secret";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
 type ProviderEvent = {
@@ -116,12 +117,19 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private providerRuntime(job: GenerateJob): ProviderRuntimeConfig | undefined {
-    if (!job.providerBaseUrl || !job.providerApiKeyEnv) return undefined;
+    if (!job.providerBaseUrl || (!job.providerApiKeyEncrypted && !job.providerApiKeyEnv)) return undefined;
     return {
       apiBase: job.providerBaseUrl,
-      apiKey: process.env[job.providerApiKeyEnv] || "",
+      apiKey: this.resolveProviderApiKey(job.providerApiKeyEncrypted, job.providerApiKeyEnv),
       params: normalizeProviderParams(job.providerParams)
     };
+  }
+
+  private resolveProviderApiKey(encrypted: string, envName: string) {
+    if (encrypted) {
+      return decryptProviderApiKey(encrypted, this.config.get<string>("app.generationProviderEncryptionKey") || "");
+    }
+    return process.env[envName] || "";
   }
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
@@ -141,7 +149,14 @@ export class GenerateService implements OnApplicationBootstrap {
 
     const provider = await this.prisma.generationProvider.findFirst({ where: { id: model.provider, enabled: true } });
     if (!provider) throw new BadRequestException("该模型暂未配置可用的 API 平台");
-    const apiKey = process.env[provider.apiKeyEnv] || "";
+    const isImageToImage = normalized.mode === "image-to-image";
+    const providerModeEnabled = isImageToImage ? provider.imageToImageEnabled : provider.textToImageEnabled;
+    const providerEndpoint = isImageToImage ? provider.imageEndpoint : provider.baseUrl;
+    const providerParams = isImageToImage ? provider.imageRequestParams : provider.requestParams;
+    if (!providerModeEnabled || !providerEndpoint) {
+      throw new BadRequestException(isImageToImage ? "当前 API 平台未启用图生图" : "当前 API 平台未启用文生图");
+    }
+    const apiKey = this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv);
     if (!apiKey) throw new BadRequestException("该模型的 API 密钥尚未配置");
     if (provider.adapter === "ainb" && model.id !== "gpt-image-2") throw new BadRequestException("当前 API 平台不支持该模型");
     if (provider.adapter === "change2pro" && !this.change2pro.providerModel(model.id)) throw new BadRequestException("当前 API 平台不支持该模型");
@@ -163,9 +178,10 @@ export class GenerateService implements OnApplicationBootstrap {
           modelId: model.id,
           provider: provider.id,
           providerAdapter: provider.adapter,
-          providerBaseUrl: provider.baseUrl,
+          providerBaseUrl: providerEndpoint,
           providerApiKeyEnv: provider.apiKeyEnv,
-          providerParams: normalizeProviderParams(provider.requestParams),
+          providerApiKeyEncrypted: provider.apiKeyEncrypted,
+          providerParams: normalizeProviderParams(providerParams),
           providerModel: model.providerModel,
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
