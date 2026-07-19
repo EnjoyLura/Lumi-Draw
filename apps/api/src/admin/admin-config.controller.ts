@@ -27,6 +27,7 @@ export class AdminConfigController {
   @Get("categories") categories() { return this.config.categories(); }
   @Get("hot-searches") hotSearches() { return this.config.hotSearches(); }
   @Get("models") models() { return this.config.models(); }
+  @Get("generation-providers") generationProviders() { return this.config.generationProviders(); }
   @Get("qualities") qualities() { return this.config.qualities(); }
   @Get("ratios") ratios() { return this.config.ratios(); }
   @Get("recharge-tiers") rechargeTiers() { return this.config.rechargeTiers(); }
@@ -65,6 +66,11 @@ export class AdminConfigController {
   @Post("models") createModel(@Body() b: Body_) { return this.config.createModel(b); }
   @Patch("models/:id") updateModel(@Param("id") id: string, @Body() b: Body_) { return this.config.updateModel(id, b); }
   @Delete("models/:id") deleteModel(@Param("id") id: string) { return this.config.deleteModel(id); }
+
+  // ---------- generation providers ----------
+  @Post("generation-providers") createGenerationProvider(@Body() b: Body_) { return this.config.createGenerationProvider(b); }
+  @Patch("generation-providers/:id") updateGenerationProvider(@Param("id") id: string, @Body() b: Body_) { return this.config.updateGenerationProvider(id, b); }
+  @Delete("generation-providers/:id") deleteGenerationProvider(@Param("id") id: string) { return this.config.deleteGenerationProvider(id); }
 
   // ---------- qualities ----------
   @Post("qualities") createQuality(@Body() b: Body_) { return this.config.createQuality(b); }

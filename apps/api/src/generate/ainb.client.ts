@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
+import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 
 type AinbConfig = {
   apiBase: string;
   imageApiKey: string;
+  params: Record<string, string>;
 };
 
 type AinbGenerateInput = {
@@ -44,8 +46,8 @@ export class AinbClient {
     return modelId === IMAGE_2_MODEL_ID && ["text-to-image", "image-to-image"].includes(mode) && Boolean(config.apiBase && config.imageApiKey);
   }
 
-  async submit(input: AinbGenerateInput) {
-    const config = this.getConfig();
+  async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {
+    const config = this.getConfig(runtime);
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
     const payload =
       input.mode === "image-to-image"
@@ -57,10 +59,8 @@ export class AinbClient {
               model: IMAGE_2_MODEL_ID,
               prompt: input.prompt,
               size: normalizeImage2Size(input.ratio, input.quality),
-              quality: "high",
               n: input.count,
-              response_format: "url",
-              output_format: "png"
+              ...pickProviderParams(config.params, ["quality", "output_format", "response_format", "moderation", "output_compression"])
             })
           });
     const record = asRecord(payload);
@@ -70,8 +70,8 @@ export class AinbClient {
     return { taskId };
   }
 
-  async waitForOutputs(taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void): Promise<Change2ProOutput[]> {
-    const config = this.getConfig();
+  async waitForOutputs(taskId: string, onInProgress?: (elapsedMs: number) => Promise<void> | void, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
+    const config = this.getConfig(runtime);
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
     const startedAt = Date.now();
     while (Date.now() - startedAt < GENERATION_TIMEOUT_MS) {
@@ -115,9 +115,9 @@ export class AinbClient {
     form.append("model", IMAGE_2_MODEL_ID);
     form.append("prompt", input.prompt);
     form.append("size", normalizeImage2Size(input.ratio, input.quality));
-    form.append("quality", "high");
     form.append("n", String(input.count));
-    form.append("response_format", "url");
+    Object.entries(pickProviderParams(config.params, ["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]))
+      .forEach(([key, value]) => form.append(key, String(value)));
     form.append("image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
     return this.requestJson(`${config.apiBase}/v1/images/edits?async=true`, {
       method: "POST",
@@ -154,11 +154,19 @@ export class AinbClient {
     return { ...this.authHeaders(apiKey), "Content-Type": "application/json; charset=utf-8" };
   }
 
-  private getConfig() {
-    const value = this.config.get<AinbConfig>("app.ainb");
+  private getConfig(runtime?: ProviderRuntimeConfig) {
+    if (runtime) {
+      return {
+        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        imageApiKey: runtime.apiKey,
+        params: runtime.params
+      };
+    }
+    const value = this.config.get<Omit<AinbConfig, "params">>("app.ainb");
     return {
       apiBase: (value?.apiBase || "https://ainb.plus").replace(/\/+$/, ""),
-      imageApiKey: value?.imageApiKey || ""
+      imageApiKey: value?.imageApiKey || "",
+      params: { quality: "high", response_format: "url", output_format: "png" }
     };
   }
 

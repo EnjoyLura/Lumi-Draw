@@ -49,6 +49,8 @@ export interface AdminWork {
 
 export interface AdminModel {
   id: string;
+  provider?: string;
+  providerModel?: string;
   name: string;
   desc: string;
   tags: string[];
@@ -87,6 +89,19 @@ export interface MemberPlan {
   ckBonus: number;
   milestoneBonus?: number;
   publishBonus?: number;
+}
+
+export interface AdminGenerationProvider {
+  id: string;
+  name: string;
+  adapter: "ainb" | "change2pro" | "kie";
+  baseUrl: string;
+  apiKeyEnv: string;
+  apiKeyConfigured: boolean;
+  requestParams: Record<string, string>;
+  modelIds: string[];
+  sort: number;
+  on: boolean;
 }
 
 export const IMG = (seed: string) => `https://picsum.photos/seed/${encodeURIComponent(seed)}/300/300`;
@@ -207,6 +222,12 @@ export const BANNERS: AdminBanner[] = [
   { id: 2, title: "GPT Image 2 全新上线", desc: "画质更细腻，理解力更强，创作效果飞跃提升", imageUrl: gptImage2Banner, action: "create-gpt-image-2", sort: 2, on: true },
   { id: 3, title: "发布作品送积分", desc: "发布原创作品即得50积分，被收藏额外奖励", imageUrl: publishRewardBanner, action: "publish", sort: 3, on: true },
   { id: 4, title: "会员限时5折", desc: "年度会员立减50%，每日生成次数翻倍不限量", imageUrl: membershipOfferBanner, action: "会员页", sort: 4, on: false }
+];
+
+export const GENERATION_PROVIDERS: AdminGenerationProvider[] = [
+  { id: "ainb", name: "Ainb", adapter: "ainb", baseUrl: "https://ainb.plus", apiKeyEnv: "AINB_IMAGE_API_KEY", apiKeyConfigured: true, requestParams: { quality: "high", response_format: "url", output_format: "png" }, modelIds: ["gpt2"], sort: 1, on: true },
+  { id: "change2pro", name: "Change2Pro Banana", adapter: "change2pro", baseUrl: "https://api.change2pro.com", apiKeyEnv: "CHANGE2PRO_BANANA_API_KEY", apiKeyConfigured: true, requestParams: {}, modelIds: ["nano"], sort: 2, on: true },
+  { id: "kie", name: "KIE", adapter: "kie", baseUrl: "https://api.kie.ai", apiKeyEnv: "KIE_API_KEY", apiKeyConfigured: true, requestParams: {}, modelIds: ["flux", "sdxl", "dalle3", "mj"], sort: 3, on: true }
 ];
 
 export const GAMEPLAYS: AdminGameplay[] = [

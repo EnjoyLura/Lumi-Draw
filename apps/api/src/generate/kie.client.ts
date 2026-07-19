@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { ModelConfig } from "@prisma/client";
+import type { ProviderRuntimeConfig } from "./provider-runtime";
 
 type KieConfig = {
   apiBase: string;
@@ -34,13 +35,13 @@ type KieTaskRecord = {
 export class KieClient {
   constructor(private readonly config: ConfigService) {}
 
-  isConfigured() {
-    const kie = this.config.get<KieConfig>("app.kie");
+  isConfigured(runtime?: ProviderRuntimeConfig) {
+    const kie = this.getConfig(runtime);
     return Boolean(kie?.apiBase && kie.apiKey);
   }
 
-  async submitGenerateJob(input: SubmitGenerateJobInput) {
-    const kie = this.config.getOrThrow<KieConfig>("app.kie");
+  async submitGenerateJob(input: SubmitGenerateJobInput, runtime?: ProviderRuntimeConfig) {
+    const kie = this.getConfig(runtime);
     if (!kie.apiKey) throw new Error("KIE_API_KEY is not configured");
 
     const body = this.buildCreateTaskBody(input, kie.callbackUrl);
@@ -65,8 +66,8 @@ export class KieClient {
     return { taskId, requestBody: body };
   }
 
-  async getTaskDetail(taskId: string) {
-    const kie = this.config.getOrThrow<KieConfig>("app.kie");
+  async getTaskDetail(taskId: string, runtime?: ProviderRuntimeConfig) {
+    const kie = this.getConfig(runtime);
     if (!kie.apiKey) throw new Error("KIE_API_KEY is not configured");
 
     const url = new URL(`${kie.apiBase.replace(/\/$/, "")}/api/v1/jobs/recordInfo`);
@@ -140,5 +141,17 @@ export class KieClient {
     const url = new URL(callbackUrl);
     url.searchParams.set("secret", secret);
     return url.toString();
+  }
+
+  private getConfig(runtime?: ProviderRuntimeConfig): KieConfig {
+    const configured = this.config.get<KieConfig>("app.kie");
+    if (runtime) {
+      return {
+        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        apiKey: runtime.apiKey,
+        callbackUrl: configured?.callbackUrl || ""
+      };
+    }
+    return configured ?? { apiBase: "https://api.kie.ai", apiKey: "", callbackUrl: "" };
   }
 }

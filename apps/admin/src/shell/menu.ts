@@ -28,6 +28,7 @@ export const DRAWER_MENU: DrawerGroup[] = [
     { id: "opsCategory", t: "分类管理", i: "ri-price-tag-3-line" },
     { id: "opsHotSearch", t: "热搜管理", i: "ri-fire-line" },
     { id: "opsModel", t: "模型管理", i: "ri-cpu-line" },
+    { id: "opsApiProvider", t: "API 平台", i: "ri-server-line" },
     { id: "opsQuality", t: "分辨率配置", i: "ri-hd-line" },
     { id: "opsRatio", t: "尺寸比例", i: "ri-aspect-ratio-line" }
   ] },

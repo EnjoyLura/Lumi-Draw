@@ -11,6 +11,7 @@ import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./
 import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
+import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
 type ProviderEvent = {
@@ -74,7 +75,7 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async onApplicationBootstrap() {
     const interrupted = await this.prisma.generateJob.findMany({
-      where: { provider: "change2pro", status: { in: ["queued", "running", "finalizing"] } },
+      where: { OR: [{ providerAdapter: "change2pro" }, { providerAdapter: "", provider: "change2pro" }], status: { in: ["queued", "running", "finalizing"] } },
       select: { id: true }
     });
     for (const job of interrupted) {
@@ -85,7 +86,7 @@ export class GenerateService implements OnApplicationBootstrap {
 
   private async resumeAinbJobsAfterRestart() {
     const jobs = await this.prisma.generateJob.findMany({
-      where: { provider: "ainb", status: { in: ["queued", "running", "finalizing"] } },
+      where: { OR: [{ providerAdapter: "ainb" }, { providerAdapter: "", provider: "ainb" }], status: { in: ["queued", "running", "finalizing"] } },
       include: { results: true }
     });
     for (const job of jobs) {
@@ -110,6 +111,19 @@ export class GenerateService implements OnApplicationBootstrap {
     }
   }
 
+  private providerAdapter(job: GenerateJob) {
+    return job.providerAdapter || job.provider;
+  }
+
+  private providerRuntime(job: GenerateJob): ProviderRuntimeConfig | undefined {
+    if (!job.providerBaseUrl || !job.providerApiKeyEnv) return undefined;
+    return {
+      apiBase: job.providerBaseUrl,
+      apiKey: process.env[job.providerApiKeyEnv] || "",
+      params: normalizeProviderParams(job.providerParams)
+    };
+  }
+
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
     const normalized = this.normalizeCreateDto(dto);
     const [model, quality, ratio] = await Promise.all([
@@ -125,9 +139,13 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
 
-    const useAinb = this.ainb.isConfiguredFor(model.id, normalized.mode);
-    const useChange2Pro = !useAinb && this.change2pro.isConfiguredFor(model.id);
-    if ((useAinb || useChange2Pro) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
+    const provider = await this.prisma.generationProvider.findFirst({ where: { id: model.provider, enabled: true } });
+    if (!provider) throw new BadRequestException("该模型暂未配置可用的 API 平台");
+    const apiKey = process.env[provider.apiKeyEnv] || "";
+    if (!apiKey) throw new BadRequestException("该模型的 API 密钥尚未配置");
+    if (provider.adapter === "ainb" && model.id !== "gpt-image-2") throw new BadRequestException("当前 API 平台不支持该模型");
+    if (provider.adapter === "change2pro" && !this.change2pro.providerModel(model.id)) throw new BadRequestException("当前 API 平台不支持该模型");
+    if (["ainb", "change2pro"].includes(provider.adapter) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
       // Serialize per user so rapid taps and parallel clients cannot consume credits twice.
@@ -143,8 +161,12 @@ export class GenerateService implements OnApplicationBootstrap {
           userId,
           mode: normalized.mode,
           modelId: model.id,
-          provider: useAinb ? "ainb" : useChange2Pro ? "change2pro" : model.provider,
-          providerModel: useAinb ? "gpt-image-2" : useChange2Pro ? this.change2pro.providerModel(model.id) || model.providerModel : model.providerModel,
+          provider: provider.id,
+          providerAdapter: provider.adapter,
+          providerBaseUrl: provider.baseUrl,
+          providerApiKeyEnv: provider.apiKeyEnv,
+          providerParams: normalizeProviderParams(provider.requestParams),
+          providerModel: model.providerModel,
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
           gameplayId: normalized.gameplayId,
@@ -360,10 +382,11 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async syncProviderJob(job: JobWithResults) {
-    if (job.provider !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured()) return job;
+    const runtime = this.providerRuntime(job);
+    if (this.providerAdapter(job) !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured(runtime)) return job;
 
     try {
-      const detail = await this.kie.getTaskDetail(job.kieTaskId);
+      const detail = await this.kie.getTaskDetail(job.kieTaskId, runtime);
       const event = this.normalizeCallback({ data: { ...detail, taskId: detail.taskId || job.kieTaskId } });
       if (!event.taskId) event.taskId = job.kieTaskId;
       if (event.taskId !== job.kieTaskId) return job;
@@ -469,7 +492,9 @@ export class GenerateService implements OnApplicationBootstrap {
     }
 
     const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
-    if (this.ainb.isConfiguredFor(model.id, job.mode)) {
+    const adapter = this.providerAdapter(job);
+    const runtime = this.providerRuntime(job);
+    if (adapter === "ainb") {
       try {
         const submitted = await this.ainb.submit({
           mode: job.mode,
@@ -478,11 +503,12 @@ export class GenerateService implements OnApplicationBootstrap {
           ratio: job.ratio,
           quality: job.quality,
           count: job.count
-        });
+        }, runtime);
         const updated = await this.prisma.generateJob.update({
           where: { id: job.id },
           data: {
-            provider: "ainb",
+            provider: job.provider,
+            providerAdapter: "ainb",
             providerModel: "gpt-image-2",
             kieTaskId: submitted.taskId,
             status: "running",
@@ -502,11 +528,12 @@ export class GenerateService implements OnApplicationBootstrap {
       }
     }
 
-    if (this.change2pro.isConfiguredFor(model.id)) {
+    if (adapter === "change2pro") {
       const updated = await this.prisma.generateJob.update({
         where: { id: job.id },
         data: {
-          provider: "change2pro",
+          provider: job.provider,
+          providerAdapter: "change2pro",
           providerModel: this.change2pro.providerModel(model.id) || model.providerModel,
           status: "running",
           progress: 5,
@@ -521,7 +548,7 @@ export class GenerateService implements OnApplicationBootstrap {
       return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
     }
 
-    if (!this.kie.isConfigured()) {
+    if (adapter !== "kie" || !this.kie.isConfigured(runtime)) {
       return { job, id: job.id, status: job.status, creditsAfter: undefined as number | undefined };
     }
 
@@ -535,7 +562,7 @@ export class GenerateService implements OnApplicationBootstrap {
         ratio: job.ratio,
         quality: job.quality,
         count: job.count
-      });
+      }, runtime);
       const updated = await this.prisma.generateJob.update({
         where: { id: job.id },
         data: {
@@ -564,7 +591,7 @@ export class GenerateService implements OnApplicationBootstrap {
       ratio: job.ratio,
       quality: job.quality,
       count: job.count
-    });
+    }, this.providerRuntime(job));
     const results = await this.storeChange2ProOutputs(outputs);
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
     if (TERMINAL_STATUSES.has(current.status)) return current;
@@ -581,7 +608,7 @@ export class GenerateService implements OnApplicationBootstrap {
         where: { id: job.id, status: "running" },
         data: { progress, stageText: "AI 正在生成中" }
       });
-    });
+    }, this.providerRuntime(job));
     if (this.imageTransfer.isConfigured() && outputs.every((output) => Boolean(output.url))) {
       return this.startAinbImageTransfer(job, outputs);
     }
@@ -624,7 +651,7 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!this.imageTransfer.matchesToken(token)) throw new UnauthorizedException("invalid image transfer token");
     if (!input.jobId || !input.resultId || !input.objectKey) throw new BadRequestException("invalid image transfer callback");
     const job = await this.prisma.generateJob.findUnique({ where: { id: input.jobId }, include: { results: true } });
-    if (!job || job.provider !== "ainb" || job.status !== "finalizing") return { ok: true };
+    if (!job || this.providerAdapter(job) !== "ainb" || job.status !== "finalizing") return { ok: true };
     const result = job.results.find((item) => item.id === input.resultId);
     if (!result || result.ossKey !== input.objectKey) throw new BadRequestException("image transfer result does not match job");
 

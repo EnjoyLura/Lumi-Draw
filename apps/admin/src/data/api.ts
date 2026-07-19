@@ -1,6 +1,6 @@
 // Real API adapter: maps backend responses into the shapes already used by pages.
 import { http, type Paginated } from "./http";
-import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
+import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminGenerationProvider, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -470,7 +470,7 @@ function modelTags(tags: string[] | string) {
 }
 
 function mapModelConfig(m: ApiModelConfig): AdminModel {
-  return { id: m.id, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+  return { id: m.id, provider: m.provider, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
 }
 
 export async function apiGetModels() {
@@ -481,8 +481,8 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
   const modelId = id || values.id || `model-${Date.now()}`;
   const body = {
     id: modelId,
-    provider: "kie",
-    providerModel: modelId,
+    provider: values.provider || "kie",
+    providerModel: values.providerModel || modelId,
     name: values.name,
     description: values.desc,
     tags: values.tags,
@@ -493,6 +493,48 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
     supportsImageToImage: true
   };
   return mapModelConfig(id ? await http.patch<ApiModelConfig>(`/admin/models/${id}`, body) : await http.post<ApiModelConfig>("/admin/models", body));
+}
+
+interface ApiGenerationProvider {
+  id: string;
+  name: string;
+  adapter: "ainb" | "change2pro" | "kie";
+  baseUrl: string;
+  apiKeyEnv: string;
+  apiKeyConfigured: boolean;
+  requestParams: Record<string, string>;
+  modelIds: string[];
+  enabled: boolean;
+  sort: number;
+}
+
+function mapGenerationProvider(provider: ApiGenerationProvider): AdminGenerationProvider {
+  return { ...provider, requestParams: provider.requestParams || {}, modelIds: provider.modelIds || [], on: provider.enabled };
+}
+
+export async function apiGetGenerationProviders() {
+  return (await http.get<ApiGenerationProvider[]>("/admin/generation-providers")).map(mapGenerationProvider);
+}
+
+export async function apiSaveGenerationProvider(id: string, values: AdminGenerationProvider) {
+  const body = {
+    id: values.id,
+    name: values.name,
+    adapter: values.adapter,
+    baseUrl: values.baseUrl,
+    apiKeyEnv: values.apiKeyEnv,
+    requestParams: values.requestParams,
+    modelIds: values.modelIds,
+    enabled: values.on,
+    sort: values.sort
+  };
+  return mapGenerationProvider(id
+    ? await http.patch<ApiGenerationProvider>(`/admin/generation-providers/${id}`, body)
+    : await http.post<ApiGenerationProvider>("/admin/generation-providers", body));
+}
+
+export async function apiDeleteGenerationProvider(id: string) {
+  return http.del<ApiGenerationProvider>(`/admin/generation-providers/${id}`);
 }
 
 export async function apiDeleteModel(id: string) {

@@ -87,3 +87,35 @@ test("submits Ainb image edits as async multipart requests", async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+test("uses runtime platform config and omits unsupported optional parameters", async () => {
+  const originalFetch = globalThis.fetch;
+  let request: { url: string; headers?: RequestInit["headers"]; body?: string } | undefined;
+  globalThis.fetch = async (input, init) => {
+    request = { url: String(input), headers: init?.headers, body: String(init?.body) };
+    return jsonResponse({ task_id: "runtime-task" });
+  };
+
+  try {
+    await client().submit({
+      mode: "text-to-image",
+      prompt: "测试参数",
+      inputImageUrl: "",
+      ratio: "1:1",
+      quality: "1K",
+      count: 1
+    }, {
+      apiBase: "https://backup.example.com",
+      apiKey: "backup-key",
+      params: { response_format: "url" }
+    });
+    const payload = JSON.parse(request?.body || "{}") as Record<string, unknown>;
+    assert.equal(request?.url, "https://backup.example.com/v1/images/generations?async=true");
+    assert.equal((request?.headers as Record<string, string>)?.Authorization, "Bearer backup-key");
+    assert.equal(payload.response_format, "url");
+    assert.equal("quality" in payload, false);
+    assert.equal("output_format" in payload, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

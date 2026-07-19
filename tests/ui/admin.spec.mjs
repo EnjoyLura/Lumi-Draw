@@ -72,3 +72,22 @@ test("admin gameplay and style forms provide image upload", async ({ page }) => 
   await expect(page.locator(".sheet.show").getByText("封面图", { exact: true })).toBeVisible();
   await expect(page.locator('.sheet.show input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
 });
+
+test("admin manages generation API platforms and model bindings", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".nav-header .nav-btn").click();
+  await page.locator(".drawer.show .ditem", { hasText: "API 平台" }).click();
+  const ainbCard = page.locator(".page-body .card", { hasText: "Ainb" }).first();
+  await expect(ainbCard).toBeVisible();
+  await expect(ainbCard.getByText("密钥已配置", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "新增 API 平台" }).click();
+
+  const sheet = page.locator(".sheet.show");
+  await expect(sheet.getByText("接口类型", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("生效的创作模型", { exact: true })).toBeVisible();
+  await expect(sheet.getByText("可选请求参数", { exact: true })).toBeVisible();
+  await expect(sheet.locator('input[type="checkbox"]')).toHaveCount(MODEL_COUNT);
+  await expect(sheet.getByRole("button", { name: "保存" })).toBeVisible();
+});
+
+const MODEL_COUNT = 6;

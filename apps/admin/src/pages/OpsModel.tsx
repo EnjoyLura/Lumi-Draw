@@ -29,7 +29,9 @@ function ModelForm({ id, item, useMock, onSaved }: { id: string; item?: AdminMod
       desc,
       tags: tags.split(/[、,，]/).map((s) => s.trim()).filter(Boolean),
       cost: parseInt(cost) || 0,
-      badge: badge === "无" ? "" : badge
+      badge: badge === "无" ? "" : badge,
+      provider: m?.provider,
+      providerModel: m?.providerModel
     };
     setSaving(true);
     try {

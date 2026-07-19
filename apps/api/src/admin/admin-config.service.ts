@@ -5,6 +5,8 @@ import { UploadsService } from "../uploads/uploads.service";
 type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
 const bySort = { orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
+const GENERATION_PROVIDER_ADAPTERS = new Set(["ainb", "change2pro", "kie"]);
+const GENERATION_PARAM_KEYS = new Set(["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]);
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -87,6 +89,17 @@ export class AdminConfigService {
   }
   models() {
     return this.prisma.modelConfig.findMany(bySort);
+  }
+  async generationProviders() {
+    const [providers, models] = await Promise.all([
+      this.prisma.generationProvider.findMany(bySort),
+      this.prisma.modelConfig.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, name: true, provider: true } })
+    ]);
+    return providers.map((provider) => ({
+      ...provider,
+      modelIds: models.filter((model) => model.provider === provider.id).map((model) => model.id),
+      apiKeyConfigured: Boolean(process.env[provider.apiKeyEnv])
+    }));
   }
   qualities() {
     return this.prisma.qualityConfig.findMany(bySort);
@@ -192,6 +205,112 @@ export class AdminConfigService {
   }
   deleteModel(id: string) {
     return this.prisma.modelConfig.delete({ where: { id } });
+  }
+
+  // ---------- 生图 API 平台 ----------
+  async createGenerationProvider(body: Record<string, unknown>) {
+    const data = this.normalizeGenerationProvider(body, true);
+    this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
+    await this.assertProviderModels(data.provider.adapter, data.modelIds);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.generationProvider.create({ data: data.provider as never });
+      if (data.modelIds.length) {
+        await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: data.provider.id } });
+      }
+    });
+    return this.generationProvider(data.provider.id);
+  }
+
+  async updateGenerationProvider(id: string, body: Record<string, unknown>) {
+    const current = await this.prisma.generationProvider.findUnique({ where: { id } });
+    if (!current) throw new BadRequestException("API 平台不存在");
+    const data = this.normalizeGenerationProvider({ ...current, ...body, id }, false);
+    this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
+    await this.assertProviderModels(data.provider.adapter, data.modelIds);
+    if (!data.provider.enabled) {
+      const activeModels = await this.prisma.modelConfig.count({ where: { provider: id, enabled: true } });
+      if (activeModels) throw new BadRequestException("请先把生效模型切换到其他 API 平台");
+    }
+    await this.prisma.$transaction(async (tx) => {
+      const { id: _id, ...providerData } = data.provider;
+      await tx.generationProvider.update({ where: { id }, data: providerData as never });
+      if (data.modelIds.length) {
+        await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: id } });
+      }
+      if (id !== "kie") {
+        await tx.modelConfig.updateMany({ where: { provider: id, id: { notIn: data.modelIds } }, data: { provider: "kie" } });
+      }
+    });
+    return this.generationProvider(id);
+  }
+
+  async deleteGenerationProvider(id: string) {
+    const activeModels = await this.prisma.modelConfig.count({ where: { provider: id } });
+    if (activeModels) throw new BadRequestException("请先把关联模型切换到其他 API 平台");
+    return this.prisma.generationProvider.delete({ where: { id } });
+  }
+
+  private async generationProvider(id: string) {
+    const provider = await this.prisma.generationProvider.findUniqueOrThrow({ where: { id } });
+    const models = await this.prisma.modelConfig.findMany({ where: { provider: id }, orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true } });
+    return { ...provider, modelIds: models.map((model) => model.id), apiKeyConfigured: Boolean(process.env[provider.apiKeyEnv]) };
+  }
+
+  private normalizeGenerationProvider(body: Record<string, unknown>, creating: boolean) {
+    requireFields(body, ["id", "name", "adapter", "baseUrl", "apiKeyEnv"]);
+    const id = String(body.id).trim().toLowerCase();
+    const adapter = String(body.adapter).trim();
+    const baseUrl = String(body.baseUrl).trim().replace(/\/+$/, "");
+    const apiKeyEnv = String(body.apiKeyEnv).trim();
+    if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
+    if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
+    try {
+      const url = new URL(baseUrl);
+      if (url.protocol !== "https:") throw new Error();
+    } catch {
+      throw new BadRequestException("Base URL 必须是有效的 HTTPS 地址");
+    }
+    if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(apiKeyEnv)) throw new BadRequestException("密钥变量名格式不正确");
+    const rawParams = body.requestParams && typeof body.requestParams === "object" && !Array.isArray(body.requestParams)
+      ? body.requestParams as Record<string, unknown>
+      : {};
+    const requestParams = Object.fromEntries(
+      Object.entries(rawParams)
+        .filter(([key, value]) => GENERATION_PARAM_KEYS.has(key) && value !== undefined && value !== null && String(value).trim())
+        .map(([key, value]) => [key, String(value).trim()])
+    );
+    const modelIds = Array.isArray(body.modelIds) ? [...new Set(body.modelIds.map(String).filter(Boolean))] : [];
+    return {
+      provider: {
+        id,
+        name: String(body.name).trim(),
+        adapter,
+        baseUrl,
+        apiKeyEnv,
+        requestParams,
+        enabled: body.enabled === undefined ? creating : Boolean(body.enabled),
+        sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0
+      },
+      modelIds
+    };
+  }
+
+  private async assertProviderModels(adapter: string, modelIds: string[]) {
+    if (!modelIds.length) return;
+    const models = await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true } });
+    if (models.length !== modelIds.length) throw new BadRequestException("包含不存在的创作模型");
+    if (adapter === "ainb" && modelIds.some((id) => id !== "gpt-image-2")) {
+      throw new BadRequestException("Ainb 异步接口当前只支持 GPT Image 2");
+    }
+    if (adapter === "change2pro" && modelIds.some((id) => !["gpt-image-2", "nano-banana-2", "nano-banana-pro"].includes(id))) {
+      throw new BadRequestException("OpenAI Images 兼容接口暂不支持所选模型");
+    }
+  }
+
+  private assertEnabledProviderBindings(enabled: boolean, modelIds: string[]) {
+    if (!enabled && modelIds.length) {
+      throw new BadRequestException("停用平台不能绑定创作模型");
+    }
   }
 
   // ---------- 协议 / 键值设置 ----------

@@ -55,10 +55,10 @@ const hotSearches = [
 
 // 真实接入的 KIE 模型（见 agent.md 接入模型）
 const models = [
-  { id: "gpt-image-2", providerModel: "gpt-image-2", name: "GPT Image 2", description: "画质细腻·理解力强", tags: ["写实", "高清"], costCredits: 15, badge: "推荐", supportsTextToImage: true, supportsImageToImage: true, sort: 1 },
-  { id: "nano-banana-2", providerModel: "nano-banana-2", name: "Nano Banana 2", description: "速度极快·性价比高", tags: ["快速", "全能"], costCredits: 8, badge: "性价比", supportsTextToImage: true, supportsImageToImage: true, sort: 2 },
-  { id: "nano-banana-pro", providerModel: "nano-banana-pro", name: "Nano Banana Pro", description: "专业级细节·高保真输出", tags: ["专业", "高保真"], costCredits: 18, badge: "NEW", supportsTextToImage: true, supportsImageToImage: true, sort: 3 },
-  { id: "seedream-4-5", providerModel: "seedream-4-5", name: "Seedream 4.5", description: "艺术感强·风格多样", tags: ["艺术", "多样"], costCredits: 12, badge: "", supportsTextToImage: true, supportsImageToImage: true, sort: 4 }
+  { id: "gpt-image-2", provider: "ainb", providerModel: "gpt-image-2", name: "GPT Image 2", description: "画质细腻·理解力强", tags: ["写实", "高清"], costCredits: 15, badge: "推荐", supportsTextToImage: true, supportsImageToImage: true, sort: 1 },
+  { id: "nano-banana-2", provider: "change2pro", providerModel: "nano-banana-2", name: "Nano Banana 2", description: "速度极快·性价比高", tags: ["快速", "全能"], costCredits: 8, badge: "性价比", supportsTextToImage: true, supportsImageToImage: true, sort: 2 },
+  { id: "nano-banana-pro", provider: "change2pro", providerModel: "nano-banana-pro", name: "Nano Banana Pro", description: "专业级细节·高保真输出", tags: ["专业", "高保真"], costCredits: 18, badge: "NEW", supportsTextToImage: true, supportsImageToImage: true, sort: 3 },
+  { id: "seedream-4-5", provider: "kie", providerModel: "seedream-4-5", name: "Seedream 4.5", description: "艺术感强·风格多样", tags: ["艺术", "多样"], costCredits: 12, badge: "", supportsTextToImage: true, supportsImageToImage: true, sort: 4 }
 ];
 
 const qualities = [

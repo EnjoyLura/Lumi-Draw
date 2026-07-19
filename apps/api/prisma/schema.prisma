@@ -103,6 +103,22 @@ model ModelConfig {
   @@map("model_configs")
 }
 
+// 生图 API 平台 GenerationProvider
+model GenerationProvider {
+  id            String   @id
+  name          String
+  adapter       String
+  baseUrl       String
+  apiKeyEnv     String
+  requestParams Json
+  enabled       Boolean  @default(true)
+  sort          Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("generation_providers")
+}
+
 // 分辨率配置 QualityConfig
 model QualityConfig {
   id         Int      @id @default(autoincrement())
@@ -456,6 +472,10 @@ model GenerateJob {
   mode          String   // text-to-image | image-to-image
   modelId       String
   provider      String   @default("kie")
+  providerAdapter String @default("")
+  providerBaseUrl String @default("")
+  providerApiKeyEnv String @default("")
+  providerParams Json?
   providerModel String   @default("")
   prompt        String
   inputImageUrl String   @default("")

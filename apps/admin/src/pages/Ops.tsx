@@ -80,6 +80,7 @@ export function Ops() {
     ["opsCategory", "分类管理", "ri-price-tag-3-line", "#8B7FD6", `${summary.categories} 个分类`],
     ["opsHotSearch", "热搜管理", "ri-fire-line", "#F59E0B", `${summary.hotSearches} 个热词`],
     ["opsModel", "模型管理", "ri-cpu-line", "#EF4444", `${summary.models} 个模型`],
+    ["opsApiProvider", "API 平台", "ri-server-line", "#5B9FE8", "切换模型接口"],
     ["opsQuality", "分辨率配置", "ri-hd-line", "#5B9FE8", `${summary.qualities} 个档位`],
     ["opsRatio", "尺寸比例", "ri-aspect-ratio-line", "#6FD4B0", `${summary.ratios} 种比例`],
     ["opsCreatorTitle", "创作者称号", "ri-medal-line", "#F59E0B", "6 个档位"]

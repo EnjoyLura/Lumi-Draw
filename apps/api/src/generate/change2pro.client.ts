@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 
 type Change2ProConfig = {
   apiBase: string;
@@ -103,33 +104,29 @@ export class Change2ProClient {
     return resolveChange2ProModel(modelId)?.providerModel;
   }
 
-  async generate(input: Change2ProGenerateInput): Promise<Change2ProOutput[]> {
+  async generate(input: Change2ProGenerateInput, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
     const route = resolveChange2ProModel(input.modelId);
-    if (!route || !this.isConfiguredFor(input.modelId)) throw new Error("Change2Pro provider is not configured for this model");
+    if (!route || !(runtime ? runtime.apiBase && runtime.apiKey : this.isConfiguredFor(input.modelId))) throw new Error("Change2Pro provider is not configured for this model");
     if (input.mode === "image-to-image" && !input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-    return route.kind === "image2" ? this.generateImage2(input) : this.generateBanana(input, route.providerModel);
+    return route.kind === "image2" ? this.generateImage2(input, runtime) : this.generateBanana(input, route.providerModel, runtime);
   }
 
-  private async generateImage2(input: Change2ProGenerateInput): Promise<Change2ProOutput[]> {
-    const config = this.getConfig();
+  private async generateImage2(input: Change2ProGenerateInput, runtime?: ProviderRuntimeConfig): Promise<Change2ProOutput[]> {
+    const config = this.getConfig(runtime);
     const endpoint = input.mode === "image-to-image" ? "/images/edits" : "/images/generations";
     let payload: Record<string, unknown>;
 
     if (input.mode === "image-to-image") {
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
-      payload = await this.requestImage2Form(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input, reference);
+      payload = await this.requestImage2Form(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input, reference, config.params);
     } else {
       payload = await this.requestImage2Json(this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input.jobId, {
         model: "gpt-image-2",
         prompt: input.prompt,
         n: input.count,
         size: normalizeImage2Size(input.ratio, input.quality),
-        quality: "high",
-        moderation: "low",
-        output_format: IMAGE_2_OUTPUT_FORMAT,
-        output_compression: IMAGE_2_OUTPUT_COMPRESSION,
         transparent_output: false,
-        response_format: "url"
+        ...pickProviderParams(config.params, ["quality", "moderation", "output_format", "output_compression", "response_format"])
       });
     }
 
@@ -156,25 +153,23 @@ export class Change2ProClient {
     url: string,
     apiKey: string,
     input: Change2ProGenerateInput,
-    reference: { buffer: Buffer; contentType: string }
+    reference: { buffer: Buffer; contentType: string },
+    params: Record<string, string>
   ) {
     return this.requestImage2WithCurl(url, apiKey, input.jobId, async (temp) => {
       const referencePath = join(temp, `reference.${this.extension(reference.contentType)}`);
       await writeFile(referencePath, reference.buffer);
-      return [
+      const args = [
         "--form-string", "model=gpt-image-2",
         "--form-string", `prompt=${input.prompt}`,
         "--form-string", `n=${input.count}`,
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
-        "--form-string", "quality=high",
-        "--form-string", "input_fidelity=high",
-        "--form-string", "moderation=low",
-        "--form-string", `output_format=${IMAGE_2_OUTPUT_FORMAT}`,
-        "--form-string", `output_compression=${IMAGE_2_OUTPUT_COMPRESSION}`,
         "--form-string", "transparent_output=false",
-        "--form-string", "response_format=url",
-        "--form", `image=@${referencePath};type=${reference.contentType}`
       ];
+      Object.entries(pickProviderParams(params, ["quality", "input_fidelity", "moderation", "output_format", "output_compression", "response_format"]))
+        .forEach(([key, value]) => args.push("--form-string", `${key}=${value}`));
+      args.push("--form", `image=@${referencePath};type=${reference.contentType}`);
+      return args;
     });
   }
 
@@ -289,8 +284,8 @@ export class Change2ProClient {
     return `${versionedBase}${path}`;
   }
 
-  private async generateBanana(input: Change2ProGenerateInput, providerModel: string) {
-    const config = this.getConfig();
+  private async generateBanana(input: Change2ProGenerateInput, providerModel: string, runtime?: ProviderRuntimeConfig) {
+    const config = this.getConfig(runtime);
     const reference = input.mode === "image-to-image" ? await this.downloadReferenceImage(input.inputImageUrl) : undefined;
     const outputs: Change2ProOutput[] = [];
 
@@ -385,12 +380,28 @@ export class Change2ProClient {
     return payload;
   }
 
-  private getConfig() {
+  private getConfig(runtime?: ProviderRuntimeConfig) {
+    if (runtime) {
+      return {
+        apiBase: runtime.apiBase.replace(/\/+$/, ""),
+        imageApiKey: runtime.apiKey,
+        bananaApiKey: runtime.apiKey,
+        params: runtime.params
+      };
+    }
     const value = this.config.get<Change2ProConfig>("app.change2pro");
     return {
       apiBase: (value?.apiBase || "https://api.change2pro.com").replace(/\/$/, ""),
       imageApiKey: value?.imageApiKey || "",
-      bananaApiKey: value?.bananaApiKey || ""
+      bananaApiKey: value?.bananaApiKey || "",
+      params: {
+        quality: "high",
+        input_fidelity: "high",
+        moderation: "low",
+        output_format: IMAGE_2_OUTPUT_FORMAT,
+        output_compression: String(IMAGE_2_OUTPUT_COMPRESSION),
+        response_format: "url"
+      }
     };
   }
 
