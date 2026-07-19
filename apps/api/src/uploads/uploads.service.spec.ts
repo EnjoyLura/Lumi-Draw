@@ -31,22 +31,22 @@ test("builds lightweight admin thumbnails from OSS origin URLs", () => {
   assert.match(decodeURIComponent(url), /image\/resize,w_480\/quality,q_70\/format,webp/);
 });
 
-test("builds 640px Q90 WebP images for work cards", () => {
+test("builds 640px Q95 WebP images for work cards", () => {
   const url = service().readResponsiveImageUrl(
     "https://bucket.oss.example.com/uploads/work/image.png",
     "public"
   );
 
-  assert.match(decodeURIComponent(url), /image\/resize,w_640\/quality,Q_90\/format,webp/);
+  assert.match(decodeURIComponent(url), /image\/resize,w_640\/quality,Q_95\/format,webp/);
 });
 
-test("builds non-cropping 2048px Q90 WebP images for work detail and full-screen previews", () => {
+test("builds non-cropping 2048px Q95 WebP images for work detail and full-screen previews", () => {
   const url = service().readDetailPreviewImageUrl(
     "https://bucket.oss.example.com/uploads/work/image.png",
     "public"
   );
 
-  assert.match(decodeURIComponent(url), /image\/resize,m_lfit,w_2048,h_2048\/quality,Q_90\/format,webp/);
+  assert.match(decodeURIComponent(url), /image\/resize,m_lfit,w_2048,h_2048\/quality,Q_95\/format,webp/);
 });
 
 test("reprocesses historical CDN URLs instead of leaving the original image", () => {
