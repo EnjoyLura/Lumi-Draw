@@ -36,28 +36,49 @@ export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, so
     : work;
   const seedUser = cached ? { ...cached.user, ...user } : user;
   primeWorkDetailSnapshot(seedWork, seedUser);
-  const sourceRect = sourceId ? await getSourceRect(sourceId, sourceContext) : null;
+  let sourceRect: WorkDetailSourceRect | null = null;
+  if (sourceId) {
+    try {
+      sourceRect = await getSourceRect(sourceId, sourceContext);
+    } catch {
+      // Coordinate lookup must never block opening the detail overlay.
+    }
+  }
   uni.$emit(WORK_DETAIL_OVERLAY_OPEN_EVENT, { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload);
 }
 
 function getSourceRect(sourceId: string, sourceContext?: object | null) {
   return new Promise<WorkDetailSourceRect | null>((resolve) => {
-    const query = uni.createSelectorQuery();
-    const scopedQuery = sourceContext ? query.in(sourceContext as never) : query;
-    scopedQuery
-      .select(`#${sourceId}`)
-      .boundingClientRect((result) => {
-        const rect = Array.isArray(result) ? result[0] : result;
-        const left = Number(rect?.left);
-        const top = Number(rect?.top);
-        const width = Number(rect?.width);
-        const height = Number(rect?.height);
-        if (!Number.isFinite(left) || !Number.isFinite(top) || !width || !height) {
-          resolve(null);
-          return;
-        }
-        resolve({ left, top, width, height });
-      })
-      .exec();
+    let settled = false;
+    const finish = (rect: WorkDetailSourceRect | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(watchdog);
+      resolve(rect);
+    };
+    const watchdog = setTimeout(() => finish(null), 120);
+
+    try {
+      const query = uni.createSelectorQuery();
+      const context = (sourceContext as { $scope?: object } | null | undefined)?.$scope ?? sourceContext;
+      const scopedQuery = context ? query.in(context as never) : query;
+      scopedQuery
+        .select(`#${sourceId}`)
+        .boundingClientRect((result) => {
+          const rect = Array.isArray(result) ? result[0] : result;
+          const left = Number(rect?.left);
+          const top = Number(rect?.top);
+          const width = Number(rect?.width);
+          const height = Number(rect?.height);
+          if (!Number.isFinite(left) || !Number.isFinite(top) || !width || !height) {
+            finish(null);
+            return;
+          }
+          finish({ left, top, width, height });
+        })
+        .exec();
+    } catch {
+      finish(null);
+    }
   });
 }
