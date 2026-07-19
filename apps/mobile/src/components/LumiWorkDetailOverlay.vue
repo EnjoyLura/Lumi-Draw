@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import WorkDetailPage from "../pages/work-detail/index.vue";
 import { getNavigationMetrics } from "../services/navigationMetrics";
 import {
-  WORK_DETAIL_OVERLAY_OPEN_EVENT,
+  registerWorkDetailOverlay,
   type WorkDetailOverlayOpenPayload,
   type WorkDetailSourceRect
 } from "../services/workDetailNavigation";
@@ -30,6 +30,7 @@ let openTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let contentTimer: ReturnType<typeof setTimeout> | undefined;
 let handoffTimer: ReturnType<typeof setTimeout> | undefined;
+let unregisterOverlay: (() => void) | undefined;
 
 const surfaceStyle = computed(() => {
   const source = sourceRect.value;
@@ -52,28 +53,16 @@ const surfaceStyle = computed(() => {
 });
 
 onMounted(() => {
-  uni.$on(WORK_DETAIL_OVERLAY_OPEN_EVENT, openOverlay);
+  unregisterOverlay = registerWorkDetailOverlay(props.ownerRoute, openOverlay);
 });
 
 onBeforeUnmount(() => {
-  uni.$off(WORK_DETAIL_OVERLAY_OPEN_EVENT, openOverlay);
+  unregisterOverlay?.();
+  unregisterOverlay = undefined;
   clearTimers();
 });
 
-function currentRoute() {
-  try {
-    const pages = getCurrentPages();
-    const current = pages[pages.length - 1] as { route?: string } | undefined;
-    if (current?.route) return current.route.replace(/^\/+/, "");
-  } catch {
-    // H5 falls through to the hash route.
-  }
-  if (typeof window === "undefined") return "";
-  return window.location.hash.replace(/^#\/?/, "").split("?")[0].replace(/^\/+/, "");
-}
-
 function openOverlay(payload: WorkDetailOverlayOpenPayload) {
-  if (currentRoute() !== props.ownerRoute.replace(/^\/+/, "")) return;
   clearTimers();
   isOpen.value = false;
   backGuardVisible.value = false;

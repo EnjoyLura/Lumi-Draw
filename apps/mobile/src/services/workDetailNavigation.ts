@@ -1,8 +1,6 @@
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
 import { getWorkDetailSnapshot, primeWorkDetailPreview, primeWorkDetailSnapshot } from "./workDetailPreviewCache";
 
-export const WORK_DETAIL_OVERLAY_OPEN_EVENT = "lumi:work-detail-overlay-open";
-
 export interface WorkDetailOverlayOpenPayload {
   work: HomeWork;
   user: HomeUser;
@@ -14,6 +12,21 @@ export interface WorkDetailSourceRect {
   top: number;
   width: number;
   height: number;
+}
+
+type WorkDetailOverlayHandler = (payload: WorkDetailOverlayOpenPayload) => void;
+
+const overlayHandlers = new Map<string, Set<WorkDetailOverlayHandler>>();
+
+export function registerWorkDetailOverlay(ownerRoute: string, handler: WorkDetailOverlayHandler) {
+  const route = normalizeRoute(ownerRoute);
+  const handlers = overlayHandlers.get(route) ?? new Set<WorkDetailOverlayHandler>();
+  handlers.add(handler);
+  overlayHandlers.set(route, handlers);
+  return () => {
+    handlers.delete(handler);
+    if (!handlers.size) overlayHandlers.delete(route);
+  };
 }
 
 /**
@@ -44,7 +57,35 @@ export async function openPreloadedWorkDetail(work: HomeWork, user: HomeUser, so
       // Coordinate lookup must never block opening the detail overlay.
     }
   }
-  uni.$emit(WORK_DETAIL_OVERLAY_OPEN_EVENT, { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload);
+  const payload = { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload;
+  if (!openRegisteredOverlay(payload)) {
+    uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  }
+}
+
+function openRegisteredOverlay(payload: WorkDetailOverlayOpenPayload) {
+  const handlers = overlayHandlers.get(currentRoute());
+  const handlerList = handlers ? Array.from(handlers) : [];
+  const handler = handlerList[handlerList.length - 1];
+  if (!handler) return false;
+  handler(payload);
+  return true;
+}
+
+function currentRoute() {
+  try {
+    const pages = getCurrentPages();
+    const current = pages[pages.length - 1] as { route?: string } | undefined;
+    if (current?.route) return normalizeRoute(current.route);
+  } catch {
+    // H5 falls through to the hash route.
+  }
+  if (typeof window === "undefined") return "";
+  return normalizeRoute(window.location.hash.replace(/^#\/?/, "").split("?")[0]);
+}
+
+function normalizeRoute(route: string) {
+  return route.replace(/^\/+/, "").split("?")[0];
 }
 
 function getSourceRect(sourceId: string, sourceContext?: object | null) {
