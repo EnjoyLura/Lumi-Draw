@@ -528,12 +528,12 @@ function previewWorkImage() {
 }
 
 async function resolveFullscreenImage() {
-  if (highImage.value) return highImage.value;
   if (!work.value) return "";
   if (work.value.fullscreenImage) {
     highImage.value = work.value.fullscreenImage;
     return highImage.value;
   }
+  if (highImage.value) return highImage.value;
   if (!props.embedded) return work.value.originalImage || work.value.image;
   const detail = await fetchWorkDetail(work.value.id);
   highImage.value = detail.work.fullscreenImage || detail.work.originalImage || detail.work.image;
