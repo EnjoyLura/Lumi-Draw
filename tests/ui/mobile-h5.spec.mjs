@@ -180,6 +180,27 @@ test("mobile h5 toggles work detail like and favorite", async ({ page }) => {
   expect(runtimeErrors).toEqual([]);
 });
 
+for (const [name, url] of [
+  ["plaza", "/#/pages/plaza/index"],
+  ["gallery", "/#/pages/gallery/index"],
+  ["mine", "/#/pages/mine/index"]
+]) {
+  test(`mobile h5 opens ${name} work detail in the custom overlay`, async ({ page }) => {
+    const runtimeErrors = collectRuntimeErrors(page);
+    await page.goto(url);
+    await expect(page.locator(".work-card .work-img").first()).toBeVisible();
+
+    await page.locator(".work-card .work-img").first().click();
+    await expect(page.locator(".work-detail-overlay.open")).toBeVisible();
+    await expect(page).toHaveURL(url);
+
+    await page.locator(".work-detail-overlay .lumi-back").click();
+    await expect(page.locator(".work-detail-overlay")).toHaveCount(0);
+    await expect(page).toHaveURL(url);
+    expect(runtimeErrors).toEqual([]);
+  });
+}
+
 test("mobile h5 settings toggles mock data switch", async ({ page }) => {
   const runtimeErrors = collectRuntimeErrors(page);
   await page.goto("/#/pages/settings/index");

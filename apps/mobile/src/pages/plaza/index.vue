@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
@@ -14,7 +14,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
-import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
+import { openPreloadedWorkDetail, type WorkDetailSourceRect } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
@@ -37,7 +37,6 @@ type SideQuick = {
   gradient: string;
 };
 
-const pageInstance = getCurrentInstance();
 const props = withDefaults(defineProps<{ detailOwnerRoute?: string; renderDetailOverlay?: boolean }>(), {
   detailOwnerRoute: "pages/plaza/index",
   renderDetailOverlay: true
@@ -502,13 +501,14 @@ function goUserProfile(userId: number) {
   uni.navigateTo({ url: `/pages/user-profile/index?id=${userId}` });
 }
 
-function openWorkDetail(work: HomeWork) {
+function openWorkDetail(work: HomeWork, sourceRect: WorkDetailSourceRect | null) {
   void openPreloadedWorkDetail(
     { ...work, liked: likedWorkIds.value.has(work.id) },
     getUser(work),
     `lumi-plaza-work-media-${work.id}`,
-    pageInstance?.proxy,
-    props.detailOwnerRoute
+    undefined,
+    props.detailOwnerRoute,
+    sourceRect
   );
 }
 

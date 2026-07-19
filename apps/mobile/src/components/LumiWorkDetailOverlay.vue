@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import WorkDetailPage from "../pages/work-detail/index.vue";
+import LumiWorkDetailContent from "./LumiWorkDetailContent.vue";
 import { getNavigationMetrics } from "../services/navigationMetrics";
 import {
   registerWorkDetailOverlay,
+  resolveWorkDetailSourceRect,
   type WorkDetailOverlayOpenPayload,
   type WorkDetailSourceRect
 } from "../services/workDetailNavigation";
@@ -13,7 +14,6 @@ const props = defineProps<{ ownerRoute: string }>();
 
 const OPEN_DURATION = 320;
 const CLOSE_DURATION = 390;
-const CLOSE_HANDOFF_AT = 330;
 const FINAL_FRAME_DELAY = 24;
 
 const navigationMetrics = getNavigationMetrics();
@@ -29,8 +29,10 @@ const workRatio = ref("1:1");
 let openTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let contentTimer: ReturnType<typeof setTimeout> | undefined;
-let handoffTimer: ReturnType<typeof setTimeout> | undefined;
 let unregisterOverlay: (() => void) | undefined;
+let activeSourceId: string | undefined;
+let activeSourceContext: object | null | undefined;
+let closing = false;
 
 const surfaceStyle = computed(() => {
   const source = sourceRect.value;
@@ -71,7 +73,10 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   workId.value = payload.work.id;
   workRatio.value = payload.work.ratio || "1:1";
   sourceRect.value = payload.sourceRect;
+  activeSourceId = payload.sourceId;
+  activeSourceContext = payload.sourceContext;
   sharedActive.value = Boolean(payload.sourceRect);
+  closing = false;
 
   void nextTick(() => {
     openTimer = setTimeout(() => {
@@ -91,18 +96,23 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   });
 }
 
-function closeOverlay() {
+async function closeOverlay() {
+  if (closing || !workId.value) return;
+  closing = true;
+  if (activeSourceId) {
+    const latestRect = await resolveWorkDetailSourceRect(activeSourceId, activeSourceContext);
+    if (latestRect) {
+      sourceRect.value = latestRect;
+      sharedActive.value = true;
+      await nextTick();
+    }
+  }
   if (openTimer) clearTimeout(openTimer);
   isOpen.value = false;
   backGuardVisible.value = false;
   contentVisible.value = false;
   if (contentTimer) clearTimeout(contentTimer);
   if (closeTimer) clearTimeout(closeTimer);
-  if (handoffTimer) clearTimeout(handoffTimer);
-  handoffTimer = setTimeout(() => {
-    surfaceVisible.value = false;
-    handoffTimer = undefined;
-  }, sharedActive.value ? CLOSE_HANDOFF_AT : 0);
   closeTimer = setTimeout(finishClose, CLOSE_DURATION + 60);
 }
 
@@ -118,22 +128,23 @@ function finishClose() {
   workId.value = null;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
+  activeSourceId = undefined;
+  activeSourceContext = undefined;
+  closing = false;
 }
 
 function handleSystemBack() {
   if (!workId.value || !isOpen.value) return;
-  closeOverlay();
+  void closeOverlay();
 }
 
 function clearTimers() {
   if (openTimer) clearTimeout(openTimer);
   if (closeTimer) clearTimeout(closeTimer);
   if (contentTimer) clearTimeout(contentTimer);
-  if (handoffTimer) clearTimeout(handoffTimer);
   openTimer = undefined;
   closeTimer = undefined;
   contentTimer = undefined;
-  handoffTimer = undefined;
 }
 </script>
 
@@ -160,13 +171,13 @@ function clearTimers() {
       :style="surfaceStyle"
       @transitionend.self="handleTransitionEnd"
     >
-      <WorkDetailPage
+      <LumiWorkDetailContent
         embedded
         :open="isOpen"
         :initial-work-id="workId"
         :shared-transitioning="false"
         :content-visible="contentVisible"
-        @close="closeOverlay"
+        @close="void closeOverlay()"
       />
     </view>
   </view>

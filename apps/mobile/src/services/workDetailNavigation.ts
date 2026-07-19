@@ -5,6 +5,8 @@ export interface WorkDetailOverlayOpenPayload {
   work: HomeWork;
   user: HomeUser;
   sourceRect: WorkDetailSourceRect | null;
+  sourceId?: string;
+  sourceContext?: object | null;
 }
 
 export interface WorkDetailSourceRect {
@@ -38,7 +40,8 @@ export async function openPreloadedWorkDetail(
   user: HomeUser,
   sourceId?: string,
   sourceContext?: object | null,
-  ownerRoute?: string
+  ownerRoute?: string,
+  sourceRectOverride?: WorkDetailSourceRect | null
 ) {
   primeWorkDetailPreview(work.id, work.image);
   const cached = getWorkDetailSnapshot(work.id);
@@ -55,18 +58,29 @@ export async function openPreloadedWorkDetail(
     : work;
   const seedUser = cached ? { ...cached.user, ...user } : user;
   primeWorkDetailSnapshot(seedWork, seedUser);
-  let sourceRect: WorkDetailSourceRect | null = null;
-  if (sourceId) {
+  let sourceRect: WorkDetailSourceRect | null = sourceRectOverride ?? null;
+  if (sourceRectOverride === undefined && sourceId) {
     try {
-      sourceRect = await getSourceRect(sourceId, sourceContext);
+      sourceRect = await resolveWorkDetailSourceRect(sourceId, sourceContext);
     } catch {
       // Coordinate lookup must never block opening the detail overlay.
     }
   }
-  const payload = { work: seedWork, user: seedUser, sourceRect } satisfies WorkDetailOverlayOpenPayload;
-  const handled = openRegisteredOverlay(payload, ownerRoute);
-  if (!handled) {
-    uni.navigateTo({ url: `/pages/work-detail/index?id=${work.id}` });
+  const payload = {
+    work: seedWork,
+    user: seedUser,
+    sourceRect,
+    sourceId: sourceRectOverride === undefined ? sourceId : undefined,
+    sourceContext: sourceRectOverride === undefined ? sourceContext : undefined
+  } satisfies WorkDetailOverlayOpenPayload;
+  if (openRegisteredOverlay(payload, ownerRoute)) return;
+
+  // Registration normally completes before a card can be tapped. Give a
+  // newly-mounted host one frame to register, but never conceal a missing
+  // overlay by falling back to mp-weixin's native page transition.
+  await new Promise((resolve) => setTimeout(resolve, 32));
+  if (!openRegisteredOverlay(payload, ownerRoute)) {
+    uni.showToast({ title: "作品详情暂时无法打开，请重试", icon: "none" });
   }
 }
 
@@ -95,7 +109,7 @@ function normalizeRoute(route: string) {
   return route.replace(/^\/+/, "").split("?")[0];
 }
 
-function getSourceRect(sourceId: string, sourceContext?: object | null) {
+export function resolveWorkDetailSourceRect(sourceId: string, sourceContext?: object | null) {
   return new Promise<WorkDetailSourceRect | null>((resolve) => {
     let settled = false;
     const finish = (rect: WorkDetailSourceRect | null) => {

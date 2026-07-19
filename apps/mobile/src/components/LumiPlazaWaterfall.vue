@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { getCurrentInstance } from "vue";
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
+import { resolveWorkDetailSourceRect, type WorkDetailSourceRect } from "../services/workDetailNavigation";
+
+const componentInstance = getCurrentInstance();
+const sourceContext = componentInstance?.proxy;
 
 defineProps<{
   animationClass: string;
@@ -13,18 +18,23 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  openWork: [work: HomeWork];
+  openWork: [work: HomeWork, sourceRect: WorkDetailSourceRect | null];
   openUser: [userId: number];
   toggleLike: [event: Event, workId: number];
   imageLoad: [workId: number, event: Event];
 }>();
+
+async function openWork(work: HomeWork) {
+  const sourceRect = await resolveWorkDetailSourceRect(`lumi-plaza-work-media-${work.id}`, sourceContext);
+  emit("openWork", work, sourceRect);
+}
 </script>
 
 <template>
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
       <view v-for="work in leftWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work)" @load="emit('imageLoad', work.id, $event)" />
+        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="openWork(work)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
@@ -43,7 +53,7 @@ const emit = defineEmits<{
 
     <view class="waterfall-column">
       <view v-for="work in rightWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="emit('openWork', work)" @load="emit('imageLoad', work.id, $event)" />
+        <image :id="`lumi-plaza-work-media-${work.id}`" class="work-img" :src="work.image" mode="widthFix" lazy-load @click="openWork(work)" @load="emit('imageLoad', work.id, $event)" />
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">

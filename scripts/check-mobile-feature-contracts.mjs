@@ -114,6 +114,7 @@ const pageContracts = [
   },
   {
     route: "pages/work-detail/index",
+    sourceFile: "components/LumiWorkDetailContent",
     tokens: [
       "useDataMode",
       "fetchWorkDetail",
@@ -258,9 +259,15 @@ function main() {
   for (const contract of pageContracts) {
     if (!registeredRoutes.has(contract.route)) errors.push(`feature contract route is not registered: ${contract.route}`);
 
-    const file = routeToFile(contract.route);
-    if (!existsSync(file)) {
+    const pageFile = routeToFile(contract.route);
+    if (!existsSync(pageFile)) {
       errors.push(`feature contract page file is missing: ${contract.route}`);
+      continue;
+    }
+
+    const file = routeToFile(contract.sourceFile || contract.route);
+    if (!existsSync(file)) {
+      errors.push(`feature contract source file is missing: ${contract.sourceFile}`);
       continue;
     }
 
