@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { createHmac } from "node:crypto";
 
 type ImageTransferConfig = {
   functionUrl: string;
@@ -7,10 +8,36 @@ type ImageTransferConfig = {
 };
 
 export type ImageTransferRequest = {
+  operation?: "transfer";
   jobId: string;
   resultId: string;
   sourceUrl: string;
   objectKey: string;
+};
+
+export type ImageGenerationRequest = {
+  operation: "generate";
+  jobId: string;
+  provider: {
+    protocol: "openai-images" | "gemini";
+    endpoint: string;
+    apiKey: string;
+    model: string;
+    params: Record<string, string>;
+    requestMode?: "sync" | "async";
+    queryEndpoint?: string;
+    responseMapping?: Record<string, string>;
+  };
+  input: {
+    mode: string;
+    prompt: string;
+    inputImageUrl: string;
+    ratio: string;
+    quality: string;
+    size: string;
+    count: number;
+  };
+  objectKeys: string[];
 };
 
 @Injectable()
@@ -25,20 +52,33 @@ export class ImageTransferClient {
   }
 
   dispatch(input: ImageTransferRequest) {
+    return this.dispatchRequest({ ...input, operation: "transfer" }, 5 * 60_000);
+  }
+
+  dispatchGeneration(input: ImageGenerationRequest) {
+    return this.dispatchRequest(input, 30 * 60_000);
+  }
+
+  private dispatchRequest(input: ImageTransferRequest | ImageGenerationRequest, timeoutMs: number) {
     const config = this.getConfig();
     if (!config.functionUrl || !config.bearerToken) throw new Error("Image transfer function is not configured");
+    const body = JSON.stringify(input);
+    const timestamp = String(Date.now());
+    const signature = createHmac("sha256", config.bearerToken).update(`${timestamp}.${body}`).digest("hex");
     return fetch(config.functionUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${config.bearerToken}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "X-Lumi-Timestamp": timestamp,
+        "X-Lumi-Signature": signature
       },
-      body: JSON.stringify(input),
-      signal: AbortSignal.timeout(5 * 60_000)
+      body,
+      signal: AbortSignal.timeout(timeoutMs)
     }).then(async (response) => {
       if (response.ok) return;
       const message = (await response.text()).slice(0, 500);
-      throw new Error(`Image transfer function failed: HTTP ${response.status} ${message}`);
+      throw new Error(`Image function failed: HTTP ${response.status} ${message}`);
     });
   }
 

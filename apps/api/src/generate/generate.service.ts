@@ -35,6 +35,22 @@ const ACTIVE_JOB_STATUSES = ["queued", "running", "finalizing"];
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
 
+type ProviderResultMode = "url" | "base64";
+
+export function resolveProviderResultMode(
+  configured: string | undefined,
+  adapter: string,
+  requestMode: string,
+  params: Record<string, string>
+): ProviderResultMode {
+  if (configured === "url" || configured === "base64") return configured;
+  const responseFormat = String(params.response_format || params.responseFormat || "").toLowerCase();
+  if (responseFormat === "url") return "url";
+  if (["b64_json", "base64"].includes(responseFormat)) return "base64";
+  if (requestMode === "async" || adapter === "ainb" || adapter === "kie") return "url";
+  return "base64";
+}
+
 export function calculatePartialRefund(costCredits: number, refundCredits: number, requestedCount: number, resultCount: number) {
   const safeCount = Math.max(1, requestedCount);
   const missingCount = Math.max(0, safeCount - Math.min(resultCount, safeCount));
@@ -89,9 +105,11 @@ export class GenerateService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     const interrupted = await this.prisma.generateJob.findMany({
       where: { OR: [{ providerAdapter: "change2pro" }, { providerAdapter: "", provider: "change2pro" }], status: { in: ["queued", "running", "finalizing"] } },
-      select: { id: true }
+      select: { id: true, providerAdapter: true, providerRequestMode: true, providerResultMode: true, providerParams: true, startedAt: true }
     });
     for (const job of interrupted) {
+      const resultMode = resolveProviderResultMode(job.providerResultMode, job.providerAdapter || "change2pro", job.providerRequestMode, normalizeProviderParams(job.providerParams));
+      if (resultMode === "base64" && job.startedAt && Date.now() - job.startedAt.getTime() < 35 * 60_000) continue;
       await this.failAndRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
     }
     await this.resumeAinbJobsAfterRestart();
@@ -135,6 +153,7 @@ export class GenerateService implements OnApplicationBootstrap {
       apiKey: this.resolveProviderApiKey(job.providerApiKeyEncrypted, job.providerApiKeyEnv),
       params: normalizeProviderParams(job.providerParams),
       requestMode: job.providerRequestMode === "async" ? "async" : "sync",
+      resultMode: ["url", "base64"].includes(job.providerResultMode) ? job.providerResultMode as ProviderResultMode : "auto",
       queryEndpoint: job.providerQueryEndpoint,
       statusEnabled: job.providerStatusEnabled,
       responseMapping: normalizeProviderParams(job.providerResponseMapping)
@@ -171,6 +190,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const providerEndpoint = isImageToImage ? provider.imageEndpoint : provider.baseUrl;
     const providerParams = isImageToImage ? provider.imageRequestParams : provider.requestParams;
     const normalizedProviderParams = normalizeProviderParams(providerParams);
+    const providerResultMode = isImageToImage ? provider.imageResultMode : provider.textResultMode;
     const providerModel = normalizedProviderParams.model || model.providerModel;
     if (!providerModeEnabled || !providerEndpoint) {
       throw new BadRequestException(isImageToImage ? "当前 API 平台未启用图生图" : "当前 API 平台未启用文生图");
@@ -197,6 +217,7 @@ export class GenerateService implements OnApplicationBootstrap {
           providerAdapter: provider.adapter,
           providerBaseUrl: providerEndpoint,
           providerRequestMode: provider.requestMode,
+          providerResultMode,
           providerQueryEndpoint: provider.queryEndpoint,
           providerStatusEnabled: provider.statusEnabled,
           providerResponseMapping: normalizeProviderParams(provider.responseMapping),
@@ -419,6 +440,10 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async syncProviderJob(job: JobWithResults) {
+    const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
+    if (resultMode === "base64" && !TERMINAL_STATUSES.has(job.status) && job.startedAt && Date.now() - job.startedAt.getTime() >= 35 * 60_000) {
+      return (await this.failAndRefund(job.id, "Base64 image generation timeout")).job;
+    }
     const runtime = this.providerRuntime(job);
     if (this.providerAdapter(job) !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured(runtime)) return job;
 
@@ -532,6 +557,18 @@ export class GenerateService implements OnApplicationBootstrap {
     const adapter = this.providerAdapter(job);
     const runtime = this.providerRuntime(job);
     if (adapter === "ainb") {
+      const resultMode = resolveProviderResultMode(job.providerResultMode, adapter, job.providerRequestMode, normalizeProviderParams(job.providerParams));
+      if (resultMode === "base64") {
+        const updated = await this.prisma.generateJob.update({
+          where: { id: job.id },
+          data: { status: "running", progress: 5, stageText: "任务已提交，FC 正在处理", startedAt: new Date() },
+          include: { results: true }
+        });
+        void this.completeFcGeneration(updated, runtime).catch(async (error) => {
+          await this.failProviderJobIfActive(updated.id, error instanceof Error ? error.message : "Base64 image generation failed");
+        });
+        return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
+      }
       try {
         const submitted = await this.ainb.submit({
           mode: job.mode,
@@ -620,6 +657,9 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async completeChange2ProJob(job: JobWithResults, modelId: string) {
+    const runtime = this.providerRuntime(job);
+    const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, runtime?.params || {});
+    if (resultMode === "base64") return this.completeFcGeneration(job, runtime);
     const outputs = await this.change2pro.generate({
       jobId: job.id,
       modelId,
@@ -635,6 +675,23 @@ export class GenerateService implements OnApplicationBootstrap {
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
     if (TERMINAL_STATUSES.has(current.status)) return current;
     return this.finishJobWithDrafts(current, results, "生成完成");
+  }
+
+  private async completeFcGeneration(job: JobWithResults, runtime?: ProviderRuntimeConfig) {
+    if (!runtime?.apiBase || !runtime.apiKey) throw new Error("Base64 provider configuration is incomplete");
+    if (!this.imageTransfer.isConfigured()) throw new Error("Base64 image function is not configured");
+    const outputFormat = String(runtime.params.output_format || "png").toLowerCase();
+    const contentType = outputFormat === "jpeg" || outputFormat === "jpg" ? "image/jpeg" : outputFormat === "webp" ? "image/webp" : "image/png";
+    const objectKeys = Array.from({ length: job.count }, (_, index) => this.uploads.reserveGenerationImage(job.id, index + 1, contentType).ossKey);
+    const protocol = /(?:\/v1beta\/models\/|:generateContent(?:\?|$))/i.test(runtime.apiBase) ? "gemini" as const : "openai-images" as const;
+    await this.imageTransfer.dispatchGeneration({
+      operation: "generate",
+      jobId: job.id,
+      provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping },
+      input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
+      objectKeys
+    });
+    return this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
   }
 
   private async completeAinbJob(job: JobWithResults) {
@@ -716,6 +773,38 @@ export class GenerateService implements OnApplicationBootstrap {
     if (current.results.some((item) => item.status !== "succeeded")) return { ok: true };
     const generated = current.results.map((item) => ({ imageUrl: item.imageUrl, ossKey: item.ossKey, sizeBytes: item.sizeBytes ?? 0 }));
     await this.finishTransferredAinbJob(current, generated);
+    return { ok: true };
+  }
+
+  async completeImageGeneration(
+    token: string | undefined,
+    input: { jobId?: string; outputs?: Array<{ objectKey?: string; sizeBytes?: number }>; error?: string; progress?: number; stageText?: string }
+  ) {
+    if (!this.imageTransfer.matchesToken(token)) throw new UnauthorizedException("invalid image generation token");
+    if (!input.jobId) throw new BadRequestException("invalid image generation callback");
+    const job = await this.prisma.generateJob.findUnique({ where: { id: input.jobId }, include: { results: true } });
+    if (!job || TERMINAL_STATUSES.has(job.status)) return { ok: true };
+    if (!input.error && !input.outputs?.length && Number.isFinite(input.progress)) {
+      await this.prisma.generateJob.updateMany({
+        where: { id: job.id, status: { in: ["queued", "running", "finalizing"] } },
+        data: { progress: Math.max(5, Math.min(94, Math.floor(input.progress as number))), stageText: String(input.stageText || "AI 正在生成").slice(0, 120) }
+      });
+      return { ok: true };
+    }
+    const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
+    if (resultMode !== "base64") throw new BadRequestException("image generation callback does not match job");
+    if (input.error) {
+      await this.failAndRefund(job.id, input.error);
+      return { ok: true };
+    }
+    const outputs = (input.outputs || []).flatMap((item) => {
+      const objectKey = String(item.objectKey || "");
+      if (!objectKey.startsWith("uploads/system/generate/") || !objectKey.includes(`/${job.id}/`)) return [];
+      return [{ imageUrl: this.uploads.objectUrlForKey(objectKey), ossKey: objectKey, sizeBytes: Math.max(0, Math.floor(item.sizeBytes || 0)) }];
+    });
+    if (!outputs.length) throw new BadRequestException("image generation callback has no valid outputs");
+    await this.finishJobWithDrafts(job, outputs, "Generation completed", ["queued", "running", "finalizing"]);
+    for (const output of outputs) void this.uploads.prewarmWorkImageVariants(output.imageUrl);
     return { ok: true };
   }
 

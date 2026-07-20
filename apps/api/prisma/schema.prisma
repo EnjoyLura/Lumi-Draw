@@ -111,6 +111,8 @@ model GenerationProvider {
   groupName     String   @default("")
   adapter       String
   requestMode   String   @default("sync")
+  textResultMode String  @default("auto")
+  imageResultMode String @default("auto")
   baseUrl       String
   imageEndpoint String   @default("")
   queryEndpoint String   @default("")
@@ -486,6 +488,7 @@ model GenerateJob {
   providerAdapter String @default("")
   providerBaseUrl String @default("")
   providerRequestMode String @default("sync")
+  providerResultMode String @default("auto")
   providerQueryEndpoint String @default("")
   providerStatusEnabled Boolean @default(false)
   providerResponseMapping Json?

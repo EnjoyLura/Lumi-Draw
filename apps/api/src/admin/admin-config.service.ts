@@ -314,6 +314,8 @@ export class AdminConfigService {
     const groupName = String(body.groupName || "").trim();
     const adapter = String(body.adapter).trim();
     const requestMode = String(body.requestMode || (adapter === "change2pro" ? "sync" : "async")).trim();
+    const textResultMode = String(body.textResultMode || body.resultMode || "auto").trim();
+    const imageResultMode = String(body.imageResultMode || body.resultMode || "auto").trim();
     const baseUrl = String(body.baseUrl || "").trim();
     const imageEndpoint = String(body.imageEndpoint || "").trim();
     const queryEndpoint = String(body.queryEndpoint || "").trim();
@@ -325,6 +327,12 @@ export class AdminConfigService {
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
     if (!new Set(["sync", "async"]).has(requestMode)) throw new BadRequestException("调用方式只能是普通或异步");
+    if (![textResultMode, imageResultMode].every((value) => new Set(["auto", "url", "base64"]).has(value))) {
+      throw new BadRequestException("结果类型只能是自动、URL 或 Base64");
+    }
+    if (adapter === "kie" && [textResultMode, imageResultMode].includes("base64")) {
+      throw new BadRequestException("KIE 任务协议目前只支持 URL 结果");
+    }
     if ((adapter === "change2pro") !== (requestMode === "sync")) {
       throw new BadRequestException("请求协议与接口类型不匹配");
     }
@@ -352,6 +360,8 @@ export class AdminConfigService {
         groupName,
         adapter,
         requestMode,
+        textResultMode,
+        imageResultMode,
         baseUrl,
         imageEndpoint,
         queryEndpoint,
@@ -404,7 +414,7 @@ export class AdminConfigService {
 
   private normalizeResponseMapping(value: unknown, adapter: string, requestMode: string) {
     if (requestMode !== "async") return {};
-    const defaults = adapter === "ainb" ? {
+    const defaults: Record<string, string> = adapter === "ainb" ? {
       taskIdPath: "task_id",
       statusPath: "data.status",
       progressPath: "data.progress",
@@ -415,7 +425,7 @@ export class AdminConfigService {
       pendingValue: "IN_PROGRESS"
     } : {};
     const mapping = { ...defaults, ...this.normalizeGenerationParams(value) };
-    if (adapter === "ainb" && (!mapping.taskIdPath || !mapping.statusPath || !mapping.resultUrlPath)) {
+    if (adapter === "ainb" && (!mapping.taskIdPath || !mapping.statusPath || (!mapping.resultUrlPath && !mapping.resultBase64Path))) {
       throw new BadRequestException("异步接口必须配置任务 ID、状态和结果图片的数据路径");
     }
     return mapping;

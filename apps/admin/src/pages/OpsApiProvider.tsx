@@ -16,6 +16,11 @@ const REQUEST_MODES = [
   { value: "sync", label: "普通接口" },
   { value: "async", label: "异步接口" }
 ] as const;
+const RESULT_MODES = [
+  { value: "auto", label: "自动识别" },
+  { value: "url", label: "URL（业务服务器处理）" },
+  { value: "base64", label: "Base64（FC 生成并直存 OSS）" }
+] as const;
 const DEFAULT_ASYNC_MAPPING = {
   taskIdPath: "task_id",
   statusPath: "data.status",
@@ -66,6 +71,8 @@ function emptyProvider(): AdminGenerationProvider {
     groupName: "",
     adapter: "ainb",
     requestMode: "async",
+    textResultMode: "auto",
+    imageResultMode: "auto",
     baseUrl: "",
     imageEndpoint: "",
     queryEndpoint: "",
@@ -90,6 +97,8 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
   const originalId = item?.id || "";
   const [value, setValue] = useState<AdminGenerationProvider>(() => item ? {
     ...item,
+    textResultMode: item.textResultMode || "auto",
+    imageResultMode: item.imageResultMode || "auto",
     apiKey: "",
     requestParams: { model: "", ...item.requestParams },
     imageRequestParams: { model: "", ...item.imageRequestParams },
@@ -178,6 +187,15 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       }}>
         {REQUEST_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
       </select>
+      <label className="field-label" style={{ marginTop: 12 }}>文生图结果类型</label>
+      <select className="input" value={value.textResultMode || "auto"} onChange={(event) => update("textResultMode", event.target.value as NonNullable<AdminGenerationProvider["textResultMode"]>)}>
+        {RESULT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+      </select>
+      <label className="field-label" style={{ marginTop: 10 }}>图生图结果类型</label>
+      <select className="input" value={value.imageResultMode || "auto"} onChange={(event) => update("imageResultMode", event.target.value as NonNullable<AdminGenerationProvider["imageResultMode"]>)}>
+        {RESULT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+      </select>
+      <div className="lr-s" style={{ marginTop: 5 }}>URL 结果由业务服务器处理；Base64 任务由 FC 直接调用平台并写入 OSS。</div>
       <label className="field-label" style={{ marginTop: 12 }}>请求协议</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
         {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
@@ -220,6 +238,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         {value.statusEnabled ? <MappingField label="任务进度数据路径" value={value.responseMapping.progressPath || ""} placeholder="data.progress" onChange={(next) => update("responseMapping", { ...value.responseMapping, progressPath: next })} /> : null}
       </> : null}
 
+      {value.requestMode === "async" && (value.textResultMode === "base64" || value.imageResultMode === "base64") ? <MappingField label="结果 Base64 数据路径" value={value.responseMapping.resultBase64Path || ""} placeholder="data.data[].b64_json" onChange={(next) => update("responseMapping", { ...value.responseMapping, resultBase64Path: next })} /> : null}
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
         <input type="checkbox" checked={value.textToImageEnabled} onChange={(event) => update("textToImageEnabled", event.target.checked)} />
         <div className="lr-main"><div className="lr-t">启用文生图</div><div className="lr-s">关闭后该平台不接受文生图任务</div></div>
@@ -322,6 +341,10 @@ export function OpsApiProvider() {
               <div className="lr-t">{provider.name} <Badge text={provider.apiKeyConfigured ? `密钥已配置 ${provider.apiKeyHint}` : "密钥未配置"} type={provider.apiKeyConfigured ? "success" : "danger"} /></div>
               <div style={{ marginTop: 4 }}><Badge text={provider.groupName || "未分组"} type={provider.groupName ? "info" : "muted"} /></div>
               <div className="lr-s" style={{ wordBreak: "break-all" }}>{provider.baseUrl}</div>
+              <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                <Badge text={`文 ${(provider.textResultMode || "auto") === "base64" ? "Base64 / FC" : (provider.textResultMode || "auto") === "url" ? "URL / 本地" : "自动"}`} type={(provider.textResultMode || "auto") === "base64" ? "purple" : "muted"} />
+                <Badge text={`图 ${(provider.imageResultMode || "auto") === "base64" ? "Base64 / FC" : (provider.imageResultMode || "auto") === "url" ? "URL / 本地" : "自动"}`} type={(provider.imageResultMode || "auto") === "base64" ? "purple" : "muted"} />
+              </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
                 {provider.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}

@@ -502,6 +502,8 @@ interface ApiGenerationProvider {
   groupName: string;
   adapter: "ainb" | "change2pro" | "kie";
   requestMode: "sync" | "async";
+  textResultMode: "auto" | "url" | "base64";
+  imageResultMode: "auto" | "url" | "base64";
   baseUrl: string;
   imageEndpoint: string;
   queryEndpoint: string;
@@ -541,6 +543,8 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     groupName: values.groupName,
     adapter: values.adapter,
     requestMode: values.requestMode,
+    textResultMode: values.textResultMode || "auto",
+    imageResultMode: values.imageResultMode || "auto",
     baseUrl: values.baseUrl,
     imageEndpoint: values.imageEndpoint,
     queryEndpoint: values.queryEndpoint,

@@ -5,6 +5,7 @@ export interface ProviderRuntimeConfig {
   apiKey: string;
   params: ProviderRequestParams;
   requestMode?: "sync" | "async";
+  resultMode?: "auto" | "url" | "base64";
   queryEndpoint?: string;
   statusEnabled?: boolean;
   responseMapping?: ProviderRequestParams;

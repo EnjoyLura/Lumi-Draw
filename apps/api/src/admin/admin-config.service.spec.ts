@@ -96,6 +96,20 @@ test("stores a normalized custom provider group", () => {
   assert.equal(result.provider.groupName, "Banana 线路");
 });
 
+test("stores the selected result transport mode in the provider snapshot", () => {
+  const result = normalize({
+    id: "base64-provider",
+    name: "Base64 provider",
+    adapter: "change2pro",
+    textResultMode: "base64",
+    imageResultMode: "url",
+    apiKey: "sk-base64-secret",
+    baseUrl: "https://images.example.com/v1/images/generations"
+  }, true);
+  assert.equal(result.provider.textResultMode, "base64");
+  assert.equal(result.provider.imageResultMode, "url");
+});
+
 test("allows an empty image endpoint when image generation is disabled", () => {
   const result = normalize({
     id: "text-only",
@@ -128,6 +142,8 @@ test("never exposes encrypted or environment key fields in administrator respons
     groupName: "Primary",
     adapter: "ainb",
     requestMode: "async",
+    textResultMode: "auto",
+    imageResultMode: "auto",
     baseUrl: "https://images.example.com/v1/images/generations",
     imageEndpoint: "",
     queryEndpoint: "https://images.example.com/v1/tasks/{task_id}",

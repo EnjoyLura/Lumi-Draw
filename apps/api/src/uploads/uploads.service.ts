@@ -164,6 +164,15 @@ export class UploadsService {
     return { ossKey, imageUrl: this.objectUrl(ossKey) };
   }
 
+  reserveGenerationImage(jobId: string, index: number, contentType = "image/png") {
+    this.assertImageType(contentType);
+    if (!/^[A-Za-z0-9_-]{8,80}$/.test(jobId) || !Number.isInteger(index) || index < 1 || index > 20) {
+      throw new BadRequestException("invalid generation image target");
+    }
+    const ossKey = `uploads/system/generate/${this.yearMonth()}/${jobId}/${index}-${randomUUID()}.${EXT_BY_TYPE[contentType]}`;
+    return { ossKey, imageUrl: this.objectUrl(ossKey) };
+  }
+
   objectUrlForKey(ossKey: string) {
     return this.objectUrl(ossKey);
   }

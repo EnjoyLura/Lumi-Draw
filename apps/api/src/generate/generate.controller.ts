@@ -77,4 +77,23 @@ export class GenerateController {
       error: typeof body.error === "string" ? body.error : undefined
     });
   }
+
+  @Post("executions/complete")
+  completeImageGeneration(@Headers("x-lumi-transfer-token") token: string | undefined, @Body() body: Record<string, unknown>) {
+    const outputs = Array.isArray(body.outputs) ? body.outputs.flatMap((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+      const value = item as Record<string, unknown>;
+      return [{
+        objectKey: typeof value.objectKey === "string" ? value.objectKey : undefined,
+        sizeBytes: typeof value.sizeBytes === "number" ? value.sizeBytes : undefined
+      }];
+    }) : undefined;
+    return this.generate.completeImageGeneration(token, {
+      jobId: typeof body.jobId === "string" ? body.jobId : undefined,
+      outputs,
+      error: typeof body.error === "string" ? body.error : undefined,
+      progress: typeof body.progress === "number" ? body.progress : undefined,
+      stageText: typeof body.stageText === "string" ? body.stageText : undefined
+    });
+  }
 }
