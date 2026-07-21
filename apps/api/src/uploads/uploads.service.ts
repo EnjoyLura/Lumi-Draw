@@ -106,6 +106,11 @@ export class UploadsService {
     return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry());
   }
 
+  assertManagedImageUrl(url: string) {
+    const oss = this.ossConfig();
+    if (!url || !this.objectKeyFromUrl(url, oss)) throw new BadRequestException("参考图地址无效");
+  }
+
   readStyledPublicUrl(url: string, styleName: string) {
     const oss = this.ossConfig();
     if (!url || !styleName || !oss.cdnBaseUrl) return this.readUrl(url, "public");

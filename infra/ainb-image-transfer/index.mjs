@@ -107,6 +107,14 @@ function responseImageFormat(params) {
   return format === "jpg" || format === "jpeg" ? "image/jpeg" : format === "webp" ? "image/webp" : "image/png";
 }
 
+function decodeBase64Image(value, fallbackContentType) {
+  const source = String(value || "");
+  const dataUri = source.match(/^data:(image\/(?:png|jpeg|webp));base64,([\s\S]+)$/i);
+  const contentType = dataUri?.[1]?.toLowerCase() || fallbackContentType;
+  const encoded = dataUri?.[2] || source;
+  return { buffer: Buffer.from(encoded, "base64"), contentType };
+}
+
 function valuesAtPath(value, path) {
   if (!path) return [];
   let current = [value];
@@ -130,10 +138,16 @@ function firstString(value, path) {
 function asyncOutputs(payload, mapping, contentType) {
   const urls = valuesAtPath(payload, mapping.resultUrlPath || "data.data.data[].url").filter((item) => typeof item === "string");
   const base64 = valuesAtPath(payload, mapping.resultBase64Path || "data.data.data[].b64_json").filter((item) => typeof item === "string");
-  return [...urls.map((url) => ({ url })), ...base64.map((data) => ({ buffer: Buffer.from(data, "base64"), contentType }))];
+  return [...urls.map((url) => ({ url })), ...base64.map((data) => decodeBase64Image(data, contentType))];
 }
 
-async function pollAsyncProvider(provider, initialPayload, input, contentType) {
+function normalizedProgress(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return undefined;
+  return Math.max(1, Math.min(99, Math.round(numeric > 0 && numeric <= 1 ? numeric * 100 : numeric)));
+}
+
+async function pollAsyncProvider(provider, initialPayload, input, contentType, onProgress) {
   if (!provider.queryEndpoint) throw new Error("async provider query endpoint is not configured");
   const mapping = provider.responseMapping || {};
   const taskId = firstString(initialPayload, mapping.taskIdPath || "task_id") || firstString(initialPayload, "data.task_id") || firstString(initialPayload, "data.id");
@@ -143,6 +157,9 @@ async function pollAsyncProvider(provider, initialPayload, input, contentType) {
   while (Date.now() - startedAt < REQUEST_TIMEOUT_MS) {
     const payload = await requestJson(queryUrl, { headers: { Authorization: `Bearer ${provider.apiKey}`, Accept: "application/json" } });
     const status = firstString(payload, mapping.statusPath || "data.status").toUpperCase();
+    const providerProgress = valuesAtPath(payload, mapping.progressPath || "")[0];
+    const progress = normalizedProgress(providerProgress);
+    if (progress !== undefined && onProgress) await onProgress(progress);
     if (status === String(mapping.successValue || "SUCCESS").toUpperCase()) {
       const outputs = asyncOutputs(payload, mapping, contentType);
       if (!outputs.length) throw new Error("async provider returned no image");
@@ -154,8 +171,9 @@ async function pollAsyncProvider(provider, initialPayload, input, contentType) {
   throw new Error("async provider generation timeout");
 }
 
-async function runOpenAi(provider, input) {
-  const params = typedParams(provider.params, ["model", "prompt", "size", "n", "image", "image[]"]);
+async function runOpenAi(provider, input, onProgress) {
+  const imageField = String(provider.params?.image_field || "image");
+  const params = typedParams(provider.params, ["model", "prompt", "size", "n", "image", "image[]", "image_field"]);
   const model = provider.model || provider.params?.model || "gpt-image-2";
   if (input.mode === "image-to-image") {
     const reference = await downloadImage(input.inputImageUrl);
@@ -165,22 +183,22 @@ async function runOpenAi(provider, input) {
     form.append("size", input.size);
     form.append("n", String(input.count));
     for (const [key, value] of Object.entries(params)) form.append(key, String(value));
-    form.append("image", new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
+    form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
     const payload = await requestJson(provider.endpoint, { method: "POST", headers: { Authorization: `Bearer ${provider.apiKey}`, Accept: "application/json" }, body: form });
-    return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params)) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
+    return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
   }
   const payload = await requestJson(provider.endpoint, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ ...params, model, prompt: input.prompt, size: input.size, n: input.count })
   });
-  return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params)) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
+  return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
 }
 
 function parseOpenAiResponse(payload, defaultContentType) {
   const data = Array.isArray(payload?.data) ? payload.data : [];
   return data.flatMap((item) => {
-    if (typeof item?.b64_json === "string") return [{ buffer: Buffer.from(item.b64_json, "base64"), contentType: defaultContentType }];
+    if (typeof item?.b64_json === "string") return [decodeBase64Image(item.b64_json, defaultContentType)];
     if (typeof item?.url === "string") return [{ url: item.url }];
     return [];
   });
@@ -244,13 +262,20 @@ async function runGeneration(payload, context) {
   const provider = payload.provider;
   const input = { ...payload.input, jobId: payload.jobId };
   let progress = 8;
+  let lastProviderProgressAt = 0;
+  const stageForProgress = (value) => value < 28 ? "正在打草稿" : value < 48 ? "正在构思画面" : value < 68 ? "正在生成初稿" : value < 84 ? "正在润饰细节" : "即将完成";
+  const reportProviderProgress = async (value) => {
+    lastProviderProgressAt = Date.now();
+    progress = Math.max(progress, Math.min(94, value));
+    await notify({ jobId: payload.jobId, progress, stageText: stageForProgress(progress) });
+  };
   const progressTimer = setInterval(() => {
+    if (lastProviderProgressAt && Date.now() - lastProviderProgressAt < 15_000) return;
     progress = Math.min(92, progress + (progress < 55 ? 4 : 2));
-    const stageText = progress < 28 ? "正在打草稿" : progress < 48 ? "正在构思画面" : progress < 68 ? "正在生成初稿" : progress < 84 ? "正在润饰细节" : "即将完成";
-    void notify({ jobId: payload.jobId, progress, stageText }).catch(() => undefined);
+    void notify({ jobId: payload.jobId, progress, stageText: stageForProgress(progress) }).catch(() => undefined);
   }, 10_000);
   try {
-    const outputs = provider.protocol === "gemini" ? await runGemini(provider, input) : await runOpenAi(provider, input);
+    const outputs = provider.protocol === "gemini" ? await runGemini(provider, input) : await runOpenAi(provider, input, reportProviderProgress);
     if (!outputs.length) throw new Error("provider returned no images");
     const client = ossClient(context);
     const stored = [];

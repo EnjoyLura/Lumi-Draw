@@ -24,6 +24,7 @@ The `generate` operation supports:
 - Gemini/Banana `inlineData` Base64 responses.
 - Synchronous responses and asynchronous submit/query protocols.
 - Administrator-defined task ID, status, progress, URL, Base64, and failure field paths.
+- A configurable `image_field` request parameter for multipart providers that use names such as `image[]`.
 
 Provider endpoints, keys, models, parameters, polling rules, and result paths are supplied in the signed request. They are not compiled into the FC package.
 
@@ -44,6 +45,8 @@ Runtime requirements:
 - 30-minute timeout for slow 4K providers
 - Internet access enabled
 - An FC execution role with write access limited to `uploads/system/generate/*`
+
+Build the ZIP with directory entries intact. On Windows, use `tar.exe -a -cf package.zip index.mjs package.json package-lock.json node_modules`; `Compress-Archive` can omit explicit directory entries and cause FC to deploy without resolving `node_modules`.
 
 The business API and FC share `TRANSFER_CALLBACK_TOKEN`. Requests from the API include both a Bearer token and a timestamped HMAC signature. Provider keys are encrypted in the business database, decrypted only when dispatching a task, sent only to the authenticated FC endpoint, and never logged.
 

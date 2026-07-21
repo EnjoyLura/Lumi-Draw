@@ -59,3 +59,11 @@ test("reprocesses historical CDN URLs instead of leaving the original image", ()
   assert.match(decodeURIComponent(url), /image\/resize,w_1200\/quality,q_80\/format,webp/);
   assert.doesNotMatch(url, /auth_key=old/);
 });
+
+test("accepts generation references only from the configured OSS or CDN", () => {
+  const uploads = service();
+
+  assert.doesNotThrow(() => uploads.assertManagedImageUrl("https://bucket.oss.example.com/uploads/prompt/reference.png?signature=test"));
+  assert.doesNotThrow(() => uploads.assertManagedImageUrl("https://cdn.example.com/uploads/prompt/reference.png"));
+  assert.throws(() => uploads.assertManagedImageUrl("https://untrusted.example.com/reference.png"), /参考图地址无效/);
+});

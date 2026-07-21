@@ -181,6 +181,7 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "text-to-image" && !model.supportsTextToImage) throw new BadRequestException("该模型不支持文生图");
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
+    if (normalized.mode === "image-to-image") this.uploads.assertManagedImageUrl(normalized.inputImageUrl);
 
     const providerId = resolveProviderId(model.provider, model.providerRouting, quality.label);
     const provider = await this.prisma.generationProvider.findFirst({ where: { id: providerId, enabled: true } });
