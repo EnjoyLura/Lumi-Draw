@@ -371,7 +371,7 @@ async function loadUnreadMessages() {
 }
 
 async function loadGenerateTasks(scheduleNext = false) {
-  if (isMineMode.value || useMockData.value || !isLoggedIn.value) {
+  if (useMockData.value || !isLoggedIn.value) {
     if (genTaskTimer) clearTimeout(genTaskTimer);
     activeGenerateTaskIds = new Set();
     return;
@@ -988,7 +988,7 @@ function openWork(work: HomeWork) {
       </view>
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
-        <view v-if="!isMineMode && genTasks.length" class="gen-cards">
+        <view v-if="genTasks.length" class="gen-cards">
           <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
             <view class="shimmer-bg" />
             <view class="gen-inner">
