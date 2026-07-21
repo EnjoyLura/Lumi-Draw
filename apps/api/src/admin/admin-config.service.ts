@@ -468,7 +468,13 @@ export class AdminConfigService {
   }
 
   async putSettings(body: Record<string, unknown>) {
-    const entries = Object.entries(body);
+    const normalized = { ...body };
+    if (body.reviewMode === "auto" || body.reviewMode === "manual") {
+      normalized.manualReviewEnabled = body.reviewMode === "manual";
+    } else if (typeof body.manualReviewEnabled === "boolean") {
+      normalized.reviewMode = body.manualReviewEnabled ? "manual" : "auto";
+    }
+    const entries = Object.entries(normalized);
     for (const [key, value] of entries) {
       const v = typeof value === "boolean" ? (value ? "true" : "false") : String(value);
       await this.prisma.appSetting.upsert({ where: { key }, update: { value: v }, create: { key, value: v } });
@@ -482,6 +488,10 @@ export class AdminConfigService {
       if (body[key] === undefined) continue;
       const v = body[key] ? "true" : "false";
       await this.prisma.appSetting.upsert({ where: { key }, update: { value: v }, create: { key, value: v } });
+    }
+    if (typeof body.manualReviewEnabled === "boolean") {
+      const value = body.manualReviewEnabled ? "manual" : "auto";
+      await this.prisma.appSetting.upsert({ where: { key: "reviewMode" }, update: { value }, create: { key: "reviewMode", value } });
     }
     return this.reviewSettings();
   }

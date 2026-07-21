@@ -246,7 +246,7 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
-  void refreshGalleryPage().catch(() => undefined);
+  void refreshGalleryPage(true).catch(() => undefined);
 });
 
 onMounted(() => {
@@ -279,7 +279,7 @@ async function loadModelOptions() {
 }
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === props.pageMode) void refreshGalleryPage().catch(() => undefined);
+  if (tab === props.pageMode) void refreshGalleryPage(true).catch(() => undefined);
 });
 
 onBeforeUnmount(() => {

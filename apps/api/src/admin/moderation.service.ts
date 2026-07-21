@@ -55,7 +55,13 @@ export class ModerationService {
     const work = await this.prisma.work.findUnique({ where: { id } });
     if (!work) throw new NotFoundException("作品不存在");
     await this.prisma.work.update({ where: { id }, data: { status: "rejected", isPublic: false } });
-    return { ok: true, id, status: "rejected", reason: typeof reason === "string" ? reason : "" };
+    const detail = typeof reason === "string" ? reason.trim() : "";
+    await this.notifications.createSystemNotifications(
+      [work.userId],
+      "作品审核未通过",
+      detail ? `你的作品「${work.title}」审核未通过。原因：${detail}` : `你的作品「${work.title}」审核未通过，请修改后重新发布。`
+    );
+    return { ok: true, id, status: "rejected", reason: detail };
   }
 
   // ---------- 举报 ----------
@@ -93,7 +99,14 @@ export class ModerationService {
     if (!report) throw new NotFoundException("举报不存在");
     const status = body.action === "ignore" ? "ignored" : "resolved";
     if (body.offline === true) {
-      await this.prisma.work.update({ where: { id: report.workId }, data: { status: "offline", isPublic: false } }).catch(() => undefined);
+      const work = await this.prisma.work.update({ where: { id: report.workId }, data: { status: "offline", isPublic: false } }).catch(() => undefined);
+      if (work) {
+        await this.notifications.createSystemNotifications(
+          [work.userId],
+          "作品下架通知",
+          `你的作品「${work.title}」因用户举报处理被下架，如有疑问请联系客服。`
+        );
+      }
     }
     await this.prisma.report.delete({ where: { id } });
     return { ok: true, id, status, deleted: true };
@@ -172,7 +185,15 @@ export class ModerationService {
   }
   createPush(b: Record<string, unknown>) {
     if (!b.title || !b.content) throw new BadRequestException("缺少字段: title/content");
-    return this.prisma.push.create({ data: pick(b, PUSH_FIELDS) as never });
+    const requestedTarget = String(b.target ?? "全部用户");
+    const requestedUserIds = Array.isArray(b.targetUserIds)
+      ? b.targetUserIds.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0)
+      : [];
+    if (requestedTarget === "指定用户" && !requestedUserIds.length) throw new BadRequestException("请选择至少一位指定用户");
+    const target = requestedTarget === "指定用户"
+      ? `users:${[...new Set(requestedUserIds)].join(",")}`
+      : requestedTarget;
+    return this.prisma.push.create({ data: { ...(pick(b, PUSH_FIELDS) as Record<string, unknown>), target } as never });
   }
   updatePush(id: number, b: Record<string, unknown>) {
     return this.prisma.push.update({ where: { id }, data: pick(b, PUSH_FIELDS) });
@@ -323,12 +344,29 @@ export class ModerationService {
   }
 
   private async resolvePushUserIds(target: string) {
-    const ids = target
+    const encodedIds = target.startsWith("users:") ? target.slice("users:".length) : target;
+    const ids = encodedIds
       .split(/[,，\s]+/)
       .map((value) => Number.parseInt(value, 10))
       .filter((value) => Number.isInteger(value) && value > 0);
     if (ids.length) {
       const users = await this.prisma.user.findMany({ where: { id: { in: ids }, status: "normal" }, select: { id: true } });
+      return users.map((user) => user.id);
+    }
+
+    if (target === "指定用户" || target.startsWith("users:")) {
+      throw new BadRequestException("指定用户不存在或已不可用");
+    }
+
+    if (target === "会员用户") {
+      const users = await this.prisma.user.findMany({
+        where: {
+          status: "normal",
+          memberPlan: { not: "" },
+          OR: [{ memberExpireAt: null }, { memberExpireAt: { gt: new Date() } }]
+        },
+        select: { id: true }
+      });
       return users.map((user) => user.id);
     }
 

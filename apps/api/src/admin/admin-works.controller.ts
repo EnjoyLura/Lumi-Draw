@@ -58,8 +58,8 @@ export class AdminWorksController {
   }
 
   @Post(":id/offline")
-  offline(@Param("id", ParseIntPipe) id: number) {
-    return this.admin.offlineWork(id);
+  offline(@Param("id", ParseIntPipe) id: number, @Body() b: Body_) {
+    return this.admin.offlineWork(id, typeof b.reason === "string" ? b.reason : undefined);
   }
 
   @Post(":id/restore")

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AdminCreateWorkDto } from "./admin-work.dto";
@@ -57,7 +58,8 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly notifications: NotificationsService
   ) {}
 
   private adminWorkRow(work: Work & { user?: User | null }) {
@@ -288,9 +290,18 @@ export class AdminService {
     return this.adminWorkRow(work);
   }
 
-  async offlineWork(id: number) {
-    await this.ensureWork(id);
+  async offlineWork(id: number, reason?: string) {
+    const current = await this.ensureWork(id);
+    if (current.status === "offline" && !current.isPublic) {
+      const existing = await this.prisma.work.findUniqueOrThrow({ where: { id }, include: { user: true } });
+      return this.adminWorkRow(existing);
+    }
     const work = await this.prisma.work.update({ where: { id }, data: { status: "offline", isPublic: false }, include: { user: true } });
+    const detail = reason?.trim();
+    const content = detail
+      ? `你的作品「${work.title}」已被管理员下架。原因：${detail}`
+      : `你的作品「${work.title}」已被管理员下架，如有疑问请联系客服。`;
+    await this.notifications.createSystemNotifications([work.userId], "作品下架通知", content);
     return this.adminWorkRow(work);
   }
 

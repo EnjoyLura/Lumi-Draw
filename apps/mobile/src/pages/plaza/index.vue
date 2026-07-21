@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiPlazaWaterfall from "../../components/LumiPlazaWaterfall.vue";
@@ -11,7 +11,7 @@ import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { goRootTab } from "../../services/tabNavigation";
-import { openEmbeddedCreate } from "../../services/primaryShell";
+import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { openPreloadedWorkDetail, type WorkDetailSourceRect } from "../../services/workDetailNavigation";
@@ -229,10 +229,14 @@ function refreshPlazaPage() {
   void loadDrawerProfile();
   const modeChanged = lastMockMode !== useMockData.value;
   lastMockMode = useMockData.value;
-  if (modeChanged || Date.now() - lastLoadedAt > TAB_PAGE_CACHE_TTL) void reloadPlazaData();
+  if (modeChanged || activeEmbeddedPrimaryTab.value === "plaza" || Date.now() - lastLoadedAt > TAB_PAGE_CACHE_TTL) void reloadPlazaData();
 }
 
 onShow(refreshPlazaPage);
+
+watch(activeEmbeddedPrimaryTab, (tab) => {
+  if (tab === "plaza") void reloadPlazaData();
+});
 
 onMounted(() => {
   refreshPlazaPage();

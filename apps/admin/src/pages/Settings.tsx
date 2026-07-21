@@ -50,11 +50,26 @@ export function Settings() {
       <div className="card" style={{ padding: "2px 14px" }}>
         <div className="kv" style={{ display: "block", padding: "12px 0" }}>
           <div className="k" style={{ fontWeight: 600, color: "var(--fg-2)", marginBottom: 10 }}>审核模式</div>
-          <Seg items={[["auto", "自动"], ["manual", "人工"]]} active={reviewMode} onPick={setReviewMode} small />
+          <Seg
+            items={[["auto", "自动"], ["manual", "人工"]]}
+            active={reviewMode}
+            onPick={(mode) => {
+              setReviewMode(mode);
+              setManualReviewEnabled(mode === "manual");
+            }}
+            small
+          />
         </div>
         <div className="kv">
           <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开启人工审核</span>
-          <Switch on={manualReviewEnabled} onToggle={() => setManualReviewEnabled(!manualReviewEnabled)} />
+          <Switch
+            on={manualReviewEnabled}
+            onToggle={() => {
+              const next = !manualReviewEnabled;
+              setManualReviewEnabled(next);
+              setReviewMode(next ? "manual" : "auto");
+            }}
+          />
         </div>
       </div>
       <div className="actionbar"><button className="btn btn-primary btn-block" onClick={saveSettings} disabled={saving}>{saving ? "保存中" : "保存设置"}</button></div>

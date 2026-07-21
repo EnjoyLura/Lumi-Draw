@@ -81,6 +81,8 @@ function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock:
 function TakedownForm({ work, useMock, onDone }: { work: AdminWork; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
   const [saving, setSaving] = useState(false);
+  const [reason, setReason] = useState("违规内容");
+  const [note, setNote] = useState("");
 
   const doTakedown = async () => {
     setSaving(true);
@@ -89,7 +91,8 @@ function TakedownForm({ work, useMock, onDone }: { work: AdminWork; useMock: boo
         work.status = "已下架";
         work.featured = false;
       } else {
-        await apiOfflineWork(work.id);
+        const detail = note.trim() ? `${reason}：${note.trim()}` : reason;
+        await apiOfflineWork(work.id, detail);
       }
       closeSheet();
       onDone();
@@ -104,14 +107,14 @@ function TakedownForm({ work, useMock, onDone }: { work: AdminWork; useMock: boo
   return (
     <>
       <label className="field-label">下架原因</label>
-      <select className="input">
+      <select className="input" value={reason} onChange={(event) => setReason(event.target.value)}>
         <option>违规内容</option>
         <option>侵权投诉</option>
         <option>低质量</option>
         <option>其他</option>
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>备注</label>
-      <textarea className="input" rows={2} placeholder="补充说明（可选）" />
+      <textarea className="input" rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="补充说明（可选）" />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-danger btn-block" onClick={doTakedown} disabled={saving}>确认下架</button>

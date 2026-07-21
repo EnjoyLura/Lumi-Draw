@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -218,8 +219,7 @@ export class WorksService {
   }
 
   private async isManualReview() {
-    const row = await this.prisma.appSetting.findUnique({ where: { key: "manualReviewEnabled" } });
-    return row ? row.value === "true" : true;
+    return requiresManualReview(this.prisma);
   }
 
   private async ownedWork(userId: number, id: number) {

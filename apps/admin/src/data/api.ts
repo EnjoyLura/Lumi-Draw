@@ -187,8 +187,8 @@ export async function apiRecommendWork(id: number, recommend: boolean) {
   return mapWork(await http.post<ApiWork>(`/admin/works/${id}/recommend`, { recommend }));
 }
 
-export async function apiOfflineWork(id: number) {
-  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/offline`));
+export async function apiOfflineWork(id: number, reason = "") {
+  return mapWork(await http.post<ApiWork>(`/admin/works/${id}/offline`, { reason }));
 }
 
 export async function apiRestoreWork(id: number) {
@@ -885,11 +885,14 @@ interface ApiPush {
 
 function mapPush(p: ApiPush): AdminPush {
   const time = p.sentAt ?? p.createdAt;
+  const target = p.target.startsWith("users:")
+    ? `指定用户 · ${p.target.slice("users:".length).split(",").filter(Boolean).length}人`
+    : p.target;
   return {
     id: p.id,
     title: p.title,
     content: p.content,
-    target: p.target,
+    target,
     status: PUSH_STATUS_CN[p.status] ?? p.status,
     time: (time ?? "").replace("T", " ").slice(0, 16)
   };
@@ -899,7 +902,7 @@ export async function apiGetPushes() {
   return (await http.get<ApiPush[]>("/admin/pushes")).map(mapPush);
 }
 
-export async function apiCreateAndSendPush(values: Pick<AdminPush, "title" | "content" | "target">) {
+export async function apiCreateAndSendPush(values: Pick<AdminPush, "title" | "content" | "target"> & { targetUserIds?: number[] }) {
   const created = await http.post<ApiPush>("/admin/pushes", { ...values, status: "draft" });
   return mapPush(await http.post<ApiPush>(`/admin/pushes/${created.id}/send`));
 }

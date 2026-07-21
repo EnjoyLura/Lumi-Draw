@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, getCurrentInstance, nextTick, onBeforeUnmount, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 import { onLoad, onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
@@ -116,7 +116,11 @@ onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
   const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
-  void loadHomeData(changed);
+  void loadHomeData(changed || activeEmbeddedPrimaryTab.value === "home");
+});
+
+watch(activeEmbeddedPrimaryTab, (tab) => {
+  if (tab === "home") void loadHomeData(true);
 });
 
 onReady(() => {

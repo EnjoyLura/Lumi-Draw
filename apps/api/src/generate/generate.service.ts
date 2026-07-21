@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import type { GenerateJob, GenerateResult } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -518,8 +519,7 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async isManualReview() {
-    const row = await this.prisma.appSetting.findUnique({ where: { key: "manualReviewEnabled" } });
-    return row ? row.value === "true" : true;
+    return requiresManualReview(this.prisma);
   }
 
   private draftTitle(prompt: string, index?: number) {

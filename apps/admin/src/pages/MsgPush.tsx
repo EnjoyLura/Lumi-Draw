@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { apiCreateAndSendPush, apiGetPushes, apiRevokePush } from "../data/api";
+import { useEffect, useMemo, useState } from "react";
+import { apiCreateAndSendPush, apiGetPushes, apiGetUsers, apiRevokePush } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { nextId, PUSH_TARGETS, PUSHES, type AdminPush } from "../data/mock";
+import { nextId, PUSH_TARGETS, PUSHES, USERS, type AdminPush, type AdminUser } from "../data/mock";
 import { getPushes } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
@@ -53,22 +53,63 @@ export function MsgPush() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [target, setTarget] = useState(PUSH_TARGETS[0]);
+  const [userQuery, setUserQuery] = useState("");
+  const [targetUsers, setTargetUsers] = useState<AdminUser[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set());
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [sending, setSending] = useState(false);
   const afterChanged = () => useMock ? refresh() : reload();
+  const isSpecifiedTarget = target === "指定用户";
+  const visibleTargetUsers = useMemo(() => {
+    const keyword = userQuery.trim().toLowerCase();
+    if (!keyword) return targetUsers;
+    return targetUsers.filter((user) => user.name.toLowerCase().includes(keyword) || String(user.id).includes(keyword));
+  }, [targetUsers, userQuery]);
+
+  useEffect(() => {
+    if (!isSpecifiedTarget || targetUsers.length) return;
+    let active = true;
+    setLoadingUsers(true);
+    void (useMock ? Promise.resolve(USERS) : apiGetUsers({ status: "normal" }))
+      .then((users) => {
+        if (active) setTargetUsers(users);
+      })
+      .catch((error) => {
+        if (active) toast(error instanceof Error ? error.message : "用户列表加载失败");
+      })
+      .finally(() => {
+        if (active) setLoadingUsers(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isSpecifiedTarget, targetUsers.length, toast, useMock]);
+
+  const toggleTargetUser = (userId: number) => {
+    setSelectedUserIds((current) => {
+      const next = new Set(current);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
 
   const send = () => {
     if (!title.trim()) { toast("请输入通知标题"); return; }
-    confirmDlg("发送通知", `确定向「${target}」推送该通知吗？`, () => {
+    if (isSpecifiedTarget && !selectedUserIds.size) { toast("请至少选择一位用户"); return; }
+    const targetLabel = isSpecifiedTarget ? `指定用户 · ${selectedUserIds.size}人` : target;
+    confirmDlg("发送通知", `确定向「${targetLabel}」推送该通知吗？`, () => {
       void (async () => {
         setSending(true);
         try {
           if (useMock) {
-            PUSHES.unshift({ id: nextId(PUSHES), title: title.trim(), content, target, time: "刚刚", status: "已发送" });
+            PUSHES.unshift({ id: nextId(PUSHES), title: title.trim(), content, target: targetLabel, time: "刚刚", status: "已发送" });
           } else {
-            await apiCreateAndSendPush({ title: title.trim(), content, target });
+            await apiCreateAndSendPush({ title: title.trim(), content, target, targetUserIds: [...selectedUserIds] });
           }
           setTitle("");
           setContent("");
+          setSelectedUserIds(new Set());
           afterChanged();
           toast("通知已发送");
         } catch (e) {
@@ -91,6 +132,26 @@ export function MsgPush() {
         <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
           {PUSH_TARGETS.map((o) => <option key={o}>{o}</option>)}
         </select>
+        {isSpecifiedTarget ? (
+          <div style={{ marginTop: 10 }}>
+            <input className="input" value={userQuery} onChange={(event) => setUserQuery(event.target.value)} placeholder="搜索昵称或用户ID" />
+            <div style={{ marginTop: 8, maxHeight: 220, overflowY: "auto", borderTop: "1px solid var(--border)" }}>
+              {loadingUsers ? <div className="empty" style={{ padding: 18 }}>用户加载中...</div> : null}
+              {!loadingUsers && !visibleTargetUsers.length ? <div className="empty" style={{ padding: 18 }}>没有匹配用户</div> : null}
+              {visibleTargetUsers.map((user) => (
+                <label key={user.id} className="lrow" style={{ cursor: "pointer" }}>
+                  <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={() => toggleTargetUser(user.id)} />
+                  <div className="mini-avatar" style={{ background: user.color }}>{user.avatar || user.name.slice(0, 1)}</div>
+                  <div className="lr-main">
+                    <div className="lr-t">{user.name}</div>
+                    <div className="lr-s">用户ID {user.id}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: "var(--fg-muted)" }}>已选择 {selectedUserIds.size} 位用户</div>
+          </div>
+        ) : null}
       </div>
       <div style={{ margin: "12px 0" }}>
         <button className="btn btn-primary btn-block" onClick={send} disabled={sending}><i className="ri-send-plane-line" />{sending ? "发送中" : "立即发送"}</button>
