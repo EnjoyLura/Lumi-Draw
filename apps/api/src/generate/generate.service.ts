@@ -69,6 +69,7 @@ function userFacingGenerateError(errorMessage: string) {
   if (/unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感/.test(message)) return "内容可能不安全，请修改提示词重试";
   if (/尺寸|size|pixel|最长边/.test(message)) return "当前模型不支持所选图片尺寸，请调整比例或清晰度后重试";
   if (/429|rate limit|任务较多|too many requests/.test(message)) return "当前生成任务较多，请稍后重试";
+  if (/und_err_connect_timeout|provider network request failed|connect timeout/.test(message)) return "生成平台连接超时，请稍后重试";
   if (/超时|timeout|aborted/.test(message)) return "生成等待超时，请稍后重试";
   if (/参考图|input image|image.*(?:invalid|download)/.test(message)) return "参考图不可用，请重新上传后重试";
   if (/连接失败|network|fetch failed|econn|enotfound/.test(message)) return "生成服务连接异常，请稍后重试";

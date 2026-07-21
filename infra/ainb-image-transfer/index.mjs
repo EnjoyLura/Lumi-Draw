@@ -1,5 +1,9 @@
 import OSS from "ali-oss";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { setDefaultResultOrder } from "node:dns";
+
+// Some API gateways publish AAAA records without a usable IPv6 route from FC.
+setDefaultResultOrder("ipv4first");
 
 const MAX_IMAGE_BYTES = 40 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 60 * 1024 * 1024;
