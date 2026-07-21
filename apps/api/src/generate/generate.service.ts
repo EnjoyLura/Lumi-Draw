@@ -709,39 +709,10 @@ export class GenerateService implements OnApplicationBootstrap {
         data: { progress, stageText: "AI 正在生成中" }
       });
     }, this.providerRuntime(job));
-    if (this.imageTransfer.isConfigured() && outputs.every((output) => Boolean(output.url))) {
-      return this.startAinbImageTransfer(job, outputs);
-    }
     const results = await this.storeChange2ProOutputs(outputs);
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
     if (TERMINAL_STATUSES.has(current.status)) return current;
     return this.finishJobWithDrafts(current, results, "生成完成");
-  }
-
-  private async startAinbImageTransfer(job: JobWithResults, outputs: Change2ProOutput[]) {
-    const pending = outputs.flatMap((output) => {
-      if (!output.url) return [];
-      const target = this.uploads.reserveSystemImage("generate", "image/png");
-      return [{ sourceUrl: output.url, ...target }];
-    });
-    if (!pending.length) throw new Error("Ainb result did not include an image URL");
-
-    const prepared = await this.prisma.$transaction(async (tx) => {
-      const claimed = await tx.generateJob.updateMany({
-        where: { id: job.id, status: "running" },
-        data: { status: "finalizing", progress: 96, stageText: "生成完成，正在保存高清原图" }
-      });
-      if (!claimed.count) return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-      await tx.generateResult.deleteMany({ where: { jobId: job.id } });
-      for (const item of pending) {
-        await tx.generateResult.create({
-          data: { jobId: job.id, status: "transferring", imageUrl: item.sourceUrl, ossKey: item.ossKey }
-        });
-      }
-      return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-    });
-    this.resumeAinbTransfers(prepared);
-    return prepared;
   }
 
   async completeImageTransfer(
