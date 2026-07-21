@@ -187,15 +187,16 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       }}>
         {REQUEST_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
       </select>
-      <label className="field-label" style={{ marginTop: 12 }}>文生图结果类型</label>
+      <div className="field-label" style={{ marginTop: 16, color: "var(--text)" }}>结果处理方式（是否使用 FC）</div>
+      <div className="lr-s" style={{ marginTop: 4 }}>返回 URL：不使用 FC；返回 Base64：由 FC 直接写入 OSS。建议按平台实际返回格式选择。</div>
+      <label className="field-label" style={{ marginTop: 10 }}>文生图返回格式</label>
       <select className="input" value={value.textResultMode || "auto"} onChange={(event) => update("textResultMode", event.target.value as NonNullable<AdminGenerationProvider["textResultMode"]>)}>
         {RESULT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
       </select>
-      <label className="field-label" style={{ marginTop: 10 }}>图生图结果类型</label>
+      <label className="field-label" style={{ marginTop: 10 }}>图生图返回格式</label>
       <select className="input" value={value.imageResultMode || "auto"} onChange={(event) => update("imageResultMode", event.target.value as NonNullable<AdminGenerationProvider["imageResultMode"]>)}>
         {RESULT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
       </select>
-      <div className="lr-s" style={{ marginTop: 5 }}>URL 结果由业务服务器处理；Base64 任务由 FC 直接调用平台并写入 OSS。</div>
       <label className="field-label" style={{ marginTop: 12 }}>请求协议</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
         {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
