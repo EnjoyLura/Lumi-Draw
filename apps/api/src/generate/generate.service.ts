@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import type { GenerateJob, GenerateResult } from "@prisma/client";
@@ -91,6 +91,7 @@ function mockGeneratedImageUrl(seed: string) {
 
 @Injectable()
 export class GenerateService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(GenerateService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
@@ -619,7 +620,9 @@ export class GenerateService implements OnApplicationBootstrap {
         include: { results: true }
       });
       void this.completeChange2ProJob(updated, model.id).catch(async (error) => {
-        await this.failProviderJobIfActive(updated.id, error instanceof Error ? error.message : "Change2Pro generation failed");
+        const message = error instanceof Error ? error.message : "Change2Pro generation failed";
+        this.logger.error(`Generation provider failed for ${updated.id} (${updated.provider}): ${message}`);
+        await this.failProviderJobIfActive(updated.id, message);
       });
       return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
     }

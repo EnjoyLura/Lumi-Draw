@@ -70,7 +70,14 @@ async function readResponseBody(upstream) {
 }
 
 async function requestJson(url, init) {
-  const upstream = await fetch(assertPublicHttps(url, "provider endpoint"), { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  let upstream;
+  try {
+    upstream = await fetch(assertPublicHttps(url, "provider endpoint"), { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  } catch (error) {
+    const cause = error && typeof error === "object" ? error.cause : undefined;
+    const detail = cause && typeof cause === "object" ? cause.code || cause.message : undefined;
+    throw new Error(`provider network request failed: ${detail || (error instanceof Error ? error.message : "unknown network error")}`);
+  }
   const body = await readResponseBody(upstream);
   let payload;
   try { payload = JSON.parse(body.toString("utf8")); } catch { payload = null; }
