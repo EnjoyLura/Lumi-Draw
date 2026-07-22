@@ -307,7 +307,7 @@ async function submit() {
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后发布作品"
-        subtitle="登录后才能读取草稿箱并提交真实作品审核。"
+        subtitle="登录后才能读取画廊并提交真实作品审核。"
         @login="showLoginSheet = true"
       />
 
@@ -318,7 +318,7 @@ async function submit() {
             <template v-if="!selectedDraft">
               <view class="draft-empty-icon"><LumiIcon name="plus" :size="28" /></view>
               <view class="draft-empty-text">
-                <view class="draft-empty-title">从草稿箱选择</view>
+                <view class="draft-empty-title">从画廊选择</view>
                 <view class="draft-empty-sub">点击浏览全部草稿作品</view>
               </view>
             </template>

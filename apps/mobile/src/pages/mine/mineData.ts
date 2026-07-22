@@ -42,7 +42,7 @@ export const accountItems: MineListItem[] = [
   { key: "settings", label: "设置", icon: "settings", color: "var(--accent)" },
   { key: "history", label: "浏览记录", icon: "history", color: "var(--mint)" },
   { key: "generationHistory", label: "生成记录", icon: "rotate-ccw", color: "var(--lavender)" },
-  { key: "drafts", label: "草稿箱", icon: "file-text", color: "var(--lemon)", dot: true },
+  { key: "drafts", label: "画廊", icon: "file-text", color: "var(--lemon)", dot: true },
   { key: "following", label: "我的关注", icon: "heart", color: "var(--peach)" }
 ];
 

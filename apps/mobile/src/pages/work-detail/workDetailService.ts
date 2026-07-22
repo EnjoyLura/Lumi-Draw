@@ -89,6 +89,6 @@ export function deleteWork(id: number) {
   return api.delete<{ ok: boolean; action: "delete" }>(`/works/${id}?action=delete`);
 }
 
-export function moveWorkToDraft(id: number) {
-  return api.delete<{ ok: boolean; action: "draft" }>(`/works/${id}?action=draft`);
+export function takeDownWork(id: number) {
+  return api.delete<{ ok: boolean; action: "offline" }>(`/works/${id}?action=offline`);
 }

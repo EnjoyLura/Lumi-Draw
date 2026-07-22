@@ -157,13 +157,13 @@ async function login() {
 
 <template>
   <view class="drafts-page" :class="themeClass">
-    <LumiPageHeader title="草稿箱" />
+    <LumiPageHeader title="画廊" />
     <LumiDeferredPageContent>
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="drafts-content">
         <view v-if="!useMockData && loginRequired" class="empty-state">
           <view class="empty-icon"><LumiIcon name="info" :size="30" /></view>
-          <view class="empty-title">登录后查看草稿箱</view>
+          <view class="empty-title">登录后查看画廊</view>
           <view class="empty-sub">生成完成的作品会自动保存为草稿</view>
           <button class="empty-btn" @click="showLoginSheet = true">立即登录</button>
         </view>
@@ -211,7 +211,7 @@ async function login() {
         <view v-else class="empty-state">
           <view class="empty-icon"><LumiIcon name="file-text" :size="30" /></view>
           <view class="empty-title">暂无草稿</view>
-          <view class="empty-sub">生成的作品会自动保存到草稿箱</view>
+          <view class="empty-sub">生成的作品会自动保存到画廊</view>
           <button class="empty-btn" @click="goCreate"><LumiIcon name="sparkles" :size="16" />去创作</button>
         </view>
       </view>

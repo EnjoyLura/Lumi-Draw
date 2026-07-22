@@ -35,7 +35,7 @@ const STATIC_PAGE_TITLES: Record<string, string> = {
   "pages/changelog/index": "更新日志",
   "pages/publish/index": "发布作品",
   "pages/edit-work/index": "编辑作品",
-  "pages/drafts/index": "草稿箱",
+  "pages/drafts/index": "画廊",
   "pages/history/index": "浏览记录"
 };
 

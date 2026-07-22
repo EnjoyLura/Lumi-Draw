@@ -32,6 +32,7 @@ import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { parseQueryString } from "../../services/routeQuery";
 import {
   getWaterfallAnimationClass,
@@ -47,6 +48,7 @@ const ANNOUNCEMENT_SESSION_KEY = "lumi-home-announcement-shown-session";
 const lumiRuntime = globalThis as typeof globalThis & { __lumiHomeAnnouncementShown?: boolean };
 const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
 const pageInstance = getCurrentInstance();
+let unsubscribeWorkVisibility: (() => void) | undefined;
 const { useMockData } = useDataMode();
 
 const statusBarHeight = ref(0);
@@ -133,6 +135,10 @@ onReady(() => {
 });
 
 onMounted(() => {
+  unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id }) => {
+    recommendWorks.value = recommendWorks.value.filter((work) => work.id !== id);
+    latestWorks.value = latestWorks.value.filter((work) => work.id !== id);
+  });
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
 });
@@ -143,6 +149,8 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeWorkVisibility?.();
+  unsubscribeWorkVisibility = undefined;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (announcementTimer) clearTimeout(announcementTimer);
   clearWorksSwitchTimers();

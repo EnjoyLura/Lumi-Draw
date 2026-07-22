@@ -15,13 +15,14 @@ import {
   unfollowUser
 } from "../services/social";
 import { getWorkById, getWorkUser, type DetailWork } from "../pages/work-detail/workDetailData";
-import { deleteWork, fetchWorkDetail, moveWorkToDraft, type DetailAuthor } from "../pages/work-detail/workDetailService";
+import { deleteWork, fetchWorkDetail, takeDownWork, type DetailAuthor } from "../pages/work-detail/workDetailService";
 import { useTheme } from "../services/theme";
 import { getNavigationMetrics } from "../services/navigationMetrics";
 import { imageSaveFailureMessage, saveImageToDevice } from "../services/imageSave";
 import { openEmbeddedCreate } from "../services/primaryShell";
 import { invalidateTabPages } from "../services/tabPageCache";
 import { consumeWorkDetailStale } from "../services/workDetailRefresh";
+import { notifyWorkVisibilityChange } from "../services/workVisibilityEvents";
 import {
   getWorkDetailQualityPreview,
   getWorkDetailSnapshot,
@@ -658,11 +659,11 @@ function editOrPublishWork() {
   uni.navigateTo({ url: `/pages/publish/index?draftId=${workId.value}` });
 }
 
-function confirmMoveToDraft() {
+function confirmTakeDownWork() {
   return new Promise<boolean>((resolve) => {
     uni.showModal({
       title: "下架作品",
-      content: "下架后作品将转入草稿箱，广场和详情分享中不再公开展示，确定继续吗？",
+      content: "下架后作品仍会保留在画廊，但不会继续在广场和分享详情中公开展示。确定下架吗？",
       confirmText: "下架",
       confirmColor: "#ff5c7a",
       success(result) {
@@ -675,24 +676,28 @@ function confirmMoveToDraft() {
   });
 }
 
-async function moveOwnWorkToDraft() {
+async function takeDownOwnWork() {
   if (!work.value || !work.value.published || isDeleting.value) return;
   closeDetailManage();
-  const confirmed = await confirmMoveToDraft();
+  const confirmed = await confirmTakeDownWork();
   if (!confirmed) return;
 
   if (useMockData.value) {
     work.value.published = false;
-    uni.showToast({ title: "作品已转入草稿箱", icon: "none" });
+    work.value.status = "offline";
+    notifyWorkVisibilityChange({ id: work.value.id, status: "offline" });
+    uni.showToast({ title: "作品已下架并保留在画廊", icon: "none" });
     return;
   }
 
   if (!ensureLogin()) return;
   isDeleting.value = true;
   try {
-    await moveWorkToDraft(work.value.id);
+    await takeDownWork(work.value.id);
     await loadDetail();
-    uni.showToast({ title: "作品已转入草稿箱", icon: "none" });
+    invalidateTabPages("gallery:");
+    notifyWorkVisibilityChange({ id: work.value.id, status: "offline" });
+    uni.showToast({ title: "作品已下架并保留在画廊", icon: "none" });
   } catch {
     uni.showToast({ title: "下架失败，请稍后重试", icon: "none" });
   } finally {
@@ -966,7 +971,7 @@ function handleDetailPreviewLoad() {
             <view class="manage-text">{{ managePrimaryText }}</view>
             <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />
           </view>
-          <view v-if="work.published" class="manage-row" @click="moveOwnWorkToDraft">
+          <view v-if="work.published" class="manage-row" @click="takeDownOwnWork">
             <view class="manage-icon peach"><LumiIcon name="arrow-down" :size="18" /></view>
             <view class="manage-text">下架</view>
             <LumiIcon class="manage-arrow" name="chevron-right" :size="18" />

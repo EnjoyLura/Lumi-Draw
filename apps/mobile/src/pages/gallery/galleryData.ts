@@ -75,7 +75,7 @@ export const galleryGenTasks: GalleryGenTask[] = [
 export const galleryTabs: GalleryTabOption[] = [
   { key: "all", label: "全部" },
   { key: "published", label: "已发布" },
-  { key: "draft", label: "草稿箱" }
+  { key: "draft", label: "未发布" }
 ];
 
 export const galleryWorks: HomeWork[] = [

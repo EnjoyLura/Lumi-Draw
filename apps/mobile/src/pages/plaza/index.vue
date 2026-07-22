@@ -16,6 +16,7 @@ import { reportPageNavigationPerformance } from "../../services/pagePerformance"
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { openPreloadedWorkDetail, type WorkDetailSourceRect } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
 import { mineUser, type MineUser } from "../mine/mineData";
@@ -41,6 +42,7 @@ const props = withDefaults(defineProps<{ detailOwnerRoute?: string; renderDetail
   detailOwnerRoute: "pages/plaza/index",
   renderDetailOverlay: true
 });
+let unsubscribeWorkVisibility: (() => void) | undefined;
 
 type SideRow = {
   icon: string;
@@ -239,6 +241,9 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 });
 
 onMounted(() => {
+  unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id }) => {
+    workList.value = workList.value.filter((work) => work.id !== id);
+  });
   refreshPlazaPage();
   console.warn("[Lumi probe] plaza onReady");
   initialContentTimer = setTimeout(() => {
@@ -249,6 +254,8 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeWorkVisibility?.();
+  unsubscribeWorkVisibility = undefined;
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);

@@ -147,8 +147,8 @@ export async function deleteGalleryWorks(ids: number[]) {
   await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=delete`)));
 }
 
-export async function moveGalleryWorksToDraft(ids: number[]) {
-  await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=draft`)));
+export async function takeDownGalleryWorks(ids: number[]) {
+  await Promise.all(ids.map((id) => api.delete<unknown>(`/works/${id}?action=offline`)));
 }
 
 function elapsedSeconds(createdAt: string) {

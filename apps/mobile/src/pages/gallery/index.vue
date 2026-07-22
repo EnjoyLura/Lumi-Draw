@@ -17,6 +17,7 @@ import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../ser
 import { generationStageForPercent, simulateGenerationProgress } from "../../services/generationProgress";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -36,7 +37,7 @@ import {
   fetchGalleryTerminalGenerateJobs,
   fetchGalleryUser,
   fetchGalleryWorks,
-  moveGalleryWorksToDraft,
+  takeDownGalleryWorks,
   type GalleryWorkPage
 } from "./galleryService";
 import {
@@ -59,7 +60,7 @@ const detailOverlayOwnerRoute = computed(() => props.detailOwnerRoute || (isMine
 const workspaceTabs = computed(() =>
   isMineMode.value
     ? ([{ key: "all", label: "我的作品" }, { key: "favorite", label: "我的收藏" }] as const)
-    : ([{ key: "draft", label: "草稿箱" }] as const)
+    : ([{ key: "all", label: "画廊" }] as const)
 );
 const { isLoggedIn, currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
@@ -159,6 +160,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
+let unsubscribeWorkVisibility: (() => void) | undefined;
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -182,8 +184,9 @@ const filteredWorks = computed(() => {
     });
   }
   if (selectedStatus.value === "published") result = result.filter((work) => work.published);
-  if (selectedStatus.value === "draft") result = result.filter((work) => !work.published);
+  if (selectedStatus.value === "draft") result = result.filter((work) => work.status === "draft");
   if (selectedStatus.value === "pending") result = result.filter((work) => work.status === "pending");
+  if (selectedStatus.value === "offline") result = result.filter((work) => work.status === "offline");
   return [...result].sort((a, b) => {
     const diff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
     return sortDescending.value ? diff : -diff;
@@ -212,7 +215,7 @@ const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.valu
 const selectedCount = computed(() => selectedIds.value.size);
 const selectedWorks = computed(() => works.value.filter((work) => selectedIds.value.has(work.id)));
 const selectedPublishedWorks = computed(() => selectedWorks.value.filter((work) => work.published));
-const canMoveSelectedToDraft = computed(() => selectedPublishedWorks.value.length > 0);
+const canTakeDownSelected = computed(() => selectedPublishedWorks.value.length > 0);
 const allCurrentSelected = computed(() => displayedWorks.value.length > 0 && displayedWorks.value.every((work) => selectedIds.value.has(work.id)));
 const hasGenderIcon = computed(() => profile.value.gender === "female" || profile.value.gender === "male");
 const hasProfileData = computed(() => useMockData.value || profile.value.id > 0);
@@ -250,6 +253,11 @@ onShow(() => {
 });
 
 onMounted(() => {
+  unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id, status }) => {
+    works.value = works.value.map((work) => (work.id === id ? { ...work, published: false, status } : work));
+    selectedIds.value.delete(id);
+    selectedIds.value = new Set(selectedIds.value);
+  });
   void loadModelOptions();
   markInitialContentReady();
   genTaskAnimationTimer = setInterval(() => {
@@ -283,6 +291,8 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 });
 
 onBeforeUnmount(() => {
+  unsubscribeWorkVisibility?.();
+  unsubscribeWorkVisibility = undefined;
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
@@ -763,7 +773,7 @@ async function refreshAfterBatchAction() {
   renderKey.value += 1;
 }
 
-async function moveSelectedToDraft() {
+async function takeDownSelectedWorks() {
   if (selectedIds.value.size === 0) {
     uni.showToast({ title: "请先选择要下架的作品", icon: "none" });
     return;
@@ -777,7 +787,7 @@ async function moveSelectedToDraft() {
 
   const confirmed = await confirmBatchAction({
     title: "下架作品",
-    content: `将 ${ids.length} 个已发布作品转回草稿箱，广场将不再展示，确定继续吗？`,
+    content: `下架后，这 ${ids.length} 个作品仍会保留在画廊，但不会继续在广场公开展示。确定下架吗？`,
     confirmText: "下架",
     confirmColor: "#ff8a65"
   });
@@ -785,13 +795,13 @@ async function moveSelectedToDraft() {
 
   if (!useMockData.value) {
     try {
-      await moveGalleryWorksToDraft(ids);
+      await takeDownGalleryWorks(ids);
     } catch {
       uni.showToast({ title: "下架失败，请稍后重试", icon: "none" });
       return;
     }
   } else {
-    works.value = works.value.map((work) => (ids.includes(work.id) ? { ...work, published: false, status: "draft" } : work));
+    works.value = works.value.map((work) => (ids.includes(work.id) ? { ...work, published: false, status: "offline" } : work));
   }
 
   await refreshAfterBatchAction();
@@ -1085,7 +1095,7 @@ function openWork(work: HomeWork) {
     <view v-if="isInitialContentReady && isLoggedIn" :class="['manage-bar', { show: manageMode }]">
       <text class="selected-count">已选择 {{ selectedCount }} 项</text>
       <button class="select-all-btn" @click="selectAll">{{ allCurrentSelected ? "取消全选" : "全选" }}</button>
-      <button class="draft-btn" :class="{ enabled: canMoveSelectedToDraft }" @click="moveSelectedToDraft">下架</button>
+      <button class="draft-btn" :class="{ enabled: canTakeDownSelected }" @click="takeDownSelectedWorks">下架</button>
       <button class="delete-btn" :class="{ enabled: selectedCount > 0 }" @click="deleteSelected">删除</button>
     </view>
 
@@ -1102,7 +1112,7 @@ function openWork(work: HomeWork) {
 
       <view class="filter-section-title">发布状态</view>
       <view class="filter-options">
-        <view v-for="item in [{ key: 'all', label: '全部' }, { key: 'published', label: '已发布' }, { key: 'draft', label: '草稿' }, { key: 'pending', label: '审核中' }]" :key="item.key" class="filter-chip" :class="{ active: selectedStatus === item.key }" @click="selectedStatus = item.key">{{ item.label }}</view>
+        <view v-for="item in [{ key: 'all', label: '全部' }, { key: 'published', label: '已发布' }, { key: 'draft', label: '未发布' }, { key: 'pending', label: '审核中' }, { key: 'offline', label: '已下架' }]" :key="item.key" class="filter-chip" :class="{ active: selectedStatus === item.key }" @click="selectedStatus = item.key">{{ item.label }}</view>
       </view>
       <button class="filter-confirm" @click="filterOpen = false">查看 {{ filteredWorks.length }} 个作品</button>
     </view>

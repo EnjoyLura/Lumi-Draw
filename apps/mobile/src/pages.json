@@ -244,7 +244,7 @@
     {
       "path": "pages/drafts/index",
       "style": {
-        "navigationBarTitleText": "草稿箱",
+        "navigationBarTitleText": "画廊",
         "navigationStyle": "custom",
         "backgroundColor": "@pageBackground",
         "backgroundColorTop": "@pageBackground",

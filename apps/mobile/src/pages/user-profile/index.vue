@@ -22,6 +22,7 @@ import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userP
 import { useTheme } from "../../services/theme";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 
 const { themeClass } = useTheme();
 const pageInstance = getCurrentInstance();
@@ -41,6 +42,7 @@ const pageState = ref({ page: 1, hasMore: false });
 const { useMockData } = useDataMode();
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 let lastMode: boolean | null = null;
+let unsubscribeWorkVisibility: (() => void) | undefined;
 
 interface ProfileView {
   id: number;
@@ -114,11 +116,16 @@ onShow(() => {
 });
 
 onMounted(() => {
+  unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id }) => {
+    realWorks.value = realWorks.value.filter((work) => work.id !== id);
+  });
   if (typeof window === "undefined") return;
   window.addEventListener("hashchange", handleHashChange);
 });
 
 onUnmounted(() => {
+  unsubscribeWorkVisibility?.();
+  unsubscribeWorkVisibility = undefined;
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
