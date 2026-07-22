@@ -50,6 +50,19 @@ Build the ZIP with directory entries intact. On Windows, use `tar.exe -a -cf pac
 
 The business API and FC share `TRANSFER_CALLBACK_TOKEN`. Requests from the API include both a Bearer token and a timestamped HMAC signature. Provider keys are encrypted in the business database, decrypted only when dispatching a task, sent only to the authenticated FC endpoint, and never logged.
 
+## Diagnostic logs
+
+The handler writes one-line JSON events to the FC invocation log. Filter by `jobId` to reconstruct a task without exposing its API key, prompt, or image payload. Important events are:
+
+- `provider.request.start` and `provider.response.headers`: provider connection and time to first response headers.
+- `response.body.start`, `response.body.complete`, and `response.body.failed`: Base64/JSON body transfer, expected and actual bytes, elapsed time, and the underlying network error.
+- `generation.outputs.ready`: result count and whether each result arrived as URL or Base64.
+- `oss.upload.start` and `oss.upload.complete`: OSS payload size and upload duration.
+- `callback.complete` and `callback.failed`: delivery of the final result to the business API.
+- `invocation.failed`: final phase-aware error, including available socket byte counters and `UND_ERR_*` codes.
+
+Use Alibaba Cloud Function Compute logs and search for the generation job ID shown by the business API log. A successful task ends with `generation.complete`; a failed task ends with `invocation.failed`.
+
 ## Deployment order
 
 1. Deploy this FC package and verify its environment variables.
