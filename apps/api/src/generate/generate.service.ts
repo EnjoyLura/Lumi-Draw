@@ -34,7 +34,7 @@ type GeneratedImage = {
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const ACTIVE_JOB_STATUSES = ["queued", "running", "finalizing"];
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
-const JOB_STATUSES = new Set(["queued", "running", "succeeded", "partial_failed", "failed", "cancelled"]);
+const JOB_STATUSES = new Set(["queued", "running", "finalizing", "succeeded", "partial_failed", "failed", "cancelled"]);
 
 type ProviderResultMode = "url" | "base64";
 
@@ -109,10 +109,14 @@ export class GenerateService implements OnApplicationBootstrap {
   async onApplicationBootstrap() {
     const interrupted = await this.prisma.generateJob.findMany({
       where: { OR: [{ providerAdapter: "change2pro" }, { providerAdapter: "", provider: "change2pro" }], status: { in: ["queued", "running", "finalizing"] } },
-      select: { id: true, providerAdapter: true, providerRequestMode: true, providerResultMode: true, providerParams: true, startedAt: true }
+      include: { results: true }
     });
     for (const job of interrupted) {
       const resultMode = resolveProviderResultMode(job.providerResultMode, job.providerAdapter || "change2pro", job.providerRequestMode, normalizeProviderParams(job.providerParams));
+      if (job.status === "finalizing" && resultMode === "url") {
+        await this.resumeUrlTransfers(job);
+        continue;
+      }
       if (resultMode === "base64" && job.startedAt && Date.now() - job.startedAt.getTime() < 35 * 60_000) continue;
       await this.failAndRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
     }
@@ -126,7 +130,7 @@ export class GenerateService implements OnApplicationBootstrap {
     });
     for (const job of jobs) {
       if (job.status === "finalizing") {
-        this.resumeAinbTransfers(job);
+        await this.resumeUrlTransfers(job);
         continue;
       }
       if (!job.kieTaskId) {
@@ -139,10 +143,18 @@ export class GenerateService implements OnApplicationBootstrap {
     }
   }
 
-  private resumeAinbTransfers(job: JobWithResults) {
-    if (!this.imageTransfer.isConfigured()) return;
-    for (const result of job.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey)) {
-      this.imageTransfer.dispatchInBackground({ jobId: job.id, resultId: result.id, sourceUrl: result.imageUrl, objectKey: result.ossKey });
+  private async resumeUrlTransfers(job: JobWithResults) {
+    const pending = job.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey);
+    if (!pending.length) {
+      await this.finalizeTransferredUrlJob(job);
+      return;
+    }
+    if (!this.imageTransfer.isConfigured()) {
+      await this.failAndRefund(job.id, "图片永久保存服务未配置");
+      return;
+    }
+    for (const result of pending) {
+      this.dispatchUrlTransfer(job.id, result);
     }
   }
 
@@ -677,10 +689,7 @@ export class GenerateService implements OnApplicationBootstrap {
       quality: job.quality,
       count: job.count
     }, this.providerRuntime(job));
-    const results = await this.storeChange2ProOutputs(outputs);
-    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-    if (TERMINAL_STATUSES.has(current.status)) return current;
-    return this.finishJobWithDrafts(current, results, "生成完成");
+    return this.stageUrlOutputsForTransfer(job, outputs);
   }
 
   private async completeFcGeneration(job: JobWithResults, runtime?: ProviderRuntimeConfig) {
@@ -714,10 +723,7 @@ export class GenerateService implements OnApplicationBootstrap {
         data: { progress, stageText: "AI 正在生成中" }
       });
     }, this.providerRuntime(job));
-    const results = await this.storeChange2ProOutputs(outputs);
-    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-    if (TERMINAL_STATUSES.has(current.status)) return current;
-    return this.finishJobWithDrafts(current, results, "生成完成");
+    return this.stageUrlOutputsForTransfer(job, outputs);
   }
 
   async completeImageTransfer(
@@ -727,18 +733,24 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!this.imageTransfer.matchesToken(token)) throw new UnauthorizedException("invalid image transfer token");
     if (!input.jobId || !input.resultId || !input.objectKey) throw new BadRequestException("invalid image transfer callback");
     const job = await this.prisma.generateJob.findUnique({ where: { id: input.jobId }, include: { results: true } });
-    if (!job || this.providerAdapter(job) !== "ainb" || job.status !== "finalizing") return { ok: true };
+    if (!job || job.status !== "finalizing") return { ok: true };
     const result = job.results.find((item) => item.id === input.resultId);
     if (!result || result.ossKey !== input.objectKey) throw new BadRequestException("image transfer result does not match job");
 
     if (input.error) {
-      await this.prisma.generateResult.update({ where: { id: result.id }, data: { status: "failed", imageUrl: "", errorMessage: input.error.slice(0, 500) } });
-      await this.failAndRefund(job.id, input.error);
+      const failed = await this.prisma.generateResult.updateMany({
+        where: { id: result.id, status: "transferring" },
+        data: { status: "failed", imageUrl: "", errorMessage: input.error.slice(0, 500) }
+      });
+      if (!failed.count) return { ok: true };
+      const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+      if (current.results.some((item) => item.status === "transferring")) return { ok: true };
+      await this.finalizeTransferredUrlJob(current, input.error);
       return { ok: true };
     }
 
-    await this.prisma.generateResult.update({
-      where: { id: result.id },
+    await this.prisma.generateResult.updateMany({
+      where: { id: result.id, status: { in: ["transferring", "failed"] } },
       data: {
         status: "succeeded",
         imageUrl: this.uploads.objectUrlForKey(result.ossKey),
@@ -747,9 +759,8 @@ export class GenerateService implements OnApplicationBootstrap {
       }
     });
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-    if (current.results.some((item) => item.status !== "succeeded")) return { ok: true };
-    const generated = current.results.map((item) => ({ imageUrl: item.imageUrl, ossKey: item.ossKey, sizeBytes: item.sizeBytes ?? 0 }));
-    await this.finishTransferredAinbJob(current, generated);
+    if (current.results.some((item) => item.status === "transferring")) return { ok: true };
+    await this.finalizeTransferredUrlJob(current);
     return { ok: true };
   }
 
@@ -785,17 +796,62 @@ export class GenerateService implements OnApplicationBootstrap {
     return { ok: true };
   }
 
-  private async storeChange2ProOutputs(outputs: Change2ProOutput[]) {
-    const results: GeneratedImage[] = [];
-    for (const output of outputs) {
-      if (output.url) {
-        results.push(await this.uploads.transferRemoteImage("generate", output.url));
-      } else if (output.buffer?.length && output.contentType) {
-        results.push(await this.uploads.uploadBuffer("generate", "generated-image", output.contentType, output.buffer));
+  private async stageUrlOutputsForTransfer(job: JobWithResults, outputs: Change2ProOutput[]) {
+    if (!this.imageTransfer.isConfigured()) throw new Error("图片永久保存服务未配置");
+    const urls = outputs.slice(0, job.count).flatMap((output) => {
+      if (!output.url) return [];
+      try {
+        return new URL(output.url).protocol === "https:" ? [output.url] : [];
+      } catch {
+        return [];
       }
+    });
+    if (!urls.length) throw new Error("图片平台没有返回可用的图片地址");
+    const contentType = this.providerOutputContentType(job);
+    const targets = urls.map((sourceUrl, index) => ({ sourceUrl, ...this.uploads.reserveGenerationImage(job.id, index + 1, contentType) }));
+    const staged = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.generateJob.updateMany({
+        where: { id: job.id, status: { in: ["queued", "running"] } },
+        data: { status: "finalizing", progress: 96, stageText: "图片已生成，正在安全保存原图" }
+      });
+      if (!claimed.count) return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+      await tx.generateResult.deleteMany({ where: { jobId: job.id } });
+      for (const target of targets) {
+        await tx.generateResult.create({
+          data: { jobId: job.id, status: "transferring", imageUrl: target.sourceUrl, ossKey: target.ossKey }
+        });
+      }
+      return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+    });
+    if (staged.status !== "finalizing") return staged;
+    for (const result of staged.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey)) {
+      this.dispatchUrlTransfer(staged.id, result);
     }
-    if (!results.length) throw new Error("Change2Pro did not return a valid image");
-    return results;
+    return staged;
+  }
+
+  private dispatchUrlTransfer(jobId: string, result: GenerateResult) {
+    if (!result.imageUrl || !result.ossKey) return;
+    void this.imageTransfer.dispatchInBackground({ jobId, resultId: result.id, sourceUrl: result.imageUrl, objectKey: result.ossKey })
+      .catch(async (error) => {
+        const message = error instanceof Error ? error.message : "图片保存服务连接失败";
+        const failed = await this.prisma.generateResult.updateMany({
+          where: { id: result.id, jobId, status: "transferring" },
+          data: { status: "failed", imageUrl: "", errorMessage: message.slice(0, 500) }
+        });
+        if (!failed.count) return;
+        const current = await this.prisma.generateJob.findUnique({ where: { id: jobId }, include: { results: true } });
+        if (current && current.status === "finalizing" && !current.results.some((item) => item.status === "transferring")) {
+          await this.finalizeTransferredUrlJob(current, message);
+        }
+      });
+  }
+
+  private providerOutputContentType(job: GenerateJob) {
+    const format = String(normalizeProviderParams(job.providerParams).output_format || "png").toLowerCase();
+    if (format === "jpg" || format === "jpeg") return "image/jpeg";
+    if (format === "webp") return "image/webp";
+    return "image/png";
   }
 
   private async failProviderJobIfActive(jobId: string, message: string) {
@@ -820,14 +876,55 @@ export class GenerateService implements OnApplicationBootstrap {
     return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
   }
 
-  private async finishTransferredAinbJob(job: JobWithResults, results: GeneratedImage[]) {
-    const claimed = await this.prisma.generateJob.updateMany({
-      where: { id: job.id, status: "finalizing", progress: 96 },
-      data: { progress: 97, stageText: "正在保存作品" }
+  private async finalizeTransferredUrlJob(job: JobWithResults, transferError = "") {
+    if (job.results.some((item) => item.status === "transferring")) return job;
+    const successful = job.results.filter((item) => item.status === "succeeded" && item.imageUrl && item.ossKey).slice(0, job.count);
+    if (!successful.length) return this.failAndRefund(job.id, transferError || "图片永久保存失败");
+    const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, successful.length);
+    const finalized = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.generateJob.updateMany({
+        where: { id: job.id, status: "finalizing" },
+        data: { progress: 97, stageText: "正在保存作品" }
+      });
+      if (!claimed.count) return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
+      for (const [index, result] of successful.entries()) {
+        const work = await tx.work.create({
+          data: {
+            userId: job.userId,
+            title: this.draftTitle(job.prompt, successful.length > 1 ? index + 1 : undefined),
+            description: "",
+            prompt: job.prompt,
+            imageUrl: result.imageUrl,
+            ratio: job.ratio,
+            quality: job.quality,
+            modelId: job.modelId,
+            style: job.style,
+            isPublic: false,
+            status: "draft"
+          }
+        });
+        await tx.generateResult.update({ where: { id: result.id }, data: { workId: work.id } });
+      }
+      await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: successful.length } } });
+      if (partial.refundCredits > 0) {
+        await this.credits.addTransactionInTx(tx, job.userId, "refund", partial.refundCredits, "AI生成部分失败返还", job.id);
+      }
+      return tx.generateJob.update({
+        where: { id: job.id },
+        data: {
+          status: partial.missingCount ? "partial_failed" : "succeeded",
+          progress: 100,
+          stageText: partial.missingCount ? "部分图片生成完成，缺少结果已返还积分" : "生成完成",
+          errorMessage: partial.missingCount ? `有 ${partial.missingCount} 张图片未保存，已返还 ${partial.refundCredits} 积分` : "",
+          refundCredits: job.refundCredits + partial.refundCredits,
+          startedAt: job.startedAt ?? new Date(),
+          finishedAt: new Date()
+        },
+        include: { results: true }
+      });
     });
-    if (!claimed.count) return job;
-    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-    return this.finishJobWithDrafts(current, results, "生成完成", ["finalizing"], 97);
+    for (const result of successful) void this.uploads.prewarmWorkImageVariants(result.imageUrl);
+    return finalized;
   }
 
   private async finishJobWithDrafts(

@@ -170,6 +170,20 @@ async function downloadImage(url, trace = {}) {
   return { buffer, contentType };
 }
 
+async function downloadImageWithRetry(url, trace = {}) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await downloadImage(url, { ...trace, downloadAttempt: attempt });
+    } catch (error) {
+      lastError = error;
+      logEvent("warn", "image.download.retry", { ...trace, downloadAttempt: attempt, error: errorDetails(error) });
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1_500));
+    }
+  }
+  throw lastError;
+}
+
 function extension(contentType) {
   return contentType === "image/jpeg" ? "jpg" : contentType === "image/webp" ? "webp" : "png";
 }
@@ -402,7 +416,7 @@ async function runGeneration(payload, context) {
 async function runTransfer(payload, context) {
   if (![payload.jobId, payload.resultId, payload.sourceUrl, payload.objectKey].every((item) => typeof item === "string" && item)) throw new Error("invalid transfer request");
   if (!payload.sourceUrl.startsWith("https://") || !payload.objectKey.startsWith("uploads/system/generate/")) throw new Error("invalid source or object key");
-  const image = await downloadImage(payload.sourceUrl, { jobId: payload.jobId, resultId: payload.resultId, phase: "result-image" });
+  const image = await downloadImageWithRetry(payload.sourceUrl, { jobId: payload.jobId, resultId: payload.resultId, phase: "result-image" });
   const startedAt = Date.now();
   logEvent("info", "oss.upload.start", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await ossClient(context).put(payload.objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });

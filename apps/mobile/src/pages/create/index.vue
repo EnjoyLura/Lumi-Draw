@@ -654,6 +654,32 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
   }));
 }
 
+function applyPermanentResults(results: GenResult[], preserveVisibleCards: boolean) {
+  if (!preserveVisibleCards) {
+    generatedResults.value = results;
+    return;
+  }
+  const previousById = new Map(generatedResults.value.map((item) => [item.resultId || item.id, item]));
+  const transitions: Array<{ key: string; temporaryCard: string; permanent: GenResult; permanentCard: string }> = [];
+  generatedResults.value = results.map((result) => {
+    const key = result.resultId || result.id;
+    const previous = previousById.get(key);
+    if (!previous || previous.failed || result.failed) return result;
+    const temporaryCard = resultCardImageSrc(previous);
+    const permanentCard = resultCardImageSrc(result);
+    if (!temporaryCard || !permanentCard || temporaryCard === permanentCard) return result;
+    transitions.push({ key, temporaryCard, permanent: result, permanentCard });
+    return { ...result, cardUrl: temporaryCard };
+  });
+  for (const transition of transitions) {
+    void preloadImage(transition.permanentCard).then(() => {
+      const index = generatedResults.value.findIndex((item) => (item.resultId || item.id) === transition.key);
+      if (index < 0 || generatedResults.value[index]?.cardUrl !== transition.temporaryCard) return;
+      generatedResults.value[index] = transition.permanent;
+    }).catch(() => undefined);
+  }
+}
+
 function applyBackendJob(job: BackendGenerateJob) {
   const startedAt = new Date(job.createdAt).getTime();
   activeGenerationQuality = job.quality;
@@ -675,6 +701,19 @@ function applyBackendJob(job: BackendGenerateJob) {
     const results = toGeneratedResults(job);
     generatedResults.value = results;
     syncOpenPreviewResult(results);
+    const providerFinishedAt = job.results
+      .map((item) => new Date(item.createdAt || "").getTime())
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b)[0];
+    const providerElapsed = providerFinishedAt
+      ? Math.max(1, (providerFinishedAt - new Date(job.createdAt).getTime()) / 1000)
+      : elapsedSeconds;
+    stopElapsedTimer(providerElapsed);
+    genMeta.value = {
+      time: providerElapsed.toFixed(1),
+      resolution: qualityShortLabel(job.quality),
+      size: `${job.costCredits - job.refundCredits}积分`
+    };
     return;
   }
 
@@ -686,11 +725,16 @@ function applyBackendJob(job: BackendGenerateJob) {
   void syncCreditsAfterTerminalJob(job);
   progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
   isGenerating.value = false;
+  const preserveVisibleCards = isSavingOriginal.value;
   isSavingOriginal.value = false;
   const results = toGeneratedResults(job);
-  generatedResults.value = results;
+  applyPermanentResults(results, preserveVisibleCards);
   syncOpenPreviewResult(results);
-  const elapsed = Math.max(1, (new Date(job.updatedAt).getTime() - new Date(job.createdAt).getTime()) / 1000);
+  const providerFinishedAt = job.results
+    .map((item) => new Date(item.createdAt || "").getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)[0];
+  const elapsed = Math.max(1, ((providerFinishedAt || new Date(job.updatedAt).getTime()) - new Date(job.createdAt).getTime()) / 1000);
   stopElapsedTimer(elapsed);
   genMeta.value = {
     time: elapsed.toFixed(1),
@@ -907,6 +951,10 @@ async function startGenerate() {
 }
 
 function openPreview(item: GenResult) {
+  if (isSavingOriginal.value) {
+    showToast("高清原图正在安全保存，请稍后查看");
+    return;
+  }
   if (item.failed || !genMeta.value) return;
   const key = item.resultId || item.id;
   const cardSrc = resultCardImageSrc(item);
@@ -1242,7 +1290,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             </view>
             <view v-if="isSavingOriginal" class="draft-saved-note">
               <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
-              <text>图片已生成，正在保存高清原图到画廊，请勿关闭页面。</text>
+              <text>图片已生成，高清原图正在安全保存到画廊。</text>
             </view>
             <view v-if="genMeta" class="result-meta">
               <text class="meta-item">耗时 {{ genMeta.time }}s</text>

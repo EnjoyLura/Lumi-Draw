@@ -52,7 +52,7 @@ export class ImageTransferClient {
   }
 
   dispatch(input: ImageTransferRequest) {
-    return this.dispatchRequest({ ...input, operation: "transfer" }, 5 * 60_000);
+    return this.dispatchRequest({ ...input, operation: "transfer" }, 10 * 60_000);
   }
 
   dispatchGeneration(input: ImageGenerationRequest) {
@@ -83,9 +83,28 @@ export class ImageTransferClient {
   }
 
   dispatchInBackground(input: ImageTransferRequest) {
-    void this.dispatch(input).catch((error) => {
-      this.logger.error(`Image transfer dispatch failed for ${input.resultId}: ${error instanceof Error ? error.message : "unknown error"}`);
+    const task = this.dispatchWithRetry(input);
+    void task.catch((error) => {
+      this.logger.error(`Image transfer permanently failed to dispatch for ${input.resultId}: ${error instanceof Error ? error.message : "unknown error"}`);
     });
+    return task;
+  }
+
+  private async dispatchWithRetry(input: ImageTransferRequest) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        await this.dispatch(input);
+        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "unknown error";
+        this.logger.error(`Image transfer dispatch failed for ${input.resultId} (attempt ${attempt}/3): ${message}`);
+        // An HTTP response means FC accepted and completed the invocation. FC has
+        // already reported the terminal transfer error through the callback.
+        if (message.startsWith("Image function failed: HTTP")) return;
+        if (attempt === 3) throw error;
+        await new Promise((resolve) => setTimeout(resolve, attempt * 1_500));
+      }
+    }
   }
 
   matchesToken(token: string | undefined) {

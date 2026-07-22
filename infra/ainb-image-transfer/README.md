@@ -2,14 +2,14 @@
 
 This Alibaba Cloud Function Compute handler is the image transport boundary for Lumi-Draw. It supports two operations behind one authenticated HTTPS endpoint:
 
-- `transfer`: legacy compatibility for URL tasks that were already transferring during the upgrade.
+- `transfer`: fetch a provider URL, preserve the original bytes in OSS, and report the permanent object back to the API.
 - `generate`: call a Base64-only provider from FC, decode the image in memory, write it directly to OSS, and report only object metadata to the API.
 
 ## Routing policy
 
 Each API provider has independent result modes for text-to-image and image-to-image:
 
-- `url`: the business API calls the provider and transfers the returned URL to OSS itself. FC is not used for new URL-result tasks.
+- `url`: the business API calls the provider, immediately exposes the temporary result URL, and asks FC to preserve the original bytes in OSS in the background. The business server never downloads the image.
 - `base64`: FC calls the provider and uploads decoded bytes directly to OSS. The business API only sends configuration and receives progress, errors, and OSS object keys.
 - `auto`: asynchronous providers and `response_format=url` use URL mode; synchronous OpenAI-compatible image providers default to Base64 mode.
 
@@ -35,7 +35,7 @@ Environment variables:
 - `OSS_REGION`
 - `OSS_BUCKET`
 - `TRANSFER_CALLBACK_TOKEN`
-- `API_CALLBACK_URL`, used only to finish legacy URL transfers that were already in flight during deployment
+- `API_CALLBACK_URL`, used to finish URL-to-OSS transfers
 - `GENERATION_CALLBACK_URL`, used by Base64 generation and progress callbacks
 
 Runtime requirements:

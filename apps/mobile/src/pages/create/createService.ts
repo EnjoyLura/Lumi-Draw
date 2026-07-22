@@ -86,6 +86,7 @@ export interface BackendGenerateResult {
   originalUrl?: string;
   errorMessage?: string;
   workId?: number;
+  createdAt?: string;
 }
 
 export interface BackendGenerateJob {
