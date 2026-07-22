@@ -48,10 +48,8 @@ export async function openPreloadedWorkDetail(
   const seedWork = cached
     ? {
         ...cached.work,
-        image: work.image,
+        ...work,
         previewImage: work.image,
-        likes: work.likes,
-        favorites: work.favorites,
         liked: work.liked ?? cached.work.liked,
         favorited: work.favorited ?? cached.work.favorited
       }
