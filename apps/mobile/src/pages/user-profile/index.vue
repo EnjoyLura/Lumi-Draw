@@ -22,6 +22,7 @@ import { getProfileUser, getUserWorks, isFollowing, setFollowing } from "./userP
 import { useTheme } from "../../services/theme";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 
 const { themeClass } = useTheme();
@@ -283,6 +284,7 @@ async function toggleLike(event: Event, workId: number) {
     try {
       const result = await toggleWorkLike(workId);
       realWorks.value = realWorks.value.map((work) => (work.id === workId ? { ...work, likes: result.likes } : work));
+      patchWorkDetailSnapshot(workId, { likes: result.likes, liked: Boolean(result.liked) });
     } catch {
       uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
       return;

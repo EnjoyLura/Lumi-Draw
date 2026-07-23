@@ -8,6 +8,8 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { invalidateTabPages } from "../../services/tabPageCache";
+import { invalidateWorkDetailPreload } from "../../services/workDetailListPreload";
+import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
 import { fetchMemberPlans, fetchMemberStatus, fetchPublishRewardConfig } from "../points/pointsService";
@@ -288,6 +290,19 @@ async function submit() {
       tags: selectedTags.value,
       draft: selectedDraft.value
     });
+    patchWorkDetailSnapshot(result.id, {
+      title: result.title,
+      description: result.description || "",
+      prompt: result.prompt || title.value.trim(),
+      ratio: result.ratio || selectedDraft.value.ratio,
+      quality: result.quality || "",
+      modelId: result.modelId || "",
+      styleName: result.style || "",
+      tags: result.tags || selectedTags.value,
+      published: result.status === "published" && result.isPublic !== false,
+      status: result.status
+    });
+    invalidateWorkDetailPreload(result.id);
     invalidateTabPages("gallery:");
     uni.showToast({ title: publishSuccessMessage(result), icon: "none" });
     setTimeout(leavePublishPage, 900);

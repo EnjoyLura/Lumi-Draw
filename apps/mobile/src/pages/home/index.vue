@@ -32,6 +32,7 @@ import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { parseQueryString } from "../../services/routeQuery";
 import {
@@ -685,6 +686,7 @@ async function toggleLike(work: HomeWork) {
       else next.delete(work.id);
       likedWorkIds.value = next;
       updateWorkLikeCount(work.id, result.likes, Boolean(result.liked));
+      patchWorkDetailSnapshot(work.id, { likes: result.likes, liked: Boolean(result.liked) });
     } catch {
       uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
     } finally {

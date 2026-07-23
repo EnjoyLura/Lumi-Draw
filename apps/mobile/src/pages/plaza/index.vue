@@ -16,6 +16,7 @@ import { reportPageNavigationPerformance } from "../../services/pagePerformance"
 import { TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { openPreloadedWorkDetail, type WorkDetailSourceRect } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { fetchFavorites, toHomeUser, toHomeWork, toggleWorkLike } from "../../services/social";
 import { fetchMineProfile, fetchUnreadMessageCount, toMineUser } from "../mine/mineService";
@@ -698,6 +699,7 @@ async function toggleLike(event: Event, workId: number) {
       else next.delete(workId);
       likedWorkIds.value = next;
       updateWorkLikeCount(workId, result.likes, Boolean(result.liked));
+      patchWorkDetailSnapshot(workId, { likes: result.likes, liked: Boolean(result.liked) });
     } catch {
       uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
     } finally {

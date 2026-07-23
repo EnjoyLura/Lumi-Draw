@@ -1,6 +1,6 @@
 export interface WorkVisibilityChange {
   id: number;
-  status: "offline";
+  status: "offline" | "deleted";
 }
 
 const listeners = new Set<(change: WorkVisibilityChange) => void>();

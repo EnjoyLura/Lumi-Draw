@@ -5,11 +5,14 @@ import { fetchWorkState } from "./social";
 import { useAuth } from "./auth";
 
 type WorkSeed = { work: HomeWork; user: HomeUser };
+type QueuedWorkSeed = WorkSeed & { revision: number };
 
 const MAX_CONCURRENT_REQUESTS = 3;
+const PRELOAD_COMPLETION_TTL = 5 * 60_000;
 const queuedIds = new Set<number>();
-const completedIds = new Set<number>();
-const queue: WorkSeed[] = [];
+const completedIds = new Map<number, number>();
+const revisionsByWorkId = new Map<number, number>();
+const queue: QueuedWorkSeed[] = [];
 let activeRequests = 0;
 const { isLoggedIn } = useAuth();
 
@@ -19,11 +22,18 @@ const { isLoggedIn } = useAuth();
  */
 export function preloadWorkDetailSnapshots(entries: WorkSeed[]) {
   entries.forEach((entry) => {
-    if (completedIds.has(entry.work.id) || queuedIds.has(entry.work.id)) return;
+    const completedUntil = completedIds.get(entry.work.id) ?? 0;
+    if (completedUntil > Date.now() || queuedIds.has(entry.work.id)) return;
+    completedIds.delete(entry.work.id);
     queuedIds.add(entry.work.id);
-    queue.push(entry);
+    queue.push({ ...entry, revision: revisionsByWorkId.get(entry.work.id) ?? 0 });
   });
   drainQueue();
+}
+
+export function invalidateWorkDetailPreload(workId: number) {
+  completedIds.delete(workId);
+  revisionsByWorkId.set(workId, (revisionsByWorkId.get(workId) ?? 0) + 1);
 }
 
 function drainQueue() {
@@ -38,13 +48,14 @@ function drainQueue() {
   }
 }
 
-async function preloadOne({ work, user }: WorkSeed) {
+async function preloadOne({ work, user, revision }: QueuedWorkSeed) {
   try {
     const [detail, state] = await Promise.all([
       fetchWorkDetail(work.id),
       isLoggedIn.value ? fetchWorkState(work.id).catch(() => null) : Promise.resolve(null)
     ]);
     const cached = getWorkDetailSnapshot(work.id);
+    if ((revisionsByWorkId.get(work.id) ?? 0) !== revision) return;
     const listWork = cached?.work ?? work;
     const listUser = cached?.user ?? user;
     // Preserve the already rendered list image. The returned original URL is
@@ -60,7 +71,7 @@ async function preloadOne({ work, user }: WorkSeed) {
       },
       { ...listUser, ...detail.user }
     );
-    completedIds.add(work.id);
+    completedIds.set(work.id, Date.now() + PRELOAD_COMPLETION_TTL);
   } catch {
     // A list card remains usable with its own complete-enough payload.
   } finally {

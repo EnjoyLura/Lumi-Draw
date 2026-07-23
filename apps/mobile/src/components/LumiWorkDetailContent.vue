@@ -22,10 +22,14 @@ import { imageSaveFailureMessage, saveImageToDevice } from "../services/imageSav
 import { openEmbeddedCreate } from "../services/primaryShell";
 import { invalidateTabPages } from "../services/tabPageCache";
 import { consumeWorkDetailStale } from "../services/workDetailRefresh";
+import { invalidateWorkDetailPreload } from "../services/workDetailListPreload";
 import { notifyWorkVisibilityChange } from "../services/workVisibilityEvents";
 import {
+  clearWorkDetailCache,
   getWorkDetailQualityPreview,
   getWorkDetailSnapshot,
+  patchWorkDetailSnapshot,
+  primeWorkDetailSnapshot,
   primeWorkDetailQualityPreview
 } from "../services/workDetailPreviewCache";
 import { resolveWorkDetailImageHeight } from "../services/workDetailLayout";
@@ -204,6 +208,21 @@ function hydrateDetailSnapshot() {
   return Boolean(item.isDetailPreloaded);
 }
 
+function cacheLatestDetail(detail: Awaited<ReturnType<typeof fetchWorkDetail>>) {
+  const cached = getWorkDetailSnapshot(detail.work.id);
+  primeWorkDetailSnapshot(
+    {
+      ...cached?.work,
+      ...detail.work,
+      image: cached?.work.image || detail.work.image,
+      liked: cached?.work.liked,
+      favorited: cached?.work.favorited,
+      isDetailPreloaded: true
+    },
+    { ...cached?.user, ...detail.user }
+  );
+}
+
 watch(
   () => props.open,
   (opened) => {
@@ -280,6 +299,7 @@ async function refreshEmbeddedDetail() {
     const detailResult = await fetchWorkDetail(id);
     if (work.value?.id === id) {
       const latest = detailResult;
+      cacheLatestDetail(latest);
       // Static detail fields were populated while the card list was loading.
       // Do not replace them after open, or labels visibly pop into the page.
       work.value = {
@@ -359,10 +379,15 @@ async function loadDetail() {
         liked.value = stateResult.value.liked;
         favorited.value = stateResult.value.favorited;
         following.value = stateResult.value.following;
+        patchWorkDetailSnapshot(workId.value, {
+          liked: stateResult.value.liked,
+          favorited: stateResult.value.favorited
+        });
       }
       return;
     }
     const detail = await fetchWorkDetail(workId.value);
+    cacheLatestDetail(detail);
     work.value = detail.work;
     user.value = detail.user;
     if (!detail.work.published) return;
@@ -372,6 +397,10 @@ async function loadDetail() {
       liked.value = stateResult.value.liked;
       favorited.value = stateResult.value.favorited;
       following.value = stateResult.value.following;
+      patchWorkDetailSnapshot(workId.value, {
+        liked: stateResult.value.liked,
+        favorited: stateResult.value.favorited
+      });
     }
   } catch {
     if (!work.value || !user.value) {
@@ -450,6 +479,7 @@ async function toggleLike() {
     const result = await toggleWorkLike(work.value.id);
     liked.value = Boolean(result.liked);
     work.value.likes = result.likes;
+    patchWorkDetailSnapshot(work.value.id, { likes: result.likes, liked: Boolean(result.liked) });
     playPulse("like");
   } catch {
     uni.showToast({ title: "点赞失败，请稍后重试", icon: "none" });
@@ -468,6 +498,10 @@ async function toggleFavorite() {
     const result = await toggleWorkFavorite(work.value.id);
     favorited.value = Boolean(result.favorited);
     work.value.favorites = result.favorites;
+    patchWorkDetailSnapshot(work.value.id, {
+      favorites: result.favorites,
+      favorited: Boolean(result.favorited)
+    });
     playPulse("favorite");
   } catch {
     uni.showToast({ title: "收藏失败，请稍后重试", icon: "none" });
@@ -695,6 +729,8 @@ async function takeDownOwnWork() {
   try {
     await takeDownWork(work.value.id);
     await loadDetail();
+    patchWorkDetailSnapshot(work.value.id, { published: false, status: "offline" });
+    invalidateWorkDetailPreload(work.value.id);
     invalidateTabPages("gallery:");
     notifyWorkVisibilityChange({ id: work.value.id, status: "offline" });
     uni.showToast({ title: "作品已下架并保留在画廊", icon: "none" });
@@ -738,6 +774,9 @@ async function removeOwnWork() {
   if (!confirmed) return;
 
   if (useMockData.value) {
+    clearWorkDetailCache(work.value.id);
+    invalidateWorkDetailPreload(work.value.id);
+    notifyWorkVisibilityChange({ id: work.value.id, status: "deleted" });
     uni.showToast({ title: "已删除作品", icon: "none" });
     leaveAfterDelete();
     return;
@@ -747,7 +786,10 @@ async function removeOwnWork() {
   isDeleting.value = true;
   try {
     await deleteWork(work.value.id);
+    clearWorkDetailCache(work.value.id);
+    invalidateWorkDetailPreload(work.value.id);
     invalidateTabPages("gallery:");
+    notifyWorkVisibilityChange({ id: work.value.id, status: "deleted" });
     uni.showToast({ title: "已删除作品", icon: "none" });
     leaveAfterDelete();
   } catch {

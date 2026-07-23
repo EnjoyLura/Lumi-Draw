@@ -11,6 +11,7 @@ import { uploadLocalImagePath } from "../../services/upload";
 import { fetchMyProfile, updateMyProfile } from "./profileService";
 import { useTheme } from "../../services/theme";
 import { invalidateTabPages } from "../../services/tabPageCache";
+import { patchWorkDetailAuthors } from "../../services/workDetailPreviewCache";
 
 const { themeClass } = useTheme();
 
@@ -181,6 +182,11 @@ async function save() {
       avatarUrl: profile.avatarUrl,
       bio: profile.bio,
       gender: profile.gender
+    });
+    patchWorkDetailAuthors(profile.id, {
+      name: profile.nickname,
+      avatar: profile.avatarText || profile.nickname.slice(0, 1) || "U",
+      color: profile.avatarColor || "var(--accent)"
     });
     invalidateTabPages("gallery:");
     uni.showToast({ title: "资料已保存", icon: "none" });

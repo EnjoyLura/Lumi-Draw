@@ -16,8 +16,9 @@ import { reportPageNavigationPerformance } from "../../services/pagePerformance"
 import { invalidateTabPage, refreshTabPage, TAB_PAGE_CACHE_TTL } from "../../services/tabPageCache";
 import { generationStageForPercent, simulateGenerationProgress } from "../../services/generationProgress";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
-import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
-import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
+import { invalidateWorkDetailPreload, preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { clearWorkDetailCache, patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { notifyWorkVisibilityChange, subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import {
   addNotifiedGenerateJobIds,
@@ -254,6 +255,12 @@ onShow(() => {
 
 onMounted(() => {
   unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id, status }) => {
+    if (status === "deleted") {
+      works.value = works.value.filter((work) => work.id !== id);
+      selectedIds.value.delete(id);
+      selectedIds.value = new Set(selectedIds.value);
+      return;
+    }
     works.value = works.value.map((work) => (work.id === id ? { ...work, published: false, status } : work));
     selectedIds.value.delete(id);
     selectedIds.value = new Set(selectedIds.value);
@@ -804,6 +811,11 @@ async function takeDownSelectedWorks() {
     works.value = works.value.map((work) => (ids.includes(work.id) ? { ...work, published: false, status: "offline" } : work));
   }
 
+  ids.forEach((id) => {
+    patchWorkDetailSnapshot(id, { published: false, status: "offline" });
+    invalidateWorkDetailPreload(id);
+    notifyWorkVisibilityChange({ id, status: "offline" });
+  });
   await refreshAfterBatchAction();
   uni.showToast({ title: `已下架 ${ids.length} 个作品`, icon: "none" });
 }
@@ -833,6 +845,11 @@ async function deleteSelected() {
     }
   }
 
+  ids.forEach((id) => {
+    clearWorkDetailCache(id);
+    invalidateWorkDetailPreload(id);
+    notifyWorkVisibilityChange({ id, status: "deleted" });
+  });
   works.value = works.value.filter((work) => !ids.includes(work.id));
   await refreshAfterBatchAction();
   uni.showToast({ title: `已删除 ${count} 个作品`, icon: "none" });

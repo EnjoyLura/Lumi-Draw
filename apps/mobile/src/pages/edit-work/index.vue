@@ -9,6 +9,8 @@ import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { markWorkDetailStale } from "../../services/workDetailRefresh";
+import { invalidateWorkDetailPreload } from "../../services/workDetailListPreload";
+import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { getWorkById } from "../work-detail/workDetailData";
 import { workTags } from "../publish/publishData";
 import { fetchEditableWork, updateEditableWork } from "./editWorkService";
@@ -224,6 +226,13 @@ async function submit() {
       style: selectedTags.value[0] || "",
       tags: selectedTags.value
     });
+    patchWorkDetailSnapshot(workId.value, {
+      title: title.value.trim(),
+      description: desc.value.trim(),
+      styleName: selectedTags.value[0] || "",
+      tags: selectedTags.value
+    });
+    invalidateWorkDetailPreload(workId.value);
     markWorkDetailStale(workId.value);
     invalidateTabPages("gallery:");
     uni.showToast({ title: "作品信息已保存", icon: "none" });
