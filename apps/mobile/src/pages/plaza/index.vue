@@ -363,9 +363,10 @@ async function loadFavoritePage(page = 1, append = false) {
   const result = await fetchFavorites(page, 10);
   const works = result.items.map(toHomeWork);
   const users = result.items.map((item) => toHomeUser(item.author));
+  if (append) mergeUsers(users);
+  else userList.value = users;
   workList.value = append ? [...workList.value, ...works] : works;
   syncInteractionIds(works, append);
-  mergeUsers(users);
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
 }
@@ -386,9 +387,10 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   const cached = append && prefetchedPlazaPage?.key === key && prefetchedPlazaPage.page === page ? prefetchedPlazaPage : undefined;
   if (cached) prefetchedPlazaPage = undefined;
   const result = await (cached?.request ?? fetchPlazaWorks(getPlazaFeedParams(page)));
+  if (append) mergeUsers(result.users);
+  else userList.value = result.users;
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
-  mergeUsers(result.users);
   preloadWorkDetailSnapshots(result.works.map((work) => ({ work, user: result.users.find((user) => user.id === work.userId) ?? getUser(work) })));
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
@@ -474,7 +476,6 @@ async function reloadPlazaData() {
       ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
       : 0;
     renderedCategoryIndex.value = activeCategoryIndex.value;
-    userList.value = [];
     await loadCurrentPlazaPage(1, false);
     visibleWorkCount.value = 10;
     renderKey.value += 1;
