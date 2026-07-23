@@ -83,7 +83,7 @@ const pageContracts = [
       "fetchGalleryGenerateTasks",
       "fetchGalleryTerminalGenerateJobs",
       "deleteGalleryWorks",
-      "moveGalleryWorksToDraft",
+      "takeDownSelectedWorks",
       "LumiSideDrawer",
       "生成完成",
       "生成作品已自动保存到画廊",
@@ -129,7 +129,7 @@ const pageContracts = [
       "updateAuthorFollowers(result.followers)",
       "openEmbeddedCreate",
       "invalidateTabPages",
-      "moveWorkToDraft",
+      "takeDownOwnWork",
       "deleteWork",
       "resolveRouteId"
     ]
@@ -168,7 +168,7 @@ const pageContracts = [
   },
   {
     route: "pages/settings/index",
-    tokens: ["useDataMode", "fetchChangelog", "logout", "clearAppCache", "toggleDarkMode"]
+    tokens: ["useDataMode", "fetchChangelog", "logout", "cancelAccount", "openWechatPrivacyContract", "toggleDarkMode"]
   },
   {
     route: "pages/agreement/index",
@@ -176,7 +176,7 @@ const pageContracts = [
   },
   {
     route: "pages/edit-profile/index",
-    tokens: ["useDataMode", "fetchMyProfile", "updateMyProfile", "uploadChosenImage"]
+    tokens: ["useDataMode", "fetchMyProfile", "updateMyProfile", "uploadLocalImagePath"]
   },
   {
     route: "pages/feedback/index",
@@ -212,6 +212,7 @@ const apiPathContracts = [
   "/auth/wechat/login",
   "/auth/refresh",
   "/auth/logout",
+  "/users/me",
   "/app/bootstrap",
   "/works/feed",
   "/works/plaza",

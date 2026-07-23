@@ -22,10 +22,10 @@ export class JwtAuthGuard implements CanActivate {
     const token = extractBearer(req);
     if (!token) throw new UnauthorizedException("未登录");
     try {
-      const payload = this.jwt.verify<{ sub: number; type: string }>(token, {
+      const payload = this.jwt.verify<{ sub: number; type: string; accountStatus?: string }>(token, {
         secret: this.config.getOrThrow<string>("app.jwtSecret")
       });
-      if (payload.type !== "user") throw new Error("wrong token type");
+      if (payload.type !== "user" || payload.accountStatus !== "normal") throw new Error("invalid account");
       req.user = { id: payload.sub };
       return true;
     } catch {

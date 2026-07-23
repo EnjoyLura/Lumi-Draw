@@ -1,3 +1,5 @@
+import { requireWechatPrivacyAuthorization } from "./wechatPrivacy";
+
 type ImageSaveErrorCode = "download" | "permission" | "unsupported-format" | "save";
 
 export class ImageSaveError extends Error {
@@ -126,6 +128,7 @@ export function imageSaveFailureMessage(error: unknown) {
 
 export async function saveImageToDevice(url: string, filename = `lumi-${Date.now()}.jpg`) {
   if (saveImageInBrowser(url, filename)) return;
+  await requireWechatPrivacyAuthorization();
   const filePath = await downloadImage(url);
   await ensurePhotoAlbumPermission();
   await saveImageToAlbum(filePath);

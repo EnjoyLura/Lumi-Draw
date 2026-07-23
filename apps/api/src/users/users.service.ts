@@ -60,4 +60,72 @@ export class UsersService {
     const user = await this.prisma.user.update({ where: { id: userId }, data });
     return this.withCreatorTitle(user);
   }
+
+  async cancelAccount(userId: number) {
+    await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true, status: true } });
+      if (!user) throw new NotFoundException("用户不存在");
+      if (user.status === "cancelled") return;
+
+      const workIds = (
+        await tx.work.findMany({
+          where: { userId },
+          select: { id: true }
+        })
+      ).map((work) => work.id);
+
+      await tx.workInteraction.deleteMany({
+        where: {
+          OR: [{ userId }, ...(workIds.length ? [{ workId: { in: workIds } }] : [])]
+        }
+      });
+      await tx.workView.deleteMany({
+        where: {
+          OR: [{ userId }, ...(workIds.length ? [{ workId: { in: workIds } }] : [])]
+        }
+      });
+      await tx.report.deleteMany({
+        where: {
+          OR: [{ reporterId: userId }, ...(workIds.length ? [{ workId: { in: workIds } }] : [])]
+        }
+      });
+      if (workIds.length) {
+        await tx.generateResult.updateMany({ where: { workId: { in: workIds } }, data: { workId: null } });
+      }
+      await tx.work.deleteMany({ where: { userId } });
+      await tx.generateJob.deleteMany({ where: { userId } });
+      await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
+      await tx.inviteRecord.deleteMany({ where: { OR: [{ inviterId: userId }, { inviteeId: userId }] } });
+      await tx.feedback.deleteMany({ where: { userId } });
+      await tx.notification.deleteMany({ where: { userId } });
+      await tx.checkinRecord.deleteMany({ where: { userId } });
+      await tx.refreshToken.deleteMany({ where: { userId } });
+
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          openId: null,
+          nickname: "已注销用户",
+          avatarText: "",
+          avatarColor: "#B8C2CC",
+          avatarUrl: null,
+          bio: "",
+          gender: "unknown",
+          phone: "",
+          credits: 0,
+          memberPlan: "",
+          memberExpireAt: null,
+          status: "cancelled",
+          inviteCode: null,
+          invitedById: null,
+          worksCount: 0,
+          likesCount: 0,
+          followers: 0,
+          following: 0
+        }
+      });
+    });
+
+    return { ok: true };
+  }
 }

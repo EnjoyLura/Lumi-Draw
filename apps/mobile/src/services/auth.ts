@@ -124,10 +124,7 @@ function isWeixinMiniProgram() {
 }
 
 function getWechatLoginCode() {
-  if (!isWeixinMiniProgram()) {
-    return Promise.resolve(getMockLoginCode());
-  }
-
+  // #ifdef MP-WEIXIN
   return new Promise<string>((resolve, reject) => {
     uni.login({
       provider: "weixin",
@@ -143,6 +140,11 @@ function getWechatLoginCode() {
       }
     });
   });
+  // #endif
+
+  // #ifndef MP-WEIXIN
+  return Promise.resolve(getMockLoginCode());
+  // #endif
 }
 
 async function loginWithBackend() {
@@ -244,6 +246,13 @@ export function useAuth() {
     clearSession();
   }
 
+  async function cancelAccount() {
+    if (!isMockMode()) {
+      await api.delete<{ ok: boolean }>("/users/me");
+    }
+    clearSession();
+  }
+
   function requireLogin(openLoginSheet?: () => void) {
     if (!isMockMode() && !hasSessionToken()) {
       clearSession();
@@ -259,6 +268,7 @@ export function useAuth() {
     currentUser,
     login,
     logout,
+    cancelAccount,
     requireLogin,
     syncAuthState,
     updateCurrentUser: updateStoredUser

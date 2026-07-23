@@ -43,7 +43,7 @@ export class AuthService {
 
   private async issueTokens(user: User) {
     const accessToken = this.jwt.sign(
-      { sub: user.id, type: "user" },
+      { sub: user.id, type: "user", accountStatus: user.status },
       { secret: this.config.getOrThrow<string>("app.jwtSecret"), expiresIn: this.accessTtl }
     );
     const refreshToken = generateOpaqueToken();
@@ -107,7 +107,7 @@ export class AuthService {
       throw new UnauthorizedException("刷新令牌无效");
     }
     const user = await this.prisma.user.findUnique({ where: { id: row.userId } });
-    if (!user) throw new UnauthorizedException("用户不存在");
+    if (!user || user.status === "cancelled") throw new UnauthorizedException("用户不存在");
     await this.prisma.refreshToken.update({ where: { id: row.id }, data: { revoked: true } });
     return this.issueTokens(user);
   }
@@ -122,7 +122,7 @@ export class AuthService {
 
   async me(userId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new UnauthorizedException("用户不存在");
+    if (!user || user.status === "cancelled") throw new UnauthorizedException("用户不存在");
     return publicUser(user);
   }
 }

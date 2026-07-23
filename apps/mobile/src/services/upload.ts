@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { requireWechatPrivacyAuthorization } from "./wechatPrivacy";
 
 interface UploadPolicy {
   uploadUrl: string;
@@ -88,7 +89,7 @@ function completeUpload(ossKey: string, uploadToken: string) {
 }
 
 function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
-  return new Promise((resolve, reject) => {
+  return requireWechatPrivacyAuthorization().then(() => new Promise((resolve, reject) => {
     uni.chooseImage({
       count: 1,
       sizeType: useOriginal ? ["original"] : ["compressed"],
@@ -120,7 +121,7 @@ function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
         reject(new Error(error.errMsg || "chooseImage failed"));
       }
     });
-  });
+  }));
 }
 
 function getImageInfoByUni(path: string) {

@@ -1020,7 +1020,7 @@ function boolSetting(value: unknown, fallback: boolean) {
 export async function apiGetSystemSettings(): Promise<AdminSystemSettings> {
   const data = await http.get<Record<string, unknown>>("/admin/settings");
   return {
-    reviewMode: typeof data.reviewMode === "string" ? data.reviewMode : "auto",
+    reviewMode: typeof data.reviewMode === "string" ? data.reviewMode : "manual",
     manualReviewEnabled: boolSetting(data.manualReviewEnabled, true)
   };
 }

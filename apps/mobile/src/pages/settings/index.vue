@@ -9,10 +9,11 @@ import { useTheme } from "../../services/theme";
 import { currentVersion } from "../changelog/changelogData";
 import { aboutItems, type SettingsLink } from "./settingsData";
 import { fetchChangelog } from "./settingsService";
+import { openWechatPrivacyContract, requireWechatPrivacyAuthorization } from "../../services/wechatPrivacy";
 
 const { useMockData } = useDataMode();
 const { theme, themeClass, setTheme } = useTheme();
-const { isLoggedIn, currentUser, login: commitLogin, logout } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, logout, cancelAccount } = useAuth();
 const darkMode = computed(() => theme.value === "dark");
 const showLoginSheet = ref(false);
 const versionMeta = ref(currentVersion);
@@ -59,8 +60,14 @@ function requireSession() {
   return false;
 }
 
-function goEditProfile() {
+async function goEditProfile() {
   if (!requireSession()) return;
+  try {
+    await requireWechatPrivacyAuthorization();
+  } catch {
+    uni.showToast({ title: "同意隐私保护指引后才能编辑微信头像和昵称", icon: "none" });
+    return;
+  }
   uni.navigateTo({ url: "/pages/edit-profile/index" });
 }
 
@@ -89,6 +96,10 @@ function openFeature(item: FeatureItem) {
 }
 
 function handleAbout(item: SettingsLink) {
+  if (item.key === "wechat-privacy") {
+    void openWechatPrivacyContract();
+    return;
+  }
   const agreementTypes: Record<string, string> = {
     agreement: "user",
     privacy: "privacy",
@@ -103,6 +114,42 @@ function handleAbout(item: SettingsLink) {
     return;
   }
   uni.showToast({ title: item.label, icon: "none" });
+}
+
+function confirmModal(title: string, content: string, confirmText: string) {
+  return new Promise<boolean>((resolve) => {
+    uni.showModal({
+      title,
+      content,
+      confirmText,
+      confirmColor: "#e05f73",
+      success: (result) => resolve(result.confirm),
+      fail: () => resolve(false)
+    });
+  });
+}
+
+async function handleCancelAccount() {
+  if (!isLoggedIn.value) return;
+  const firstConfirmed = await confirmModal(
+    "注销账号",
+    "注销后，作品、个人资料和创作记录将永久清除，剩余积分与会员权益失效。依法需保留的交易记录会继续安全保存。",
+    "继续"
+  );
+  if (!firstConfirmed) return;
+
+  const finalConfirmed = await confirmModal("再次确认", "账号注销后无法恢复，确定继续吗？", "确认注销");
+  if (!finalConfirmed) return;
+
+  uni.showLoading({ title: "正在注销", mask: true });
+  try {
+    await cancelAccount();
+    uni.hideLoading();
+    uni.showToast({ title: "账号已注销", icon: "success" });
+  } catch {
+    uni.hideLoading();
+    uni.showToast({ title: "注销失败，请稍后重试", icon: "none" });
+  }
 }
 
 async function handleLoginAction() {
@@ -137,6 +184,11 @@ async function login() {
           <view class="list-row" @click="goEditProfile">
             <view class="lr-icon accent"><LumiIcon name="pencil" :size="20" /></view>
             <view class="lr-text">{{ isLoggedIn ? `编辑个人资料${currentUser?.nickname ? ` · ${currentUser.nickname}` : ""}` : "登录后编辑个人资料" }}</view>
+            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
+          </view>
+          <view v-if="isLoggedIn" class="list-row" @click="handleCancelAccount">
+            <view class="lr-icon rose"><LumiIcon name="trash-2" :size="20" /></view>
+            <view class="lr-text cancel-text">注销账号</view>
             <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
           </view>
         </view>
@@ -288,6 +340,10 @@ async function login() {
   flex: 1;
   font-size: 15px;
   color: var(--fg-primary);
+}
+
+.cancel-text {
+  color: var(--rose);
 }
 
 .lr-multi {

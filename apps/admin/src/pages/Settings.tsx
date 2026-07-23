@@ -14,7 +14,7 @@ export function Settings() {
   const { go, toast } = useNav();
   const { useMock } = useAdminSession();
   const { data, loading, error, reload } = useAsyncData<AdminSystemSettings>(useMock ? null : () => apiGetSystemSettings(), [useMock]);
-  const [reviewMode, setReviewMode] = useState("auto");
+  const [reviewMode, setReviewMode] = useState("manual");
   const [manualReviewEnabled, setManualReviewEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
 

@@ -227,7 +227,6 @@ const filteredWorks = computed(() => {
 });
 
 function refreshPlazaPage() {
-  console.warn("[Lumi probe] plaza onShow");
   void loadUnreadMessages();
   void loadDrawerProfile();
   const modeChanged = lastMockMode !== useMockData.value;
@@ -246,7 +245,6 @@ onMounted(() => {
     workList.value = workList.value.filter((work) => work.id !== id);
   });
   refreshPlazaPage();
-  console.warn("[Lumi probe] plaza onReady");
   initialContentTimer = setTimeout(() => {
     isInitialContentReady.value = true;
     initialContentTimer = undefined;

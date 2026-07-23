@@ -22,6 +22,7 @@ const entries: MiniProgramPerformanceEntry[] = [];
 let observerInitialized = false;
 
 export function initPagePerformanceMonitoring() {
+  if (!import.meta.env.DEV) return;
   if (observerInitialized) return;
 
   // #ifdef MP-WEIXIN
@@ -38,6 +39,7 @@ export function initPagePerformanceMonitoring() {
 }
 
 export function reportPageNavigationPerformance(page: string) {
+  if (!import.meta.env.DEV) return;
   // #ifdef MP-WEIXIN
   if (!observerInitialized) {
     console.warn(`[Lumi performance] ${page}`, { supported: false });
