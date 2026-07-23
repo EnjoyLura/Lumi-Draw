@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { PaymentOrder, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
@@ -11,11 +11,15 @@ import {
   type WechatNotifyHeaders,
   type WechatPayConfig
 } from "./wechat-pay.client";
+import { WechatVirtualPayClient, type WechatVirtualSession } from "./wechat-virtual-pay.client";
 
 type OrderWithUser = PaymentOrder & { user?: { memberExpireAt: Date | null } };
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+  private virtualPayClient?: WechatVirtualPayClient;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
@@ -23,13 +27,14 @@ export class PaymentsService {
   ) {}
 
   async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto) {
+    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode);
     const spec = dto.tierId ? await this.rechargeTierSpec(dto.tierId) : this.customRechargeSpec(dto.amount);
     const order = await this.prisma.paymentOrder.create({
       data: {
         userId,
         type: "recharge",
         orderNo: this.createOrderNo("R"),
-        channel: "wechat",
+        channel: "wechat_virtual",
         amountFen: spec.amountFen,
         subject: spec.subject,
         body: spec.body,
@@ -38,10 +43,14 @@ export class PaymentsService {
         bonusCredits: spec.bonusCredits
       }
     });
-    return this.toOrderView(order, { preparePayment: true });
+    return this.toOrderView(order, {
+      preparePayment: true,
+      virtualSessionKey: virtualSession?.sessionKey
+    });
   }
 
   async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto) {
+    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode);
     const plan = await this.prisma.memberPlan.findFirst({ where: { id: dto.planId, enabled: true } });
     if (!plan) throw new NotFoundException("会员方案不存在");
 
@@ -50,7 +59,7 @@ export class PaymentsService {
         userId,
         type: "membership",
         orderNo: this.createOrderNo("M"),
-        channel: "wechat",
+        channel: "wechat_virtual",
         amountFen: plan.price * 100,
         subject: `开通${plan.name}`,
         body: plan.rights,
@@ -59,12 +68,34 @@ export class PaymentsService {
         memberDays: this.resolveMemberDays(plan.name)
       }
     });
-    return this.toOrderView(order, { preparePayment: true });
+    return this.toOrderView(order, {
+      preparePayment: true,
+      virtualSessionKey: virtualSession?.sessionKey
+    });
   }
 
   async getOrder(userId: number, id: string) {
-    const order = await this.findUserOrder(userId, id);
+    let order = await this.findUserOrder(userId, id);
+    order = await this.reconcileVirtualOrder(order);
     return this.toOrderView(order);
+  }
+
+  async reconcilePendingOrders(userId: number) {
+    const orders = await this.prisma.paymentOrder.findMany({
+      where: {
+        userId,
+        status: "pending",
+        channel: "wechat_virtual",
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 10
+    });
+    const reconciled = await Promise.all(orders.map((order) => this.reconcileVirtualOrder(order)));
+    return {
+      checked: reconciled.length,
+      paid: reconciled.filter((order) => order.status === "paid").length
+    };
   }
 
   async mockComplete(userId: number, id: string) {
@@ -233,30 +264,146 @@ export class PaymentsService {
     return this.config.get<string>("app.nodeEnv") !== "production";
   }
 
-  private async paymentParams(order: PaymentOrder, preparePayment: boolean) {
+  private async paymentParams(order: PaymentOrder, preparePayment: boolean, virtualSessionKey?: string) {
     if (this.allowMockPayment()) {
       return {
         provider: "mock",
         mockCompleteUrl: `/payments/${order.id}/mock-complete`
       };
     }
-    const client = this.createWechatClient();
-    if (client && preparePayment) {
-      const user = await this.prisma.user.findUnique({ where: { id: order.userId }, select: { openId: true } });
-      if (!user?.openId) throw new BadRequestException("user is not bound to a wechat openid");
-      return client.createJsapiPayment({
-        description: order.subject,
-        outTradeNo: order.orderNo,
-        amountFen: order.amountFen,
-        openId: user.openId,
-        attach: order.id
+
+    if (order.channel !== "wechat_virtual") {
+      return {
+        provider: "wechat_virtual",
+        configured: false,
+        message: "该订单使用旧支付通道，请重新下单"
+      };
+    }
+
+    const client = this.createWechatVirtualClient();
+    if (!client.configured) {
+      return {
+        provider: "wechat_virtual",
+        configured: false,
+        message: "虚拟支付尚未完成 Offer ID 和现网 AppKey 配置"
+      };
+    }
+    if (!preparePayment || !virtualSessionKey) {
+      return {
+        provider: "wechat_virtual",
+        configured: true,
+        message: "请重新创建支付订单"
+      };
+    }
+    if (order.type === "recharge") {
+      return client.createCoinPayment({
+        orderNo: order.orderNo,
+        orderId: order.id,
+        buyQuantity: order.credits,
+        sessionKey: virtualSessionKey
+      });
+    }
+    if (order.type === "membership" && order.memberPlanId) {
+      return client.createGoodsPayment({
+        orderNo: order.orderNo,
+        orderId: order.id,
+        productId: `${this.virtualMemberProductPrefix()}${order.memberPlanId}`,
+        goodsPrice: order.amountFen,
+        sessionKey: virtualSessionKey
       });
     }
     return {
-      provider: "wechat",
-      configured: Boolean(client),
-      message: client ? "WeChat Pay order needs to be recreated" : "WeChat Pay signing is not configured"
+      provider: "wechat_virtual",
+      configured: false,
+      message: "支付商品配置不完整"
     };
+  }
+
+  private async prepareVirtualSession(userId: number, wxCode?: string): Promise<WechatVirtualSession | null> {
+    if (this.allowMockPayment()) return null;
+    const client = this.createWechatVirtualClient();
+    if (!client.configured) return null;
+    if (!wxCode) throw new BadRequestException("请在微信小程序内重新发起支付");
+
+    let session: WechatVirtualSession;
+    try {
+      session = await client.exchangeLoginCode(wxCode);
+    } catch (error) {
+      this.logger.warn(error instanceof Error ? error.message : "微信支付登录凭证校验失败");
+      throw new BadRequestException("支付登录状态已过期，请重试");
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { openId: true }
+    });
+    if (!user?.openId || user.openId !== session.openId) {
+      throw new ForbiddenException("支付账号与当前登录账号不一致");
+    }
+    return session;
+  }
+
+  private async reconcileVirtualOrder(order: PaymentOrder) {
+    if (order.status !== "pending" || order.channel !== "wechat_virtual") return order;
+    const client = this.createWechatVirtualClient();
+    if (!client.configured) return order;
+    const user = await this.prisma.user.findUnique({
+      where: { id: order.userId },
+      select: { openId: true }
+    });
+    if (!user?.openId) return order;
+
+    try {
+      const remote = await client.queryOrder(user.openId, order.orderNo);
+      if (!remote || ![2, 4].includes(remote.status)) return order;
+      const paidAmount = remote.paid_fee ?? remote.order_fee;
+      if (paidAmount !== undefined && paidAmount !== order.amountFen) {
+        throw new BadRequestException("虚拟支付金额与订单金额不一致");
+      }
+      const transactionId =
+        remote.wxpay_order_id ||
+        remote.wx_order_id ||
+        remote.channel_order_id ||
+        `virtual_${order.orderNo}`;
+      const paid = await this.markOrderPaid(order, transactionId);
+      if (paid.type === "membership" && remote.status !== 4) {
+        try {
+          await client.notifyGoodsProvided(paid.orderNo);
+        } catch (error) {
+          this.logger.error(
+            `virtual goods delivery confirmation failed for ${paid.orderNo}: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          );
+        }
+      }
+      return paid;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.warn(
+        `virtual payment reconciliation failed for ${order.orderNo}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+      return order;
+    }
+  }
+
+  private createWechatVirtualClient() {
+    if (!this.virtualPayClient) {
+      this.virtualPayClient = new WechatVirtualPayClient({
+        appId: this.config.get<string>("app.wx.appId") ?? "",
+        appSecret: this.config.get<string>("app.wx.appSecret") ?? "",
+        offerId: this.config.get<string>("app.wx.virtualPayOfferId") ?? "",
+        appKey: this.config.get<string>("app.wx.virtualPayAppKey") ?? "",
+        env: this.config.get<0 | 1>("app.wx.virtualPayEnv") ?? 0,
+        apiBase: "https://api.weixin.qq.com"
+      });
+    }
+    return this.virtualPayClient;
+  }
+
+  private virtualMemberProductPrefix() {
+    return this.config.get<string>("app.wx.virtualMemberProductPrefix") || "lumi_member_";
   }
 
   private createWechatClient() {
@@ -289,7 +436,10 @@ export class PaymentsService {
     };
   }
 
-  private async toOrderView(order: PaymentOrder, options: { preparePayment?: boolean } = {}) {
+  private async toOrderView(
+    order: PaymentOrder,
+    options: { preparePayment?: boolean; virtualSessionKey?: string } = {}
+  ) {
     return {
       id: order.id,
       orderNo: order.orderNo,
@@ -305,7 +455,10 @@ export class PaymentsService {
       memberDays: order.memberDays,
       paidAt: order.paidAt?.toISOString() ?? null,
       createdAt: order.createdAt.toISOString(),
-      paymentParams: order.status === "pending" ? await this.paymentParams(order, Boolean(options.preparePayment)) : null
+      paymentParams:
+        order.status === "pending"
+          ? await this.paymentParams(order, Boolean(options.preparePayment), options.virtualSessionKey)
+          : null
     };
   }
 }

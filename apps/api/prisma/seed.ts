@@ -90,9 +90,19 @@ const memberPlans = [
 ];
 
 const versions = [
-  { id: 1, version: "v1.2.0", releasedAt: "2025-06-20", sort: 1, items: [{ type: "新增", text: "新增 GPT Image 2 模型，画质更细腻" }, { type: "优化", text: "优化生成速度与排队体验" }, { type: "修复", text: "修复暗色模式下部分组件显示异常" }] },
-  { id: 2, version: "v1.1.0", releasedAt: "2025-05-10", sort: 2, items: [{ type: "新增", text: "新增会员体系，月卡/季卡/年卡" }, { type: "新增", text: "新增每日签到与连续签到里程碑奖励" }, { type: "优化", text: "优化个人主页与画廊管理功能" }] },
-  { id: 3, version: "v1.0.0", releasedAt: "2025-03-01", sort: 3, items: [{ type: "新增", text: "首个正式版本发布" }] }
+  {
+    id: 1,
+    version: "v1.0.0",
+    releasedAt: "2026-07-24",
+    sort: 1,
+    items: [
+      { type: "新增", text: "AI 图片创作、图生图与多种画面比例" },
+      { type: "新增", text: "作品画廊、作品发布与创作者广场" },
+      { type: "新增", text: "积分、会员、签到和消息功能" },
+      { type: "优化", text: "图片加载、作品详情与瀑布流浏览体验" },
+      { type: "修复", text: "修复已知问题，提高使用稳定性" }
+    ]
+  }
 ];
 
 const agreements = [
@@ -212,6 +222,7 @@ async function main() {
   for (const v of versions) {
     await prisma.appVersion.upsert({ where: { id: v.id }, update: v, create: v });
   }
+  await prisma.appVersion.deleteMany({ where: { id: { notIn: versions.map((version) => version.id) } } });
   for (const a of agreements) {
     await prisma.agreement.upsert({ where: { type: a.type }, update: a, create: a });
   }

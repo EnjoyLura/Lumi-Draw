@@ -54,6 +54,7 @@ export function initAuth() {
   if (!mockMode) {
     if (hasSessionToken()) {
       isLoggedIn.value = true;
+      void reconcilePendingPayments();
       return;
     }
     clearSession();
@@ -123,7 +124,7 @@ function isWeixinMiniProgram() {
   }
 }
 
-function getWechatLoginCode() {
+export function getWechatLoginCode() {
   // #ifdef MP-WEIXIN
   return new Promise<string>((resolve, reject) => {
     uni.login({
@@ -153,7 +154,16 @@ async function loginWithBackend() {
   setAuthTokens(data);
   persistUser(data.user);
   persistLoginState(true);
+  await reconcilePendingPayments();
   await bindPendingInvite();
+}
+
+async function reconcilePendingPayments() {
+  try {
+    await api.post<{ checked: number; paid: number }>("/payments/pending/reconcile");
+  } catch {
+    // A delayed payment reconciliation must never block app launch or login.
+  }
 }
 
 async function logoutFromBackend() {

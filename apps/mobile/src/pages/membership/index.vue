@@ -6,7 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
-import { createMembershipOrder, fetchCreditsBalance, fetchMemberPlans, fetchMemberStatus, requestOrderPayment } from "../points/pointsService";
+import { createMembershipOrder, fetchCreditsBalance, fetchMemberPlans, fetchMemberStatus, reconcilePendingPayments, requestOrderPayment } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
@@ -109,6 +109,7 @@ async function loadMembership() {
 
     resetMemberStatus();
     if (!isLoggedIn.value) return;
+    await reconcilePendingPayments().catch(() => undefined);
     const status = await fetchMemberStatus();
     isMember.value = status.isMember;
     memberPlanName.value = status.memberPlan;

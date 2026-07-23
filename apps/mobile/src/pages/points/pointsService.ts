@@ -1,5 +1,20 @@
 import { api } from "../../services/api";
+import { getWechatLoginCode } from "../../services/auth";
 import type { InvitedUser, MemberPlan, PointRecord, RechargeTier } from "./pointsData";
+
+interface WechatVirtualPaymentApi {
+  canIUse?: (schema: string) => boolean;
+  requestVirtualPayment: (options: {
+    signData: string;
+    paySig: string;
+    signature: string;
+    mode: "short_series_coin" | "short_series_goods";
+    success: () => void;
+    fail: (error: { errMsg?: string; errCode?: number }) => void;
+  }) => void;
+}
+
+declare const wx: WechatVirtualPaymentApi;
 
 interface PageResult<T> {
   items: T[];
@@ -70,15 +85,14 @@ interface MemberStatus {
 }
 
 interface PaymentParams {
-  provider: "mock" | "wechat";
+  provider: "mock" | "wechat_virtual";
   mockCompleteUrl?: string;
   configured?: boolean;
   message?: string;
-  timeStamp?: string;
-  nonceStr?: string;
-  package?: string;
-  signType?: string;
-  paySign?: string;
+  signData?: string;
+  paySig?: string;
+  signature?: string;
+  mode?: "short_series_coin" | "short_series_goods";
 }
 
 export interface PaymentOrderView {
@@ -238,12 +252,14 @@ export async function fetchMemberStatus() {
   return api.get<MemberStatus>("/membership/status");
 }
 
-export function createRechargeOrder(payload: { tierId?: number; amount?: number }) {
-  return api.post<PaymentOrderView>("/payments/recharge/orders", payload);
+export async function createRechargeOrder(payload: { tierId?: number; amount?: number }) {
+  const wxCode = await getWechatLoginCode();
+  return api.post<PaymentOrderView>("/payments/recharge/orders", { ...payload, wxCode });
 }
 
-export function createMembershipOrder(planId: number) {
-  return api.post<PaymentOrderView>("/payments/membership/orders", { planId });
+export async function createMembershipOrder(planId: number) {
+  const wxCode = await getWechatLoginCode();
+  return api.post<PaymentOrderView>("/payments/membership/orders", { planId, wxCode });
 }
 
 export function completeMockPayment(orderId: string) {
@@ -254,6 +270,10 @@ export function fetchPaymentOrder(orderId: string) {
   return api.get<PaymentOrderView>(`/payments/${orderId}`);
 }
 
+export function reconcilePendingPayments() {
+  return api.post<{ checked: number; paid: number }>("/payments/pending/reconcile");
+}
+
 function wait(ms: number) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -262,8 +282,8 @@ function wait(ms: number) {
 
 async function waitForPaidOrder(orderId: string) {
   let latest = await fetchPaymentOrder(orderId);
-  for (let index = 0; index < 5 && latest.status === "pending"; index += 1) {
-    await wait(900);
+  for (let index = 0; index < 12 && latest.status === "pending"; index += 1) {
+    await wait(1_000);
     latest = await fetchPaymentOrder(orderId);
   }
   return latest;
@@ -276,8 +296,24 @@ function isH5Runtime() {
 function normalizePaymentError(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message.includes("cancel")) return "支付已取消";
-  if (message.includes("requestPayment") || message.includes("wxpay")) {
-    return "当前环境无法拉起微信支付，请在微信小程序中验收支付，或开启模拟支付";
+  const codeMatch = message.match(/虚拟支付错误\s*(-?\d+)/);
+  const code = codeMatch ? Number(codeMatch[1]) : 0;
+  const codeMessages: Record<number, string> = {
+    [-2]: "支付已取消",
+    [-4]: "支付暂时受限，请稍后重试",
+    [-15002]: "订单已失效，请重新下单",
+    [-15007]: "登录状态已过期，请重新支付",
+    [-15008]: "虚拟支付商户尚未完成开通",
+    [-15009]: "积分商品尚未发布，请联系客服",
+    [-15010]: "会员商品尚未发布，请联系客服",
+    [-15014]: "商品配置正在生效，请稍后重试",
+    [-15017]: "商户收款暂时受限，请稍后重试",
+    [-15020]: "操作过快，请稍后重试",
+    [-15021]: "当前支付人数较多，请稍后重试"
+  };
+  if (codeMessages[code]) return codeMessages[code];
+  if (message.includes("requestVirtualPayment") || message.includes("虚拟支付错误")) {
+    return "虚拟支付未完成，请稍后重试";
   }
   return message || "支付失败，请稍后重试";
 }
@@ -290,25 +326,43 @@ export async function requestOrderPayment(order: PaymentOrderView) {
     return completeMockPayment(order.id);
   }
 
-  if (!params.configured || !params.timeStamp || !params.nonceStr || !params.package || !params.signType || !params.paySign) {
-    throw new Error(params.message || "微信支付暂未配置");
+  if (
+    !params.configured ||
+    !params.signData ||
+    !params.paySig ||
+    !params.signature ||
+    !params.mode
+  ) {
+    throw new Error(params.message || "虚拟支付暂未配置");
   }
 
   if (isH5Runtime()) {
-    throw new Error("当前环境无法拉起微信支付，请在微信小程序中验收支付，或开启模拟支付");
+    throw new Error("请在微信小程序中完成支付");
+  }
+
+  if (typeof wx === "undefined" || !wx.requestVirtualPayment) {
+    throw new Error("当前微信版本不支持虚拟支付，请升级微信后重试");
+  }
+  if (wx.canIUse && !wx.canIUse("requestVirtualPayment")) {
+    throw new Error("当前微信版本不支持虚拟支付，请升级微信后重试");
   }
 
   try {
     await new Promise<void>((resolve, reject) => {
-      uni.requestPayment({
-        provider: "wxpay",
-        timeStamp: params.timeStamp,
-        nonceStr: params.nonceStr,
-        package: params.package,
-        signType: params.signType,
-        paySign: params.paySign,
+      wx.requestVirtualPayment({
+        signData: params.signData!,
+        paySig: params.paySig!,
+        signature: params.signature!,
+        mode: params.mode!,
         success: () => resolve(),
-        fail: (error) => reject(new Error(error.errMsg || "支付取消"))
+        fail: (error) =>
+          reject(
+            new Error(
+              error.errCode !== undefined
+                ? `虚拟支付错误 ${error.errCode}：${error.errMsg || "支付未完成"}`
+                : error.errMsg || "支付未完成"
+            )
+          )
       });
     });
   } catch (error) {

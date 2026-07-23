@@ -118,19 +118,13 @@ if (!corsOrigins) {
   failures.push("CORS_ORIGINS must not include localhost, 127.0.0.1, or [::1] in production.");
 }
 
-for (const name of ["WX_MCH_ID", "WX_PAY_API_V3_KEY", "WX_PAY_CERT_SERIAL_NO"]) {
-  requireValue(name, "WeChat Pay production signing");
+requireValue("WX_VIRTUAL_PAY_OFFER_ID", "WeChat virtual payment Offer ID");
+requireValue("WX_VIRTUAL_PAY_APP_KEY", "WeChat virtual payment production AppKey");
+if (!["0", "1"].includes(value("WX_VIRTUAL_PAY_ENV"))) {
+  failures.push("WX_VIRTUAL_PAY_ENV must be 0 (production) or 1 (sandbox).");
+} else if (value("WX_VIRTUAL_PAY_ENV") !== "0") {
+  failures.push("WX_VIRTUAL_PAY_ENV must be 0 for production release.");
 }
-requireOneOf(["WX_PAY_PRIVATE_KEY", "WX_PAY_PRIVATE_KEY_PATH"], "WeChat Pay private key");
-const hasPlatformCertificate = ["WX_PAY_PLATFORM_CERTIFICATE", "WX_PAY_PLATFORM_CERTIFICATE_PATH"].some((name) => value(name));
-const hasPublicKey = ["WX_PAY_PUBLIC_KEY", "WX_PAY_PUBLIC_KEY_PATH"].some((name) => value(name));
-if (!hasPlatformCertificate && !hasPublicKey) {
-  failures.push(
-    "WX_PAY_PLATFORM_CERTIFICATE or WX_PAY_PLATFORM_CERTIFICATE_PATH or WX_PAY_PUBLIC_KEY or WX_PAY_PUBLIC_KEY_PATH is required (WeChat Pay signature verification)."
-  );
-}
-if (hasPublicKey) requireValue("WX_PAY_PUBLIC_KEY_ID", "WeChat Pay public key verification");
-requireHttpsUrl("WX_PAY_NOTIFY_URL");
 
 if (failures.length) {
   console.error("Production safety check failed:");

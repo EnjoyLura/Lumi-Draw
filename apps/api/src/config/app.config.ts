@@ -18,6 +18,10 @@ function parseIntOr(value: string | undefined, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function parseVirtualPayEnv(value: string | undefined): 0 | 1 {
+  return value === "1" ? 1 : 0;
+}
+
 export const appConfig = registerAs("app", () => ({
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: parsePort(process.env.PORT),
@@ -51,7 +55,11 @@ export const appConfig = registerAs("app", () => ({
     payPublicKey: process.env.WX_PAY_PUBLIC_KEY ?? "",
     payPublicKeyPath: process.env.WX_PAY_PUBLIC_KEY_PATH ?? "",
     payPublicKeyId: process.env.WX_PAY_PUBLIC_KEY_ID ?? "",
-    payNotifyUrl: process.env.WX_PAY_NOTIFY_URL ?? ""
+    payNotifyUrl: process.env.WX_PAY_NOTIFY_URL ?? "",
+    virtualPayOfferId: process.env.WX_VIRTUAL_PAY_OFFER_ID ?? "",
+    virtualPayAppKey: process.env.WX_VIRTUAL_PAY_APP_KEY ?? "",
+    virtualPayEnv: parseVirtualPayEnv(process.env.WX_VIRTUAL_PAY_ENV),
+    virtualMemberProductPrefix: process.env.WX_VIRTUAL_MEMBER_PRODUCT_PREFIX ?? "lumi_member_"
   },
   kie: {
     apiBase: process.env.KIE_API_BASE ?? "https://api.kie.ai",

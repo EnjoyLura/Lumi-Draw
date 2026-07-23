@@ -17,24 +17,14 @@ export const currentVersion = "v1.0.0";
 export const versionLogs: VersionLog[] = [
   {
     version: "v1.0.0",
-    date: "2025-06-25",
+    date: "2026-07-24",
     latest: true,
     changes: [
-      { kind: "新增", text: "创作页玩法模板功能，一键套用热门玩法" },
-      { kind: "新增", text: "画廊页面，方便管理未发布作品" },
-      { kind: "优化", text: "创作页界面布局，各区块间距更紧凑" },
-      { kind: "优化", text: "提示词输入区和图片精度选择体验" },
-      { kind: "修复", text: "修复暗色模式下部分组件显示异常" }
-    ]
-  },
-  {
-    version: "v0.9.0",
-    date: "2025-06-10",
-    changes: [
-      { kind: "新增", text: "广场分类筛选与排序功能" },
-      { kind: "新增", text: "作品详情一键同款生成" },
-      { kind: "优化", text: "瀑布流加载性能，滚动更流畅" },
-      { kind: "修复", text: "修复部分机型图片上传失败问题" }
+      { kind: "新增", text: "AI 图片创作、图生图与多种画面比例" },
+      { kind: "新增", text: "作品画廊、作品发布与创作者广场" },
+      { kind: "新增", text: "积分、会员、签到和消息功能" },
+      { kind: "优化", text: "图片加载、作品详情与瀑布流浏览体验" },
+      { kind: "修复", text: "修复已知问题，提高使用稳定性" }
     ]
   }
 ];

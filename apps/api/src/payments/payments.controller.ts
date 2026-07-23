@@ -32,6 +32,14 @@ export class PaymentsController {
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
+  @Post("pending/reconcile")
+  @Throttle({ default: { ttl: 60_000, limit: 12 } })
+  reconcilePendingOrders(@CurrentUser() user: { id: number }) {
+    return this.payments.reconcilePendingOrders(user.id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Get(":id")
   getOrder(@CurrentUser() user: { id: number }, @Param("id") id: string) {
     return this.payments.getOrder(user.id, id);

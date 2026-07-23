@@ -7,7 +7,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
-import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchRechargeTiers, requestOrderPayment } from "../points/pointsService";
+import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchRechargeTiers, reconcilePendingPayments, requestOrderPayment } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
@@ -103,6 +103,7 @@ async function loadPageData() {
 
   isLoading.value = true;
   try {
+    await reconcilePendingPayments().catch(() => undefined);
     const [nextBalance, nextTiers, nextEarn, nextSpend] = await Promise.all([
       fetchCreditsBalance(),
       fetchRechargeTiers(),

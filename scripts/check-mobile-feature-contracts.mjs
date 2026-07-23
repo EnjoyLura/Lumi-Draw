@@ -238,6 +238,7 @@ const apiPathContracts = [
   "/membership/status",
   "/payments/recharge/orders",
   "/payments/membership/orders",
+  "/payments/pending/reconcile",
   "/notifications/summary",
   "/notifications/",
   "/feedback",

@@ -84,6 +84,14 @@ for (const token of ["注销账号", "cancelAccount", "openWechatPrivacyContract
   if (!settingsPage.includes(token)) fail(`设置页缺少上线必需能力：${token}`);
 }
 
+const pointsService = fs.readFileSync(path.join(SOURCE_DIR, "pages", "points", "pointsService.ts"), "utf8");
+if (/\buni\.requestPayment\s*\(/.test(pointsService)) {
+  fail("积分或会员仍在调用普通 requestPayment，应使用微信虚拟支付。");
+}
+if (!/\brequestVirtualPayment\s*\(/.test(pointsService)) {
+  fail("未发现微信虚拟支付 requestVirtualPayment 接入。");
+}
+
 if (failures.length) {
   console.error(["微信小程序上线检查失败：", ...failures.map((item) => `- ${item}`)].join("\n"));
   process.exit(1);

@@ -363,8 +363,8 @@ async function main() {
     assert(rechargeOrder.data?.credits === tier.credits, "recharge order credits mismatch");
 
     if (rechargeOrder.data?.paymentParams?.provider !== "mock") {
-      assert(rechargeOrder.data?.paymentParams?.provider === "wechat", "unexpected recharge payment provider");
-      assert(rechargeOrder.data?.paymentParams?.configured === false, "unconfigured wechat payment should be explicit");
+      assert(rechargeOrder.data?.paymentParams?.provider === "wechat_virtual", "unexpected recharge payment provider");
+      assert(rechargeOrder.data?.paymentParams?.configured === false, "unconfigured virtual payment should be explicit");
       console.log("recharge completion skipped (mock payment disabled)");
     } else {
       const { body: paidRecharge } = await request(
@@ -390,8 +390,8 @@ async function main() {
     assert(memberOrder.data?.memberDays > 0, "membership order days missing");
 
     if (memberOrder.data?.paymentParams?.provider !== "mock") {
-      assert(memberOrder.data?.paymentParams?.provider === "wechat", "unexpected membership payment provider");
-      assert(memberOrder.data?.paymentParams?.configured === false, "unconfigured wechat payment should be explicit");
+      assert(memberOrder.data?.paymentParams?.provider === "wechat_virtual", "unexpected membership payment provider");
+      assert(memberOrder.data?.paymentParams?.configured === false, "unconfigured virtual payment should be explicit");
       console.log("membership completion skipped (mock payment disabled)");
       return;
     }
