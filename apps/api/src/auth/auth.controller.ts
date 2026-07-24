@@ -19,6 +19,14 @@ export class AuthController {
     return this.auth.wechatLogin(dto.code, requestUserIp(req));
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post("wechat/session")
+  @Throttle({ default: { ttl: 60_000, limit: 12 } })
+  refreshWechatSession(@CurrentUser() user: { id: number }, @Body() dto: WechatLoginDto, @Req() req: Request) {
+    return this.auth.refreshWechatSession(user.id, dto.code, requestUserIp(req));
+  }
+
   @Post("refresh")
   @Throttle({ default: { ttl: 60_000, limit: 12 } })
   refresh(@Body() dto: RefreshDto) {

@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onHide, onLoad, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
-import { useAuth } from "../../services/auth";
+import { refreshWechatSession, useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { mockImage } from "../../services/mockImages";
@@ -850,6 +850,10 @@ async function startBackendGenerate(prompt: string) {
   startElapsedTimer();
 
   try {
+    // Virtual-currency deductions require the current wx.login session key.
+    // Refreshing it immediately before submission prevents stale local JWTs
+    // from producing a failed generation job before the provider is called.
+    await refreshWechatSession();
     const inputImageUrl = await resolvePromptImageUrl();
     const created = await createGenerateJob({
       mode: inputImageUrl ? "image-to-image" : "text-to-image",

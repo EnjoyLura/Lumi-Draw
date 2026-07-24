@@ -142,9 +142,50 @@ export class AuthService {
         }
       });
     }
-    await this.ensureRegistrationGift(user.id);
+    try {
+      await this.ensureRegistrationGift(user.id);
+    } catch (error) {
+      // Reward delivery is retried on a later login. Authentication itself
+      // must remain available when a third-party wallet operation is delayed.
+      this.logger.error(
+        `Registration gift delivery failed for user ${user.id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
     user = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     return this.issueTokens(user);
+  }
+
+  async refreshWechatSession(userId: number, code: string, userIp = "") {
+    const session = await this.resolveWechatSession(code);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { openId: true }
+    });
+    if (!user || user.openId !== session.openId) {
+      throw new UnauthorizedException("微信登录账号与当前账号不一致，请重新登录");
+    }
+
+    const sessionEncryptionKey = this.config.get<string>("app.wx.sessionEncryptionKey") ?? "";
+    const virtualConfigured = Boolean(
+      this.config.get<string>("app.wx.virtualPayOfferId") &&
+      this.config.get<string>("app.wx.virtualPayAppKey")
+    );
+    if (virtualConfigured && session.sessionKey && sessionEncryptionKey.length < 32) {
+      throw new UnauthorizedException("虚拟支付会话密钥未完成安全配置");
+    }
+    if (!session.sessionKey || !sessionEncryptionKey) {
+      throw new UnauthorizedException("微信登录未返回有效会话，请重新登录");
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        wechatSessionKeyEncrypted: encryptWechatSessionKey(session.sessionKey, sessionEncryptionKey),
+        wechatSessionUpdatedAt: new Date(),
+        wechatSessionUserIp: userIp
+      }
+    });
+    return { ok: true };
   }
 
   private async ensureRegistrationGift(userId: number) {

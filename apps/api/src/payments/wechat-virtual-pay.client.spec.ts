@@ -147,12 +147,10 @@ test("server wallet APIs sign and send the exact official request bodies", async
       amount: 20
     });
 
-    for (const call of [calls[0], calls[1], calls[3], calls[4]]) {
+    for (const call of [calls[0], calls[1], calls[2], calls[3], calls[4]]) {
       assert.equal(call.url.searchParams.get("pay_sig"), hmac("virtual-app-key", `${call.url.pathname}&${call.body}`));
       assert.equal(call.url.searchParams.get("signature"), hmac("session-key", call.body));
     }
-    assert.equal(calls[2].url.searchParams.has("pay_sig"), false);
-    assert.equal(calls[2].url.searchParams.has("signature"), false);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -159,6 +159,12 @@ async function loginWithBackend() {
   await bindPendingInvite();
 }
 
+export async function refreshWechatSession() {
+  if (isMockMode()) return;
+  const code = await getWechatLoginCode();
+  await api.post<{ ok: boolean }>("/auth/wechat/session", { code });
+}
+
 async function reconcilePendingPayments() {
   try {
     await api.post<{ checked: number; paid: number }>("/payments/pending/reconcile");

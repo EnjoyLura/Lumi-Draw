@@ -227,7 +227,9 @@ export class WechatVirtualPayClient {
         order_id: input.billNo,
         amount: input.amount
       },
-      { acceptedErrcodes: [268490004] }
+      // present_currency is also a wallet mutation. WeChat requires both
+      // the application pay signature and the user-session signature here.
+      { sessionKey: input.sessionKey, acceptedErrcodes: [268490004] }
     );
     if (data.balance === undefined) {
       const balance = await this.queryUserBalance(input.openId, input.sessionKey, input.userIp);
