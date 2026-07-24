@@ -55,10 +55,8 @@ const surfaceStyle = computed(() => {
   const imageBottom = Math.max(0, windowHeight - imageTop - destinationHeight);
   return {
     "--detail-source-x": `${source.left}px`,
-    "--detail-source-top": `${source.top}px`,
-    "--detail-source-width": `${source.width}px`,
-    "--detail-source-height": `${source.height}px`,
     "--detail-source-y": `${source.top - imageTop * (source.height / destinationHeight)}px`,
+    "--detail-shared-y": `${source.top - imageTop}px`,
     "--detail-source-scale-x": String(source.width / windowWidth),
     "--detail-source-scale-y": String(source.height / destinationHeight),
     "--detail-image-top": `${imageTop}px`,
@@ -251,6 +249,8 @@ function clearTimers() {
 
 <style scoped>
 .work-detail-overlay {
+  --detail-target-offset: 0px;
+  --detail-target-scale: 1;
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -290,9 +290,12 @@ function clearTimers() {
 .work-detail-overlay-surface.from-source {
   -webkit-clip-path: inset(var(--detail-image-top) 0 var(--detail-image-bottom) 0 round 10px);
   clip-path: inset(var(--detail-image-top) 0 var(--detail-image-bottom) 0 round 10px);
-  transform: translate(var(--detail-source-x), var(--detail-source-y)) scale(var(--detail-source-scale-x), var(--detail-source-scale-y));
+  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
+  transform: translate3d(var(--detail-source-x), var(--detail-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
   transition: opacity 60ms ease, transform 390ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 390ms cubic-bezier(.4, 0, .2, 1), clip-path 390ms cubic-bezier(.4, 0, .2, 1);
   will-change: transform, clip-path;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 .work-detail-overlay.open {
@@ -302,34 +305,36 @@ function clearTimers() {
 .work-detail-overlay.open .work-detail-overlay-surface.from-source {
   -webkit-clip-path: inset(0 0 0 0 round 0);
   clip-path: inset(0 0 0 0 round 0);
-  transform: translate(0, 0) scale(1, 1);
+  -webkit-transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
+  transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
   transition: opacity 60ms ease, transform 320ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 320ms cubic-bezier(.4, 0, .2, 1), clip-path 320ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .work-detail-shared-image-frame {
   position: absolute;
   z-index: 2;
-  top: var(--detail-source-top);
-  left: var(--detail-source-x);
-  width: var(--detail-source-width);
-  height: var(--detail-source-height);
-  overflow: hidden;
-  pointer-events: none;
-  border-radius: 10px;
-  transition:
-    top 390ms cubic-bezier(.4, 0, .2, 1),
-    left 390ms cubic-bezier(.4, 0, .2, 1),
-    width 390ms cubic-bezier(.4, 0, .2, 1),
-    height 390ms cubic-bezier(.4, 0, .2, 1),
-    border-radius 390ms cubic-bezier(.4, 0, .2, 1);
-  will-change: top, left, width, height, border-radius;
-}
-
-.work-detail-overlay.open .work-detail-shared-image-frame {
   top: var(--detail-image-top);
   left: 0;
   width: 100%;
   height: var(--detail-image-height);
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 10px;
+  -webkit-transform-origin: top left;
+  transform-origin: top left;
+  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-shared-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
+  transform: translate3d(var(--detail-source-x), var(--detail-shared-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
+  transition:
+    transform 390ms cubic-bezier(.4, 0, .2, 1),
+    border-radius 390ms cubic-bezier(.4, 0, .2, 1);
+  will-change: transform, border-radius;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.work-detail-overlay.open .work-detail-shared-image-frame {
+  -webkit-transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
+  transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
   border-radius: 0;
   transition-duration: 320ms;
 }
@@ -338,5 +343,7 @@ function clearTimers() {
   display: block;
   width: 100%;
   height: 100%;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 </style>
