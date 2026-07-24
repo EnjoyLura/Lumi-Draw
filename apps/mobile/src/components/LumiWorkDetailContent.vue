@@ -1254,7 +1254,7 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded.detail-opening .detail-body,
 .detail-page.embedded.detail-opening .detail-bottom,
 .detail-page.embedded.detail-opening .bottom-safe-area {
-  transition: opacity 180ms ease-out, transform 240ms cubic-bezier(.16, 1, .3, 1);
+  transition: opacity 310ms cubic-bezier(.4, 0, .2, 1), transform 310ms cubic-bezier(.4, 0, .2, 1);
   will-change: opacity, transform;
 }
 
@@ -1265,7 +1265,7 @@ function handleDetailPreviewLoad() {
 }
 
 .detail-page.embedded.detail-opening :deep(.lumi-page-header) {
-  transition: opacity 160ms ease-out;
+  transition: opacity 310ms cubic-bezier(.4, 0, .2, 1);
   will-change: opacity;
 }
 

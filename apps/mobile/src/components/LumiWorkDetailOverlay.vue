@@ -327,7 +327,7 @@ function clearTimers() {
   clip-path: inset(0 0 0 0 round 0);
   -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-  transition: opacity 150ms ease-out;
+  transition: opacity 340ms cubic-bezier(.4, 0, .2, 1);
   will-change: opacity;
 }
 
