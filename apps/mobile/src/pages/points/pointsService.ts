@@ -280,7 +280,7 @@ function wait(ms: number) {
   });
 }
 
-async function waitForPaidOrder(orderId: string) {
+export async function waitForPaidOrder(orderId: string) {
   let latest = await fetchPaymentOrder(orderId);
   for (let index = 0; index < 12 && latest.status === "pending"; index += 1) {
     await wait(1_000);
@@ -318,7 +318,7 @@ function normalizePaymentError(error: unknown) {
   return message || "支付失败，请稍后重试";
 }
 
-export async function requestOrderPayment(order: PaymentOrderView) {
+export async function requestOrderPayment(order: PaymentOrderView, options: { waitForConfirmation?: boolean } = {}) {
   const params = order.paymentParams;
   if (!params) return order;
 
@@ -369,5 +369,6 @@ export async function requestOrderPayment(order: PaymentOrderView) {
     throw new Error(normalizePaymentError(error));
   }
 
+  if (options.waitForConfirmation === false) return order;
   return waitForPaidOrder(order.id);
 }

@@ -7,7 +7,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
-import { createRechargeOrder, fetchCreditRecordPage, requestOrderPayment } from "../points/pointsService";
+import { createRechargeOrder, fetchCreditRecordPage, requestOrderPayment, waitForPaidOrder } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 import { getRechargePageSnapshot, refreshRechargePageSnapshot, type RechargePageSnapshot } from "./rechargeCache";
 
@@ -224,13 +224,17 @@ async function startRecharge(amount?: number) {
     }
 
     const order = amount ? await createRechargeOrder({ amount }) : await createRechargeOrder({ tierId: tier?.id });
-    const paid = await requestOrderPayment(order);
+    const paid = await requestOrderPayment(order, { waitForConfirmation: false });
     if (paid.status === "paid") {
       uni.showToast({ title: "充值成功", icon: "none" });
       await loadPageData(true);
-    } else {
-      uni.showToast({ title: "支付已提交，请稍后刷新查看", icon: "none" });
+      return;
     }
+
+    // wx.requestVirtualPayment has already succeeded. Release the button now
+    // and let authoritative server reconciliation continue in the background.
+    uni.showToast({ title: "支付完成，积分到账中", icon: "none" });
+    void confirmRechargeOrder(order.id);
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "支付失败，请稍后重试", icon: "none" });
   } finally {
@@ -245,6 +249,23 @@ function confirmCustomRecharge() {
   }
   closeCustomRecharge();
   void startRecharge(customValue.value);
+}
+
+async function confirmRechargeOrder(orderId: string) {
+  try {
+    const confirmed = await waitForPaidOrder(orderId);
+    if (confirmed.status === "paid") {
+      await loadPageData(true);
+      uni.showToast({ title: "积分已到账", icon: "none" });
+      return;
+    }
+    // Keep cached content visible. A later page refresh/login will reconcile
+    // this still-pending order again without asking the user to refresh.
+    await loadPageData(true);
+  } catch {
+    // Payment succeeded at the WeChat layer; transient reconciliation errors
+    // must not turn it into a visible payment failure.
+  }
 }
 </script>
 
