@@ -7,6 +7,9 @@ export interface GenerateHistoryResult {
   id: string;
   status: "succeeded" | "failed";
   imageUrl?: string;
+  cardUrl?: string;
+  previewUrl?: string;
+  originalUrl?: string;
   errorMessage?: string;
   workId?: number;
 }

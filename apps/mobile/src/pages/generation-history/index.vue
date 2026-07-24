@@ -43,6 +43,7 @@ const page = ref(1);
 const hasMore = ref(false);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
+const loadedThumbnailUrls = ref<Record<string, boolean>>({});
 const showLoginSheet = ref(false);
 const lastMode = ref<boolean | null>(null);
 const { useMockData } = useDataMode();
@@ -93,7 +94,7 @@ onShow(() => {
   const modeChanged = lastMode.value !== useMockData.value;
   lastMode.value = useMockData.value;
   if (useMockData.value && !modeChanged) return;
-  void reloadJobs();
+  void reloadJobs(jobs.value.length > 0);
 });
 
 onBeforeUnmount(() => {
@@ -159,6 +160,20 @@ function getAspectRatio(ratio: string) {
   return `${width} / ${height}`;
 }
 
+function thumbnailUrl(result: GenerateHistoryJob["results"][number]) {
+  return result.cardUrl || result.imageUrl || "";
+}
+
+function isThumbnailLoaded(result: GenerateHistoryJob["results"][number]) {
+  const url = thumbnailUrl(result);
+  return Boolean(url && loadedThumbnailUrls.value[url]);
+}
+
+function settleThumbnail(result: GenerateHistoryJob["results"][number]) {
+  const url = thumbnailUrl(result);
+  if (url) loadedThumbnailUrls.value[url] = true;
+}
+
 function clearRefreshTimer() {
   if (refreshTimer) {
     clearTimeout(refreshTimer);
@@ -220,14 +235,15 @@ function ensureLogin() {
   return requireLogin(openLoginSheet);
 }
 
-async function reloadJobs() {
-  isLoading.value = true;
+async function reloadJobs(preserveContent = false) {
+  const showLoadingState = !preserveContent || jobs.value.length === 0;
+  if (showLoadingState) isLoading.value = true;
   try {
     await loadJobs(1, false);
   } catch {
     uni.showToast({ title: "生成记录加载失败", icon: "none" });
   } finally {
-    isLoading.value = false;
+    if (showLoadingState) isLoading.value = false;
   }
 }
 
@@ -334,7 +350,7 @@ async function login() {
 <template>
   <view class="generation-history-page" :class="themeClass">
     <LumiPageHeader title="生成记录" />
-    <LumiDeferredPageContent>
+    <LumiDeferredPageContent class="history-content">
     <scroll-view class="page-scroll" scroll-y :lower-threshold="80" @scrolltolower="loadMore">
       <view class="filter-bar">
         <view
@@ -377,16 +393,24 @@ async function login() {
           </view>
 
           <view v-if="job.results.length" class="thumb-row" :class="previewClass(job)">
-            <image
+            <view
               v-for="result in job.results.slice(0, 4)"
               :key="result.id"
-              class="thumb"
-              :src="result.imageUrl"
-              mode="aspectFill"
-              lazy-load
+              class="thumb-shell"
               :style="{ aspectRatio: getAspectRatio(job.ratio) }"
-              @click="openWork($event, result.workId)"
-            />
+            >
+              <view v-if="!isThumbnailLoaded(result)" class="thumb-placeholder" />
+              <image
+                class="thumb"
+                :class="{ loaded: isThumbnailLoaded(result) }"
+                :src="thumbnailUrl(result)"
+                mode="aspectFill"
+                lazy-load
+                @load="settleThumbnail(result)"
+                @error="settleThumbnail(result)"
+                @click="openWork($event, result.workId)"
+              />
+            </view>
           </view>
 
           <view v-if="job.errorMessage" class="error-text">{{ job.errorMessage }}</view>
@@ -585,13 +609,38 @@ async function login() {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.thumb {
+.thumb-shell {
+  position: relative;
   width: 100%;
   min-height: 112px;
   max-height: 190px;
+  overflow: hidden;
   background: var(--border);
   border-radius: 8px;
   box-shadow: 0 1px 4px rgba(15, 35, 55, 0.08);
+}
+
+.thumb-placeholder,
+.thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.thumb-placeholder {
+  background: linear-gradient(100deg, var(--bg-soft) 18%, var(--bg-card) 48%, var(--bg-soft) 78%);
+  background-size: 240% 100%;
+  animation: thumb-shimmer 1.15s ease-in-out infinite;
+}
+
+.thumb {
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.thumb.loaded {
+  opacity: 1;
 }
 
 .error-text {
@@ -739,9 +788,16 @@ async function login() {
   flex-direction: column;
 }
 
-.generation-history-page > .page-scroll {
+@keyframes thumb-shimmer {
+  to {
+    background-position: -140% 0;
+  }
+}
+
+.generation-history-page > .history-content {
   flex: 1;
   min-height: 0;
-  height: auto;
+  height: 0;
+  overflow: hidden;
 }
 </style>
