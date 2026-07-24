@@ -6,6 +6,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
+import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 import { galleryGenTasks } from "../gallery/galleryData";
 import { useTheme } from "../../services/theme";
 
@@ -143,7 +144,11 @@ function statusClass(status: GenerateJobStatus) {
 }
 
 function firstWorkId(job: GenerateHistoryJob) {
-  return job.results.find((item) => item.workId)?.workId;
+  return firstWorkResult(job)?.workId;
+}
+
+function firstWorkResult(job: GenerateHistoryJob) {
+  return job.results.find((item) => item.workId);
 }
 
 function previewCount(job: GenerateHistoryJob) {
@@ -269,9 +274,11 @@ function openCreate(job: GenerateHistoryJob) {
   uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(job.id)}` });
 }
 
-function openWork(event: Event, workId?: number) {
+function openWork(event: Event, result?: GenerateHistoryJob["results"][number]) {
   event.stopPropagation();
+  const workId = result?.workId;
   if (!workId) return;
+  primeWorkDetailPreview(workId, thumbnailUrl(result));
   uni.navigateTo({ url: `/pages/work-detail/index?id=${workId}` });
 }
 
@@ -408,7 +415,7 @@ async function login() {
                 lazy-load
                 @load="settleThumbnail(result)"
                 @error="settleThumbnail(result)"
-                @click="openWork($event, result.workId)"
+                @click="openWork($event, result)"
               />
             </view>
           </view>
@@ -425,7 +432,7 @@ async function login() {
             <button v-if="canCancel(job.status)" class="ghost-btn" @click.stop="openCreate(job)">查看进度</button>
             <button v-if="canCancel(job.status)" class="ghost-btn danger" @click="cancelJob($event, job)">取消任务</button>
             <button v-if="isSuccess(job.status) && !firstWorkId(job)" class="ghost-btn" @click.stop="openCreate(job)">查看任务</button>
-            <button v-if="isSuccess(job.status) && firstWorkId(job)" class="primary-btn small" @click="openWork($event, firstWorkId(job))">打开草稿</button>
+            <button v-if="isSuccess(job.status) && firstWorkId(job)" class="primary-btn small" @click="openWork($event, firstWorkResult(job))">打开草稿</button>
             <button v-if="job.status === 'failed' || job.status === 'cancelled'" class="primary-btn small" @click="retryJob($event, job)">重新生成</button>
           </view>
         </view>

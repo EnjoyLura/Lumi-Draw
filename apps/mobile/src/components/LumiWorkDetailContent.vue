@@ -26,6 +26,7 @@ import { invalidateWorkDetailPreload } from "../services/workDetailListPreload";
 import { notifyWorkVisibilityChange } from "../services/workVisibilityEvents";
 import {
   clearWorkDetailCache,
+  getWorkDetailPreview,
   getWorkDetailQualityPreview,
   getWorkDetailSnapshot,
   patchWorkDetailSnapshot,
@@ -82,9 +83,11 @@ const isDetailPreviewReady = ref(false);
 const highImage = ref("");
 const pendingPreviewImage = ref("");
 const pendingPreviewWorkId = ref(0);
+const pendingPreviewReady = ref(false);
 
 let longPressTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
+let previewUpgradeTimer: ReturnType<typeof setTimeout> | undefined;
 let lastMode: boolean | null = null;
 
 const isOwn = computed(() => {
@@ -136,6 +139,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (initialContentTimer) clearTimeout(initialContentTimer);
+  clearPreviewUpgradeTimer();
   if (typeof window === "undefined") return;
   window.removeEventListener("hashchange", handleHashChange);
 });
@@ -276,8 +280,10 @@ function syncEmbeddedDetail() {
     favorited.value = false;
     following.value = false;
     highImage.value = "";
+    clearPreviewUpgradeTimer();
     pendingPreviewImage.value = "";
     pendingPreviewWorkId.value = 0;
+    pendingPreviewReady.value = false;
     hydrateDetailSnapshot();
   }
   isDetailPreviewReady.value = Boolean(work.value);
@@ -315,8 +321,10 @@ async function refreshEmbeddedDetail() {
       if (cachedPreview) {
         work.value = { ...work.value, previewImage: cachedPreview };
       } else if (previewUrl && previewUrl !== work.value.previewImage) {
+        clearPreviewUpgradeTimer();
         pendingPreviewWorkId.value = id;
         pendingPreviewImage.value = previewUrl;
+        pendingPreviewReady.value = false;
       }
     }
     if (isLoggedIn.value && work.value?.published) void recordWorkView(id);
@@ -329,19 +337,33 @@ function pendingPreviewEventUrl(event: Event) {
   return (event.currentTarget as (EventTarget & { dataset?: { url?: string } }) | null)?.dataset?.url || "";
 }
 
+function clearPreviewUpgradeTimer() {
+  if (previewUpgradeTimer) clearTimeout(previewUpgradeTimer);
+  previewUpgradeTimer = undefined;
+}
+
 function handlePendingPreviewLoad(event: Event) {
   const loadedUrl = pendingPreviewEventUrl(event);
   if (!work.value || pendingPreviewWorkId.value !== work.value.id || !pendingPreviewImage.value || loadedUrl !== pendingPreviewImage.value) return;
   primeWorkDetailQualityPreview(work.value.id, pendingPreviewImage.value);
-  work.value = { ...work.value, previewImage: pendingPreviewImage.value };
-  pendingPreviewImage.value = "";
-  pendingPreviewWorkId.value = 0;
+  pendingPreviewReady.value = true;
+  clearPreviewUpgradeTimer();
+  previewUpgradeTimer = setTimeout(() => {
+    previewUpgradeTimer = undefined;
+    if (!work.value || pendingPreviewWorkId.value !== work.value.id || loadedUrl !== pendingPreviewImage.value) return;
+    work.value = { ...work.value, previewImage: loadedUrl };
+    pendingPreviewImage.value = "";
+    pendingPreviewWorkId.value = 0;
+    pendingPreviewReady.value = false;
+  }, 180);
 }
 
 function handlePendingPreviewError(event: Event) {
   if (pendingPreviewEventUrl(event) !== pendingPreviewImage.value) return;
+  clearPreviewUpgradeTimer();
   pendingPreviewImage.value = "";
   pendingPreviewWorkId.value = 0;
+  pendingPreviewReady.value = false;
 }
 
 function resetTransientState() {
@@ -355,6 +377,10 @@ function resetTransientState() {
 
 async function loadDetail() {
   resetTransientState();
+  clearPreviewUpgradeTimer();
+  pendingPreviewImage.value = "";
+  pendingPreviewWorkId.value = 0;
+  pendingPreviewReady.value = false;
   liked.value = false;
   favorited.value = false;
   following.value = false;
@@ -388,8 +414,16 @@ async function loadDetail() {
     }
     const detail = await fetchWorkDetail(workId.value);
     cacheLatestDetail(detail);
-    work.value = detail.work;
+    const previewUrl = detail.work.previewImage;
+    const cachedPreview = getWorkDetailQualityPreview(workId.value, previewUrl) || getWorkDetailPreview(workId.value);
+    work.value = cachedPreview ? { ...detail.work, previewImage: cachedPreview } : detail.work;
     user.value = detail.user;
+    if (cachedPreview && previewUrl && previewUrl !== cachedPreview) {
+      clearPreviewUpgradeTimer();
+      pendingPreviewWorkId.value = workId.value;
+      pendingPreviewImage.value = previewUrl;
+      pendingPreviewReady.value = false;
+    }
     if (!detail.work.published) return;
     if (!isLoggedIn.value) return;
     const [stateResult] = await Promise.allSettled([fetchWorkState(workId.value), recordWorkView(workId.value)]);
@@ -841,15 +875,6 @@ function handleDetailPreviewLoad() {
       </view>
     </view>
     <template v-else-if="work && user">
-      <image
-        v-if="pendingPreviewImage"
-        class="detail-preview-preloader"
-        :src="pendingPreviewImage"
-        :data-url="pendingPreviewImage"
-        mode="aspectFit"
-        @load="handlePendingPreviewLoad"
-        @error="handlePendingPreviewError"
-      />
       <scroll-view class="detail-scroll" scroll-y>
         <view class="detail-image-frame" :class="{ 'shared-transitioning': props.sharedTransitioning }" :style="detailImageStyle">
           <image
@@ -866,6 +891,16 @@ function handleDetailPreviewLoad() {
             @mouseleave="cancelLongPress"
             @touchstart="startLongPress"
             @touchend="cancelLongPress"
+          />
+          <image
+            v-if="pendingPreviewImage"
+            class="detail-image detail-image-upgrade"
+            :class="{ ready: pendingPreviewReady }"
+            :src="pendingPreviewImage"
+            :data-url="pendingPreviewImage"
+            mode="aspectFill"
+            @load="handlePendingPreviewLoad"
+            @error="handlePendingPreviewError"
           />
         </view>
 
@@ -1167,6 +1202,19 @@ function handleDetailPreviewLoad() {
 
 .detail-image-full {
   position: relative;
+}
+
+.detail-image-upgrade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.detail-image-upgrade.ready {
+  opacity: 1;
 }
 
 .detail-page.embedded .detail-image-frame.shared-transitioning .detail-image {
@@ -1909,13 +1957,4 @@ function handleDetailPreviewLoad() {
   height: auto;
 }
 
-.detail-preview-preloader {
-  position: fixed;
-  left: -2px;
-  top: -2px;
-  width: 1px;
-  height: 1px;
-  opacity: 0.01;
-  pointer-events: none;
-}
 </style>
