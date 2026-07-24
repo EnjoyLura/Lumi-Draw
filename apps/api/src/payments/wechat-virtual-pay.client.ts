@@ -23,6 +23,15 @@ export interface WechatVirtualOrder {
   channel_order_id?: string;
 }
 
+export interface WechatVirtualBalance {
+  balance: number;
+  presentBalance: number;
+}
+
+export interface WechatVirtualCurrencyResult extends WechatVirtualBalance {
+  billNo: string;
+}
+
 interface WechatApiResponse {
   errcode?: number;
   errmsg?: string;
@@ -130,19 +139,149 @@ export class WechatVirtualPayClient {
     return data.order ?? null;
   }
 
+  async queryUserBalance(openId: string, sessionKey: string, userIp: string): Promise<WechatVirtualBalance> {
+    const data = await this.signedRequest<{
+      balance?: number;
+      present_balance?: number;
+    }>(
+      "/xpay/query_user_balance",
+      { openid: openId, env: this.config.env, user_ip: userIp },
+      { sessionKey }
+    );
+    return {
+      balance: Math.max(0, Number(data.balance ?? 0)),
+      presentBalance: Math.max(0, Number(data.present_balance ?? 0))
+    };
+  }
+
+  async currencyPay(input: {
+    openId: string;
+    sessionKey: string;
+    amount: number;
+    billNo: string;
+    payItem: string;
+    remark: string;
+    userIp: string;
+  }): Promise<WechatVirtualCurrencyResult> {
+    const data = await this.signedRequest<{ balance?: number; order_id?: string }>(
+      "/xpay/currency_pay",
+      {
+        openid: input.openId,
+        env: this.config.env,
+        user_ip: input.userIp,
+        amount: input.amount,
+        order_id: input.billNo,
+        payitem: input.payItem,
+        remark: input.remark.slice(0, 200)
+      },
+      { sessionKey: input.sessionKey, acceptedErrcodes: [268490004] }
+    );
+    if (data.balance === undefined) {
+      const balance = await this.queryUserBalance(input.openId, input.sessionKey, input.userIp);
+      return { ...balance, billNo: data.order_id || input.billNo };
+    }
+    return {
+      balance: Math.max(0, Number(data.balance)),
+      presentBalance: 0,
+      billNo: data.order_id || input.billNo
+    };
+  }
+
+  async cancelCurrencyPay(input: {
+    openId: string;
+    sessionKey: string;
+    payBillNo: string;
+    refundBillNo: string;
+    amount: number;
+    userIp: string;
+  }): Promise<WechatVirtualCurrencyResult> {
+    const data = await this.signedRequest<{ order_id?: string }>(
+      "/xpay/cancel_currency_pay",
+      {
+        openid: input.openId,
+        env: this.config.env,
+        user_ip: input.userIp,
+        pay_order_id: input.payBillNo,
+        order_id: input.refundBillNo,
+        amount: input.amount
+      },
+      { sessionKey: input.sessionKey, acceptedErrcodes: [268490004, 268490005] }
+    );
+    const balance = await this.queryUserBalance(input.openId, input.sessionKey, input.userIp);
+    return { ...balance, billNo: data.order_id || input.refundBillNo };
+  }
+
+  async presentCurrency(input: {
+    openId: string;
+    sessionKey: string;
+    userIp: string;
+    amount: number;
+    billNo: string;
+    reason: string;
+  }): Promise<WechatVirtualCurrencyResult> {
+    const data = await this.signedRequest<{ balance?: number; present_balance?: number; order_id?: string }>(
+      "/xpay/present_currency",
+      {
+        openid: input.openId,
+        env: this.config.env,
+        order_id: input.billNo,
+        amount: input.amount
+      },
+      { acceptedErrcodes: [268490004] }
+    );
+    if (data.balance === undefined) {
+      const balance = await this.queryUserBalance(input.openId, input.sessionKey, input.userIp);
+      return { ...balance, billNo: data.order_id || input.billNo };
+    }
+    return {
+      balance: Math.max(0, Number(data.balance)),
+      presentBalance: Math.max(0, Number(data.present_balance ?? 0)),
+      billNo: data.order_id || input.billNo
+    };
+  }
+
   async notifyGoodsProvided(orderNo: string) {
+    const uri = "/xpay/notify_provide_goods";
+    const body = JSON.stringify({ order_id: orderNo, env: this.config.env });
     const accessToken = await this.getAccessToken();
-    const url = new URL("/xpay/notify_provide_goods", this.config.apiBase);
+    const url = new URL(uri, this.config.apiBase);
     url.searchParams.set("access_token", accessToken);
+    url.searchParams.set("pay_sig", this.paySignature(uri, body));
     const response = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json; charset=utf-8" },
-      body: JSON.stringify({ order_id: orderNo, env: this.config.env })
+      body
     });
     const data = (await response.json().catch(() => ({}))) as WechatApiResponse;
     if (!response.ok || (data.errcode ?? 0) !== 0) {
       throw new Error(`确认虚拟商品发货失败：${data.errmsg || data.errcode || response.status}`);
     }
+  }
+
+  private async signedRequest<T extends Record<string, unknown>>(
+    uri: string,
+    payload: Record<string, unknown>,
+    options: { sessionKey?: string; acceptedErrcodes?: number[] } = {}
+  ) {
+    const body = JSON.stringify(payload);
+    const accessToken = await this.getAccessToken();
+    const url = new URL(uri, this.config.apiBase);
+    url.searchParams.set("access_token", accessToken);
+    if (options.sessionKey) {
+      url.searchParams.set("pay_sig", this.paySignature(uri, body));
+      url.searchParams.set("signature", this.hmac(options.sessionKey, body));
+    }
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body
+    });
+    const data = (await response.json().catch(() => ({}))) as T & WechatApiResponse;
+    const errcode = data.errcode ?? 0;
+    if (!response.ok || (errcode !== 0 && !options.acceptedErrcodes?.includes(errcode))) {
+      throw new Error(`微信虚拟支付接口 ${uri} 调用失败：${data.errmsg || data.errcode || response.status}`);
+    }
+    return data;
   }
 
   private createPaymentParams(

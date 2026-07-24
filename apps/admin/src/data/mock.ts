@@ -234,7 +234,7 @@ export const MODEL_BADGES = ["无", "推荐", "性价比", "NEW", "热门"];
 export const BANNERS: AdminBanner[] = [
   { id: 1, title: "签到送好礼", desc: "每日签到领积分，连续7天送高级模型体验券", imageUrl: checkinGiftBanner, action: "checkin", sort: 1, on: true },
   { id: 2, title: "GPT Image 2 全新上线", desc: "画质更细腻，理解力更强，创作效果飞跃提升", imageUrl: gptImage2Banner, action: "create-gpt-image-2", sort: 2, on: true },
-  { id: 3, title: "发布作品送积分", desc: "发布原创作品即得50积分，被收藏额外奖励", imageUrl: publishRewardBanner, action: "publish", sort: 3, on: true },
+  { id: 3, title: "发布作品送积分", desc: "作品审核通过后可获得发布积分", imageUrl: publishRewardBanner, action: "publish", sort: 3, on: true },
   { id: 4, title: "会员限时5折", desc: "年度会员立减50%，每日生成次数翻倍不限量", imageUrl: membershipOfferBanner, action: "会员页", sort: 4, on: false }
 ];
 
@@ -344,9 +344,9 @@ export const PUSHES: AdminPush[] = [
 export const PUSH_TARGETS = ["全部用户", "会员用户", "活跃用户", "指定用户"];
 
 export const MEMBER_PLANS: MemberPlan[] = [
-  { id: 1, name: "月卡", price: 18, rights: "每日20次·1K无限", gift: 100, ckBonus: 5 },
-  { id: 2, name: "季卡", price: 48, rights: "每日30次·2K无限", gift: 350, ckBonus: 8 },
-  { id: 3, name: "年卡", price: 168, rights: "每日不限·4K无限·专属模型", gift: 1500, ckBonus: 15 }
+  { id: 1, name: "月卡", price: 18, rights: "赠送100积分·签到额外+1·发布额外+1", gift: 100, ckBonus: 1, milestoneBonus: 2, publishBonus: 1 },
+  { id: 2, name: "季卡", price: 48, rights: "赠送300积分·签到额外+2·发布额外+2", gift: 300, ckBonus: 2, milestoneBonus: 4, publishBonus: 2 },
+  { id: 3, name: "年卡", price: 168, rights: "赠送1200积分·签到额外+3·发布额外+3", gift: 1200, ckBonus: 3, milestoneBonus: 6, publishBonus: 3 }
 ];
 
 export interface AdminRecharge {
@@ -358,11 +358,11 @@ export interface AdminRecharge {
 }
 
 export const RECHARGE_TIERS: AdminRecharge[] = [
-  { id: 1, price: 6, credits: 60, bonus: 0, on: true },
-  { id: 2, price: 18, credits: 180, bonus: 10, on: true },
-  { id: 3, price: 30, credits: 300, bonus: 30, on: true },
-  { id: 4, price: 68, credits: 680, bonus: 100, on: true },
-  { id: 5, price: 128, credits: 1280, bonus: 280, on: true }
+  { id: 1, price: 6, credits: 600, bonus: 0, on: true },
+  { id: 2, price: 18, credits: 1800, bonus: 60, on: true },
+  { id: 3, price: 30, credits: 3000, bonus: 150, on: true },
+  { id: 4, price: 68, credits: 6800, bonus: 480, on: true },
+  { id: 5, price: 128, credits: 12800, bonus: 1280, on: true }
 ];
 
 export interface CheckinTier {
@@ -371,15 +371,15 @@ export interface CheckinTier {
 }
 
 export const CHECKIN: { base: number; tiers: CheckinTier[] } = {
-  base: 10,
+  base: 2,
   tiers: [
-    { day: 1, c: 10 },
-    { day: 2, c: 10 },
-    { day: 3, c: 15 },
-    { day: 4, c: 15 },
-    { day: 5, c: 20 },
-    { day: 6, c: 20 },
-    { day: 7, c: 50 }
+    { day: 1, c: 2 },
+    { day: 2, c: 2 },
+    { day: 3, c: 2 },
+    { day: 4, c: 3 },
+    { day: 5, c: 3 },
+    { day: 6, c: 3 },
+    { day: 7, c: 5 }
   ]
 };
 

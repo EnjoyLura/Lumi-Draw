@@ -6,13 +6,13 @@ import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Sec } from "../ui";
 
-const DEFAULT_TIERS = [10, 10, 15, 15, 20, 20, 50].map((c, i) => ({ day: i + 1, c }));
+const DEFAULT_TIERS = [2, 2, 2, 3, 3, 3, 5].map((c, i) => ({ day: i + 1, c }));
 
 export function FinCheckin() {
   const { toast } = useNav();
   const { useMock } = useAdminSession();
   const { data, loading, error, reload } = useAsyncData<AdminCheckinConfig>(useMock ? null : () => apiGetCheckinConfig(), [useMock]);
-  const ck = useMock ? getCheckin() : data ?? { base: 10, tiers: DEFAULT_TIERS };
+  const ck = useMock ? getCheckin() : data ?? { base: 2, tiers: DEFAULT_TIERS };
   const [base, setBase] = useState(String(ck.base));
   const [tiers, setTiers] = useState(ck.tiers.map((t) => String(t.c)));
   const [saving, setSaving] = useState(false);

@@ -245,7 +245,7 @@ export async function fetchMemberPlans() {
 
 export async function fetchPublishRewardConfig() {
   const data = await api.get<Bootstrap>("/app/bootstrap", { skipAuth: true });
-  return Math.max(0, Number(data.creditsConfig?.publishReward ?? 50));
+  return Math.max(0, Number(data.creditsConfig?.publishReward ?? 2));
 }
 
 export async function fetchMemberStatus() {

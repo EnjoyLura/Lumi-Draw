@@ -1,14 +1,15 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
+import { readCheckinConfig } from "../credits/reward-policy";
 import { PrismaService } from "../prisma/prisma.service";
+import { WechatWalletService } from "../payments/wechat-wallet.service";
 
-// 阶梯积分（沿用原型）：连续第 N 天，按 7 天循环
-const TIERS = [10, 10, 15, 15, 20, 20, 50];
 const MILESTONE_DAYS = new Set([3, 7, 14, 30]);
 
-function tierCredits(continuousDays: number) {
+function tierCredits(tiers: number[], continuousDays: number) {
   const idx = ((continuousDays - 1) % 7 + 7) % 7;
-  return TIERS[idx];
+  return tiers[idx] ?? tiers[0] ?? 0;
 }
 
 function dateStr(d: Date) {
@@ -22,7 +23,8 @@ function dateStr(d: Date) {
 export class CheckinService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly credits: CreditsService
+    private readonly credits: CreditsService,
+    private readonly wallet: WechatWalletService
   ) {}
 
   private today() {
@@ -42,10 +44,11 @@ export class CheckinService {
   }
 
   async status(userId: number) {
-    const [todayRec, latest, plan] = await Promise.all([
+    const [todayRec, latest, plan, policy] = await Promise.all([
       this.prisma.checkinRecord.findUnique({ where: { userId_date: { userId, date: this.today() } } }),
       this.prisma.checkinRecord.findFirst({ where: { userId }, orderBy: { date: "desc" } }),
-      this.activePlan(userId)
+      this.activePlan(userId),
+      readCheckinConfig(this.prisma)
     ]);
     const checkedToday = !!todayRec;
     let currentStreak = 0;
@@ -55,30 +58,37 @@ export class CheckinService {
     return {
       checkedToday,
       continuousDays: currentStreak,
-      nextCredits: tierCredits(nextDay || 1) + (plan?.checkinBonus ?? 0) + (MILESTONE_DAYS.has(nextDay) ? (plan?.milestoneBonus ?? 0) : 0),
-      tiers: TIERS.map((credits, i) => ({ day: i + 1, credits: credits + (plan?.checkinBonus ?? 0) })),
+      nextCredits: tierCredits(policy.tiers, nextDay || 1) + (plan?.checkinBonus ?? 0) + (MILESTONE_DAYS.has(nextDay) ? (plan?.milestoneBonus ?? 0) : 0),
+      tiers: policy.tiers.map((credits, i) => ({ day: i + 1, credits: credits + (plan?.checkinBonus ?? 0) })),
       memberBenefits: plan ? { checkinBonus: plan.checkinBonus, milestoneBonus: plan.milestoneBonus } : null
     };
   }
 
   async checkin(userId: number) {
     const today = this.today();
-    const existing = await this.prisma.checkinRecord.findUnique({ where: { userId_date: { userId, date: today } } });
-    if (existing) {
-      const balance = (await this.prisma.user.findUnique({ where: { id: userId }, select: { credits: true } }))?.credits ?? 0;
-      return { checked: false, credits: 0, continuousDays: existing.continuousDays, balance };
-    }
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new NotFoundException("用户不存在");
-    const latest = await this.prisma.checkinRecord.findFirst({ where: { userId }, orderBy: { date: "desc" } });
-    const continuousDays = latest && latest.date === this.yesterday() ? latest.continuousDays + 1 : 1;
-    const plan = await this.activePlan(userId);
+    const [plan, policy] = await Promise.all([this.activePlan(userId), readCheckinConfig(this.prisma)]);
     const dailyBonus = plan?.checkinBonus ?? 0;
-    const milestoneBonus = MILESTONE_DAYS.has(continuousDays) ? (plan?.milestoneBonus ?? 0) : 0;
-    const credits = tierCredits(continuousDays) + dailyBonus + milestoneBonus;
-    await this.prisma.checkinRecord.create({ data: { userId, date: today, credits, continuousDays } });
-    const bonusText = [dailyBonus ? `会员日签 +${dailyBonus}` : "", milestoneBonus ? `里程碑 +${milestoneBonus}` : ""].filter(Boolean).join("，");
-    const { balance } = await this.credits.addTransaction(userId, "checkin", credits, `签到第${continuousDays}天${bonusText ? `（${bonusText}）` : ""}`);
-    return { checked: true, credits, continuousDays, balance };
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      const existing = await tx.checkinRecord.findUnique({ where: { userId_date: { userId, date: today } } });
+      if (existing) {
+        const balance = (await tx.user.findUnique({ where: { id: userId }, select: { credits: true } }))?.credits ?? 0;
+        return { checked: false, credits: 0, continuousDays: existing.continuousDays, balance };
+      }
+      const user = await tx.user.findUnique({ where: { id: userId } });
+      if (!user) throw new NotFoundException("用户不存在");
+      const latest = await tx.checkinRecord.findFirst({ where: { userId }, orderBy: { date: "desc" } });
+      const continuousDays = latest && latest.date === this.yesterday() ? latest.continuousDays + 1 : 1;
+      const milestoneBonus = MILESTONE_DAYS.has(continuousDays) ? (plan?.milestoneBonus ?? 0) : 0;
+      const credits = tierCredits(policy.tiers, continuousDays) + dailyBonus + milestoneBonus;
+      const bonusText = [dailyBonus ? `会员日签 +${dailyBonus}` : "", milestoneBonus ? `里程碑 +${milestoneBonus}` : ""].filter(Boolean).join("，");
+      const reason = `签到第${continuousDays}天${bonusText ? `（${bonusText}）` : ""}`;
+      const walletGift = await this.wallet.present(userId, credits, `checkin_${userId}_${today.replace(/-/g, "")}`, reason);
+      const { balance } = walletGift
+        ? await this.credits.syncExternalBalanceInTx(tx, userId, "checkin", credits, walletGift.balance, reason, `checkin:${today}`)
+        : await this.credits.addTransactionInTx(tx, userId, "checkin", credits, reason, `checkin:${today}`);
+      await tx.checkinRecord.create({ data: { userId, date: today, credits, continuousDays } });
+      return { checked: true, credits, continuousDays, balance };
+    });
   }
 }

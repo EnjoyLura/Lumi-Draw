@@ -3,6 +3,7 @@ import type { Prisma, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateMeDto } from "../auth/auth.dto";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers, resolveCreatorTitle } from "../common/creator-titles";
+import { assertNoSensitiveContent } from "../common/content-safety";
 
 function publicUser(user: User) {
   return {
@@ -48,6 +49,7 @@ export class UsersService {
   }
 
   async updateMe(userId: number, dto: UpdateMeDto) {
+    await assertNoSensitiveContent(this.prisma, [dto.nickname, dto.bio]);
     const data: Prisma.UserUpdateInput = {};
     if (dto.nickname !== undefined) {
       data.nickname = dto.nickname;

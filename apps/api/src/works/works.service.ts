@@ -2,7 +2,8 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { requiresManualReview } from "../common/review-policy";
-import { CreditsService } from "../credits/credits.service";
+import { assertNoSensitiveContent } from "../common/content-safety";
+import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import type { CreateWorkDto, UpdateWorkDto } from "./works.write.dto";
@@ -101,7 +102,7 @@ export class WorksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
-    private readonly credits: CreditsService
+    private readonly publishRewards: PublishRewardsService
   ) {}
 
   private toCard(work: WorkWithAuthor, modelName?: string) {
@@ -229,40 +230,8 @@ export class WorksService {
     return work;
   }
 
-  private async awardPublishReward(userId: number, workId: number) {
-    const refId = `publish_reward:${workId}`;
-    const alreadyRewarded = await this.prisma.creditTransaction.findFirst({ where: { userId, refId }, select: { id: true } });
-    if (alreadyRewarded) return 0;
-
-    const [setting, user] = await Promise.all([
-      this.prisma.appSetting.findUnique({ where: { key: "creditsConfig" } }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { memberPlan: true, memberExpireAt: true } })
-    ]);
-    let baseReward = 50;
-    try {
-      baseReward = Number(JSON.parse(setting?.value ?? "{}").publishReward ?? 50);
-    } catch {
-      // Keep the safe default when the stored settings cannot be parsed.
-    }
-
-    let memberBonus = 0;
-    if (user?.memberPlan && (!user.memberExpireAt || user.memberExpireAt.getTime() > Date.now())) {
-      const plan = await this.prisma.memberPlan.findFirst({ where: { name: user.memberPlan, enabled: true }, select: { publishBonus: true } });
-      memberBonus = plan?.publishBonus ?? 0;
-    }
-    const amount = Math.max(0, baseReward) + Math.max(0, memberBonus);
-    if (!amount) return 0;
-    await this.credits.addTransaction(
-      userId,
-      "adjust",
-      amount,
-      memberBonus ? `发布作品奖励（会员加成 +${memberBonus}）` : "发布作品奖励",
-      refId
-    );
-    return amount;
-  }
-
   async publish(userId: number, dto: CreateWorkDto) {
+    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description, dto.prompt]);
     const manualReview = await this.isManualReview();
     const isPublic = dto.isPublic ?? true;
     const status = !isPublic ? "draft" : manualReview ? "pending" : "published";
@@ -284,12 +253,13 @@ export class WorksService {
       }
     });
     await this.prisma.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
-    if (isPublic) await this.awardPublishReward(userId, work.id);
+    if (status === "published") await this.publishRewards.awardPublishedWork(userId, work.id);
     return this.detail(work.id, userId);
   }
 
   async update(userId: number, id: number, dto: UpdateWorkDto) {
     const existing = await this.ownedWork(userId, id);
+    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description]);
     const data: Prisma.WorkUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
@@ -307,8 +277,8 @@ export class WorksService {
         data.status = "draft";
       }
     }
-    await this.prisma.work.update({ where: { id }, data });
-    if (dto.isPublic && !existing.isPublic) await this.awardPublishReward(userId, id);
+    const updated = await this.prisma.work.update({ where: { id }, data });
+    if (updated.status === "published" && updated.isPublic) await this.publishRewards.awardPublishedWork(userId, id);
     return this.detail(id, userId);
   }
 

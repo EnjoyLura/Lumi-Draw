@@ -3,7 +3,10 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { User } from "@prisma/client";
 import { generateOpaqueToken, sha256Hex } from "../common/crypto/password";
+import { readCreditsConfig } from "../credits/reward-policy";
 import { PrismaService } from "../prisma/prisma.service";
+import { encryptWechatSessionKey } from "./session-secret";
+import { WechatWalletService } from "../payments/wechat-wallet.service";
 
 const AVATAR_COLORS = ["#5B9FE8", "#6FD4B0", "#FFB59A", "#B8A5E3", "#FFE08A", "#FFA8B8"];
 
@@ -34,7 +37,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly wallet: WechatWalletService
   ) {}
 
   private get accessTtl() {
@@ -58,10 +62,10 @@ export class AuthService {
     return { accessToken, refreshToken, expiresIn: this.accessTtl, user: publicUser(user) };
   }
 
-  private async resolveOpenId(code: string): Promise<string> {
+  private async resolveWechatSession(code: string): Promise<{ openId: string; sessionKey: string }> {
     const allowMock = this.config.getOrThrow<boolean>("app.auth.allowMockLogin");
     if (allowMock && code.startsWith("mock")) {
-      return `mock_${code}`;
+      return { openId: `mock_${code}`, sessionKey: `mock-session-${code}` };
     }
     const appId = this.config.get<string>("app.wx.appId");
     const secret = this.config.get<string>("app.wx.appSecret");
@@ -71,34 +75,95 @@ export class AuthService {
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${appId}&secret=${secret}&js_code=${encodeURIComponent(code)}&grant_type=authorization_code`;
     try {
       const res = await fetch(url);
-      const data = (await res.json()) as { openid?: string; errcode?: number; errmsg?: string };
+      const data = (await res.json()) as { openid?: string; session_key?: string; errcode?: number; errmsg?: string };
       if (!data.openid) {
         this.logger.warn(`jscode2session failed: ${data.errcode} ${data.errmsg}`);
         throw new UnauthorizedException("微信登录失败");
       }
-      return data.openid;
+      return { openId: data.openid, sessionKey: data.session_key ?? "" };
     } catch (e) {
       if (e instanceof UnauthorizedException) throw e;
       throw new UnauthorizedException("微信登录请求异常");
     }
   }
 
-  async wechatLogin(code: string) {
-    const openId = await this.resolveOpenId(code);
+  async wechatLogin(code: string, userIp = "") {
+    const session = await this.resolveWechatSession(code);
+    const openId = session.openId;
+    const sessionEncryptionKey = this.config.get<string>("app.wx.sessionEncryptionKey") ?? "";
+    const virtualConfigured = Boolean(
+      this.config.get<string>("app.wx.virtualPayOfferId") &&
+      this.config.get<string>("app.wx.virtualPayAppKey")
+    );
+    if (virtualConfigured && session.sessionKey && sessionEncryptionKey.length < 32) {
+      throw new UnauthorizedException("虚拟支付会话密钥未完成安全配置");
+    }
+    const encryptedSessionKey = session.sessionKey && sessionEncryptionKey
+      ? encryptWechatSessionKey(session.sessionKey, sessionEncryptionKey)
+      : "";
     let user = await this.prisma.user.findUnique({ where: { openId } });
     if (!user) {
       const seq = await this.prisma.user.count();
-      user = await this.prisma.user.create({
+      const { registerGift } = await readCreditsConfig(this.prisma);
+      user = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            openId,
+            nickname: `体验用户${seq + 1}`,
+            avatarText: "米",
+            avatarColor: AVATAR_COLORS[seq % AVATAR_COLORS.length],
+            credits: this.wallet.enabled ? 0 : registerGift,
+            wechatSessionKeyEncrypted: encryptedSessionKey,
+            wechatSessionUpdatedAt: encryptedSessionKey ? new Date() : null,
+            wechatSessionUserIp: encryptedSessionKey ? userIp : ""
+          }
+        });
+        if (registerGift > 0 && !this.wallet.enabled) {
+          await tx.creditTransaction.create({
+            data: {
+              userId: created.id,
+              type: "adjust",
+              amount: registerGift,
+              balanceAfter: registerGift,
+              reason: "新用户奖励",
+              refId: `register_gift:${created.id}`
+            }
+          });
+        }
+        return created;
+      });
+    } else if (encryptedSessionKey) {
+      user = await this.prisma.user.update({
+        where: { id: user.id },
         data: {
-          openId,
-          nickname: `体验用户${seq + 1}`,
-          avatarText: "米",
-          avatarColor: AVATAR_COLORS[seq % AVATAR_COLORS.length],
-          credits: 1280
+          wechatSessionKeyEncrypted: encryptedSessionKey,
+          wechatSessionUpdatedAt: new Date(),
+          wechatSessionUserIp: userIp
         }
       });
     }
+    await this.ensureRegistrationGift(user.id);
+    user = await this.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     return this.issueTokens(user);
+  }
+
+  private async ensureRegistrationGift(userId: number) {
+    if (!this.wallet.enabled) return;
+    const refId = `register_gift:${userId}`;
+    const existing = await this.prisma.creditTransaction.findFirst({ where: { userId, refId }, select: { id: true } });
+    if (existing) return;
+    const { registerGift } = await readCreditsConfig(this.prisma);
+    if (registerGift <= 0) return;
+    const remote = await this.wallet.present(userId, registerGift, `register_${userId}`, "新用户奖励");
+    if (!remote) return;
+    await this.prisma.$transaction(async (tx) => {
+      const duplicated = await tx.creditTransaction.findFirst({ where: { userId, refId }, select: { id: true } });
+      if (duplicated) return;
+      await tx.user.update({ where: { id: userId }, data: { credits: remote.balance } });
+      await tx.creditTransaction.create({
+        data: { userId, type: "adjust", amount: registerGift, balanceAfter: remote.balance, reason: "新用户奖励", refId }
+      });
+    });
   }
 
   async refresh(refreshToken: string) {

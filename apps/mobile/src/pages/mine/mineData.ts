@@ -1,3 +1,5 @@
+import { inviteRewardsEnabled } from "../../services/featureFlags";
+
 export interface MineUser {
   name: string;
   avatar: string;
@@ -30,12 +32,13 @@ export const mineUser: MineUser = {
   credits: 2860
 };
 
-export const quickActions: QuickAction[] = [
+const allQuickActions: QuickAction[] = [
   { key: "recharge", label: "充值", icon: "gem", gradient: "linear-gradient(135deg, #a8d8f8, #b0e6d0)" },
   { key: "checkin", label: "签到", icon: "calendar-check", gradient: "linear-gradient(135deg, #ffd4c8, #ffc8d6)" },
   { key: "membership", label: "会员", icon: "crown", gradient: "linear-gradient(135deg, #d4c8f0, #b8a8e0)" },
   { key: "invite", label: "邀请", icon: "gift", gradient: "linear-gradient(135deg, #a3e4cc, #8bd8b8)" }
 ];
+export const quickActions = allQuickActions.filter((item) => inviteRewardsEnabled || item.key !== "invite");
 
 export const accountItems: MineListItem[] = [
   { key: "messages", label: "消息中心", icon: "bell", color: "var(--rose)", badge: "5" },

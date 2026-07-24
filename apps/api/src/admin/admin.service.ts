@@ -5,6 +5,7 @@ import { CreditsService } from "../credits/credits.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { WechatWalletService } from "../payments/wechat-wallet.service";
 import { AdminCreateWorkDto } from "./admin-work.dto";
 import { AdminUserQueryDto, AdminWorkQueryDto } from "./admin.query";
 
@@ -59,7 +60,8 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
     private readonly uploads: UploadsService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly wallet: WechatWalletService
   ) {}
 
   private adminWorkRow(work: Work & { user?: User | null }) {
@@ -186,6 +188,9 @@ export class AdminService {
 
   async adjustCredits(id: number, amount: unknown, reason: unknown) {
     await this.ensureUser(id);
+    if (this.wallet.enabled) {
+      throw new BadRequestException("现网积分由微信虚拟支付统一管理，暂不支持后台直接调整");
+    }
     if (typeof amount !== "number" || !Number.isFinite(amount) || amount === 0) {
       throw new BadRequestException("amount 必须为非零数字");
     }
@@ -195,6 +200,9 @@ export class AdminService {
 
   async giftMember(id: number, planId: unknown, reason: unknown) {
     const user = await this.ensureUser(id);
+    if (this.wallet.enabled) {
+      throw new BadRequestException("现网会员赠送包含微信积分权益，暂不支持后台直接发放");
+    }
     const numericPlanId = Number(planId);
     if (!Number.isInteger(numericPlanId) || numericPlanId <= 0) {
       throw new BadRequestException("planId 必须为有效会员方案");

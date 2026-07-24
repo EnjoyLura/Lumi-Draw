@@ -1,6 +1,7 @@
 import type { PrismaService } from "../prisma/prisma.service";
 
 export async function requiresManualReview(prisma: PrismaService) {
+  if (process.env.NODE_ENV === "production" && process.env.FORCE_MANUAL_REVIEW !== "false") return true;
   const rows = await prisma.appSetting.findMany({
     where: { key: { in: ["reviewMode", "manualReviewEnabled"] } },
     select: { key: true, value: true }

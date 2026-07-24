@@ -683,9 +683,9 @@ export interface AdminCheckinConfig {
 }
 
 function mapCheckinConfig(c: ApiCheckinConfig): AdminCheckinConfig {
-  const raw = c.tiers ?? [10, 10, 15, 15, 20, 20, 50];
+  const raw = c.tiers ?? [2, 2, 2, 3, 3, 3, 5];
   return {
-    base: Number(c.base ?? 10),
+    base: Number(c.base ?? 2),
     tiers: raw.map((t, i) => typeof t === "number" ? { day: i + 1, c: t } : { day: t.day, c: t.c })
   };
 }
@@ -710,10 +710,10 @@ export interface AdminInviteConfig {
 
 function mapInviteConfig(c: Partial<AdminInviteConfig>): AdminInviteConfig {
   return {
-    enabled: c.enabled ?? true,
-    inviterReward: Number(c.inviterReward ?? 50),
-    inviteeReward: Number(c.inviteeReward ?? 30),
-    cap: Number(c.cap ?? 20)
+    enabled: c.enabled ?? false,
+    inviterReward: Number(c.inviterReward ?? 10),
+    inviteeReward: Number(c.inviteeReward ?? 0),
+    cap: Number(c.cap ?? 10)
   };
 }
 
@@ -734,10 +734,10 @@ export interface AdminCreditsConfig {
 
 function mapCreditsConfig(c: Partial<AdminCreditsConfig>): AdminCreditsConfig {
   return {
-    registerGift: Number(c.registerGift ?? 100),
-    publishReward: Number(c.publishReward ?? 50),
-    favoriteReward: Number(c.favoriteReward ?? 5),
-    inviteReward: Number(c.inviteReward ?? 50)
+    registerGift: Number(c.registerGift ?? 50),
+    publishReward: Number(c.publishReward ?? 2),
+    favoriteReward: Number(c.favoriteReward ?? 0),
+    inviteReward: Number(c.inviteReward ?? 10)
   };
 }
 

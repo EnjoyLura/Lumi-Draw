@@ -84,6 +84,14 @@ for (const token of ["注销账号", "cancelAccount", "openWechatPrivacyContract
   if (!settingsPage.includes(token)) fail(`设置页缺少上线必需能力：${token}`);
 }
 
+const featureFlags = fs.readFileSync(path.join(SOURCE_DIR, "services", "featureFlags.ts"), "utf8");
+if (!featureFlags.includes('VITE_INVITE_REWARDS_ENABLED === "true"')) {
+  fail("提审版邀请奖励入口未使用默认关闭的显式功能开关。");
+}
+if (process.env.VITE_INVITE_REWARDS_ENABLED === "true") {
+  fail("提审构建禁止开启邀请奖励。");
+}
+
 const pointsService = fs.readFileSync(path.join(SOURCE_DIR, "pages", "points", "pointsService.ts"), "utf8");
 if (/\buni\.requestPayment\s*\(/.test(pointsService)) {
   fail("积分或会员仍在调用普通 requestPayment，应使用微信虚拟支付。");

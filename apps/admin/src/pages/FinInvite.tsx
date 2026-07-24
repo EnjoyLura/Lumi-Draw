@@ -9,10 +9,10 @@ export function FinInvite() {
   const { toast } = useNav();
   const { useMock } = useAdminSession();
   const { data, loading, error, reload } = useAsyncData<AdminInviteConfig>(useMock ? null : () => apiGetInviteConfig(), [useMock]);
-  const [on, setOn] = useState(true);
-  const [inviter, setInviter] = useState("50");
-  const [invitee, setInvitee] = useState("30");
-  const [cap, setCap] = useState("20");
+  const [on, setOn] = useState(false);
+  const [inviter, setInviter] = useState("10");
+  const [invitee, setInvitee] = useState("0");
+  const [cap, setCap] = useState("10");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

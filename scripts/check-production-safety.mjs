@@ -87,6 +87,11 @@ requireStrongSecret("JWT_SECRET", ["dev-jwt-secret", "change-me-in-production"])
 requireStrongSecret("ADMIN_JWT_SECRET", ["dev-admin-jwt-secret", "change-me-in-production"]);
 requireStrongSecret("CALLBACK_SECRET", ["change-me-in-production"]);
 requireStrongSecret("GENERATION_PROVIDER_ENCRYPTION_KEY", ["change-me-in-production-with-at-least-32-characters"]);
+requireStrongSecret("WX_SESSION_ENCRYPTION_KEY", []);
+
+if (value("FORCE_MANUAL_REVIEW") !== "true") {
+  failures.push("FORCE_MANUAL_REVIEW must be true during the mini program review release.");
+}
 
 const adminPassword = value("ADMIN_PASSWORD");
 if (!adminPassword) {

@@ -9,6 +9,7 @@ import { useDataMode } from "../../services/dataMode";
 import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type InvitedUser } from "../points/pointsData";
 import { fetchInviteSummary } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
+import { inviteRewardsEnabled } from "../../services/featureFlags";
 
 const { themeClass } = useTheme();
 
@@ -24,6 +25,10 @@ const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 
 onShow(() => {
+  if (!inviteRewardsEnabled) {
+    uni.reLaunch({ url: "/pages/home/index" });
+    return;
+  }
   void loadInvite();
 });
 

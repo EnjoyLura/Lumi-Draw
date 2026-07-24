@@ -5,6 +5,8 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers } from "../common/creator-titles";
+import { PublishRewardsService } from "../credits/publish-rewards.service";
+import { DEFAULT_CHECKIN_CONFIG, DEFAULT_CREDITS_CONFIG, DEFAULT_INVITE_CONFIG } from "../credits/reward-policy";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -20,7 +22,8 @@ export class ModerationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly publishRewards: PublishRewardsService
   ) {}
 
   // ---------- 内容审核（待审核作品）----------
@@ -48,6 +51,7 @@ export class ModerationService {
     const work = await this.prisma.work.findUnique({ where: { id } });
     if (!work) throw new NotFoundException("作品不存在");
     await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true } });
+    await this.publishRewards.awardPublishedWork(work.userId, work.id);
     return { ok: true, id, status: "published" };
   }
 
@@ -304,19 +308,19 @@ export class ModerationService {
   }
 
   getCheckinConfig() {
-    return this.getJsonConfig("checkinConfig", { base: 10, tiers: [10, 10, 15, 15, 20, 20, 50] });
+    return this.getJsonConfig("checkinConfig", DEFAULT_CHECKIN_CONFIG);
   }
   putCheckinConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("checkinConfig", body);
   }
   getInviteConfig() {
-    return this.getJsonConfig("inviteConfig", { inviterReward: 50, inviteeReward: 30 });
+    return this.getJsonConfig("inviteConfig", DEFAULT_INVITE_CONFIG);
   }
   putInviteConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("inviteConfig", body);
   }
   getCreditsConfig() {
-    return this.getJsonConfig("creditsConfig", { registerGift: 1280, publishReward: 50 });
+    return this.getJsonConfig("creditsConfig", DEFAULT_CREDITS_CONFIG);
   }
   putCreditsConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("creditsConfig", body);

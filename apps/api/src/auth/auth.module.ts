@@ -5,9 +5,10 @@ import { AuthService } from "./auth.service";
 import { AdminJwtGuard } from "./guards/admin-jwt.guard";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { OptionalJwtAuthGuard } from "./guards/optional-jwt-auth.guard";
+import { WechatWalletModule } from "../payments/wechat-wallet.module";
 
 @Module({
-  imports: [JwtModule.register({ global: true })],
+  imports: [JwtModule.register({ global: true }), WechatWalletModule],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, AdminJwtGuard, OptionalJwtAuthGuard],
   exports: [AuthService, JwtAuthGuard, AdminJwtGuard, OptionalJwtAuthGuard]

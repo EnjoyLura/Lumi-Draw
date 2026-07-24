@@ -70,3 +70,90 @@ test("membership payment includes the published product and exact price", () => 
     attach: "order-id"
   });
 });
+
+test("server wallet APIs sign and send the exact official request bodies", async () => {
+  const client = new WechatVirtualPayClient(config());
+  const calls: Array<{ url: URL; body: string }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
+    if (url.pathname === "/cgi-bin/token") {
+      return new Response(JSON.stringify({ access_token: "access-token", expires_in: 7200 }));
+    }
+    const body = String(init?.body ?? "");
+    calls.push({ url, body });
+    if (url.pathname === "/xpay/query_user_balance") {
+      return new Response(JSON.stringify({ errcode: 0, balance: 480, present_balance: 80 }));
+    }
+    if (url.pathname === "/xpay/currency_pay") {
+      return new Response(JSON.stringify({ errcode: 0, order_id: "PAY001", balance: 460 }));
+    }
+    if (url.pathname === "/xpay/present_currency") {
+      return new Response(JSON.stringify({ errcode: 0, order_id: "GIFT001", balance: 470, present_balance: 90 }));
+    }
+    if (url.pathname === "/xpay/cancel_currency_pay") {
+      return new Response(JSON.stringify({ errcode: 0, order_id: "REFUND001" }));
+    }
+    return new Response(JSON.stringify({ errcode: -1, errmsg: "unexpected request" }), { status: 500 });
+  };
+
+  try {
+    await client.queryUserBalance("openid-1", "session-key", "1.2.3.4");
+    await client.currencyPay({
+      openId: "openid-1",
+      sessionKey: "session-key",
+      userIp: "1.2.3.4",
+      amount: 20,
+      billNo: "PAY001",
+      payItem: '[{"productid":"lumi_credits","unit_price":20,"quantity":1}]',
+      remark: "AI生成任务"
+    });
+    await client.presentCurrency({
+      openId: "openid-1",
+      sessionKey: "session-key",
+      userIp: "1.2.3.4",
+      amount: 10,
+      billNo: "GIFT001",
+      reason: "签到奖励"
+    });
+    const refunded = await client.cancelCurrencyPay({
+      openId: "openid-1",
+      sessionKey: "session-key",
+      userIp: "1.2.3.4",
+      payBillNo: "PAY001",
+      refundBillNo: "REFUND001",
+      amount: 20
+    });
+
+    assert.equal(refunded.balance, 480);
+    assert.equal(calls.length, 5);
+    assert.deepEqual(JSON.parse(calls[0].body), { openid: "openid-1", env: 0, user_ip: "1.2.3.4" });
+    assert.deepEqual(JSON.parse(calls[1].body), {
+      openid: "openid-1",
+      env: 0,
+      user_ip: "1.2.3.4",
+      amount: 20,
+      order_id: "PAY001",
+      payitem: '[{"productid":"lumi_credits","unit_price":20,"quantity":1}]',
+      remark: "AI生成任务"
+    });
+    assert.deepEqual(JSON.parse(calls[2].body), { openid: "openid-1", env: 0, order_id: "GIFT001", amount: 10 });
+    assert.deepEqual(JSON.parse(calls[3].body), {
+      openid: "openid-1",
+      env: 0,
+      user_ip: "1.2.3.4",
+      pay_order_id: "PAY001",
+      order_id: "REFUND001",
+      amount: 20
+    });
+
+    for (const call of [calls[0], calls[1], calls[3], calls[4]]) {
+      assert.equal(call.url.searchParams.get("pay_sig"), hmac("virtual-app-key", `${call.url.pathname}&${call.body}`));
+      assert.equal(call.url.searchParams.get("signature"), hmac("session-key", call.body));
+    }
+    assert.equal(calls[2].url.searchParams.has("pay_sig"), false);
+    assert.equal(calls[2].url.searchParams.has("signature"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

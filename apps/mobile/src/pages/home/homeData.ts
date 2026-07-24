@@ -75,7 +75,7 @@ export const homeBanners: HomeBanner[] = [
   {
     image: mockImage("publish", 700, 300),
     title: "发布作品送积分",
-    description: "发布原创作品即得50积分，被收藏额外奖励",
+    description: "作品审核通过后可获得发布积分",
     action: "publish"
   },
   {

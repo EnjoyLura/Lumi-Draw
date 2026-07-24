@@ -8,10 +8,10 @@ export function SetBase() {
   const { toast } = useNav();
   const { useMock } = useAdminSession();
   const { data, loading, error, reload } = useAsyncData<AdminCreditsConfig>(useMock ? null : () => apiGetCreditsConfig(), [useMock]);
-  const [signup, setSignup] = useState("100");
-  const [publish, setPublish] = useState("50");
-  const [fav, setFav] = useState("5");
-  const [invite, setInvite] = useState("50");
+  const [signup, setSignup] = useState("50");
+  const [publish, setPublish] = useState("2");
+  const [fav, setFav] = useState("0");
+  const [invite, setInvite] = useState("10");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -52,10 +52,6 @@ export function SetBase() {
         <input className="input" type="number" value={signup} onChange={(e) => setSignup(e.target.value)} />
         <label className="field-label" style={{ marginTop: 12 }}>发布作品奖励积分</label>
         <input className="input" type="number" value={publish} onChange={(e) => setPublish(e.target.value)} />
-        <label className="field-label" style={{ marginTop: 12 }}>作品被收藏奖励积分</label>
-        <input className="input" type="number" value={fav} onChange={(e) => setFav(e.target.value)} />
-        <label className="field-label" style={{ marginTop: 12 }}>邀请好友奖励积分</label>
-        <input className="input" type="number" value={invite} onChange={(e) => setInvite(e.target.value)} />
       </div>
       <div className="actionbar"><button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存配置"}</button></div>
     </>

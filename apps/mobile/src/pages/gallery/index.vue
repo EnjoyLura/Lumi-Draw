@@ -8,6 +8,7 @@ import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
+import { inviteRewardsEnabled } from "../../services/featureFlags";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
@@ -141,7 +142,7 @@ const sideQuickActions: SideQuick[] = [
   { icon: "gem", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
   { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-  { icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }
+  ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : [])
 ];
 const sideRows = ref<SideRow[]>([
   { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
@@ -910,7 +911,7 @@ function openWork(work: HomeWork) {
               <view v-if="isMineMode" class="icon-btn checkin" @click="navigateSide('/pages/checkin/index')"><LumiIcon name="calendar-check" :size="18" /></view>
             </view>
             <text v-if="!isMineMode" class="nav-title">画廊</text>
-            <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><LumiIcon name="gift" :size="16" /><text>邀请有礼</text></view>
+            <view v-if="isMineMode && inviteRewardsEnabled" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><LumiIcon name="gift" :size="16" /><text>邀请有礼</text></view>
           </view>
         </view>
 

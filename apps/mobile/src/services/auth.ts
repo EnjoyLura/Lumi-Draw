@@ -1,6 +1,7 @@
 import { ref } from "vue";
 import { api, clearAuthTokens, getRefreshToken, hasAccessToken, setAuthTokens, setUnauthorizedHandler } from "./api";
 import { useDataMode } from "./dataMode";
+import { inviteRewardsEnabled } from "./featureFlags";
 
 const STORAGE_KEY = "lumi-logged-in";
 const USER_STORAGE_KEY = "lumi-mobile-user";
@@ -184,6 +185,7 @@ function clearSession() {
 }
 
 async function bindPendingInvite() {
+  if (!inviteRewardsEnabled) return;
   let inviteCode = "";
   try {
     const stored = uni.getStorageSync(PENDING_INVITE_KEY);
@@ -207,6 +209,7 @@ async function bindPendingInvite() {
 }
 
 export function savePendingInviteCode(code: string) {
+  if (!inviteRewardsEnabled) return;
   const normalized = code.trim();
   if (!normalized) return;
   try {

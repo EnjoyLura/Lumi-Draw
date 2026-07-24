@@ -226,6 +226,9 @@ model AppSetting {
 model User {
   id          Int      @id @default(autoincrement())
   openId      String?  @unique
+  wechatSessionKeyEncrypted String @default("")
+  wechatSessionUpdatedAt DateTime?
+  wechatSessionUserIp String @default("")
   nickname    String
   avatarText  String   @default("")
   avatarColor String   @default("#5B9FE8")
@@ -505,6 +508,8 @@ model GenerateJob {
   count         Int
   costCredits   Int
   refundCredits Int      @default(0)
+  walletBillNo  String   @default("")
+  walletRefunded Boolean @default(false)
   status        String   @default("queued") // queued | running | succeeded | partial_failed | failed | cancelled
   progress      Int      @default(0)
   stageText     String   @default("")
@@ -561,6 +566,7 @@ model PaymentOrder {
   bonusCredits   Int       @default(0)
   memberDays     Int       @default(0)
   transactionId  String    @default("")
+  walletBillNo   String    @default("")
   paidAt         DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

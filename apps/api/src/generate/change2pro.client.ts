@@ -427,7 +427,7 @@ export class Change2ProClient {
       params: {
         quality: "high",
         input_fidelity: "high",
-        moderation: "low",
+        moderation: "auto",
         output_format: IMAGE_2_OUTPUT_FORMAT,
         output_compression: String(IMAGE_2_OUTPUT_COMPRESSION),
         response_format: "url"

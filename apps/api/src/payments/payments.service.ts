@@ -12,6 +12,7 @@ import {
   type WechatPayConfig
 } from "./wechat-pay.client";
 import { WechatVirtualPayClient, type WechatVirtualSession } from "./wechat-virtual-pay.client";
+import { WechatWalletService } from "./wechat-wallet.service";
 
 type OrderWithUser = PaymentOrder & { user?: { memberExpireAt: Date | null } };
 
@@ -23,7 +24,8 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly wallet: WechatWalletService
   ) {}
 
   async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto) {
@@ -65,9 +67,14 @@ export class PaymentsService {
         body: plan.rights,
         memberPlanId: plan.id,
         credits: plan.giftCredits,
-        memberDays: this.resolveMemberDays(plan.name)
+        memberDays: this.resolveMemberDays(plan.name),
+        walletBillNo: this.createOrderNo("W")
       }
     });
+    if (this.wallet.enabled) {
+      const paid = await this.completeWalletMembershipOrder(order);
+      return this.toOrderView(paid);
+    }
     return this.toOrderView(order, {
       preparePayment: true,
       virtualSessionKey: virtualSession?.sessionKey
@@ -157,7 +164,7 @@ export class PaymentsService {
   private customRechargeSpec(amount: number | undefined) {
     if (!amount || !Number.isFinite(amount) || amount < 0.1) throw new BadRequestException("充值金额不能低于0.1元");
     const normalized = Math.round(amount * 100) / 100;
-    const credits = Math.floor(normalized * 10);
+    const credits = Math.floor(normalized * 100);
     const bonusCredits = Math.floor(credits * 0.05);
     return {
       amountFen: Math.round(normalized * 100),
@@ -175,7 +182,7 @@ export class PaymentsService {
     return order;
   }
 
-  private async markOrderPaid(order: PaymentOrder, transactionId: string) {
+  private async markOrderPaid(order: PaymentOrder, transactionId: string, walletManaged = false) {
     if (order.status === "paid") return order;
     if (order.status !== "pending") throw new BadRequestException("订单状态不能支付");
 
@@ -200,14 +207,14 @@ export class PaymentsService {
         throw new BadRequestException("订单状态不能支付");
       }
 
-      await this.applyPaidOrder(tx, paid);
+      await this.applyPaidOrder(tx, paid, walletManaged);
       return paid;
     });
   }
 
-  private async applyPaidOrder(tx: Prisma.TransactionClient, order: OrderWithUser) {
+  private async applyPaidOrder(tx: Prisma.TransactionClient, order: OrderWithUser, walletManaged = false) {
     if (order.type === "recharge") {
-      await this.credits.addTransactionInTx(
+      if (!walletManaged) await this.credits.addTransactionInTx(
         tx,
         order.userId,
         "recharge",
@@ -227,13 +234,49 @@ export class PaymentsService {
           memberExpireAt: expireAt
         }
       });
-      if (order.credits > 0) {
+      if (order.credits > 0 && !walletManaged) {
         await this.credits.addTransactionInTx(tx, order.userId, "membership", order.credits, `${order.subject}赠送积分`, order.id);
       }
       return;
     }
 
     throw new BadRequestException("未知订单类型");
+  }
+
+  private async completeWalletMembershipOrder(order: PaymentOrder) {
+    if (order.type !== "membership") return order;
+    const billNo = order.walletBillNo || `member_${order.id}`;
+    const debit = await this.wallet.deduct(order.userId, order.amountFen, billNo, order.subject);
+    if (!debit) return order;
+    await this.credits.syncExternalBalance(
+      order.userId,
+      "consume",
+      -order.amountFen,
+      debit.balance,
+      order.subject,
+      `membership_pay:${order.id}`
+    );
+
+    if (order.credits > 0) {
+      const gift = await this.wallet.present(
+        order.userId,
+        order.credits,
+        `member_gift_${order.id}`,
+        `${order.subject}赠送积分`
+      );
+      if (gift) {
+        await this.credits.syncExternalBalance(
+          order.userId,
+          "membership",
+          order.credits,
+          gift.balance,
+          `${order.subject}赠送积分`,
+          `membership_gift:${order.id}`
+        );
+      }
+    }
+    const paid = await this.markOrderPaid(order, `wallet_${debit.billNo}`, true);
+    return paid;
   }
 
   private resolveMemberExpireAt(current: Date | null, days: number) {
@@ -344,6 +387,9 @@ export class PaymentsService {
 
   private async reconcileVirtualOrder(order: PaymentOrder) {
     if (order.status !== "pending" || order.channel !== "wechat_virtual") return order;
+    if (order.type === "membership" && this.wallet.enabled) {
+      return this.completeWalletMembershipOrder(order);
+    }
     const client = this.createWechatVirtualClient();
     if (!client.configured) return order;
     const user = await this.prisma.user.findUnique({
@@ -364,7 +410,36 @@ export class PaymentsService {
         remote.wx_order_id ||
         remote.channel_order_id ||
         `virtual_${order.orderNo}`;
-      const paid = await this.markOrderPaid(order, transactionId);
+      if (order.type === "recharge" && this.wallet.enabled) {
+        const balance = await this.wallet.queryBalance(order.userId);
+        if (!balance) return order;
+        await this.credits.syncExternalBalance(
+          order.userId,
+          "recharge",
+          order.credits,
+          balance.balance,
+          order.subject,
+          `recharge:${order.id}`
+        );
+        if (order.bonusCredits > 0) {
+          const gift = await this.wallet.present(
+            order.userId,
+            order.bonusCredits,
+            `recharge_bonus_${order.id}`,
+            "充值赠送积分"
+          );
+          if (!gift) return order;
+          await this.credits.syncExternalBalance(
+            order.userId,
+            "recharge",
+            order.bonusCredits,
+            gift.balance,
+            "充值赠送积分",
+            `recharge_bonus:${order.id}`
+          );
+        }
+      }
+      const paid = await this.markOrderPaid(order, transactionId, this.wallet.enabled);
       if (paid.type === "membership" && remote.status !== 4) {
         try {
           await client.notifyGoodsProvided(paid.orderNo);

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const banners = [
   { id: 1, title: "签到送好礼", description: "每日签到领积分，连续7天送高级模型体验券", action: "checkin", sort: 1, enabled: true },
   { id: 2, title: "GPT Image 2 全新上线", description: "画质更细腻，理解力更强，创作效果飞跃提升", action: "create-gpt-image-2", sort: 2, enabled: true },
-  { id: 3, title: "发布作品送积分", description: "发布原创作品即得50积分，被收藏额外奖励", action: "publish", sort: 3, enabled: true },
+  { id: 3, title: "发布作品送积分", description: "作品审核通过后可获得发布积分", action: "publish", sort: 3, enabled: true },
   { id: 4, title: "会员限时5折", description: "年度会员立减50%，每日生成次数翻倍不限量", action: "membership", sort: 4, enabled: false }
 ];
 
@@ -55,7 +55,7 @@ const hotSearches = [
 
 // 真实接入的 KIE 模型（见 agent.md 接入模型）
 const models = [
-  { id: "gpt-image-2", provider: "ainb", providerModel: "gpt-image-2", name: "GPT Image 2", description: "画质细腻·理解力强", tags: ["写实", "高清"], costCredits: 15, badge: "推荐", supportsTextToImage: true, supportsImageToImage: true, sort: 1 },
+  { id: "gpt-image-2", provider: "ainb", providerModel: "gpt-image-2", name: "GPT Image 2", description: "画质细腻·理解力强", tags: ["写实", "高清"], costCredits: 20, badge: "推荐", supportsTextToImage: true, supportsImageToImage: true, sort: 1 },
   { id: "nano-banana-2", provider: "change2pro", providerModel: "nano-banana-2", name: "Nano Banana 2", description: "速度极快·性价比高", tags: ["快速", "全能"], costCredits: 8, badge: "性价比", supportsTextToImage: true, supportsImageToImage: true, sort: 2 },
   { id: "nano-banana-pro", provider: "change2pro", providerModel: "nano-banana-pro", name: "Nano Banana Pro", description: "专业级细节·高保真输出", tags: ["专业", "高保真"], costCredits: 18, badge: "NEW", supportsTextToImage: true, supportsImageToImage: true, sort: 3 },
   { id: "seedream-4-5", provider: "kie", providerModel: "seedream-4-5", name: "Seedream 4.5", description: "艺术感强·风格多样", tags: ["艺术", "多样"], costCredits: 12, badge: "", supportsTextToImage: true, supportsImageToImage: true, sort: 4 }
@@ -63,8 +63,8 @@ const models = [
 
 const qualities = [
   { id: 1, label: "全高清 1K", pixel: "1024px", multiplier: 1, sort: 1 },
-  { id: 2, label: "超清 2K", pixel: "2048px", multiplier: 1.5, sort: 2 },
-  { id: 3, label: "超高清 4K", pixel: "4096px", multiplier: 2, sort: 3 }
+  { id: 2, label: "超清 2K", pixel: "2048px", multiplier: 1.6, sort: 2 },
+  { id: 3, label: "超高清 4K", pixel: "4096px", multiplier: 2.4, sort: 3 }
 ];
 
 const ratios = [
@@ -76,17 +76,17 @@ const ratios = [
 ];
 
 const rechargeTiers = [
-  { id: 1, price: 6, credits: 60, bonus: 0, sort: 1 },
-  { id: 2, price: 18, credits: 180, bonus: 10, sort: 2 },
-  { id: 3, price: 30, credits: 300, bonus: 30, sort: 3 },
-  { id: 4, price: 68, credits: 680, bonus: 100, sort: 4 },
-  { id: 5, price: 128, credits: 1280, bonus: 280, sort: 5 }
+  { id: 1, price: 6, credits: 600, bonus: 0, sort: 1 },
+  { id: 2, price: 18, credits: 1800, bonus: 60, sort: 2 },
+  { id: 3, price: 30, credits: 3000, bonus: 150, sort: 3 },
+  { id: 4, price: 68, credits: 6800, bonus: 480, sort: 4 },
+  { id: 5, price: 128, credits: 12800, bonus: 1280, sort: 5 }
 ];
 
 const memberPlans = [
-  { id: 1, name: "月卡", price: 18, rights: "每日20次·1K无限", giftCredits: 100, checkinBonus: 5, sort: 1 },
-  { id: 2, name: "季卡", price: 48, rights: "每日30次·2K无限", giftCredits: 350, checkinBonus: 8, sort: 2 },
-  { id: 3, name: "年卡", price: 168, rights: "每日不限·4K无限·专属模型", giftCredits: 1500, checkinBonus: 15, sort: 3 }
+  { id: 1, name: "月卡", price: 18, rights: "开通赠送100积分·签到额外+1·发布额外+1", giftCredits: 100, checkinBonus: 1, milestoneBonus: 2, publishBonus: 1, sort: 1 },
+  { id: 2, name: "季卡", price: 48, rights: "开通赠送300积分·签到额外+2·发布额外+2", giftCredits: 300, checkinBonus: 2, milestoneBonus: 4, publishBonus: 2, sort: 2 },
+  { id: 3, name: "年卡", price: 168, rights: "开通赠送1200积分·签到额外+3·发布额外+3", giftCredits: 1200, checkinBonus: 3, milestoneBonus: 6, publishBonus: 3, sort: 3 }
 ];
 
 const versions = [
@@ -140,7 +140,10 @@ const agreements = [
 
 const settings = [
   { key: "reviewMode", value: "manual" },
-  { key: "manualReviewEnabled", value: "true" }
+  { key: "manualReviewEnabled", value: "true" },
+  { key: "creditsConfig", value: JSON.stringify({ registerGift: 50, publishReward: 2, favoriteReward: 0, inviteReward: 10 }) },
+  { key: "checkinConfig", value: JSON.stringify({ base: 2, tiers: [2, 2, 2, 3, 3, 3, 5] }) },
+  { key: "inviteConfig", value: JSON.stringify({ enabled: false, inviterReward: 10, inviteeReward: 0, cap: 10 }) }
 ];
 
 const users = [

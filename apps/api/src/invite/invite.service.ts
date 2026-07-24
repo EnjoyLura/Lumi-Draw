@@ -1,10 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
+import { readInviteConfig } from "../credits/reward-policy";
 import { PrismaService } from "../prisma/prisma.service";
-
-const INVITER_REWARD = 50;
-const INVITEE_REWARD = 30;
 
 @Injectable()
 export class InviteService {
@@ -28,6 +27,8 @@ export class InviteService {
   }
 
   async summary(userId: number) {
+    const policy = await readInviteConfig(this.prisma);
+    if (!policy.enabled) throw new NotFoundException("邀请活动暂未开放");
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException("用户不存在");
     const code = await this.ensureCode(userId, user.inviteCode);
@@ -45,7 +46,7 @@ export class InviteService {
       inviteCode: code,
       invitedCount: records.length,
       totalReward,
-      rewardPerInvite: INVITER_REWARD,
+      rewardPerInvite: policy.inviterReward,
       invitedUsers: records.map((record) => {
         const invitee = inviteeById.get(record.inviteeId);
         return {
@@ -62,19 +63,31 @@ export class InviteService {
   }
 
   async bind(userId: number, code: string) {
-    const me = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!me) throw new NotFoundException("用户不存在");
-    if (me.invitedById) throw new BadRequestException("已绑定过邀请人");
-    const inviter = await this.prisma.user.findUnique({ where: { inviteCode: code } });
-    if (!inviter) throw new BadRequestException("邀请码无效");
-    if (inviter.id === userId) throw new BadRequestException("不能邀请自己");
-
-    await this.prisma.user.update({ where: { id: userId }, data: { invitedById: inviter.id } });
-    await this.prisma.inviteRecord.create({
-      data: { inviterId: inviter.id, inviteeId: userId, rewardInviter: INVITER_REWARD, rewardInvitee: INVITEE_REWARD }
+    const policy = await readInviteConfig(this.prisma);
+    if (!policy.enabled) throw new NotFoundException("邀请活动暂未开放");
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
+      const me = await tx.user.findUnique({ where: { id: userId } });
+      if (!me) throw new NotFoundException("用户不存在");
+      if (me.invitedById) throw new BadRequestException("已绑定过邀请人");
+      const inviter = await tx.user.findUnique({ where: { inviteCode: code } });
+      if (!inviter) throw new BadRequestException("邀请码无效");
+      if (inviter.id === userId) throw new BadRequestException("不能邀请自己");
+      if (policy.cap > 0 && await tx.inviteRecord.count({ where: { inviterId: inviter.id } }) >= policy.cap) {
+        throw new BadRequestException("该邀请人的奖励名额已用完");
+      }
+      const claimed = await tx.user.updateMany({ where: { id: userId, invitedById: null }, data: { invitedById: inviter.id } });
+      if (!claimed.count) throw new BadRequestException("已绑定过邀请人");
+      await tx.inviteRecord.create({
+        data: { inviterId: inviter.id, inviteeId: userId, rewardInviter: policy.inviterReward, rewardInvitee: policy.inviteeReward }
+      });
+      if (policy.inviterReward > 0) {
+        await this.credits.addTransactionInTx(tx, inviter.id, "invite", policy.inviterReward, `邀请好友 ${me.nickname}`, `invite:${userId}:inviter`);
+      }
+      const result = policy.inviteeReward > 0
+        ? await this.credits.addTransactionInTx(tx, userId, "invite", policy.inviteeReward, "接受邀请奖励", `invite:${userId}:invitee`)
+        : { balance: me.credits };
+      return { ok: true, rewardCredits: policy.inviteeReward, balance: result.balance };
     });
-    await this.credits.addTransaction(inviter.id, "invite", INVITER_REWARD, `邀请好友 ${me.nickname}`);
-    const { balance } = await this.credits.addTransaction(userId, "invite", INVITEE_REWARD, "接受邀请奖励");
-    return { ok: true, rewardCredits: INVITEE_REWARD, balance };
   }
 }

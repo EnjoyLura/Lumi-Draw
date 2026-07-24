@@ -1,5 +1,6 @@
 import { api } from "../../services/api";
 import { mockImage } from "../../services/mockImages";
+import { inviteRewardsEnabled } from "../../services/featureFlags";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockAnnouncements,
@@ -197,7 +198,7 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
         description: item.description || fallback.description,
         action: action || fallback.action
       };
-    }),
+    }).filter((item) => inviteRewardsEnabled || item.action !== "invite"),
     gameplays: data.gameplays.map((item, index) => {
       const fallback = mockGameplays.find((gameplay) => gameplay.name === item.name) ?? fallbackByIndex(mockGameplays, index);
       return {
@@ -218,8 +219,8 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
         rangeText: item.rangeText || fallback.rangeText,
         popup: item.popup
       };
-    }),
-    publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 50))
+    }).filter((item) => inviteRewardsEnabled || item.action !== "invite"),
+    publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 2))
   };
 }
 

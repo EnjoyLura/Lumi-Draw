@@ -59,6 +59,7 @@ export const appConfig = registerAs("app", () => ({
     virtualPayOfferId: process.env.WX_VIRTUAL_PAY_OFFER_ID ?? "",
     virtualPayAppKey: process.env.WX_VIRTUAL_PAY_APP_KEY ?? "",
     virtualPayEnv: parseVirtualPayEnv(process.env.WX_VIRTUAL_PAY_ENV),
+    sessionEncryptionKey: process.env.WX_SESSION_ENCRYPTION_KEY ?? "",
     virtualMemberProductPrefix: process.env.WX_VIRTUAL_MEMBER_PRODUCT_PREFIX ?? "lumi_member_"
   },
   kie: {

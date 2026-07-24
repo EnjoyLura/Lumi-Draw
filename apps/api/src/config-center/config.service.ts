@@ -245,9 +245,9 @@ export class ConfigService {
     const row = await this.prisma.appSetting.findUnique({ where: { key: "creditsConfig" } });
     try {
       const value = row ? JSON.parse(row.value) : {};
-      return { publishReward: Number(value.publishReward ?? 50) };
+      return { publishReward: Number(value.publishReward ?? 2) };
     } catch {
-      return { publishReward: 50 };
+      return { publishReward: 2 };
     }
   }
 

@@ -9,9 +9,10 @@ import { KieClient } from "./kie.client";
 import { Change2ProClient } from "./change2pro.client";
 import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
+import { WechatWalletModule } from "../payments/wechat-wallet.module";
 
 @Module({
-  imports: [AuthModule, CreditsModule, PrismaModule, UploadsModule],
+  imports: [AuthModule, CreditsModule, PrismaModule, UploadsModule, WechatWalletModule],
   controllers: [GenerateController],
   providers: [GenerateService, KieClient, Change2ProClient, AinbClient, ImageTransferClient]
 })

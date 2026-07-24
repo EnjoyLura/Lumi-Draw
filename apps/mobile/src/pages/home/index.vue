@@ -28,6 +28,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, createRouteQuery, openEmbeddedCreate, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
+import { inviteRewardsEnabled } from "../../services/featureFlags";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
@@ -182,6 +183,7 @@ function resolveInviteCode(query?: Record<string, unknown>) {
 }
 
 function applyInviteCode(query?: Record<string, unknown>) {
+  if (!inviteRewardsEnabled) return;
   const inviteCode = resolveInviteCode(query).trim();
   if (!inviteCode || inviteCode === lastInviteCode) return;
   lastInviteCode = inviteCode;
@@ -492,6 +494,7 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
+    if (!inviteRewardsEnabled && route.startsWith("/pages/invite/index")) return;
     if (route.startsWith("/pages/home/index")) return;
     if (route.startsWith("/pages/create/index")) {
       const [, queryString = ""] = route.split("?");

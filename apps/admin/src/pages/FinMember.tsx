@@ -54,7 +54,7 @@ function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberP
       <label className="field-label" style={{ marginTop: 12 }}>签到额外赠送积分</label>
       <input className="input" type="number" value={ckBonus} onChange={(e) => setCkBonus(e.target.value)} placeholder="会员每日签到额外多得的积分" />
       <label className="field-label" style={{ marginTop: 12 }}>权益说明</label>
-      <textarea className="input" rows={3} value={rights} onChange={(e) => setRights(e.target.value)} placeholder="如：每日20次·1K无限" />
+      <textarea className="input" rows={3} value={rights} onChange={(e) => setRights(e.target.value)} placeholder="如：赠送100积分·签到额外+1·发布额外+1" />
       <label className="field-label" style={{ marginTop: 12 }}>签到里程碑额外积分</label>
       <input className="input" type="number" value={milestoneBonus} onChange={(e) => setMilestoneBonus(e.target.value)} placeholder="会员达成签到里程碑额外获得的积分" />
       <label className="field-label" style={{ marginTop: 12 }}>发布作品额外积分</label>

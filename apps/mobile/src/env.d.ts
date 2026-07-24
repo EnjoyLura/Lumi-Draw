@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly MODE?: string;
   readonly VITE_API_BASE?: string;
   readonly VITE_ENABLE_MOCK_DATA?: string;
+  readonly VITE_INVITE_REWARDS_ENABLED?: string;
 }
 
 interface ImportMeta {

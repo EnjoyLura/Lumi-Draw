@@ -87,7 +87,7 @@ test("Image 2 supports both text generation and image edits", async () => {
         n: 1,
         size: "2048x1152",
         quality: "high",
-        moderation: "low",
+        moderation: "auto",
         output_format: "webp",
         output_compression: 90,
         transparent_output: false,

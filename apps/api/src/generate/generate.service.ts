@@ -3,10 +3,13 @@ import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import type { GenerateJob, GenerateResult } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
+import { assertNoSensitiveContent } from "../common/content-safety";
 import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
+import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { WechatWalletService } from "../payments/wechat-wallet.service";
 import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
 import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { AinbClient } from "./ainb.client";
@@ -103,7 +106,9 @@ export class GenerateService implements OnApplicationBootstrap {
     private readonly ainb: AinbClient,
     private readonly imageTransfer: ImageTransferClient,
     private readonly config: ConfigService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly publishRewards: PublishRewardsService,
+    private readonly wallet: WechatWalletService
   ) {}
 
   async onApplicationBootstrap() {
@@ -185,6 +190,7 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
     const normalized = this.normalizeCreateDto(dto);
+    await assertNoSensitiveContent(this.prisma, [normalized.prompt]);
     const [model, quality, ratio] = await Promise.all([
       this.prisma.modelConfig.findFirst({ where: { id: normalized.modelId, enabled: true } }),
       this.resolveQuality(normalized.quality),
@@ -257,16 +263,62 @@ export class GenerateService implements OnApplicationBootstrap {
         },
         include: { results: true }
       });
-      const { balance } = await this.credits.addTransactionInTx(
-        tx,
-        userId,
-        "consume",
-        -costCredits,
-        `AI生成任务：${model.name}`,
-        job.id
-      );
+      const { balance } = this.wallet.enabled
+        ? { balance: (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } })).credits }
+        : await this.credits.addTransactionInTx(
+            tx,
+            userId,
+            "consume",
+            -costCredits,
+            `AI生成任务：${model.name}`,
+            `generate_charge:${job.id}`
+          );
       return { job, balance };
     });
+
+    if (this.wallet.enabled) {
+      const walletBillNo = `generate_${created.job.id}`;
+      try {
+        const debit = await this.wallet.deduct(userId, costCredits, walletBillNo, `AI生成任务：${model.name}`);
+        if (!debit) throw new Error("微信积分扣减未返回结果");
+        await this.credits.syncExternalBalance(
+          userId,
+          "consume",
+          -costCredits,
+          debit.balance,
+          `AI生成任务：${model.name}`,
+          `generate_charge:${created.job.id}`
+        );
+        created.job = await this.prisma.generateJob.update({
+          where: { id: created.job.id },
+          data: { walletBillNo: debit.billNo },
+          include: { results: true }
+        });
+        created.balance = debit.balance;
+      } catch (error) {
+        try {
+          const refunded = await this.wallet.refund(userId, walletBillNo, costCredits);
+          if (refunded) {
+            await this.credits.syncExternalBalance(
+              userId,
+              "refund",
+              costCredits,
+              refunded.balance,
+              "生成任务扣款失败返还",
+              `generate_refund:${created.job.id}`
+            );
+          }
+        } catch {
+          // The deterministic bill number lets a later reconciliation retry safely.
+        }
+        const message = error instanceof Error ? error.message : "微信积分扣减失败";
+        await this.prisma.generateJob.update({
+          where: { id: created.job.id },
+          data: { status: "failed", errorMessage: message, stageText: "积分扣减失败", finishedAt: new Date() }
+        });
+        throw new BadRequestException(userFacingGenerateError(message));
+      }
+    }
 
     const submitted = await this.submitToProvider(created.job.id);
 
@@ -311,11 +363,21 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   async cancelJob(userId: number, id: string) {
+    const current = await this.prisma.generateJob.findUnique({ where: { id } });
+    if (!current) throw new NotFoundException("生成任务不存在");
+    if (current.userId !== userId) throw new ForbiddenException("无权取消该任务");
+    if (TERMINAL_STATUSES.has(current.status)) throw new BadRequestException("任务已结束，不能取消");
+    if (current.status !== "queued" || current.startedAt || current.kieTaskId) {
+      throw new BadRequestException("任务已提交到生成平台，不能取消");
+    }
+    const walletRefund = current.walletBillNo && !current.walletRefunded
+      ? await this.wallet.refund(userId, current.walletBillNo, current.costCredits - current.refundCredits)
+      : null;
     const cancelled = await this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.findUnique({ where: { id }, include: { results: true } });
       if (!job) throw new NotFoundException("生成任务不存在");
       if (job.userId !== userId) throw new ForbiddenException("无权取消该任务");
-      if (TERMINAL_STATUSES.has(job.status)) throw new BadRequestException("任务已结束，不能取消");
+      if (job.status !== "queued" || job.startedAt || job.kieTaskId) throw new BadRequestException("任务已提交到生成平台，不能取消");
 
       const refundCredits = job.costCredits - job.refundCredits;
       const updated = await tx.generateJob.update({
@@ -325,14 +387,17 @@ export class GenerateService implements OnApplicationBootstrap {
           progress: 0,
           stageText: "任务已取消",
           refundCredits,
+          walletRefunded: Boolean(walletRefund) || job.walletRefunded,
           cancelledAt: new Date(),
           finishedAt: new Date()
         },
         include: { results: true }
       });
       const { balance } =
-        refundCredits > 0
-          ? await this.credits.addTransactionInTx(tx, userId, "refund", refundCredits, "取消生成任务退回积分", id)
+        walletRefund
+          ? await this.credits.syncExternalBalanceInTx(tx, userId, "refund", refundCredits, walletRefund.balance, "取消生成任务退回积分", `generate_cancel_refund:${id}`)
+          : refundCredits > 0
+          ? await this.credits.addTransactionInTx(tx, userId, "refund", refundCredits, "取消生成任务退回积分", `generate_cancel_refund:${id}`)
           : { balance: (await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } })).credits };
       return { job: updated, balance };
     });
@@ -364,6 +429,7 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   async publishResult(userId: number, resultId: string, dto: PublishGenerateResultDto) {
+    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description]);
     const result = await this.prisma.generateResult.findUnique({ where: { id: resultId }, include: { job: true } });
     if (!result) throw new NotFoundException("generate result not found");
     if (result.job.userId !== userId) throw new ForbiddenException("no permission to publish this result");
@@ -395,6 +461,10 @@ export class GenerateService implements OnApplicationBootstrap {
       await tx.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
       return work;
     });
+
+    if (published.status === "published" && published.isPublic) {
+      await this.publishRewards.awardPublishedWork(userId, published.id);
+    }
 
     return {
       workId: published.id,
@@ -881,6 +951,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const successful = job.results.filter((item) => item.status === "succeeded" && item.imageUrl && item.ossKey).slice(0, job.count);
     if (!successful.length) return this.failAndRefund(job.id, transferError || "图片永久保存失败");
     const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, successful.length);
+    const walletAdjustment = await this.repriceWalletAfterPartialRefund(job, partial.refundCredits);
     const finalized = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.generateJob.updateMany({
         where: { id: job.id, status: "finalizing" },
@@ -907,7 +978,11 @@ export class GenerateService implements OnApplicationBootstrap {
       }
       await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: successful.length } } });
       if (partial.refundCredits > 0) {
-        await this.credits.addTransactionInTx(tx, job.userId, "refund", partial.refundCredits, "AI生成部分失败返还", job.id);
+        if (walletAdjustment) {
+          await this.credits.syncExternalBalanceInTx(tx, job.userId, "refund", partial.refundCredits, walletAdjustment.balance, "AI生成部分失败返还", `generate_partial_refund:${job.id}`);
+        } else {
+          await this.credits.addTransactionInTx(tx, job.userId, "refund", partial.refundCredits, "AI生成部分失败返还", `generate_partial_refund:${job.id}`);
+        }
       }
       return tx.generateJob.update({
         where: { id: job.id },
@@ -917,6 +992,7 @@ export class GenerateService implements OnApplicationBootstrap {
           stageText: partial.missingCount ? "部分图片生成完成，缺少结果已返还积分" : "生成完成",
           errorMessage: partial.missingCount ? `有 ${partial.missingCount} 张图片未保存，已返还 ${partial.refundCredits} 积分` : "",
           refundCredits: job.refundCredits + partial.refundCredits,
+          ...(walletAdjustment ? { walletBillNo: walletAdjustment.billNo, walletRefunded: walletAdjustment.refunded } : {}),
           startedAt: job.startedAt ?? new Date(),
           finishedAt: new Date()
         },
@@ -938,6 +1014,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, acceptedResults.length);
     const { missingCount } = partial;
     const partialRefund = partial.refundCredits;
+    const walletAdjustment = await this.repriceWalletAfterPartialRefund(job, partialRefund);
     return this.prisma.$transaction(async (tx) => {
       const claimed = await tx.generateJob.updateMany({
         where: { id: job.id, status: { in: allowedStatuses }, ...(expectedProgress === undefined ? {} : { progress: expectedProgress }) },
@@ -978,7 +1055,11 @@ export class GenerateService implements OnApplicationBootstrap {
         await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: acceptedResults.length } } });
       }
       if (partialRefund > 0) {
-        await this.credits.addTransactionInTx(tx, job.userId, "refund", partialRefund, "AI生成部分失败返还", job.id);
+        if (walletAdjustment) {
+          await this.credits.syncExternalBalanceInTx(tx, job.userId, "refund", partialRefund, walletAdjustment.balance, "AI生成部分失败返还", `generate_partial_refund:${job.id}`);
+        } else {
+          await this.credits.addTransactionInTx(tx, job.userId, "refund", partialRefund, "AI生成部分失败返还", `generate_partial_refund:${job.id}`);
+        }
       }
       return tx.generateJob.update({
         where: { id: job.id },
@@ -988,6 +1069,7 @@ export class GenerateService implements OnApplicationBootstrap {
           stageText: missingCount ? "部分图片生成完成，缺少结果已返还积分" : stageText,
           errorMessage: missingCount ? `有 ${missingCount} 张图片未生成，已返还 ${partialRefund} 积分` : "",
           refundCredits: job.refundCredits + partialRefund,
+          ...(walletAdjustment ? { walletBillNo: walletAdjustment.billNo, walletRefunded: walletAdjustment.refunded } : {}),
           startedAt: job.startedAt ?? new Date(),
           finishedAt: new Date()
         },
@@ -996,11 +1078,46 @@ export class GenerateService implements OnApplicationBootstrap {
     });
   }
 
+  private async repriceWalletAfterPartialRefund(job: GenerateJob, refundCredits: number) {
+    if (!this.wallet.enabled || !job.walletBillNo || refundCredits <= 0) return null;
+    const currentCharge = Math.max(0, job.costCredits - job.refundCredits);
+    const refunded = await this.wallet.refund(job.userId, job.walletBillNo, currentCharge);
+    if (!refunded) return null;
+    const netCost = Math.max(0, job.costCredits - job.refundCredits - refundCredits);
+    if (netCost === 0) return { balance: refunded.balance, billNo: job.walletBillNo, refunded: true };
+    const debit = await this.wallet.deduct(job.userId, netCost, `generate_net_${job.id}_${netCost}`, "AI生成任务实际消耗");
+    if (!debit) throw new Error("微信积分部分退款后重新扣款失败");
+    return { balance: debit.balance, billNo: debit.billNo, refunded: false };
+  }
+
   private async failAndRefund(jobId: string, errorMessage: string) {
     const userMessage = userFacingGenerateError(errorMessage);
+    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId } });
+    if (TERMINAL_STATUSES.has(current.status)) {
+      const balance = (await this.prisma.user.findUniqueOrThrow({ where: { id: current.userId }, select: { credits: true } })).credits;
+      const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+      return { job, balance };
+    }
+    let walletRefund = null;
+    if (current.walletBillNo && !current.walletRefunded) {
+      try {
+        walletRefund = await this.wallet.refund(
+          current.userId,
+          current.walletBillNo,
+          current.costCredits - current.refundCredits
+        );
+      } catch (error) {
+        this.logger.error(`微信积分退款待重试 job=${jobId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
     return this.prisma.$transaction(async (tx) => {
       const job = await tx.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+      if (TERMINAL_STATUSES.has(job.status)) {
+        const balance = (await tx.user.findUniqueOrThrow({ where: { id: job.userId }, select: { credits: true } })).credits;
+        return { job, balance };
+      }
       const refundCredits = job.costCredits - job.refundCredits;
+      const creditedRefund = job.walletBillNo ? (walletRefund ? refundCredits : 0) : refundCredits;
       const updated = await tx.generateJob.update({
         where: { id: job.id },
         data: {
@@ -1008,14 +1125,17 @@ export class GenerateService implements OnApplicationBootstrap {
           progress: 0,
           stageText: "Generation failed",
           errorMessage: userMessage,
-          refundCredits: job.refundCredits + Math.max(refundCredits, 0),
+          refundCredits: job.refundCredits + Math.max(creditedRefund, 0),
+          walletRefunded: Boolean(walletRefund) || job.walletRefunded,
           finishedAt: new Date()
         },
         include: { results: true }
       });
       const { balance } =
-        refundCredits > 0
-          ? await this.credits.addTransactionInTx(tx, job.userId, "refund", refundCredits, "AI生成任务失败返还", job.id)
+        walletRefund
+          ? await this.credits.syncExternalBalanceInTx(tx, job.userId, "refund", refundCredits, walletRefund.balance, "AI生成任务失败返还", `generate_refund:${job.id}`)
+          : creditedRefund > 0
+          ? await this.credits.addTransactionInTx(tx, job.userId, "refund", creditedRefund, "AI生成任务失败返还", `generate_refund:${job.id}`)
           : { balance: (await tx.user.findUniqueOrThrow({ where: { id: job.userId }, select: { credits: true } })).credits };
       return { job: updated, balance };
     });

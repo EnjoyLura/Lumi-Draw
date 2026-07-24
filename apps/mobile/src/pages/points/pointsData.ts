@@ -55,11 +55,11 @@ export const currentCredits = 2860;
 export const inviteCode = "LUMI8829";
 
 export const rechargeTiers: RechargeTier[] = [
-  { price: 6, credits: 60, bonus: 0 },
-  { price: 18, credits: 180, bonus: 10 },
-  { price: 30, credits: 300, bonus: 30 },
-  { price: 68, credits: 680, bonus: 100, popular: true },
-  { price: 128, credits: 1280, bonus: 280 }
+  { price: 6, credits: 600, bonus: 0 },
+  { price: 18, credits: 1800, bonus: 60 },
+  { price: 30, credits: 3000, bonus: 150 },
+  { price: 68, credits: 6800, bonus: 480, popular: true },
+  { price: 128, credits: 12800, bonus: 1280 }
 ];
 
 export const earnRecords: PointRecord[] = [
@@ -95,14 +95,14 @@ export const invitedUsers: InvitedUser[] = [
 ];
 
 export const memberPlans: MemberPlan[] = [
-  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 1500, rights: ["每日20次", "1K无限"], checkinBonus: 5, icon: "gem", accent: "accent" },
-  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 4500, rights: ["每日30次", "2K无限"], checkinBonus: 8, icon: "gem", accent: "lavender", badge: "省 10%", recommended: true },
-  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 18000, rights: ["每日不限", "4K无限", "专属模型"], checkinBonus: 15, icon: "crown", accent: "gold", badge: "省 18%" }
+  { name: "月卡", price: 18, unitPrice: "¥0.60/天", totalCredits: 100, rights: ["赠送100积分", "签到额外+1", "发布额外+1"], checkinBonus: 1, milestoneBonus: 2, publishBonus: 1, icon: "gem", accent: "accent" },
+  { name: "季卡", price: 48, unitPrice: "¥0.53/天", totalCredits: 300, rights: ["赠送300积分", "签到额外+2", "发布额外+2"], checkinBonus: 2, milestoneBonus: 4, publishBonus: 2, icon: "gem", accent: "lavender", badge: "省 10%", recommended: true },
+  { name: "年卡", price: 168, unitPrice: "¥0.46/天", totalCredits: 1200, rights: ["赠送1200积分", "签到额外+3", "发布额外+3"], checkinBonus: 3, milestoneBonus: 6, publishBonus: 3, icon: "crown", accent: "gold", badge: "省 18%" }
 ];
 
 export const memberBenefits: MemberBenefit[] = [
-  { title: "每日积分", desc: "每天领取 50 积分", icon: "gem", tone: "mint" },
-  { title: "签到加成", desc: "签到积分翻倍", icon: "sun", tone: "accent" },
+  { title: "开通赠送", desc: "按会员方案赠送积分", icon: "gem", tone: "mint" },
+  { title: "签到加成", desc: "每日签到额外送积分", icon: "sun", tone: "accent" },
   { title: "专属徽章", desc: "VIP 身份标识", icon: "crown", tone: "lavender" },
-  { title: "优先生成", desc: "高峰期优先排队", icon: "sparkles", tone: "peach" }
+  { title: "发布加成", desc: "发布作品额外送积分", icon: "sparkles", tone: "peach" }
 ];
