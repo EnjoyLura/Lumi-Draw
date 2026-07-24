@@ -60,6 +60,8 @@ const surfaceStyle = computed(() => {
     "--detail-shared-y": `${source.top - imageTop}px`,
     "--detail-source-scale-x": String(source.width / windowWidth),
     "--detail-source-scale-y": String(source.height / destinationHeight),
+    "--detail-page-source-y": `${source.top}px`,
+    "--detail-page-source-scale-y": String(source.height / windowHeight),
     "--detail-image-top": `${imageTop}px`,
     "--detail-image-bottom": `${imageBottom}px`,
     "--detail-image-height": `${destinationHeight}px`,
@@ -232,6 +234,11 @@ function clearTimers() {
   >
     <view class="work-detail-overlay-backdrop" />
     <view
+      v-if="transitionPhase === 'opening' && sharedActive"
+      class="work-detail-reveal-background"
+      :style="surfaceStyle"
+    />
+    <view
       class="work-detail-overlay-surface"
       :class="{ 'from-source': sharedActive }"
       :style="surfaceStyle"
@@ -282,9 +289,32 @@ function clearTimers() {
   transition-duration: 320ms;
 }
 
+.work-detail-reveal-background {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--bg-base);
+  border-radius: 10px;
+  -webkit-transform-origin: top left;
+  transform-origin: top left;
+  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-page-source-scale-y), 1);
+  transform: translate3d(var(--detail-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-page-source-scale-y), 1);
+  transition: transform 320ms cubic-bezier(.4, 0, .2, 1), border-radius 320ms cubic-bezier(.4, 0, .2, 1);
+  will-change: transform, border-radius;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.work-detail-overlay.open .work-detail-reveal-background {
+  border-radius: 0;
+  -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+}
+
 .work-detail-overlay-surface {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100%;
   height: var(--detail-surface-height, 100%);
   overflow: hidden;
@@ -327,13 +357,14 @@ function clearTimers() {
   clip-path: inset(0 0 0 0 round 0);
   -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-  transition: opacity 340ms cubic-bezier(.4, 0, .2, 1);
-  will-change: opacity;
+  background: transparent;
+  transition: none;
+  will-change: auto;
 }
 
 .work-detail-shared-image-frame {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   top: var(--detail-image-top);
   left: 0;
   width: 100%;

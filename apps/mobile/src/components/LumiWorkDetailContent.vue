@@ -1227,6 +1227,14 @@ function handleDetailPreviewLoad() {
   opacity: 0;
 }
 
+.detail-page.embedded.detail-opening {
+  background: transparent;
+}
+
+.detail-page.embedded.detail-opening .detail-image-frame.shared-transitioning {
+  background: transparent;
+}
+
 .detail-page.embedded .detail-body,
 .detail-page.embedded .detail-bottom,
 .detail-page.embedded .bottom-safe-area {
