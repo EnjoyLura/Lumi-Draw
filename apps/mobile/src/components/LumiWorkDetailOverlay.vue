@@ -15,10 +15,13 @@ const props = defineProps<{ ownerRoute: string }>();
 const OPEN_DURATION = 320;
 const CLOSE_DURATION = 390;
 const FINAL_FRAME_DELAY = 24;
+const INITIAL_FRAME_DELAY = 16;
+const SOURCE_FRAME_DELAY = 20;
 
 const navigationMetrics = getNavigationMetrics();
 const workId = ref<number | null>(null);
 const isOpen = ref(false);
+const backGuardMounted = ref(false);
 const backGuardVisible = ref(false);
 const surfaceVisible = ref(false);
 const contentVisible = ref(false);
@@ -30,6 +33,8 @@ const sourceRect = ref<WorkDetailSourceRect | null>(null);
 const workRatio = ref("1:1");
 
 let openTimer: ReturnType<typeof setTimeout> | undefined;
+let surfaceTimer: ReturnType<typeof setTimeout> | undefined;
+let backGuardTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
 let contentTimer: ReturnType<typeof setTimeout> | undefined;
 let sharedImageTimer: ReturnType<typeof setTimeout> | undefined;
@@ -76,6 +81,7 @@ onBeforeUnmount(() => {
 function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   clearTimers();
   isOpen.value = false;
+  backGuardMounted.value = false;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
   contentVisible.value = false;
@@ -91,28 +97,36 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   closing = false;
 
   void nextTick(() => {
-    openTimer = setTimeout(() => {
-      isOpen.value = true;
-      backGuardVisible.value = true;
+    surfaceTimer = setTimeout(() => {
       surfaceVisible.value = true;
-      openTimer = undefined;
-      if (!payload.sourceRect) {
-        contentVisible.value = true;
-      } else {
-        contentTimer = setTimeout(() => {
+      surfaceTimer = undefined;
+
+      openTimer = setTimeout(() => {
+        isOpen.value = true;
+        openTimer = undefined;
+        if (!payload.sourceRect) {
           contentVisible.value = true;
-          contentTimer = undefined;
-        }, 10);
-        sharedImageTimer = setTimeout(() => {
-          sharedImageVisible.value = false;
-          sharedImageTimer = undefined;
+        } else {
+          contentTimer = setTimeout(() => {
+            contentVisible.value = true;
+            contentTimer = undefined;
+          }, 10);
+          sharedImageTimer = setTimeout(() => {
+            sharedImageVisible.value = false;
+            sharedImageTimer = undefined;
+          }, OPEN_DURATION + FINAL_FRAME_DELAY);
+        }
+        backGuardTimer = setTimeout(() => {
+          backGuardMounted.value = true;
+          backGuardVisible.value = true;
+          backGuardTimer = undefined;
+        }, OPEN_DURATION);
+        detailReadyTimer = setTimeout(() => {
+          detailReady.value = true;
+          detailReadyTimer = undefined;
         }, OPEN_DURATION + FINAL_FRAME_DELAY);
-      }
-      detailReadyTimer = setTimeout(() => {
-        detailReady.value = true;
-        detailReadyTimer = undefined;
-      }, OPEN_DURATION + FINAL_FRAME_DELAY);
-    }, 16);
+      }, SOURCE_FRAME_DELAY);
+    }, INITIAL_FRAME_DELAY);
   });
 }
 
@@ -130,6 +144,10 @@ async function closeOverlay() {
     }
   }
   if (openTimer) clearTimeout(openTimer);
+  if (backGuardTimer) {
+    clearTimeout(backGuardTimer);
+    backGuardTimer = undefined;
+  }
   backGuardVisible.value = false;
   contentVisible.value = false;
   if (contentTimer) clearTimeout(contentTimer);
@@ -154,6 +172,7 @@ function finishClose() {
   if (isOpen.value) return;
   clearTimers();
   workId.value = null;
+  backGuardMounted.value = false;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
   detailReady.value = false;
@@ -171,11 +190,15 @@ function handleSystemBack() {
 
 function clearTimers() {
   if (openTimer) clearTimeout(openTimer);
+  if (surfaceTimer) clearTimeout(surfaceTimer);
+  if (backGuardTimer) clearTimeout(backGuardTimer);
   if (closeTimer) clearTimeout(closeTimer);
   if (contentTimer) clearTimeout(contentTimer);
   if (sharedImageTimer) clearTimeout(sharedImageTimer);
   if (detailReadyTimer) clearTimeout(detailReadyTimer);
   openTimer = undefined;
+  surfaceTimer = undefined;
+  backGuardTimer = undefined;
   closeTimer = undefined;
   contentTimer = undefined;
   sharedImageTimer = undefined;
@@ -185,7 +208,7 @@ function clearTimers() {
 
 <template>
   <page-container
-    v-if="workId"
+    v-if="workId && backGuardMounted"
     :show="backGuardVisible"
     :duration="0"
     :overlay="false"
