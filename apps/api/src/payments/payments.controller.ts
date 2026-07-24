@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import type { RawBodyRequest } from "@nestjs/common";
 import type { Request } from "express";
+import { requestUserIp } from "../common/request-ip";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { CreateMembershipOrderDto, CreateRechargeOrderDto } from "./payments.dto";
@@ -18,16 +19,16 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   @Post("recharge/orders")
   @Throttle({ default: { ttl: 60_000, limit: 8 } })
-  createRechargeOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateRechargeOrderDto) {
-    return this.payments.createRechargeOrder(user.id, dto);
+  createRechargeOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateRechargeOrderDto, @Req() req: Request) {
+    return this.payments.createRechargeOrder(user.id, dto, requestUserIp(req));
   }
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post("membership/orders")
   @Throttle({ default: { ttl: 60_000, limit: 8 } })
-  createMembershipOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateMembershipOrderDto) {
-    return this.payments.createMembershipOrder(user.id, dto);
+  createMembershipOrder(@CurrentUser() user: { id: number }, @Body() dto: CreateMembershipOrderDto, @Req() req: Request) {
+    return this.payments.createMembershipOrder(user.id, dto, requestUserIp(req));
   }
 
   @ApiBearerAuth()

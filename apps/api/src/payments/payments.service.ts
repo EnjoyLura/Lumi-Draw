@@ -13,6 +13,7 @@ import {
 } from "./wechat-pay.client";
 import { WechatVirtualPayClient, type WechatVirtualSession } from "./wechat-virtual-pay.client";
 import { WechatWalletService } from "./wechat-wallet.service";
+import { encryptWechatSessionKey } from "../auth/session-secret";
 
 type OrderWithUser = PaymentOrder & { user?: { memberExpireAt: Date | null } };
 
@@ -28,8 +29,8 @@ export class PaymentsService {
     private readonly wallet: WechatWalletService
   ) {}
 
-  async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto) {
-    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode);
+  async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto, userIp = "") {
+    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode, userIp);
     const spec = dto.tierId ? await this.rechargeTierSpec(dto.tierId) : this.customRechargeSpec(dto.amount);
     const order = await this.prisma.paymentOrder.create({
       data: {
@@ -51,8 +52,8 @@ export class PaymentsService {
     });
   }
 
-  async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto) {
-    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode);
+  async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto, userIp = "") {
+    const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode, userIp);
     const plan = await this.prisma.memberPlan.findFirst({ where: { id: dto.planId, enabled: true } });
     if (!plan) throw new NotFoundException("会员方案不存在");
 
@@ -362,7 +363,7 @@ export class PaymentsService {
     };
   }
 
-  private async prepareVirtualSession(userId: number, wxCode?: string): Promise<WechatVirtualSession | null> {
+  private async prepareVirtualSession(userId: number, wxCode?: string, userIp = ""): Promise<WechatVirtualSession | null> {
     if (this.allowMockPayment()) return null;
     const client = this.createWechatVirtualClient();
     if (!client.configured) return null;
@@ -382,6 +383,15 @@ export class PaymentsService {
     if (!user?.openId || user.openId !== session.openId) {
       throw new ForbiddenException("支付账号与当前登录账号不一致");
     }
+    const encryptionKey = this.config.get<string>("app.wx.sessionEncryptionKey") ?? "";
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        wechatSessionKeyEncrypted: encryptWechatSessionKey(session.sessionKey, encryptionKey),
+        wechatSessionUpdatedAt: new Date(),
+        wechatSessionUserIp: userIp
+      }
+    });
     return session;
   }
 
