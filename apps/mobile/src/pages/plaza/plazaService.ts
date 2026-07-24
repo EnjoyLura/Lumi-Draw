@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { normalizeAspectRatio } from "../../services/aspectRatio";
 import type { HomeUser, HomeWork } from "../home/homeData";
 
 export interface PlazaCategoryOption {
@@ -99,7 +100,7 @@ function toWork(item: BackendWork): HomeWork {
     userId: item.author.id,
     title: item.title,
     prompt: item.prompt,
-    ratio: item.ratio || "1:1",
+    ratio: normalizeAspectRatio(item.ratio),
     likes: item.likes,
     published: item.status ? item.status === "published" && item.isPublic !== false : true,
     status: item.status,

@@ -3,6 +3,7 @@ import LumiPageHeader from "./LumiPageHeader.vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import LumiLoginSheet from "./LumiLoginSheet.vue";
 import { useAuth } from "../services/auth";
+import { normalizeAspectRatio } from "../services/aspectRatio";
 import { useDataMode } from "../services/dataMode";
 import {
   fetchWorkState,
@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<{
   sharedTransitioning?: boolean;
   contentVisible?: boolean;
   detailReady?: boolean;
+  opening?: boolean;
   refreshVersion?: number;
 }>(), {
   embedded: false,
@@ -50,6 +52,7 @@ const props = withDefaults(defineProps<{
   sharedTransitioning: false,
   contentVisible: true,
   detailReady: false,
+  opening: false,
   refreshVersion: 0
 });
 
@@ -92,7 +95,9 @@ let lastMode: boolean | null = null;
 
 const isOwn = computed(() => {
   if (!work.value) return false;
-  return useMockData.value ? work.value.userId === 1 : work.value.userId === currentUser.value?.id;
+  const ownerId = Number(work.value.userId || user.value?.id || 0);
+  const viewerId = useMockData.value ? 1 : Number(currentUser.value?.id || 0);
+  return ownerId > 0 && viewerId > 0 && ownerId === viewerId;
 });
 const isPendingReview = computed(() => work.value?.status === "pending");
 const managePrimaryIcon = computed(() => (work.value?.published ? "pencil" : isPendingReview.value ? "clock-3" : "send"));
@@ -104,6 +109,7 @@ const managePrimaryText = computed(() => {
 const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value && liked.value ? 1 : 0));
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
 const qualityTag = computed(() => work.value?.quality?.match(/(?:1|2|4)\s*K/i)?.[0].replace(/\s/g, "").toUpperCase() || "");
+const ratioTag = computed(() => normalizeAspectRatio(work.value?.ratio));
 const authorSub = computed(() => {
   if (!user.value) return "";
   if ("worksText" in user.value) {
@@ -845,7 +851,7 @@ function handleDetailPreviewLoad() {
 <template>
   <view
     class="detail-page"
-    :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible }]"
+    :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible, 'detail-opening': props.opening }]"
     :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px`, '--lumi-detail-header-height': `${headerHeight}px` }"
   >
     <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="props.embedded ? emit('close') : undefined" />
@@ -930,7 +936,7 @@ function handleDetailPreviewLoad() {
 
           <view class="tag-row">
             <text class="tag accent">{{ work.modelName }}</text>
-            <text class="tag mint">{{ work.ratio }}</text>
+            <text class="tag mint">{{ ratioTag }}</text>
             <text v-if="qualityTag" class="tag lavender">{{ qualityTag }}</text>
             <text class="tag lavender">{{ work.styleName }}</text>
             <text v-for="tag in work.tags" :key="tag" class="tag peach">{{ tag }}</text>
@@ -1243,6 +1249,24 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded.detail-content-visible .bottom-safe-area {
   opacity: 1;
   transform: translateY(0);
+}
+
+.detail-page.embedded.detail-opening .detail-body,
+.detail-page.embedded.detail-opening .detail-bottom,
+.detail-page.embedded.detail-opening .bottom-safe-area {
+  transition: opacity 180ms ease-out, transform 240ms cubic-bezier(.16, 1, .3, 1);
+  will-change: opacity, transform;
+}
+
+.detail-page.embedded.detail-opening:not(.detail-content-visible) .detail-body,
+.detail-page.embedded.detail-opening:not(.detail-content-visible) .detail-bottom,
+.detail-page.embedded.detail-opening:not(.detail-content-visible) .bottom-safe-area {
+  transform: translate3d(0, 12px, 0);
+}
+
+.detail-page.embedded.detail-opening :deep(.lumi-page-header) {
+  transition: opacity 160ms ease-out;
+  will-change: opacity;
 }
 
 .detail-body {

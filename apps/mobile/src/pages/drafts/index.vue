@@ -33,7 +33,7 @@ const EMPTY_PROFILE: GalleryUser = {
   likes: "0"
 };
 
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, requireLogin } = useAuth();
 const { useMockData } = useDataMode();
 const realDrafts = ref<HomeWork[]>([]);
 const profile = ref(EMPTY_PROFILE);
@@ -114,7 +114,12 @@ async function loadDrafts(page = 1, append = false) {
   isLoadingMore.value = append;
   try {
     const [draftPage, nextProfile] = await Promise.all([
-      fetchGalleryWorks({ status: "draft", page, pageSize: PAGE_SIZE }),
+      fetchGalleryWorks({
+        status: "draft",
+        page,
+        pageSize: PAGE_SIZE,
+        ownerId: Number(currentUser.value?.id || profile.value.id || 0)
+      }),
       page === 1 ? fetchGalleryUser() : Promise.resolve(profile.value)
     ]);
     realDrafts.value = append ? [...realDrafts.value, ...draftPage.works] : draftPage.works;

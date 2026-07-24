@@ -11,6 +11,7 @@ import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
+import { aspectRatioFromDimensions } from "../../services/aspectRatio";
 import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, openEmbeddedCreate } from "../../services/primaryShell";
 import { reportPageNavigationPerformance } from "../../services/pagePerformance";
@@ -402,8 +403,9 @@ function syncWorkImageRatio(workId: number, event: Event) {
   const height = Number(detail?.height);
   if (!width || !height) return;
 
-  const ratio = `${width}:${height}`;
+  const ratio = aspectRatioFromDimensions(width, height);
   workList.value = workList.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
+  patchWorkDetailSnapshot(workId, { ratio });
 }
 
 function syncInteractionIds(works: HomeWork[], append: boolean) {

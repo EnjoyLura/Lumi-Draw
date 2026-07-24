@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mergeGenerationProgress } from "../../services/generationProgress";
 import type { HomeWork } from "../home/homeData";
 import type { GalleryGenTask, GalleryUser } from "./galleryData";
@@ -98,14 +99,14 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
   };
 }
 
-function toHomeWork(item: BackendWork): HomeWork {
+function toHomeWork(item: BackendWork, ownerId = 0): HomeWork {
   return {
     id: item.id,
     image: item.thumbnailUrl || item.imageUrl,
-    userId: 0,
+    userId: ownerId,
     title: item.title,
     prompt: item.prompt || item.title,
-    ratio: item.ratio || "1:1",
+    ratio: normalizeAspectRatio(item.ratio),
     likes: item.likes,
     published: item.status === "published" && item.isPublic,
     status: item.status,
@@ -131,13 +132,14 @@ export async function fetchGalleryWorks(params: {
   status?: "published" | "draft";
   page: number;
   pageSize: number;
+  ownerId?: number;
 }): Promise<GalleryWorkPage> {
   const query = [`page=${params.page}`, `pageSize=${params.pageSize}`, params.status ? `status=${params.status}` : ""]
     .filter(Boolean)
     .join("&");
   const result = await api.get<PageResult<BackendWork>>(`/works/me/gallery?${query}`);
   return {
-    works: result.items.map(toHomeWork),
+    works: result.items.map((item) => toHomeWork(item, params.ownerId)),
     page: result.page,
     hasMore: result.hasMore
   };

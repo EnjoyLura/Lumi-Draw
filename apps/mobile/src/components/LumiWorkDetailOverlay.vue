@@ -31,6 +31,7 @@ const detailReady = ref(false);
 const sharedImage = ref("");
 const sourceRect = ref<WorkDetailSourceRect | null>(null);
 const workRatio = ref("1:1");
+const transitionPhase = ref<"idle" | "opening" | "open" | "closing">("idle");
 
 let openTimer: ReturnType<typeof setTimeout> | undefined;
 let surfaceTimer: ReturnType<typeof setTimeout> | undefined;
@@ -92,6 +93,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   sharedActive.value = Boolean(payload.sourceRect);
   sharedImageVisible.value = Boolean(payload.sourceRect && sharedImage.value);
   detailReady.value = false;
+  transitionPhase.value = "opening";
   closing = false;
 
   void nextTick(() => {
@@ -121,6 +123,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
         }, OPEN_DURATION);
         detailReadyTimer = setTimeout(() => {
           detailReady.value = true;
+          transitionPhase.value = "open";
           detailReadyTimer = undefined;
         }, OPEN_DURATION + FINAL_FRAME_DELAY);
       }, SOURCE_FRAME_DELAY);
@@ -131,6 +134,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
 async function closeOverlay() {
   if (closing || !workId.value) return;
   closing = true;
+  transitionPhase.value = "closing";
   detailReady.value = false;
   if (detailReadyTimer) clearTimeout(detailReadyTimer);
   if (activeSourceId) {
@@ -178,6 +182,7 @@ function finishClose() {
   sharedImage.value = "";
   activeSourceId = undefined;
   activeSourceContext = undefined;
+  transitionPhase.value = "idle";
   closing = false;
 }
 
@@ -217,7 +222,12 @@ function clearTimers() {
   <view
     v-if="workId"
     class="work-detail-overlay"
-    :class="{ open: isOpen, 'surface-visible': surfaceVisible }"
+    :class="{
+      open: isOpen,
+      opening: transitionPhase === 'opening',
+      closing: transitionPhase === 'closing',
+      'surface-visible': surfaceVisible
+    }"
     @touchmove.stop.prevent
   >
     <view class="work-detail-overlay-backdrop" />
@@ -234,6 +244,7 @@ function clearTimers() {
         :shared-transitioning="sharedImageVisible"
         :content-visible="contentVisible"
         :detail-ready="detailReady"
+        :opening="transitionPhase === 'opening'"
         @close="void closeOverlay()"
       />
     </view>
@@ -308,6 +319,16 @@ function clearTimers() {
   -webkit-transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
   transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
   transition: opacity 60ms ease, transform 320ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 320ms cubic-bezier(.4, 0, .2, 1), clip-path 320ms cubic-bezier(.4, 0, .2, 1);
+}
+
+.work-detail-overlay.opening .work-detail-overlay-surface.from-source,
+.work-detail-overlay.open:not(.closing) .work-detail-overlay-surface.from-source {
+  -webkit-clip-path: inset(0 0 0 0 round 0);
+  clip-path: inset(0 0 0 0 round 0);
+  -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
+  transition: opacity 150ms ease-out;
+  will-change: opacity;
 }
 
 .work-detail-shared-image-frame {

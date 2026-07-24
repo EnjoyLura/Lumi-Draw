@@ -6,6 +6,7 @@ import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
+import { aspectRatioFromDimensions } from "../../services/aspectRatio";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
@@ -234,6 +235,17 @@ function galleryCacheKey() {
   return `gallery:${props.pageMode}:${useMockData.value}:${isLoggedIn.value}:${currentUser.value?.id || 0}`;
 }
 
+function galleryOwnerId() {
+  return Number(currentUser.value?.id || profile.value.id || 0);
+}
+
+function assignGalleryOwner(worksToAssign: HomeWork[]) {
+  if (renderedTab.value === "favorite") return worksToAssign;
+  const ownerId = galleryOwnerId();
+  if (!ownerId) return worksToAssign;
+  return worksToAssign.map((work) => (work.userId === ownerId ? work : { ...work, userId: ownerId }));
+}
+
 function refreshGalleryPage(force = false) {
   const key = galleryCacheKey();
   const shouldForce = force || !hasLoadedOnce.value;
@@ -342,7 +354,7 @@ function prefetchNextGalleryPage() {
   const page = pageState.page + 1;
   const key = galleryFeedKey();
   if (prefetchedGalleryPage?.key === key && prefetchedGalleryPage.page === page) return;
-  const request = fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE });
+  const request = fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE, ownerId: galleryOwnerId() });
   prefetchedGalleryPage = { key, page, request };
   void request.catch(() => {
     if (prefetchedGalleryPage?.request === request) prefetchedGalleryPage = undefined;
@@ -498,9 +510,12 @@ async function loadGalleryPage(page = 1, append = false) {
   const key = galleryFeedKey();
   const cached = append && prefetchedGalleryPage?.key === key && prefetchedGalleryPage.page === page ? prefetchedGalleryPage : undefined;
   if (cached) prefetchedGalleryPage = undefined;
-  const result = await (cached?.request ?? fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE }));
-  works.value = append ? [...works.value, ...result.works] : result.works;
-  preloadWorkDetailSnapshots(result.works.map((work) => ({ work, user: getWorkAuthor(work) })));
+  const result = await (
+    cached?.request ?? fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE, ownerId: galleryOwnerId() })
+  );
+  const ownWorks = assignGalleryOwner(result.works);
+  works.value = append ? [...works.value, ...ownWorks] : ownWorks;
+  preloadWorkDetailSnapshots(ownWorks.map((work) => ({ work, user: getWorkAuthor(work) })));
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   waterfallEnterKey.value += 1;
@@ -513,8 +528,9 @@ function syncWorkImageRatio(workId: number, event: Event) {
   const height = Number(detail?.height);
   if (!width || !height) return;
 
-  const ratio = `${width}:${height}`;
+  const ratio = aspectRatioFromDimensions(width, height);
   works.value = works.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
+  patchWorkDetailSnapshot(workId, { ratio });
 }
 
 async function reloadGalleryData() {
@@ -542,7 +558,10 @@ async function reloadGalleryData() {
     isLoading.value = false;
 
     const [profileResult] = await Promise.allSettled([profilePromise, taskPromise, unreadPromise]);
-    if (profileResult.status === "fulfilled") profile.value = profileResult.value;
+    if (profileResult.status === "fulfilled") {
+      profile.value = profileResult.value;
+      works.value = assignGalleryOwner(works.value);
+    }
   } catch (error) {
     if (!works.value.length) resetRealGalleryData();
     uni.showToast({ title: "画廊数据加载失败，请稍后重试", icon: "none" });

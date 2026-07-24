@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { normalizeAspectRatio } from "./aspectRatio";
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
 
 export interface PageResult<T> {
@@ -119,7 +120,7 @@ export function toHomeWork(item: BackendWorkCard): HomeWork {
     userId: item.author.id,
     title: item.title,
     prompt: item.prompt,
-    ratio: item.ratio || "1:1",
+    ratio: normalizeAspectRatio(item.ratio),
     likes: item.likes,
     published: item.status ? item.status === "published" && item.isPublic !== false : true,
     status: item.status,

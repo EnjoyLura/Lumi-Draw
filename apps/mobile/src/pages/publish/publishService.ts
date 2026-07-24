@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { ratioToResolution, type DraftWork } from "./publishData";
 
 interface BackendDraftWork {
@@ -47,7 +48,7 @@ function toDraftWork(item: BackendDraftWork): DraftWork {
     image: item.thumbnailUrl || item.imageUrl,
     fullImage: item.imageUrl,
     title: item.title || "未命名作品",
-    ratio: item.ratio || "1:1",
+    ratio: normalizeAspectRatio(item.ratio),
     resolution: formatResolution(item.width, item.height, item.ratio),
     source: "backend"
   };

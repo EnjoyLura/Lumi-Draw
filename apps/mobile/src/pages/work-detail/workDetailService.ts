@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { formatCompactNumber, formatRelativeTime, toHomeUser, type BackendAuthor } from "../../services/social";
 import type { HomeUser } from "../home/homeData";
 import type { DetailWork } from "./workDetailData";
@@ -66,7 +67,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       userId: item.author.id,
       title,
       prompt: item.prompt,
-      ratio: item.ratio || "1:1",
+      ratio: normalizeAspectRatio(item.ratio),
       likes: item.likes,
       published,
       status: item.status,
