@@ -6,9 +6,12 @@ import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
-import { clearHistory as clearRemoteHistory, fetchHistory, toHomeWork } from "../../services/social";
+import { clearHistory as clearRemoteHistory, fetchHistory, toHomeUser, toHomeWork } from "../../services/social";
+import { primeWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
+import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { homeWorks, type HomeWork } from "../home/homeData";
 import { useTheme } from "../../services/theme";
+import { clearHistorySnapshot, getHistorySnapshot, setHistorySnapshot } from "./historyCache";
 
 const { themeClass } = useTheme();
 
@@ -16,9 +19,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const cleared = ref(false);
 const realWorks = ref<HomeWork[]>([]);
 const { useMockData } = useDataMode();
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, requireLogin } = useAuth();
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
+const loadedImageIds = ref(new Set<number>());
 let lastMode: boolean | null = null;
 
 const sourceWorks = computed(() => (cleared.value ? [] : useMockData.value ? homeWorks : realWorks.value));
@@ -50,6 +54,16 @@ onShow(() => {
   void loadHistory();
 });
 
+function applyHistoryItems(items: Awaited<ReturnType<typeof fetchHistory>>["items"]) {
+  const works = items.map(toHomeWork);
+  realWorks.value = works;
+  items.forEach((item, index) => {
+    primeWorkDetailSnapshot(works[index], toHomeUser(item.author));
+  });
+  preloadWorkDetailSnapshots(items.map((item, index) => ({ work: works[index], user: toHomeUser(item.author) })));
+  cleared.value = works.length === 0;
+}
+
 async function loadHistory() {
   cleared.value = false;
   if (useMockData.value) {
@@ -63,15 +77,26 @@ async function loadHistory() {
     return;
   }
   loginRequired.value = false;
+  const userId = Number(currentUser.value?.id || 0);
+  const cached = getHistorySnapshot(userId);
+  if (cached) applyHistoryItems(cached.items);
   try {
     const page = await fetchHistory();
-    realWorks.value = page.items.map(toHomeWork);
-    cleared.value = realWorks.value.length === 0;
+    setHistorySnapshot(userId, page.items);
+    applyHistoryItems(page.items);
   } catch {
-    realWorks.value = [];
-    cleared.value = true;
-    uni.showToast({ title: "浏览记录加载失败", icon: "none" });
+    if (!cached) {
+      realWorks.value = [];
+      cleared.value = true;
+      uni.showToast({ title: "浏览记录加载失败", icon: "none" });
+    }
   }
+}
+
+function markImageLoaded(id: number) {
+  const next = new Set(loadedImageIds.value);
+  next.add(id);
+  loadedImageIds.value = next;
 }
 
 function startOfDay(time: number) {
@@ -122,6 +147,7 @@ async function clearHistory() {
     try {
       await clearRemoteHistory();
       realWorks.value = [];
+      clearHistorySnapshot(Number(currentUser.value?.id || 0));
     } catch {
       uni.showToast({ title: "清空失败，请稍后重试", icon: "none" });
       return;
@@ -139,7 +165,7 @@ function goPlaza() {
 <template>
   <view class="history-page" :class="themeClass">
     <LumiPageHeader title="浏览记录" />
-    <LumiDeferredPageContent>
+    <LumiDeferredPageContent class="history-deferred">
     <scroll-view class="page-scroll" scroll-y>
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
@@ -157,7 +183,14 @@ function goPlaza() {
             <view class="section-title">{{ section.label }}</view>
             <view class="grid">
               <view v-for="work in section.works" :key="work.id" class="grid-item" @click="openWork(work)">
-                <image class="grid-img" :src="work.image" mode="aspectFill" lazy-load />
+                <image
+                  class="grid-img"
+                  :class="{ loaded: loadedImageIds.has(work.id) }"
+                  :src="work.image"
+                  mode="aspectFill"
+                  lazy-load
+                  @load="markImageLoaded(work.id)"
+                />
               </view>
             </view>
           </template>
@@ -243,6 +276,12 @@ function goPlaza() {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.grid-img.loaded {
+  opacity: 1;
 }
 
 .empty-state {
@@ -303,9 +342,12 @@ function goPlaza() {
   flex-direction: column;
 }
 
-.history-page > .page-scroll {
+.history-page > .history-deferred {
   flex: 1;
   min-height: 0;
-  height: auto;
+}
+
+.history-deferred > .page-scroll {
+  height: 100%;
 }
 </style>

@@ -1,21 +1,22 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { currentCredits, earnRecords, rechargeTiers, spendRecords, type PointRecord, type RechargeTier } from "../points/pointsData";
-import { createRechargeOrder, fetchCreditRecordPage, fetchCreditsBalance, fetchRechargeTiers, reconcilePendingPayments, requestOrderPayment } from "../points/pointsService";
+import { createRechargeOrder, fetchCreditRecordPage, requestOrderPayment } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
+import { getRechargePageSnapshot, refreshRechargePageSnapshot, type RechargePageSnapshot } from "./rechargeCache";
 
 const { themeClass } = useTheme();
 
 type RecordTab = "earn" | "spend";
 const RECORD_PAGE_SIZE = 20;
 
-const { isLoggedIn, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
+const { isLoggedIn, currentUser, login: commitLogin, requireLogin, updateCurrentUser } = useAuth();
 const { useMockData } = useDataMode();
 
 const balance = ref(0);
@@ -39,6 +40,7 @@ const recordState = reactive({
 });
 let lastMockMode: boolean | null = null;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
+let silentRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 const records = computed(() => (activeTab.value === "earn" ? earnList.value : spendList.value));
 const activeRecordState = computed(() => recordState[activeTab.value]);
@@ -56,7 +58,12 @@ onShow(() => {
     lastMockMode = useMockData.value;
     selectedTierIdx.value = 3;
   }
-  void loadPageData();
+  hydratePageData();
+  if (silentRefreshTimer) clearTimeout(silentRefreshTimer);
+  silentRefreshTimer = setTimeout(() => {
+    silentRefreshTimer = undefined;
+    void loadPageData();
+  }, 120);
 });
 
 onReady(() => {
@@ -66,7 +73,43 @@ onReady(() => {
   }, 16);
 });
 
-async function loadPageData() {
+onBeforeUnmount(() => {
+  if (initialContentTimer) clearTimeout(initialContentTimer);
+  if (silentRefreshTimer) clearTimeout(silentRefreshTimer);
+});
+
+function applySnapshot(snapshot: RechargePageSnapshot) {
+  balance.value = snapshot.balance;
+  tiers.value = snapshot.tiers;
+  earnList.value = snapshot.earn.items;
+  spendList.value = snapshot.spend.items;
+  recordState.earn = { page: snapshot.earn.page, hasMore: snapshot.earn.hasMore };
+  recordState.spend = { page: snapshot.spend.page, hasMore: snapshot.spend.hasMore };
+  updateCurrentUser({ credits: snapshot.balance });
+  clampTierIndex();
+}
+
+function hydratePageData() {
+  if (useMockData.value) {
+    void loadPageData();
+    return;
+  }
+  if (!isLoggedIn.value) {
+    loginRequired.value = true;
+    return;
+  }
+  loginRequired.value = false;
+  const cached = getRechargePageSnapshot(Number(currentUser.value?.id || 0));
+  if (cached) {
+    applySnapshot(cached);
+    loadFailed.value = false;
+    return;
+  }
+  balance.value = Number(currentUser.value?.credits || 0);
+  isLoading.value = true;
+}
+
+async function loadPageData(reconcile = false) {
   if (useMockData.value) {
     customOpen.value = false;
     balance.value = currentCredits;
@@ -94,33 +137,15 @@ async function loadPageData() {
   loginRequired.value = false;
   loadFailed.value = false;
   customOpen.value = false;
-  balance.value = 0;
-  tiers.value = [];
-  earnList.value = [];
-  spendList.value = [];
-  recordState.earn = { page: 1, hasMore: false };
-  recordState.spend = { page: 1, hasMore: false };
-
-  isLoading.value = true;
+  const userId = Number(currentUser.value?.id || 0);
+  const cached = getRechargePageSnapshot(userId);
+  if (cached) applySnapshot(cached);
+  isLoading.value = !cached && !tiers.value.length;
   try {
-    await reconcilePendingPayments().catch(() => undefined);
-    const [nextBalance, nextTiers, nextEarn, nextSpend] = await Promise.all([
-      fetchCreditsBalance(),
-      fetchRechargeTiers(),
-      fetchCreditRecordPage("earn", 1, RECORD_PAGE_SIZE),
-      fetchCreditRecordPage("spend", 1, RECORD_PAGE_SIZE)
-    ]);
-    balance.value = nextBalance;
-    updateCurrentUser({ credits: nextBalance });
-    tiers.value = nextTiers;
-    earnList.value = nextEarn.items;
-    spendList.value = nextSpend.items;
-    recordState.earn = { page: nextEarn.page, hasMore: nextEarn.hasMore };
-    recordState.spend = { page: nextSpend.page, hasMore: nextSpend.hasMore };
-    clampTierIndex();
+    applySnapshot(await refreshRechargePageSnapshot(userId, reconcile));
   } catch {
-    loadFailed.value = true;
-    uni.showToast({ title: "积分数据加载失败", icon: "none" });
+    loadFailed.value = !cached && !tiers.value.length;
+    if (loadFailed.value) uni.showToast({ title: "积分数据加载失败", icon: "none" });
   } finally {
     isLoading.value = false;
   }
@@ -138,7 +163,7 @@ async function login() {
   try {
     await commitLogin();
     showLoginSheet.value = false;
-    await loadPageData();
+    await loadPageData(true);
     uni.showToast({ title: "登录成功", icon: "none" });
   } catch {
     uni.showToast({ title: "登录失败，请稍后重试", icon: "none" });
@@ -202,7 +227,7 @@ async function startRecharge(amount?: number) {
     const paid = await requestOrderPayment(order);
     if (paid.status === "paid") {
       uni.showToast({ title: "充值成功", icon: "none" });
-      await loadPageData();
+      await loadPageData(true);
     } else {
       uni.showToast({ title: "支付已提交，请稍后刷新查看", icon: "none" });
     }
@@ -252,7 +277,7 @@ function confirmCustomRecharge() {
         <view v-if="!useMockData && loadFailed" class="empty-config">
           <view class="empty-title">充值配置加载失败</view>
           <view class="empty-sub">请稍后重试，当前不会显示模拟档位。</view>
-          <button class="empty-btn" @click="loadPageData">重新加载</button>
+          <button class="empty-btn" @click="loadPageData()">重新加载</button>
         </view>
 
         <view v-else-if="!isLoading && !tiers.length" class="empty-config">

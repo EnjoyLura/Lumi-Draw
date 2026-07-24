@@ -186,11 +186,6 @@ async function login() {
             <view class="lr-text">{{ isLoggedIn ? `编辑个人资料${currentUser?.nickname ? ` · ${currentUser.nickname}` : ""}` : "登录后编辑个人资料" }}</view>
             <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
           </view>
-          <view v-if="isLoggedIn" class="list-row" @click="handleCancelAccount">
-            <view class="lr-icon rose"><LumiIcon name="trash-2" :size="20" /></view>
-            <view class="lr-text cancel-text">注销账号</view>
-            <LumiIcon class="lr-arrow" name="chevron-right" :size="18" />
-          </view>
         </view>
 
         <view class="section-title">功能</view>
@@ -233,6 +228,10 @@ async function login() {
           </view>
         </view>
 
+        <button v-if="isLoggedIn" class="cancel-account-btn" @click="handleCancelAccount">
+          <LumiIcon name="trash-2" :size="16" />
+          注销账号
+        </button>
         <button class="logout-btn" :class="{ login: !isLoggedIn }" @click="handleLoginAction">
           {{ isLoggedIn ? "退出登录" : "立即登录" }}
         </button>
@@ -431,6 +430,25 @@ async function login() {
 }
 
 .logout-btn::after {
+  border: none;
+}
+
+.cancel-account-btn {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 40px;
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 40px;
+  color: var(--fg-muted);
+  background: transparent;
+  border: none;
+}
+
+.cancel-account-btn::after {
   border: none;
 }
 

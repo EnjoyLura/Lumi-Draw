@@ -21,6 +21,7 @@ import { invalidateWorkDetailPreload, preloadWorkDetailSnapshots } from "../../s
 import { clearWorkDetailCache, patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { notifyWorkVisibilityChange, subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
+import { refreshRechargePageSnapshot } from "../recharge/rechargeCache";
 import {
   addNotifiedGenerateJobIds,
   readActiveGenerateJobIds,
@@ -160,6 +161,7 @@ let genTaskAnimationTimer: ReturnType<typeof setInterval> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
+let rechargePreloadTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 let unsubscribeWorkVisibility: (() => void) | undefined;
@@ -252,7 +254,17 @@ function markInitialContentReady() {
 
 onShow(() => {
   void refreshGalleryPage(true).catch(() => undefined);
+  scheduleRechargePreload();
 });
+
+function scheduleRechargePreload() {
+  if (!isMineMode.value || useMockData.value || !isLoggedIn.value || !currentUser.value?.id) return;
+  if (rechargePreloadTimer) clearTimeout(rechargePreloadTimer);
+  rechargePreloadTimer = setTimeout(() => {
+    rechargePreloadTimer = undefined;
+    void refreshRechargePageSnapshot(Number(currentUser.value?.id), false).catch(() => undefined);
+  }, 800);
+}
 
 onMounted(() => {
   unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id, status }) => {
@@ -295,7 +307,10 @@ async function loadModelOptions() {
 }
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === props.pageMode) void refreshGalleryPage(true).catch(() => undefined);
+  if (tab === props.pageMode) {
+    void refreshGalleryPage(true).catch(() => undefined);
+    scheduleRechargePreload();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -306,6 +321,7 @@ onBeforeUnmount(() => {
   if (genTaskTimer) clearTimeout(genTaskTimer);
   if (genTaskAnimationTimer) clearInterval(genTaskAnimationTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);
+  if (rechargePreloadTimer) clearTimeout(rechargePreloadTimer);
   if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
   clearWaterfallAnimation();
 });
