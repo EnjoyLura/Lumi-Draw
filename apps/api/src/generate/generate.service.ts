@@ -11,6 +11,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
 import type { CreateGenerateJobDto, PublishGenerateResultDto, ReversePromptDto } from "./generate.dto";
+import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
@@ -32,6 +33,8 @@ type GeneratedImage = {
   imageUrl: string;
   ossKey: string;
   sizeBytes: number;
+  width?: number;
+  height?: number;
 };
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
@@ -850,6 +853,7 @@ export class GenerateService implements OnApplicationBootstrap {
         status: "succeeded",
         imageUrl: this.uploads.objectUrlForKey(result.ossKey),
         sizeBytes: Math.max(0, Math.floor(input.sizeBytes || 0)),
+        ...resolveGeneratedImageSize(job.ratio, job.quality),
         errorMessage: ""
       }
     });
@@ -883,7 +887,12 @@ export class GenerateService implements OnApplicationBootstrap {
     const outputs = (input.outputs || []).flatMap((item) => {
       const objectKey = String(item.objectKey || "");
       if (!objectKey.startsWith("uploads/system/generate/") || !objectKey.includes(`/${job.id}/`)) return [];
-      return [{ imageUrl: this.uploads.objectUrlForKey(objectKey), ossKey: objectKey, sizeBytes: Math.max(0, Math.floor(item.sizeBytes || 0)) }];
+      return [{
+        imageUrl: this.uploads.objectUrlForKey(objectKey),
+        ossKey: objectKey,
+        sizeBytes: Math.max(0, Math.floor(item.sizeBytes || 0)),
+        ...resolveGeneratedImageSize(job.ratio, job.quality)
+      }];
     });
     if (!outputs.length) throw new BadRequestException("image generation callback has no valid outputs");
     await this.finishJobWithDrafts(job, outputs, "Generation completed", ["queued", "running", "finalizing"]);
@@ -964,7 +973,8 @@ export class GenerateService implements OnApplicationBootstrap {
       return {
         imageUrl: mockGeneratedImageUrl(seed),
         ossKey: `mock/generate/${seed}.jpg`,
-        sizeBytes: 512 * 1024
+        sizeBytes: 512 * 1024,
+        ...resolveGeneratedImageSize(job.ratio, job.quality)
       };
     });
     const updated = await this.finishJobWithDrafts(job, images, "Mock generation completed");
@@ -1036,6 +1046,7 @@ export class GenerateService implements OnApplicationBootstrap {
     expectedProgress?: number
   ) {
     const acceptedResults = results.slice(0, job.count);
+    const expectedDimensions = resolveGeneratedImageSize(job.ratio, job.quality);
     const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, acceptedResults.length);
     const { missingCount } = partial;
     const partialRefund = partial.refundCredits;
@@ -1072,6 +1083,8 @@ export class GenerateService implements OnApplicationBootstrap {
             imageUrl: result.imageUrl,
             ossKey: result.ossKey,
             sizeBytes: result.sizeBytes,
+            width: result.width ?? expectedDimensions?.width,
+            height: result.height ?? expectedDimensions?.height,
             workId: work.id
           }
         });

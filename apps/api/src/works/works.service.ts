@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { requiresManualReview } from "../common/review-policy";
+import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -367,15 +368,18 @@ export class WorksService {
         ? this.prisma.generateResult.findMany({
             where: { workId: { in: rows.map((work) => work.id) } },
             orderBy: { createdAt: "desc" },
-            select: { workId: true, width: true, height: true }
+            select: { workId: true, width: true, height: true, job: { select: { ratio: true, quality: true } } }
           })
         : Promise.resolve([])
     ]);
     const modelNames = new Map(models.map((model) => [model.id, model.name]));
     const dimensions = new Map<number, { width: number; height: number }>();
     generatedResults.forEach((result) => {
-      if (result.workId && result.width && result.height && !dimensions.has(result.workId)) {
-        dimensions.set(result.workId, { width: result.width, height: result.height });
+      const size = result.width && result.height
+        ? { width: result.width, height: result.height }
+        : resolveGeneratedImageSize(result.job.ratio, result.job.quality);
+      if (result.workId && size && !dimensions.has(result.workId)) {
+        dimensions.set(result.workId, size);
       }
     });
     const items = rows.map((w) => ({

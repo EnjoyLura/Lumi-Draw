@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 
 type Change2ProConfig = {
@@ -49,24 +50,6 @@ const BANANA_PRO_PROVIDER_MODEL = "gemini-3-pro-image-preview";
 const ALLOWED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
 const GENERATION_TIMEOUT_MS = 30 * 60 * 1000;
-const IMAGE_2_SIZES: Record<string, Record<"1K" | "2K" | "4K", string>> = {
-  "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "2880x2880" },
-  "3:2": { "1K": "1536x1024", "2K": "2048x1360", "4K": "3520x2336" },
-  "2:3": { "1K": "1024x1536", "2K": "1360x2048", "4K": "2336x3520" },
-  "4:3": { "1K": "1024x768", "2K": "2048x1536", "4K": "3312x2480" },
-  "3:4": { "1K": "768x1024", "2K": "1536x2048", "4K": "2480x3312" },
-  "5:4": { "1K": "1280x1024", "2K": "2560x2048", "4K": "3216x2576" },
-  "4:5": { "1K": "1024x1280", "2K": "2048x2560", "4K": "2576x3216" },
-  "16:9": { "1K": "1536x864", "2K": "2048x1152", "4K": "3840x2160" },
-  "9:16": { "1K": "864x1536", "2K": "1152x2048", "4K": "2160x3840" },
-  "2:1": { "1K": "2048x1024", "2K": "2688x1344", "4K": "3840x1920" },
-  "1:2": { "1K": "1024x2048", "2K": "1344x2688", "4K": "1920x3840" },
-  "3:1": { "1K": "1536x512", "2K": "3072x1024", "4K": "3840x1280" },
-  "1:3": { "1K": "512x1536", "2K": "1024x3072", "4K": "1280x3840" },
-  "21:9": { "1K": "2016x864", "2K": "2688x1152", "4K": "3840x1648" },
-  "9:21": { "1K": "864x2016", "2K": "1152x2688", "4K": "1648x3840" }
-};
-
 export function resolveChange2ProModel(modelId: string) {
   if (modelId === IMAGE_2_MODEL_ID) return { kind: "image2" as const, providerModel: "gpt-image-2" };
   if (modelId === BANANA_MODEL_ID) return { kind: "banana" as const, providerModel: BANANA_PROVIDER_MODEL };
@@ -75,10 +58,9 @@ export function resolveChange2ProModel(modelId: string) {
 }
 
 export function normalizeImage2Size(ratio: string, quality: string) {
-  const tier = (quality.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() ?? "1K") as "1K" | "2K" | "4K";
-  const size = IMAGE_2_SIZES[ratio]?.[tier];
+  const size = resolveGeneratedImageSize(ratio, quality);
   if (!size) throw new BadRequestException("当前模型不支持所选图片尺寸");
-  return size;
+  return `${size.width}x${size.height}`;
 }
 
 function normalizeBananaQuality(quality: string) {
