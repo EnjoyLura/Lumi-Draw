@@ -6,7 +6,7 @@ import LumiWorkDetailOverlay from "../../components/LumiWorkDetailOverlay.vue";
 import LumiWorkSkeletonWaterfall from "../../components/LumiWorkSkeletonWaterfall.vue";
 import LumiSideDrawer from "../../components/LumiSideDrawer.vue";
 import { useAuth } from "../../services/auth";
-import { aspectRatioFromDimensions } from "../../services/aspectRatio";
+import { aspectRatioFromDimensions, toCssAspectRatio } from "../../services/aspectRatio";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
@@ -895,12 +895,6 @@ function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
-
 function statusBadgeText(work: HomeWork) {
   if (work.status === "pending") return "审核中";
   if (work.status === "rejected") return "未通过";
@@ -1088,7 +1082,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
                 <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
               </view>
               <view class="work-body">
@@ -1108,7 +1102,7 @@ function openWork(work: HomeWork) {
             <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
                 <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
               </view>
               <view class="work-body">

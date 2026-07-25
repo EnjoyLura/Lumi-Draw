@@ -24,6 +24,7 @@ import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
+import { toCssAspectRatio } from "../../services/aspectRatio";
 
 const { themeClass } = useTheme();
 const pageInstance = getCurrentInstance();
@@ -238,12 +239,6 @@ function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
-
 function displayLikeCount(work: HomeWork) {
   return work.likes + (useMockData.value && likedWorkIds.value.has(work.id) ? 1 : 0);
 }
@@ -404,7 +399,7 @@ async function confirmUnfollow() {
         <view v-if="allWorks.length" class="waterfall">
           <view class="waterfall-column">
             <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
                 <image class="work-img" :src="work.image" mode="aspectFill" lazy-load />
               </view>
               <view class="work-body">
@@ -422,7 +417,7 @@ async function confirmUnfollow() {
           </view>
           <view class="waterfall-column">
             <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
-              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }">
+              <view :id="`lumi-profile-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
                 <image class="work-img" :src="work.image" mode="aspectFill" lazy-load />
               </view>
               <view class="work-body">

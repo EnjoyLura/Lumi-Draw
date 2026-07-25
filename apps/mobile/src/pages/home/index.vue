@@ -36,6 +36,7 @@ import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload
 import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
 import { parseQueryString } from "../../services/routeQuery";
+import { toCssAspectRatio } from "../../services/aspectRatio";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -721,11 +722,6 @@ function getWorkTitle(work: HomeWork) {
   return work.title || work.prompt.slice(0, 20);
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
 </script>
 
 <template>
@@ -850,7 +846,7 @@ function getAspectRatio(ratio: string) {
           <view v-else :key="worksRenderKey" class="waterfall" :class="waterfallAnimationClass">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
+                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
@@ -877,7 +873,7 @@ function getAspectRatio(ratio: string) {
 
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
+                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">

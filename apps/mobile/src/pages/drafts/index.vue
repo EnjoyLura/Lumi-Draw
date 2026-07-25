@@ -12,6 +12,7 @@ import type { HomeUser, HomeWork } from "../home/homeData";
 import { useTheme } from "../../services/theme";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
+import { toCssAspectRatio } from "../../services/aspectRatio";
 
 const { themeClass } = useTheme();
 const pageInstance = getCurrentInstance();
@@ -81,12 +82,6 @@ function resetRealDrafts() {
 
 function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
-}
-
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
 }
 
 function openWork(work: HomeWork) {
@@ -182,7 +177,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in leftColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">
@@ -196,7 +191,7 @@ async function login() {
             <view class="waterfall-column">
               <view v-for="work in rightColumn" :key="work.id" class="work-card" @click="openWork(work)">
                 <view class="status-badge"><LumiIcon name="file-text" :size="12" />草稿</view>
-                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: getAspectRatio(work.ratio) }" />
+                <image :id="`lumi-draft-work-media-${work.id}`" class="work-img" :src="work.image" mode="aspectFill" lazy-load :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" />
                 <view class="work-body">
                   <view class="work-title">{{ displayTitle(work) }}</view>
                   <view class="work-meta">

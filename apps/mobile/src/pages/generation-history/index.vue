@@ -9,6 +9,7 @@ import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../servic
 import { primeWorkDetailPreview } from "../../services/workDetailPreviewCache";
 import { galleryGenTasks } from "../gallery/galleryData";
 import { useTheme } from "../../services/theme";
+import { toCssAspectRatio } from "../../services/aspectRatio";
 
 const { themeClass } = useTheme();
 import {
@@ -157,12 +158,6 @@ function previewCount(job: GenerateHistoryJob) {
 
 function previewClass(job: GenerateHistoryJob) {
   return [`count-${previewCount(job)}`];
-}
-
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
 }
 
 function thumbnailUrl(result: GenerateHistoryJob["results"][number]) {
@@ -404,7 +399,7 @@ async function login() {
               v-for="result in job.results.slice(0, 4)"
               :key="result.id"
               class="thumb-shell"
-              :style="{ aspectRatio: getAspectRatio(job.ratio) }"
+              :style="{ aspectRatio: toCssAspectRatio(job.ratio) }"
             >
               <view v-if="!isThumbnailLoaded(result)" class="thumb-placeholder" />
               <image

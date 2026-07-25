@@ -9,12 +9,18 @@ const CANONICAL_RATIOS = [
 ] as const;
 
 const CANONICAL_TOLERANCE = 0.025;
+const ASPECT_RATIO_PATTERN = /^(\d+(?:\.\d+)?)\s*[:x/\u00d7]\s*(\d+(?:\.\d+)?)$/i;
 
 export function normalizeAspectRatio(ratio?: string | null, fallback = "1:1") {
-  if (!ratio) return fallback;
-  const match = ratio.trim().match(/^(\d+(?:\.\d+)?)\s*[:x\/×]\s*(\d+(?:\.\d+)?)$/i);
-  if (!match) return fallback;
-  return aspectRatioFromDimensions(Number(match[1]), Number(match[2]), fallback);
+  const dimensions = parseAspectRatio(ratio);
+  if (!dimensions) return fallback;
+  return aspectRatioFromDimensions(dimensions.width, dimensions.height, fallback);
+}
+
+export function toCssAspectRatio(ratio?: string | null, fallback = "1 / 1") {
+  const dimensions = parseAspectRatio(ratio);
+  if (!dimensions) return fallback;
+  return `${dimensions.width} / ${dimensions.height}`;
 }
 
 export function aspectRatioFromDimensions(width?: number, height?: number, fallback = "1:1") {
@@ -43,4 +49,14 @@ export function aspectRatioFromDimensions(width?: number, height?: number, fallb
 
 function greatestCommonDivisor(left: number, right: number): number {
   return right === 0 ? left : greatestCommonDivisor(right, left % right);
+}
+
+function parseAspectRatio(ratio?: string | null) {
+  if (!ratio) return null;
+  const match = ratio.trim().match(ASPECT_RATIO_PATTERN);
+  if (!match) return null;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  return { width, height };
 }

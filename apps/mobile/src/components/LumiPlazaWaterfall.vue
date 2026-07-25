@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getCurrentInstance } from "vue";
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
+import { toCssAspectRatio } from "../services/aspectRatio";
 import { resolveWorkDetailSourceRect, type WorkDetailSourceRect } from "../services/workDetailNavigation";
 
 const componentInstance = getCurrentInstance();
@@ -29,18 +30,13 @@ async function openWork(work: HomeWork) {
   emit("openWork", work, sourceRect);
 }
 
-function getAspectRatio(ratio: string) {
-  const [width, height] = ratio.split(":").map(Number);
-  if (!width || !height) return "1 / 1";
-  return `${width} / ${height}`;
-}
 </script>
 
 <template>
   <view :key="renderKey" class="waterfall" :class="[animationClass, { switching }]">
     <view class="waterfall-column">
       <view v-for="work in leftWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWork(work)">
+        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" @click="openWork(work)">
           <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="emit('imageLoad', work.id, $event)" />
         </view>
         <view class="work-body">
@@ -61,7 +57,7 @@ function getAspectRatio(ratio: string) {
 
     <view class="waterfall-column">
       <view v-for="work in rightWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWork(work)">
+        <view :id="`lumi-plaza-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }" @click="openWork(work)">
           <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="emit('imageLoad', work.id, $event)" />
         </view>
         <view class="work-body">
