@@ -54,6 +54,12 @@ const surfaceStyle = computed(() => {
   const destinationHeight = resolveWorkDetailImageHeight(workRatio.value, windowWidth);
   const imageTop = navigationMetrics.statusBarHeight + navigationMetrics.navigationBarHeight;
   const imageBottom = Math.max(0, windowHeight - imageTop - destinationHeight);
+  const sourceAspectRatio = source.width / source.height;
+  const sharedWidth = Math.max(windowWidth, destinationHeight * sourceAspectRatio);
+  const sharedHeight = Math.max(destinationHeight, windowWidth / sourceAspectRatio);
+  const sharedCropX = Math.max(0, (sharedWidth - windowWidth) / 2);
+  const sharedCropY = Math.max(0, (sharedHeight - destinationHeight) / 2);
+  const sharedScale = source.width / sharedWidth;
   const pageSourceScale = Math.min(0.96, Math.max(0.24, source.width / windowWidth));
   const pageSourceWidth = windowWidth * pageSourceScale;
   const pageSourceHeight = windowHeight * pageSourceScale;
@@ -67,16 +73,22 @@ const surfaceStyle = computed(() => {
   );
   return {
     "--detail-source-x": `${source.left}px`,
+    "--detail-source-top": `${source.top}px`,
     "--detail-source-y": `${source.top - imageTop * (source.height / destinationHeight)}px`,
-    "--detail-shared-y": `${source.top - imageTop}px`,
     "--detail-source-scale-x": String(source.width / windowWidth),
     "--detail-source-scale-y": String(source.height / destinationHeight),
+    "--detail-shared-width": `${sharedWidth}px`,
+    "--detail-shared-height": `${sharedHeight}px`,
+    "--detail-shared-crop-x": `${sharedCropX}px`,
+    "--detail-shared-crop-y": `${sharedCropY}px`,
+    "--detail-shared-open-x": `${-sharedCropX}px`,
+    "--detail-shared-open-y": `${imageTop - sharedCropY}px`,
+    "--detail-shared-scale": String(sharedScale),
     "--detail-page-source-x": `${pageSourceX}px`,
     "--detail-page-source-y": `${pageSourceY}px`,
     "--detail-page-source-scale": String(pageSourceScale),
     "--detail-image-top": `${imageTop}px`,
     "--detail-image-bottom": `${imageBottom}px`,
-    "--detail-image-height": `${destinationHeight}px`,
     "--detail-surface-height": `${windowHeight}px`
   };
 });
@@ -338,29 +350,32 @@ function clearTimers() {
 .work-detail-shared-image-frame {
   position: absolute;
   z-index: 2;
-  top: var(--detail-image-top);
+  top: 0;
   left: 0;
-  width: 100%;
-  height: var(--detail-image-height);
+  width: var(--detail-shared-width);
+  height: var(--detail-shared-height);
   overflow: hidden;
   pointer-events: none;
-  border-radius: 10px;
+  -webkit-clip-path: inset(0 0 0 0 round 10px);
+  clip-path: inset(0 0 0 0 round 10px);
   -webkit-transform-origin: top left;
   transform-origin: top left;
-  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-shared-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
-  transform: translate3d(var(--detail-source-x), var(--detail-shared-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-source-scale-y), 1);
+  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-source-top), 0) scale3d(var(--detail-shared-scale), var(--detail-shared-scale), 1);
+  transform: translate3d(var(--detail-source-x), var(--detail-source-top), 0) scale3d(var(--detail-shared-scale), var(--detail-shared-scale), 1);
   transition:
     transform 390ms cubic-bezier(.4, 0, .2, 1),
-    border-radius 390ms cubic-bezier(.4, 0, .2, 1);
-  will-change: transform, border-radius;
+    -webkit-clip-path 390ms cubic-bezier(.4, 0, .2, 1),
+    clip-path 390ms cubic-bezier(.4, 0, .2, 1);
+  will-change: transform, clip-path;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
 .work-detail-overlay.open .work-detail-shared-image-frame {
-  -webkit-transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
-  transform: translate3d(var(--detail-target-offset), var(--detail-target-offset), 0) scale3d(var(--detail-target-scale), var(--detail-target-scale), 1);
-  border-radius: 0;
+  -webkit-clip-path: inset(var(--detail-shared-crop-y) var(--detail-shared-crop-x) var(--detail-shared-crop-y) var(--detail-shared-crop-x) round 0);
+  clip-path: inset(var(--detail-shared-crop-y) var(--detail-shared-crop-x) var(--detail-shared-crop-y) var(--detail-shared-crop-x) round 0);
+  -webkit-transform: translate3d(var(--detail-shared-open-x), var(--detail-shared-open-y), 0) scale3d(1, 1, 1);
+  transform: translate3d(var(--detail-shared-open-x), var(--detail-shared-open-y), 0) scale3d(1, 1, 1);
   transition-duration: 320ms;
 }
 
