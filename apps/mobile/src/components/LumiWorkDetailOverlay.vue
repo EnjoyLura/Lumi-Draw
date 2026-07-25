@@ -12,9 +12,11 @@ import { resolveWorkDetailImageHeight } from "../services/workDetailLayout";
 
 const props = defineProps<{ ownerRoute: string }>();
 
-const OPEN_DURATION = 320;
+const OPEN_DURATION = 340;
 const CLOSE_DURATION = 390;
-const FINAL_FRAME_DELAY = 24;
+const OPEN_FINAL_FRAME_DELAY = 24;
+const CLOSE_FINAL_FRAME_DELAY = 48;
+const CLOSE_FALLBACK_DELAY = 80;
 const INITIAL_FRAME_DELAY = 16;
 const SOURCE_FRAME_DELAY = 20;
 
@@ -128,7 +130,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
           detailReady.value = true;
           transitionPhase.value = "open";
           detailReadyTimer = undefined;
-        }, OPEN_DURATION + FINAL_FRAME_DELAY);
+        }, OPEN_DURATION + OPEN_FINAL_FRAME_DELAY);
       }, SOURCE_FRAME_DELAY);
     }, INITIAL_FRAME_DELAY);
   });
@@ -161,14 +163,14 @@ async function closeOverlay() {
   openTimer = setTimeout(() => {
     isOpen.value = false;
     openTimer = undefined;
-    closeTimer = setTimeout(finishClose, CLOSE_DURATION + 60);
+    closeTimer = setTimeout(finishClose, CLOSE_DURATION + CLOSE_FALLBACK_DELAY);
   }, 16);
 }
 
 function handleTransitionEnd() {
   if (isOpen.value) return;
   if (closeTimer) clearTimeout(closeTimer);
-  closeTimer = setTimeout(finishClose, FINAL_FRAME_DELAY);
+  closeTimer = setTimeout(finishClose, CLOSE_FINAL_FRAME_DELAY);
 }
 
 function finishClose() {
@@ -269,13 +271,14 @@ function clearTimers() {
 .work-detail-overlay-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0);
-  transition: background 390ms cubic-bezier(.4, 0, .2, 1);
+  background: rgba(0, 0, 0, .58);
+  opacity: 0;
+  transition: opacity 390ms cubic-bezier(.4, 0, .2, 1);
 }
 
 .work-detail-overlay.open .work-detail-overlay-backdrop {
-  background: rgba(0, 0, 0, .58);
-  transition-duration: 320ms;
+  opacity: 1;
+  transition-duration: 340ms;
 }
 
 .work-detail-overlay-surface {
@@ -323,14 +326,13 @@ function clearTimers() {
   -webkit-transform: translate3d(var(--detail-page-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-page-source-scale), var(--detail-page-source-scale), 1);
   transform: translate3d(var(--detail-page-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-page-source-scale), var(--detail-page-source-scale), 1);
   border-radius: 10px;
-  transition: transform 320ms cubic-bezier(.4, 0, .2, 1), border-radius 320ms cubic-bezier(.4, 0, .2, 1);
-  will-change: transform, border-radius;
+  transition: transform 340ms cubic-bezier(.22, 1, .36, 1);
+  will-change: transform;
 }
 
 .work-detail-overlay.opening.open .work-detail-overlay-surface.from-source {
   -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-  border-radius: 0;
 }
 
 .work-detail-shared-image-frame {
