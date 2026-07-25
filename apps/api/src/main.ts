@@ -3,6 +3,7 @@ import { Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { text } from "express";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
@@ -17,6 +18,8 @@ async function bootstrap() {
   const apiPrefix = config.getOrThrow<string>("app.apiPrefix");
   const corsOrigins = config.get<string[]>("app.corsOrigins") ?? [];
   const isProduction = config.get<string>("app.nodeEnv") === "production";
+
+  app.use(text({ type: ["text/xml", "application/xml"], limit: "256kb" }));
 
   app.setGlobalPrefix(apiPrefix);
   app.enableCors({

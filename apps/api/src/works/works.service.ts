@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/commo
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { requiresManualReview } from "../common/review-policy";
-import { assertNoSensitiveContent } from "../common/content-safety";
+import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -102,7 +102,8 @@ export class WorksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly uploads: UploadsService,
-    private readonly publishRewards: PublishRewardsService
+    private readonly publishRewards: PublishRewardsService,
+    private readonly safety: WechatContentSafetyService
   ) {}
 
   private toCard(work: WorkWithAuthor, modelName?: string) {
@@ -231,10 +232,14 @@ export class WorksService {
   }
 
   async publish(userId: number, dto: CreateWorkDto) {
-    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description, dto.prompt]);
-    const manualReview = await this.isManualReview();
     const isPublic = dto.isPublic ?? true;
-    const status = !isPublic ? "draft" : manualReview ? "pending" : "published";
+    this.uploads.assertManagedImageUrl(dto.imageUrl);
+    const textModerationStatus = isPublic
+      ? await this.safety.checkText(userId, [dto.title, dto.description, dto.prompt], 3)
+      : "unchecked";
+    const [manualReview, reviewSettings] = await Promise.all([this.isManualReview(), this.safety.settings()]);
+    const needsImageReview = isPublic && reviewSettings.imageEnabled;
+    const status = !isPublic ? "draft" : needsImageReview || manualReview ? "pending" : "published";
     const tags = normalizeTags(dto.tags, dto.style);
     const work = await this.prisma.work.create({
       data: {
@@ -248,21 +253,34 @@ export class WorksService {
         modelId: dto.modelId ?? "",
         style: dto.style ?? tags[0] ?? "",
         tags,
+        textModerationStatus,
+        imageModerationStatus: needsImageReview ? "unchecked" : "skipped",
         isPublic,
         status
       }
     });
     await this.prisma.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
+    if (needsImageReview) {
+      await this.safety.beginWorkImageReview(userId, work.id, work.imageUrl, this.uploads.readUrl(work.imageUrl, "private"));
+    }
     if (status === "published") await this.publishRewards.awardPublishedWork(userId, work.id);
     return this.detail(work.id, userId);
   }
 
   async update(userId: number, id: number, dto: UpdateWorkDto) {
     const existing = await this.ownedWork(userId, id);
-    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description]);
+    const targetIsPublic = dto.isPublic ?? existing.isPublic;
+    const contentChanged = dto.title !== undefined || dto.description !== undefined;
+    const finalTitle = dto.title ?? existing.title;
+    const finalDescription = dto.description ?? existing.description;
+    const textModerationStatus = targetIsPublic && (contentChanged || !["pass", "skipped"].includes(existing.textModerationStatus))
+      ? await this.safety.checkText(userId, [finalTitle, finalDescription, existing.prompt], 3)
+      : existing.textModerationStatus;
+    const [manualReview, reviewSettings] = await Promise.all([this.isManualReview(), this.safety.settings()]);
     const data: Prisma.WorkUpdateInput = {};
     if (dto.title !== undefined) data.title = dto.title;
     if (dto.description !== undefined) data.description = dto.description;
+    if (textModerationStatus !== existing.textModerationStatus) data.textModerationStatus = textModerationStatus;
     if (dto.style !== undefined) data.style = dto.style;
     if (dto.tags !== undefined) {
       const tags = normalizeTags(dto.tags, dto.style);
@@ -272,12 +290,27 @@ export class WorksService {
     if (dto.isPublic !== undefined) {
       data.isPublic = dto.isPublic;
       if (dto.isPublic) {
-        data.status = (await this.isManualReview()) ? "pending" : "published";
+        if (existing.imageModerationStatus === "risky") {
+          throw new ForbiddenException("图片安全审核未通过，请更换图片后重新发布");
+        }
+        const imagePassed = !reviewSettings.imageEnabled || ["pass", "skipped"].includes(existing.imageModerationStatus);
+        data.status = imagePassed && !manualReview ? "published" : "pending";
+        data.moderationReason = "";
+        if (!reviewSettings.imageEnabled) data.imageModerationStatus = "skipped";
       } else {
         data.status = "draft";
       }
     }
     const updated = await this.prisma.work.update({ where: { id }, data });
+    const needsImageReview = targetIsPublic
+      && reviewSettings.imageEnabled
+      && !["submitting", "pending", "pass", "review"].includes(updated.imageModerationStatus);
+    if (needsImageReview) {
+      if (updated.status === "published") {
+        await this.prisma.work.update({ where: { id }, data: { status: "pending" } });
+      }
+      await this.safety.beginWorkImageReview(userId, id, updated.imageUrl, this.uploads.readUrl(updated.imageUrl, "private"));
+    }
     if (updated.status === "published" && updated.isPublic) await this.publishRewards.awardPublishedWork(userId, id);
     return this.detail(id, userId);
   }

@@ -58,10 +58,10 @@ export function SetAudit() {
       <div style={HINT}>开启后提交内容会调用微信安全接口，命中风险时进入人工处理。</div>
       <Sec title="人工审核" />
       <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开启人工审核</span><Switch on={manual} onToggle={() => setManual(!manual)} /></div>
-        <div className="kv"><span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>通过后自动发布</span><Switch on={autoPublish} onToggle={() => setAutoPublish(!autoPublish)} /></div>
+        <div className="kv"><span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开启人工审核</span><Switch on={manual} onToggle={() => { const next = !manual; setManual(next); setAutoPublish(!next); }} /></div>
+        <div className="kv"><span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>机器审核通过后自动发布</span><Switch on={autoPublish} disabled={manual} onToggle={() => !manual && setAutoPublish(!autoPublish)} /></div>
       </div>
-      <div style={HINT}>关闭人工审核后，仅保留自动审核结果；开启自动发布后审核通过的作品会直接进入公开状态。</div>
+      <div style={HINT}>开启人工审核时，微信审核通过的作品仍需管理员确认；关闭后，机器审核通过会自动发布。提审保护开启时始终保留人工审核。</div>
       <div className="actionbar"><button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存设置"}</button></div>
     </>
   );

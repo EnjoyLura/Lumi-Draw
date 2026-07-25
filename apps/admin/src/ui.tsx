@@ -100,8 +100,20 @@ export function WorkCard({ w }: { w: AdminWork }) {
   );
 }
 
-export function Switch({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return <span className={`switch${on ? " on" : ""}`} onClick={(e) => { e.stopPropagation(); onToggle(); }} />;
+export function Switch({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) {
+  return (
+    <span
+      className={`switch${on ? " on" : ""}`}
+      role="switch"
+      aria-checked={on}
+      aria-disabled={disabled}
+      style={disabled ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) onToggle();
+      }}
+    />
+  );
 }
 
 export function AddBtn({ text, onClick }: { text: string; onClick: () => void }) {

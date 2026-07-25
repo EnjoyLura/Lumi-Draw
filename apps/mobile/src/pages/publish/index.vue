@@ -306,8 +306,8 @@ async function submit() {
     invalidateTabPages("gallery:");
     uni.showToast({ title: publishSuccessMessage(result), icon: "none" });
     setTimeout(leavePublishPage, 900);
-  } catch {
-    uni.showToast({ title: "发布失败，请稍后重试", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "发布失败，请稍后重试", icon: "none" });
   } finally {
     isSubmitting.value = false;
   }

@@ -43,6 +43,8 @@ export const appConfig = registerAs("app", () => ({
   wx: {
     appId: process.env.WX_APPID ?? "",
     appSecret: process.env.WX_APPSECRET ?? "",
+    apiBase: process.env.WX_API_BASE ?? "https://api.weixin.qq.com",
+    contentSecurityToken: process.env.WX_CONTENT_SECURITY_TOKEN ?? "",
     mchId: process.env.WX_MCH_ID ?? "",
     mchApiKey: process.env.WX_MCH_API_KEY ?? "",
     payApiBase: process.env.WX_PAY_API_BASE ?? "https://api.mch.weixin.qq.com",

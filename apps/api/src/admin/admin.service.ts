@@ -50,6 +50,9 @@ function workRow(work: Work & { user?: User | null }) {
     prompt: work.prompt,
     imageUrl: work.imageUrl,
     tags: work.tags,
+    textModerationStatus: work.textModerationStatus,
+    imageModerationStatus: work.imageModerationStatus,
+    moderationReason: work.moderationReason,
     createdAt: work.createdAt.toISOString()
   };
 }

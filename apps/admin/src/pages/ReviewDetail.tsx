@@ -6,7 +6,7 @@ import { getWork } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { Sec, StatusBadge } from "../ui";
-import { RejectForm } from "./Review";
+import { moderationStatusText, RejectForm } from "./Review";
 
 function mockWorkDetail(id: number): AdminWorkDetailData {
   const work = getWork(id);
@@ -70,10 +70,17 @@ export function ReviewDetail({ param }: { param?: string }) {
       <Sec title="提示词" />
       <div className="card" style={{ padding: "12px 14px", fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{w.prompt}</div>
 
+      <Sec title="微信内容安全" />
+      <div className="card" style={{ padding: "2px 14px" }}>
+        <div className="kv"><span className="k">文本审核</span><span className="v">{moderationStatusText(w.textModerationStatus)}</span></div>
+        <div className="kv"><span className="k">图片审核</span><span className="v">{moderationStatusText(w.imageModerationStatus)}</span></div>
+        {w.moderationReason ? <div style={{ padding: "11px 0", fontSize: 13, color: "var(--danger)", lineHeight: 1.6 }}>{w.moderationReason}</div> : null}
+      </div>
+
       {w.status === "待审核" ? (
         <div className="actionbar">
           <button className="btn btn-danger btn-block" onClick={reject}>拒绝</button>
-          <button className="btn btn-success btn-block" onClick={approve}><i className="ri-check-line" />通过</button>
+          <button className="btn btn-success btn-block" disabled={["submitting", "pending"].includes(w.imageModerationStatus || "")} onClick={approve}><i className="ri-check-line" />{["submitting", "pending"].includes(w.imageModerationStatus || "") ? "图片审核中" : w.imageModerationStatus === "failed" ? "重新提交审核" : w.imageModerationStatus === "unchecked" || !w.imageModerationStatus ? "提交微信审核" : "通过"}</button>
         </div>
       ) : null}
     </>

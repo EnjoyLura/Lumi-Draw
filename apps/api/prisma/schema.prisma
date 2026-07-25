@@ -233,6 +233,8 @@ model User {
   avatarText  String   @default("")
   avatarColor String   @default("#5B9FE8")
   avatarUrl   String?
+  pendingAvatarUrl String?
+  avatarModerationStatus String @default("unchecked") // unchecked | pending | pass | review | risky | failed | skipped
   bio         String   @default("")
   gender      String   @default("unknown") // unknown | male | female
   credits        Int       @default(0)
@@ -465,6 +467,10 @@ model Work {
   modelId     String   @default("")
   style       String   @default("")
   tags        String[] @default([])
+  textModerationStatus  String   @default("unchecked") // unchecked | pass | risky | failed | skipped
+  imageModerationStatus String   @default("unchecked") // unchecked | submitting | pending | pass | review | risky | failed | skipped
+  imageModerationTraceId String  @default("")
+  moderationReason       String  @default("")
   status      String   @default("published") // draft | pending | published | rejected | offline
   isPublic    Boolean  @default(true)
   featured    Boolean  @default(false)
@@ -478,6 +484,30 @@ model Work {
   @@index([status])
   @@index([userId])
   @@map("works")
+}
+
+// WeChat content-security jobs. The generic target keeps callback handling
+// independent from the public-content type being reviewed.
+model ContentModerationTask {
+  id          String    @id @default(cuid())
+  traceId     String?   @unique
+  userId      Int
+  targetType  String    // work | avatar
+  targetId    String
+  sourceUrl   String
+  mediaUrl    String
+  status      String    @default("submitting") // submitting | pending | pass | review | risky | failed | skipped
+  suggest     String    @default("")
+  label       Int?
+  detail      Json?
+  errorMessage String   @default("")
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([targetType, targetId])
+  @@index([userId, createdAt])
+  @@map("content_moderation_tasks")
 }
 
 // AI generation task.

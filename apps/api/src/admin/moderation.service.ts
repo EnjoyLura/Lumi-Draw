@@ -7,6 +7,7 @@ import { UploadsService } from "../uploads/uploads.service";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers } from "../common/creator-titles";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { DEFAULT_CHECKIN_CONFIG, DEFAULT_CREDITS_CONFIG, DEFAULT_INVITE_CONFIG } from "../credits/reward-policy";
+import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -23,7 +24,8 @@ export class ModerationService {
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
     private readonly uploads: UploadsService,
-    private readonly publishRewards: PublishRewardsService
+    private readonly publishRewards: PublishRewardsService,
+    private readonly safety: WechatContentSafetyService
   ) {}
 
   // ---------- 内容审核（待审核作品）----------
@@ -41,6 +43,9 @@ export class ModerationService {
       prompt: w.prompt,
       style: w.style,
       status: w.status,
+      textModerationStatus: w.textModerationStatus,
+      imageModerationStatus: w.imageModerationStatus,
+      moderationReason: w.moderationReason,
       authorName: w.user?.nickname ?? `用户${w.userId}`,
       createdAt: w.createdAt.toISOString()
     }));
@@ -50,6 +55,8 @@ export class ModerationService {
   async approveReview(id: number) {
     const work = await this.prisma.work.findUnique({ where: { id } });
     if (!work) throw new NotFoundException("作品不存在");
+    if (work.status !== "pending") throw new BadRequestException("只有待审核作品可以执行通过操作");
+    await this.safety.prepareWorkForManualApproval(work, this.uploads.readUrl(work.imageUrl, "private"));
     await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true } });
     await this.publishRewards.awardPublishedWork(work.userId, work.id);
     return { ok: true, id, status: "published" };
@@ -58,8 +65,12 @@ export class ModerationService {
   async rejectReview(id: number, reason: unknown) {
     const work = await this.prisma.work.findUnique({ where: { id } });
     if (!work) throw new NotFoundException("作品不存在");
-    await this.prisma.work.update({ where: { id }, data: { status: "rejected", isPublic: false } });
+    if (work.status !== "pending") throw new BadRequestException("只有待审核作品可以执行拒绝操作");
     const detail = typeof reason === "string" ? reason.trim() : "";
+    await this.prisma.work.update({
+      where: { id },
+      data: { status: "rejected", isPublic: false, moderationReason: detail || "人工审核未通过" }
+    });
     await this.notifications.createSystemNotifications(
       [work.userId],
       "作品审核未通过",

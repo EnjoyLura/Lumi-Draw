@@ -8,6 +8,7 @@ import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { CheckinModule } from "./checkin/checkin.module";
 import { ConfigCenterModule } from "./config-center/config-center.module";
+import { ContentSafetyModule } from "./content-safety/content-safety.module";
 import { CreditsModule } from "./credits/credits.module";
 import { FeedbackModule } from "./feedback/feedback.module";
 import { GenerateModule } from "./generate/generate.module";
@@ -32,6 +33,7 @@ import { WorksModule } from "./works/works.module";
     }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     PrismaModule,
+    ContentSafetyModule,
     HealthModule,
     ConfigCenterModule,
     AuthModule,

@@ -3,7 +3,8 @@ import type { Prisma, User } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { UpdateMeDto } from "../auth/auth.dto";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers, resolveCreatorTitle } from "../common/creator-titles";
-import { assertNoSensitiveContent } from "../common/content-safety";
+import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
+import { UploadsService } from "../uploads/uploads.service";
 
 function publicUser(user: User) {
   return {
@@ -21,13 +22,19 @@ function publicUser(user: User) {
     worksCount: user.worksCount,
     likesCount: user.likesCount,
     followers: user.followers,
-    following: user.following
+    following: user.following,
+    avatarModerationStatus: user.avatarModerationStatus,
+    avatarReviewPending: ["submitting", "pending"].includes(user.avatarModerationStatus)
   };
 }
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly uploads: UploadsService,
+    private readonly safety: WechatContentSafetyService
+  ) {}
 
   private async withCreatorTitle(user: User) {
     const [setting, publishedWorksCount] = await Promise.all([
@@ -49,17 +56,28 @@ export class UsersService {
   }
 
   async updateMe(userId: number, dto: UpdateMeDto) {
-    await assertNoSensitiveContent(this.prisma, [dto.nickname, dto.bio]);
+    await this.safety.checkText(userId, [dto.nickname, dto.bio], 1);
+    const current = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!current) throw new NotFoundException("用户不存在");
     const data: Prisma.UserUpdateInput = {};
     if (dto.nickname !== undefined) {
       data.nickname = dto.nickname;
       data.avatarText = dto.nickname.slice(0, 1) || "米";
     }
-    if (dto.avatarUrl !== undefined) data.avatarUrl = dto.avatarUrl;
     if (dto.bio !== undefined) data.bio = dto.bio;
     if (dto.gender !== undefined) data.gender = dto.gender;
     if (dto.phone !== undefined) data.phone = dto.phone;
-    const user = await this.prisma.user.update({ where: { id: userId }, data });
+    await this.prisma.user.update({ where: { id: userId }, data });
+
+    const avatarChanged = dto.avatarUrl !== undefined
+      && dto.avatarUrl !== current.avatarUrl
+      && dto.avatarUrl !== current.pendingAvatarUrl;
+    if (avatarChanged) {
+      this.uploads.assertManagedImageUrl(dto.avatarUrl!);
+      await this.safety.beginAvatarReview(userId, dto.avatarUrl!, this.uploads.readUrl(dto.avatarUrl!, "private"));
+    }
+
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return this.withCreatorTitle(user);
   }
 
@@ -102,6 +120,7 @@ export class UsersService {
       await tx.notification.deleteMany({ where: { userId } });
       await tx.checkinRecord.deleteMany({ where: { userId } });
       await tx.refreshToken.deleteMany({ where: { userId } });
+      await tx.contentModerationTask.deleteMany({ where: { userId } });
 
       await tx.user.update({
         where: { id: userId },
@@ -111,6 +130,8 @@ export class UsersService {
           avatarText: "",
           avatarColor: "#B8C2CC",
           avatarUrl: null,
+          pendingAvatarUrl: null,
+          avatarModerationStatus: "unchecked",
           bio: "",
           gender: "unknown",
           phone: "",

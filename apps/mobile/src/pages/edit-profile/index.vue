@@ -189,10 +189,10 @@ async function save() {
       color: profile.avatarColor || "var(--accent)"
     });
     invalidateTabPages("gallery:");
-    uni.showToast({ title: "资料已保存", icon: "none" });
+    uni.showToast({ title: profile.avatarReviewPending ? "资料已保存，头像审核中" : "资料已保存", icon: "none" });
     setTimeout(leaveEditProfilePage, 600);
-  } catch {
-    uni.showToast({ title: "保存失败，请稍后重试", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "保存失败，请稍后重试", icon: "none" });
   } finally {
     isSaving.value = false;
   }

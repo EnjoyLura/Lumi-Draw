@@ -24,6 +24,21 @@ const FOOT_STYLE: React.CSSProperties = {
   borderTop: "1px solid var(--border)"
 };
 
+const MODERATION_STATUS_TEXT: Record<string, string> = {
+  unchecked: "未提交",
+  submitting: "正在提交",
+  pending: "微信审核中",
+  pass: "已通过",
+  review: "待人工复核",
+  risky: "未通过",
+  failed: "审核服务异常",
+  skipped: "已关闭"
+};
+
+export function moderationStatusText(status?: string) {
+  return MODERATION_STATUS_TEXT[status || ""] || "未提交";
+}
+
 function hasReportData(report: AdminReport | AdminReportData): report is AdminReportData {
   return Object.prototype.hasOwnProperty.call(report, "workTitle");
 }
@@ -147,6 +162,16 @@ export function Review({ param }: { param?: string }) {
   const reject = (w: AdminWork) => openSheet("拒绝原因", <RejectForm work={w} useMock={useMock} onAfter={reload} />);
   const getWorkImage = (w: AdminWork | AdminWorkDetailData) => "imageUrl" in w && w.imageUrl ? w.imageUrl : IMG("w" + w.id);
   const getAuthorName = (w: AdminWork | AdminWorkDetailData) => "author" in w && w.author ? w.author.name : userName(w.userId);
+  const imageReviewStatus = (w: AdminWork | AdminWorkDetailData) =>
+    (w as AdminWorkDetailData).imageModerationStatus || "";
+  const imageReviewPending = (w: AdminWork | AdminWorkDetailData) =>
+    ["submitting", "pending"].includes(imageReviewStatus(w));
+  const approveText = (w: AdminWork | AdminWorkDetailData) => {
+    const status = imageReviewStatus(w);
+    if (status === "unchecked") return "提交微信审核";
+    if (status === "failed") return "重新提交审核";
+    return "通过";
+  };
   const loading = tab === "work" ? reviewsState.loading : reportsState.loading;
   const error = tab === "work" ? reviewsState.error : reportsState.error;
 
@@ -177,9 +202,10 @@ export function Review({ param }: { param?: string }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.prompt}</div>
                 <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "6px 0 8px" }}>{getAuthorName(w)} · {w.model ? modelName(w.model) : w.style} · {w.time}</div>
+                {!useMock ? <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 8 }}>微信图片审核：{moderationStatusText(imageReviewStatus(w))}</div> : null}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn btn-danger btn-sm" onClick={() => reject(w)}>拒绝</button>
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} onClick={() => approve(w)}><i className="ri-check-line" />通过</button>
+                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={imageReviewPending(w)} onClick={() => approve(w)}><i className="ri-check-line" />{imageReviewPending(w) ? "图片审核中" : approveText(w)}</button>
                 </div>
               </div>
             </div>

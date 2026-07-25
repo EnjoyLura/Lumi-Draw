@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
 import type { GenerateJob, GenerateResult } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
-import { assertNoSensitiveContent } from "../common/content-safety";
+import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
@@ -111,7 +111,8 @@ export class GenerateService implements OnApplicationBootstrap {
     private readonly config: ConfigService,
     private readonly uploads: UploadsService,
     private readonly publishRewards: PublishRewardsService,
-    private readonly wallet: WechatWalletService
+    private readonly wallet: WechatWalletService,
+    private readonly safety: WechatContentSafetyService
   ) {}
 
   async onApplicationBootstrap() {
@@ -193,7 +194,7 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
     const normalized = this.normalizeCreateDto(dto);
-    await assertNoSensitiveContent(this.prisma, [normalized.prompt]);
+    await this.safety.checkText(userId, [normalized.prompt], 3);
     const [model, quality, ratio] = await Promise.all([
       this.prisma.modelConfig.findFirst({ where: { id: normalized.modelId, enabled: true } }),
       this.resolveQuality(normalized.quality),
@@ -439,16 +440,19 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   async publishResult(userId: number, resultId: string, dto: PublishGenerateResultDto) {
-    await assertNoSensitiveContent(this.prisma, [dto.title, dto.description]);
     const result = await this.prisma.generateResult.findUnique({ where: { id: resultId }, include: { job: true } });
     if (!result) throw new NotFoundException("generate result not found");
     if (result.job.userId !== userId) throw new ForbiddenException("no permission to publish this result");
     if (result.status !== "succeeded" || !result.imageUrl) throw new BadRequestException("generate result is not publishable");
     if (result.workId) throw new ConflictException("generate result has already been published");
 
-    const manualReview = await this.isManualReview();
     const isPublic = dto.isPublic ?? true;
-    const status = !isPublic ? "draft" : manualReview ? "pending" : "published";
+    const textModerationStatus = isPublic
+      ? await this.safety.checkText(userId, [dto.title, dto.description, result.job.prompt], 3)
+      : "unchecked";
+    const [manualReview, reviewSettings] = await Promise.all([this.isManualReview(), this.safety.settings()]);
+    const needsImageReview = isPublic && reviewSettings.imageEnabled;
+    const status = !isPublic ? "draft" : needsImageReview || manualReview ? "pending" : "published";
 
     const published = await this.prisma.$transaction(async (tx) => {
       const work = await tx.work.create({
@@ -462,6 +466,8 @@ export class GenerateService implements OnApplicationBootstrap {
           quality: result.job.quality,
           modelId: result.job.modelId,
           style: result.job.style,
+          textModerationStatus,
+          imageModerationStatus: needsImageReview ? "unchecked" : "skipped",
           isPublic,
           status
         }
@@ -471,6 +477,15 @@ export class GenerateService implements OnApplicationBootstrap {
       await tx.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
       return work;
     });
+
+    if (needsImageReview) {
+      await this.safety.beginWorkImageReview(
+        userId,
+        published.id,
+        published.imageUrl,
+        this.uploads.readUrl(published.imageUrl, "private")
+      );
+    }
 
     if (published.status === "published" && published.isPublic) {
       await this.publishRewards.awardPublishedWork(userId, published.id);

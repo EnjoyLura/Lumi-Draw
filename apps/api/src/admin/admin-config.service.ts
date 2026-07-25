@@ -471,8 +471,10 @@ export class AdminConfigService {
     const normalized = { ...body };
     if (body.reviewMode === "auto" || body.reviewMode === "manual") {
       normalized.manualReviewEnabled = body.reviewMode === "manual";
+      normalized.autoPublishAfterPass = body.reviewMode === "auto";
     } else if (typeof body.manualReviewEnabled === "boolean") {
       normalized.reviewMode = body.manualReviewEnabled ? "manual" : "auto";
+      normalized.autoPublishAfterPass = !body.manualReviewEnabled;
     }
     const entries = Object.entries(normalized);
     for (const [key, value] of entries) {
@@ -484,9 +486,12 @@ export class AdminConfigService {
 
   async putReviewSettings(body: Record<string, unknown>) {
     const keys = ["wxTextSecCheckEnabled", "wxImageSecCheckEnabled", "manualReviewEnabled", "autoPublishAfterPass"];
+    const normalized = { ...body };
+    if (body.manualReviewEnabled === false) normalized.autoPublishAfterPass = true;
+    if (body.manualReviewEnabled === true) normalized.autoPublishAfterPass = false;
     for (const key of keys) {
-      if (body[key] === undefined) continue;
-      const v = body[key] ? "true" : "false";
+      if (normalized[key] === undefined) continue;
+      const v = normalized[key] ? "true" : "false";
       await this.prisma.appSetting.upsert({ where: { key }, update: { value: v }, create: { key, value: v } });
     }
     if (typeof body.manualReviewEnabled === "boolean") {

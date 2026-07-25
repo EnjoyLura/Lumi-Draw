@@ -4,6 +4,7 @@ import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers, resolveCreatorTitle } from "../common/creator-titles";
 
 type WorkWithAuthor = Work & { user: User };
@@ -90,7 +91,8 @@ export class SocialService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
-    private readonly uploads: UploadsService
+    private readonly uploads: UploadsService,
+    private readonly safety: WechatContentSafetyService
   ) {}
 
   private toWorkCard(work: WorkWithAuthor) {
@@ -225,6 +227,7 @@ export class SocialService {
   async reportWork(userId: number, workId: number, reason: string, description = "") {
     const work = await this.publicWork(workId);
     if (work.userId === userId) throw new BadRequestException("不能举报自己的作品");
+    await this.safety.checkText(userId, [reason, description], 2);
     const existing = await this.prisma.report.findFirst({
       where: { workId, reporterId: userId, status: { in: ["pending", "processing"] } }
     });

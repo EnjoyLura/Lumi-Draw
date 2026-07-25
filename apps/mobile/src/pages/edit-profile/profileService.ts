@@ -8,6 +8,8 @@ export interface MobileProfile {
   avatarUrl?: string | null;
   bio?: string | null;
   gender?: string | null;
+  avatarModerationStatus?: string;
+  avatarReviewPending?: boolean;
 }
 
 export function fetchMyProfile() {

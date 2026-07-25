@@ -56,12 +56,16 @@ interface ApiWork {
   ratio: string; quality: string; style: string; status: string; featured: boolean;
   recommend: boolean; likes: number; favorites: number; remakes: number; createdAt: string;
   description?: string; prompt?: string; imageUrl?: string; thumbnailUrl?: string;
+  textModerationStatus?: string; imageModerationStatus?: string; moderationReason?: string;
   author?: { id: number; nickname: string; avatarText: string; avatarColor: string } | null;
 }
 
 export interface AdminWorkDetailData extends AdminWork {
   imageUrl?: string;
   author?: { id: number; name: string; avatar: string; color: string } | null;
+  textModerationStatus?: string;
+  imageModerationStatus?: string;
+  moderationReason?: string;
 }
 
 export interface AdminReportData extends AdminReport {
@@ -93,6 +97,9 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
     time: (w.createdAt ?? "").slice(0, 10),
     imageUrl: w.imageUrl,
     thumbnailUrl: w.thumbnailUrl,
+    textModerationStatus: w.textModerationStatus,
+    imageModerationStatus: w.imageModerationStatus,
+    moderationReason: w.moderationReason,
     authorName: w.author?.nickname ?? w.authorName,
     author: w.author
       ? { id: w.author.id, name: w.author.nickname, avatar: w.author.avatarText, color: w.author.avatarColor }
@@ -226,7 +233,8 @@ export async function apiCreateAdminWork(input: AdminCreateWorkInput) {
 
 interface ApiReviewWork {
   id: number; title: string; imageUrl?: string; thumbnailUrl?: string; prompt: string; style: string;
-  status: string; authorName: string; createdAt: string;
+  status: string; authorName: string; createdAt: string; textModerationStatus?: string;
+  imageModerationStatus?: string; moderationReason?: string;
 }
 
 function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
@@ -249,6 +257,9 @@ function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
     time: (w.createdAt ?? "").slice(0, 10),
     imageUrl: w.imageUrl,
     thumbnailUrl: w.thumbnailUrl,
+    textModerationStatus: w.textModerationStatus,
+    imageModerationStatus: w.imageModerationStatus,
+    moderationReason: w.moderationReason,
     author: { id: 0, name: w.authorName, avatar: w.authorName.slice(0, 1), color: "#5B9FE8" }
   };
 }
