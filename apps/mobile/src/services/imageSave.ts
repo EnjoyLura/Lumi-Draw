@@ -1,6 +1,13 @@
 import { requireWechatPrivacyAuthorization } from "./wechatPrivacy";
 
-type ImageSaveErrorCode = "download" | "permission" | "unsupported-format" | "storage" | "cancelled" | "save";
+type ImageSaveErrorCode =
+  | "download"
+  | "permission"
+  | "privacy-scope"
+  | "unsupported-format"
+  | "storage"
+  | "cancelled"
+  | "save";
 
 type WechatFileSystemManager = {
   copyFile: (options: { srcPath: string; destPath: string; success: () => void; fail: (error: unknown) => void }) => void;
@@ -107,7 +114,9 @@ function saveImageToAlbum(filePath: string) {
       success: () => resolve(),
       fail(error) {
         const message = errorMessage(error);
-        const code: ImageSaveErrorCode = /auth|authorize|permission|deny|denied/.test(message)
+        const code: ImageSaveErrorCode = /privacy agreement|privacy.*scope|scope.*privacy/.test(message)
+          ? "privacy-scope"
+          : /auth|authorize|permission|deny|denied/.test(message)
           ? "permission"
           : /cancel/.test(message)
             ? "cancelled"
@@ -156,6 +165,7 @@ async function saveImageToAlbumWithPermissionRecovery(filePath: string) {
 
 export function imageSaveFailureMessage(error: unknown) {
   if (error instanceof ImageSaveError) {
+    if (error.code === "privacy-scope") return "小程序暂未开通相册保存能力，请稍后再试";
     if (error.code === "permission") return "未开启相册权限，请在设置中允许后重试";
     if (error.code === "download") return "图片下载失败，请检查网络后重试";
     if (error.code === "unsupported-format") return "当前图片格式暂不支持保存到相册";
