@@ -43,7 +43,6 @@ const props = withDefaults(defineProps<{
   sharedTransitioning?: boolean;
   contentVisible?: boolean;
   detailReady?: boolean;
-  opening?: boolean;
   refreshVersion?: number;
 }>(), {
   embedded: false,
@@ -52,7 +51,6 @@ const props = withDefaults(defineProps<{
   sharedTransitioning: false,
   contentVisible: true,
   detailReady: false,
-  opening: false,
   refreshVersion: 0
 });
 
@@ -851,7 +849,7 @@ function handleDetailPreviewLoad() {
 <template>
   <view
     class="detail-page"
-    :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible, 'detail-opening': props.opening }]"
+    :class="[themeClass, { embedded: props.embedded, 'detail-content-visible': props.contentVisible }]"
     :style="{ '--lumi-safe-bottom': `${bottomSafeArea}px`, '--lumi-detail-header-height': `${headerHeight}px` }"
   >
     <LumiPageHeader title="作品详情" :embedded="props.embedded" @back="props.embedded ? emit('close') : undefined" />
@@ -1227,14 +1225,6 @@ function handleDetailPreviewLoad() {
   opacity: 0;
 }
 
-.detail-page.embedded.detail-opening {
-  background: transparent;
-}
-
-.detail-page.embedded.detail-opening .detail-image-frame.shared-transitioning {
-  background: transparent;
-}
-
 .detail-page.embedded .detail-body,
 .detail-page.embedded .detail-bottom,
 .detail-page.embedded .bottom-safe-area {
@@ -1257,24 +1247,6 @@ function handleDetailPreviewLoad() {
 .detail-page.embedded.detail-content-visible .bottom-safe-area {
   opacity: 1;
   transform: translateY(0);
-}
-
-.detail-page.embedded.detail-opening .detail-body,
-.detail-page.embedded.detail-opening .detail-bottom,
-.detail-page.embedded.detail-opening .bottom-safe-area {
-  transition: opacity 310ms cubic-bezier(.4, 0, .2, 1), transform 310ms cubic-bezier(.4, 0, .2, 1);
-  will-change: opacity, transform;
-}
-
-.detail-page.embedded.detail-opening:not(.detail-content-visible) .detail-body,
-.detail-page.embedded.detail-opening:not(.detail-content-visible) .detail-bottom,
-.detail-page.embedded.detail-opening:not(.detail-content-visible) .bottom-safe-area {
-  transform: translate3d(0, 12px, 0);
-}
-
-.detail-page.embedded.detail-opening :deep(.lumi-page-header) {
-  transition: opacity 310ms cubic-bezier(.4, 0, .2, 1);
-  will-change: opacity;
 }
 
 .detail-body {

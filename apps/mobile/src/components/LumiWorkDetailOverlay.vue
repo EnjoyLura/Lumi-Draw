@@ -37,8 +37,6 @@ let openTimer: ReturnType<typeof setTimeout> | undefined;
 let surfaceTimer: ReturnType<typeof setTimeout> | undefined;
 let backGuardTimer: ReturnType<typeof setTimeout> | undefined;
 let closeTimer: ReturnType<typeof setTimeout> | undefined;
-let contentTimer: ReturnType<typeof setTimeout> | undefined;
-let sharedImageTimer: ReturnType<typeof setTimeout> | undefined;
 let detailReadyTimer: ReturnType<typeof setTimeout> | undefined;
 let unregisterOverlay: (() => void) | undefined;
 let activeSourceId: string | undefined;
@@ -54,14 +52,26 @@ const surfaceStyle = computed(() => {
   const destinationHeight = resolveWorkDetailImageHeight(workRatio.value, windowWidth);
   const imageTop = navigationMetrics.statusBarHeight + navigationMetrics.navigationBarHeight;
   const imageBottom = Math.max(0, windowHeight - imageTop - destinationHeight);
+  const pageSourceScale = Math.min(0.96, Math.max(0.24, source.width / windowWidth));
+  const pageSourceWidth = windowWidth * pageSourceScale;
+  const pageSourceHeight = windowHeight * pageSourceScale;
+  const pageSourceX = Math.min(
+    Math.max(0, source.left + source.width / 2 - pageSourceWidth / 2),
+    Math.max(0, windowWidth - pageSourceWidth)
+  );
+  const pageSourceY = Math.min(
+    Math.max(0, source.top + source.height / 2 - pageSourceHeight / 2),
+    Math.max(0, windowHeight - pageSourceHeight)
+  );
   return {
     "--detail-source-x": `${source.left}px`,
     "--detail-source-y": `${source.top - imageTop * (source.height / destinationHeight)}px`,
     "--detail-shared-y": `${source.top - imageTop}px`,
     "--detail-source-scale-x": String(source.width / windowWidth),
     "--detail-source-scale-y": String(source.height / destinationHeight),
-    "--detail-page-source-y": `${source.top}px`,
-    "--detail-page-source-scale-y": String(source.height / windowHeight),
+    "--detail-page-source-x": `${pageSourceX}px`,
+    "--detail-page-source-y": `${pageSourceY}px`,
+    "--detail-page-source-scale": String(pageSourceScale),
     "--detail-image-top": `${imageTop}px`,
     "--detail-image-bottom": `${imageBottom}px`,
     "--detail-image-height": `${destinationHeight}px`,
@@ -85,7 +95,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   backGuardMounted.value = false;
   backGuardVisible.value = false;
   surfaceVisible.value = false;
-  contentVisible.value = false;
+  contentVisible.value = Boolean(payload.sourceRect);
   workId.value = payload.work.id;
   workRatio.value = payload.work.ratio || "1:1";
   sharedImage.value = payload.work.image;
@@ -93,7 +103,7 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
   activeSourceId = payload.sourceId;
   activeSourceContext = payload.sourceContext;
   sharedActive.value = Boolean(payload.sourceRect);
-  sharedImageVisible.value = Boolean(payload.sourceRect && sharedImage.value);
+  sharedImageVisible.value = false;
   detailReady.value = false;
   transitionPhase.value = "opening";
   closing = false;
@@ -108,15 +118,6 @@ function openOverlay(payload: WorkDetailOverlayOpenPayload) {
         openTimer = undefined;
         if (!payload.sourceRect) {
           contentVisible.value = true;
-        } else {
-          contentTimer = setTimeout(() => {
-            contentVisible.value = true;
-            contentTimer = undefined;
-          }, 10);
-          sharedImageTimer = setTimeout(() => {
-            sharedImageVisible.value = false;
-            sharedImageTimer = undefined;
-          }, OPEN_DURATION + FINAL_FRAME_DELAY);
         }
         backGuardTimer = setTimeout(() => {
           backGuardMounted.value = true;
@@ -154,8 +155,6 @@ async function closeOverlay() {
   }
   backGuardVisible.value = false;
   contentVisible.value = false;
-  if (contentTimer) clearTimeout(contentTimer);
-  if (sharedImageTimer) clearTimeout(sharedImageTimer);
   if (closeTimer) clearTimeout(closeTimer);
   sharedImageVisible.value = Boolean(sharedActive.value && sharedImage.value);
   await nextTick();
@@ -198,15 +197,11 @@ function clearTimers() {
   if (surfaceTimer) clearTimeout(surfaceTimer);
   if (backGuardTimer) clearTimeout(backGuardTimer);
   if (closeTimer) clearTimeout(closeTimer);
-  if (contentTimer) clearTimeout(contentTimer);
-  if (sharedImageTimer) clearTimeout(sharedImageTimer);
   if (detailReadyTimer) clearTimeout(detailReadyTimer);
   openTimer = undefined;
   surfaceTimer = undefined;
   backGuardTimer = undefined;
   closeTimer = undefined;
-  contentTimer = undefined;
-  sharedImageTimer = undefined;
   detailReadyTimer = undefined;
 }
 </script>
@@ -234,11 +229,6 @@ function clearTimers() {
   >
     <view class="work-detail-overlay-backdrop" />
     <view
-      v-if="transitionPhase === 'opening' && sharedActive"
-      class="work-detail-reveal-background"
-      :style="surfaceStyle"
-    />
-    <view
       class="work-detail-overlay-surface"
       :class="{ 'from-source': sharedActive }"
       :style="surfaceStyle"
@@ -251,7 +241,6 @@ function clearTimers() {
         :shared-transitioning="sharedImageVisible"
         :content-visible="contentVisible"
         :detail-ready="detailReady"
-        :opening="transitionPhase === 'opening'"
         @close="void closeOverlay()"
       />
     </view>
@@ -289,32 +278,9 @@ function clearTimers() {
   transition-duration: 320ms;
 }
 
-.work-detail-reveal-background {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: var(--bg-base);
-  border-radius: 10px;
-  -webkit-transform-origin: top left;
-  transform-origin: top left;
-  -webkit-transform: translate3d(var(--detail-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-page-source-scale-y), 1);
-  transform: translate3d(var(--detail-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-source-scale-x), var(--detail-page-source-scale-y), 1);
-  transition: transform 320ms cubic-bezier(.4, 0, .2, 1), border-radius 320ms cubic-bezier(.4, 0, .2, 1);
-  will-change: transform, border-radius;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-}
-
-.work-detail-overlay.open .work-detail-reveal-background {
-  border-radius: 0;
-  -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-  transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-}
-
 .work-detail-overlay-surface {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   width: 100%;
   height: var(--detail-surface-height, 100%);
   overflow: hidden;
@@ -351,20 +317,25 @@ function clearTimers() {
   transition: opacity 60ms ease, transform 320ms cubic-bezier(.4, 0, .2, 1), -webkit-clip-path 320ms cubic-bezier(.4, 0, .2, 1), clip-path 320ms cubic-bezier(.4, 0, .2, 1);
 }
 
-.work-detail-overlay.opening .work-detail-overlay-surface.from-source,
-.work-detail-overlay.open:not(.closing) .work-detail-overlay-surface.from-source {
+.work-detail-overlay.opening .work-detail-overlay-surface.from-source {
   -webkit-clip-path: inset(0 0 0 0 round 0);
   clip-path: inset(0 0 0 0 round 0);
+  -webkit-transform: translate3d(var(--detail-page-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-page-source-scale), var(--detail-page-source-scale), 1);
+  transform: translate3d(var(--detail-page-source-x), var(--detail-page-source-y), 0) scale3d(var(--detail-page-source-scale), var(--detail-page-source-scale), 1);
+  border-radius: 10px;
+  transition: transform 320ms cubic-bezier(.4, 0, .2, 1), border-radius 320ms cubic-bezier(.4, 0, .2, 1);
+  will-change: transform, border-radius;
+}
+
+.work-detail-overlay.opening.open .work-detail-overlay-surface.from-source {
   -webkit-transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
   transform: translate3d(0, 0, 0) scale3d(1, 1, 1);
-  background: transparent;
-  transition: none;
-  will-change: auto;
+  border-radius: 0;
 }
 
 .work-detail-shared-image-frame {
   position: absolute;
-  z-index: 3;
+  z-index: 2;
   top: var(--detail-image-top);
   left: 0;
   width: 100%;
