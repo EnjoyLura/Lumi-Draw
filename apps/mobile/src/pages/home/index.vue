@@ -721,11 +721,10 @@ function getWorkTitle(work: HomeWork) {
   return work.title || work.prompt.slice(0, 20);
 }
 
-function getRatioClass(ratio: string) {
-  if (ratio === "1:1") return "ratio-square";
-  if (ratio === "4:3" || ratio === "16:9") return "ratio-wide";
-  if (ratio === "9:16") return "ratio-portrait";
-  return "ratio-tall";
+function getAspectRatio(ratio: string) {
+  const [width, height] = ratio.split(":").map(Number);
+  if (!width || !height) return "1 / 1";
+  return `${width} / ${height}`;
 }
 </script>
 
@@ -851,7 +850,7 @@ function getRatioClass(ratio: string) {
           <view v-else :key="worksRenderKey" class="waterfall" :class="waterfallAnimationClass">
             <view class="waterfall-col">
               <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work)">
+                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
@@ -878,7 +877,7 @@ function getRatioClass(ratio: string) {
 
             <view class="waterfall-col">
               <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card">
-                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :class="getRatioClass(work.ratio)" @click="openWorkDetail(work)">
+                <view :id="`lumi-home-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: getAspectRatio(work.ratio) }" @click="openWorkDetail(work)">
                   <image class="work-image" :src="work.image" mode="aspectFill" lazy-load />
                 </view>
                 <view class="work-body">
@@ -1489,22 +1488,6 @@ function getRatioClass(ratio: string) {
   width: 100%;
   overflow: hidden;
   background: var(--bg-soft);
-}
-
-.ratio-square {
-  height: 172px;
-}
-
-.ratio-wide {
-  height: 128px;
-}
-
-.ratio-tall {
-  height: 224px;
-}
-
-.ratio-portrait {
-  height: 260px;
 }
 
 .work-image {
