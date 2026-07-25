@@ -124,40 +124,58 @@ export class Change2ProClient {
     const config = this.getConfig(runtime);
     const providerModel = input.providerModel || ("model" in config.params ? String(config.params.model) : "") || "gpt-image-2";
     const endpoint = input.mode === "image-to-image" ? "/images/edits" : "/images/generations";
-    let payload: Record<string, unknown>;
+    const requests = Array.from({ length: Math.max(1, input.count) }, (_, index) => ({
+      ...input,
+      jobId: input.count > 1 ? `${input.jobId}-${index + 1}` : input.jobId,
+      count: 1
+    }));
+    let payloads: Record<string, unknown>[];
 
     if (input.mode === "image-to-image") {
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
-      payload = await this.requestImage2Form(
+      payloads = await this.settledImageRequests(requests.map((request) => () => this.requestImage2Form(
+          config.endpoint || this.image2Endpoint(config.apiBase, endpoint),
+          config.imageApiKey,
+          request,
+          reference,
+          config.params,
+          config.dynamicParams
+        )), input.jobId);
+    } else {
+      payloads = await this.settledImageRequests(requests.map((request) => () => this.requestImage2Json(
         config.endpoint || this.image2Endpoint(config.apiBase, endpoint),
         config.imageApiKey,
-        input,
-        reference,
-        config.params,
-        config.dynamicParams
-      );
-    } else {
-      payload = await this.requestImage2Json(config.endpoint || this.image2Endpoint(config.apiBase, endpoint), config.imageApiKey, input.jobId, {
-        ...pickProviderParams(config.params, config.dynamicParams
-          ? Object.keys(config.params)
-          : ["quality", "moderation", "output_format", "output_compression", "response_format"]),
-        model: providerModel,
-        prompt: input.prompt,
-        n: input.count,
-        size: normalizeImage2Size(input.ratio, input.quality),
-        transparent_output: false
-      });
+        request.jobId,
+        {
+          ...pickProviderParams(config.params, config.dynamicParams
+            ? Object.keys(config.params)
+            : ["quality", "moderation", "output_format", "output_compression", "response_format"]),
+          model: providerModel,
+          prompt: input.prompt,
+          n: 1,
+          size: normalizeImage2Size(input.ratio, input.quality),
+          transparent_output: false
+        }
+      )), input.jobId);
     }
 
-    const data = Array.isArray(payload.data) ? payload.data : [];
-    const outputs: Change2ProOutput[] = [];
-    data.forEach((item) => {
-      const record = this.asRecord(item);
-      if (typeof record?.url === "string") outputs.push({ url: record.url });
-      else if (typeof record?.b64_json === "string") outputs.push({ buffer: Buffer.from(record.b64_json, "base64"), contentType: `image/${IMAGE_2_OUTPUT_FORMAT}` });
-    });
+    const mapping = runtime?.responseMapping || {};
+    const outputs: Change2ProOutput[] = payloads.flatMap((payload) => [
+        ...this.stringValuesAtPath(payload, mapping.resultUrlPath || "data[].url").map((url) => ({ url })),
+        ...this.stringValuesAtPath(payload, mapping.resultBase64Path || "data[].b64_json")
+          .map((base64) => ({ buffer: Buffer.from(base64.replace(/^data:image\/[a-z+]+;base64,/i, ""), "base64"), contentType: `image/${IMAGE_2_OUTPUT_FORMAT}` }))
+      ]);
     if (!outputs.length) throw new Error("Image 2 response did not include an image");
-    return outputs;
+    return outputs.slice(0, input.count);
+  }
+
+  private async settledImageRequests(requests: Array<() => Promise<Record<string, unknown>>>, jobId: string) {
+    const settled = await Promise.allSettled(requests.map((request) => request()));
+    const payloads = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+    const failures = settled.filter((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failures.length) this.logger.warn(`Image 2 batch ${jobId} completed ${payloads.length}/${requests.length} request(s)`);
+    if (!payloads.length) throw failures[0]?.reason instanceof Error ? failures[0].reason : new Error("Image 2 batch failed");
+    return payloads;
   }
 
   private async requestImage2Json(url: string, apiKey: string, requestId: string, payload: Record<string, unknown>) {
@@ -434,6 +452,20 @@ export class Change2ProClient {
       },
       dynamicParams: false
     };
+  }
+
+  private stringValuesAtPath(value: unknown, path: string) {
+    let current: unknown[] = [value];
+    for (const segment of path.split(".").filter(Boolean)) {
+      const array = segment.endsWith("[]");
+      const key = array ? segment.slice(0, -2) : segment;
+      current = current.flatMap((item) => {
+        const next = this.asRecord(item)?.[key];
+        if (array) return Array.isArray(next) ? next : [];
+        return next === undefined || next === null ? [] : [next];
+      });
+    }
+    return current.filter((item): item is string => typeof item === "string" && Boolean(item));
   }
 
   private allowedReferenceHosts() {

@@ -137,6 +137,35 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   assert.equal(request?.payload.model, "image2-vip");
 });
 
+test("Image 2 submits one request per requested output when providers ignore n", async () => {
+  const provider = client();
+  const requests: Array<{ id: string; n: unknown }> = [];
+  (provider as unknown as {
+    requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  }).requestImage2Json = async (_url, _key, id, payload) => {
+    requests.push({ id, n: payload.n });
+    return { data: [{ url: `https://images.example.com/${id}.png` }] };
+  };
+
+  const outputs = await provider.generate({
+    jobId: "multi-image",
+    modelId: "gpt-image-2",
+    mode: "text-to-image",
+    prompt: "three cats",
+    inputImageUrl: "",
+    ratio: "1:1",
+    quality: "1K",
+    count: 3
+  });
+
+  assert.deepEqual(requests, [
+    { id: "multi-image-1", n: 1 },
+    { id: "multi-image-2", n: 1 },
+    { id: "multi-image-3", n: 1 }
+  ]);
+  assert.equal(outputs.length, 3);
+});
+
 test("Images-compatible runtime accepts an arbitrary creative model id", async () => {
   const provider = client();
   let request: { url: string; payload: Record<string, unknown> } | undefined;

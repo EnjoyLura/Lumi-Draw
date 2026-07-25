@@ -21,6 +21,7 @@ import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { invalidateWorkDetailPreload, preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { clearWorkDetailCache, patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { notifyWorkVisibilityChange, subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
+import { subscribeGalleryWorksCreated } from "../../services/galleryWorkEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { refreshRechargePageSnapshot } from "../recharge/rechargeCache";
 import {
@@ -166,6 +167,9 @@ let rechargePreloadTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 let unsubscribeWorkVisibility: (() => void) | undefined;
+let unsubscribeGalleryWorksCreated: (() => void) | undefined;
+let latestGalleryMerge: Promise<void> | undefined;
+const mergedGenerationJobs = new Set<string>();
 
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
@@ -265,7 +269,7 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
-  void refreshGalleryPage(true).catch(() => undefined);
+  void refreshGalleryPage().catch(() => undefined);
   scheduleRechargePreload();
 });
 
@@ -289,6 +293,11 @@ onMounted(() => {
     works.value = works.value.map((work) => (work.id === id ? { ...work, published: false, status } : work));
     selectedIds.value.delete(id);
     selectedIds.value = new Set(selectedIds.value);
+  });
+  unsubscribeGalleryWorksCreated = subscribeGalleryWorksCreated(({ jobId }) => {
+    if (mergedGenerationJobs.has(jobId)) return;
+    mergedGenerationJobs.add(jobId);
+    void mergeLatestGalleryWorks().catch(() => undefined);
   });
   void loadModelOptions();
   markInitialContentReady();
@@ -320,7 +329,7 @@ async function loadModelOptions() {
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
   if (tab === props.pageMode) {
-    void refreshGalleryPage(true).catch(() => undefined);
+    void refreshGalleryPage().catch(() => undefined);
     scheduleRechargePreload();
   }
 });
@@ -328,6 +337,8 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 onBeforeUnmount(() => {
   unsubscribeWorkVisibility?.();
   unsubscribeWorkVisibility = undefined;
+  unsubscribeGalleryWorksCreated?.();
+  unsubscribeGalleryWorksCreated = undefined;
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);
@@ -472,18 +483,12 @@ async function handleGenerateTasksCompleted(ids: string[]) {
 
     const hasSavedDraft = finished.some((job) => job.status === "succeeded" || job.status === "partial_failed");
     if (hasSavedDraft) {
-      await Promise.all([loadGalleryPage(1, false), fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))]);
-      visibleCount.value = PAGE_SIZE;
-      renderKey.value += 1;
-      uni.showModal({
-        title: "生成完成",
-        content: "生成作品已自动保存到画廊，可在画廊发布和下载作品。",
-        confirmText: "去创作页",
-        cancelText: "留在画廊",
-        success(result) {
-          if (result.confirm) uni.navigateTo({ url: `/pages/create/index?jobId=${encodeURIComponent(finished[0].id)}` });
-        }
-      });
+      finishedIds.forEach((id) => mergedGenerationJobs.add(id));
+      await Promise.all([
+        mergeLatestGalleryWorks(),
+        fetchGalleryUser().then((nextProfile) => (profile.value = nextProfile))
+      ]);
+      uni.showToast({ title: "新作品已保存到画廊", icon: "none" });
       return;
     }
 
@@ -491,6 +496,50 @@ async function handleGenerateTasksCompleted(ids: string[]) {
   } catch {
     uni.showToast({ title: "生成任务已结束，请刷新画廊查看", icon: "none" });
   }
+}
+
+function mergeLatestGalleryWorks() {
+  if (useMockData.value || !isLoggedIn.value || renderedTab.value === "favorite") return Promise.resolve();
+  if (latestGalleryMerge) return latestGalleryMerge;
+
+  const request = (async () => {
+    const result = await fetchGalleryWorks({
+      status: getStatusForTab(),
+      page: 1,
+      pageSize: PAGE_SIZE,
+      ownerId: galleryOwnerId()
+    });
+    const latestWorks = assignGalleryOwner(result.works);
+    const existingById = new Map(works.value.map((work) => [work.id, work]));
+    const addedWorks: HomeWork[] = [];
+
+    latestWorks.forEach((latestWork) => {
+      const existing = existingById.get(latestWork.id);
+      if (!existing) {
+        addedWorks.push(latestWork);
+        return;
+      }
+      const renderedImage = existing.image;
+      Object.assign(existing, latestWork, { image: renderedImage });
+    });
+
+    if (addedWorks.length) {
+      works.value = [...addedWorks, ...works.value];
+      visibleCount.value += addedWorks.length;
+      preloadWorkDetailSnapshots(addedWorks.map((work) => ({ work, user: getWorkAuthor(work) })));
+      waterfallEnterKey.value += 1;
+    }
+
+    if (pageState.page === 1) pageState.hasMore = result.hasMore;
+    prefetchedGalleryPage = undefined;
+    void prefetchNextGalleryPage();
+  })();
+
+  const pending = request.finally(() => {
+    if (latestGalleryMerge === pending) latestGalleryMerge = undefined;
+  });
+  latestGalleryMerge = pending;
+  return latestGalleryMerge;
 }
 
 async function loadGalleryPage(page = 1, append = false) {

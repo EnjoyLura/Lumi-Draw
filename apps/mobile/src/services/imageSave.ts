@@ -9,7 +9,12 @@ export class ImageSaveError extends Error {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  if (error instanceof Error) return error.message.toLowerCase();
+  if (error && typeof error === "object") {
+    const value = error as { errMsg?: unknown; message?: unknown };
+    return String(value.errMsg || value.message || error).toLowerCase();
+  }
+  return String(error).toLowerCase();
 }
 
 function saveImageInBrowser(url: string, filename: string) {
@@ -46,31 +51,12 @@ function saveImageToAlbum(filePath: string) {
       success: () => resolve(),
       fail(error) {
         const message = errorMessage(error);
-        const code: ImageSaveErrorCode = /invalid|format|type|webp/.test(message) ? "unsupported-format" : "save";
+        const code: ImageSaveErrorCode = /auth|authorize|permission|deny|denied/.test(message)
+          ? "permission"
+          : /invalid|format|type|webp/.test(message)
+            ? "unsupported-format"
+            : "save";
         reject(new ImageSaveError(code, "save image failed", error));
-      }
-    });
-  });
-}
-
-function getPhotoAlbumPermission() {
-  return new Promise<boolean | undefined>((resolve, reject) => {
-    uni.getSetting({
-      success(result) {
-        resolve(result.authSetting["scope.writePhotosAlbum"]);
-      },
-      fail: reject
-    });
-  });
-}
-
-function authorizePhotoAlbum() {
-  return new Promise<void>((resolve, reject) => {
-    uni.authorize({
-      scope: "scope.writePhotosAlbum",
-      success: () => resolve(),
-      fail(error) {
-        reject(new ImageSaveError("permission", "photo album permission denied", error));
       }
     });
   });
@@ -89,32 +75,23 @@ function askToOpenPhotoAlbumSetting() {
 }
 
 function openPhotoAlbumSetting() {
-  return new Promise<boolean>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     uni.openSetting({
-      success(result) {
-        resolve(result.authSetting["scope.writePhotosAlbum"] === true);
-      },
-      fail: () => resolve(false)
+      success: () => resolve(),
+      fail: (error) => reject(new ImageSaveError("permission", "open settings failed", error))
     });
   });
 }
 
-async function ensurePhotoAlbumPermission() {
-  const permission = await getPhotoAlbumPermission();
-  if (permission === true) return;
-  if (permission === undefined) {
-    try {
-      await authorizePhotoAlbum();
-      return;
-    } catch {
-      // The authorization dialog can be dismissed. Fall through to settings so a previously denied state is recoverable.
-    }
+async function saveImageToAlbumWithPermissionRecovery(filePath: string) {
+  try {
+    await saveImageToAlbum(filePath);
+  } catch (error) {
+    if (!(error instanceof ImageSaveError) || error.code !== "permission") throw error;
+    if (!(await askToOpenPhotoAlbumSetting())) throw error;
+    await openPhotoAlbumSetting();
+    await saveImageToAlbum(filePath);
   }
-
-  if (await askToOpenPhotoAlbumSetting()) {
-    if (await openPhotoAlbumSetting()) return;
-  }
-  throw new ImageSaveError("permission", "photo album permission denied");
 }
 
 export function imageSaveFailureMessage(error: unknown) {
@@ -128,8 +105,11 @@ export function imageSaveFailureMessage(error: unknown) {
 
 export async function saveImageToDevice(url: string, filename = `lumi-${Date.now()}.jpg`) {
   if (saveImageInBrowser(url, filename)) return;
-  await requireWechatPrivacyAuthorization();
+  try {
+    await requireWechatPrivacyAuthorization();
+  } catch (error) {
+    throw new ImageSaveError("permission", "privacy authorization denied", error);
+  }
   const filePath = await downloadImage(url);
-  await ensurePhotoAlbumPermission();
-  await saveImageToAlbum(filePath);
+  await saveImageToAlbumWithPermissionRecovery(filePath);
 }

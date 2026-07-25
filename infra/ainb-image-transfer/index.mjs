@@ -81,6 +81,12 @@ function verifyRequest(request) {
 function assertPublicHttps(value, label) {
   const url = new URL(value);
   if (url.protocol !== "https:") throw new Error(`${label} must use HTTPS`);
+  return assertPublicUrl(url, label);
+}
+
+function assertPublicUrl(value, label) {
+  const url = value instanceof URL ? value : new URL(value);
+  if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error(`${label} must use HTTP or HTTPS`);
   const host = url.hostname.toLowerCase();
   if (host === "localhost" || host.endsWith(".local") || host === "0.0.0.0" || host === "::1" || /^(10|127|169\.254|192\.168)\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
     throw new Error(`${label} points to a private host`);
@@ -156,7 +162,8 @@ async function downloadImage(url, trace = {}) {
   logEvent("info", "image.download.start", downloadTrace);
   let upstream;
   try {
-    upstream = await fetch(assertPublicHttps(url, "image URL"), { signal: AbortSignal.timeout(240_000) });
+    const imageUrl = trace.allowHttpResultUrl ? assertPublicUrl(url, "image URL") : assertPublicHttps(url, "image URL");
+    upstream = await fetch(imageUrl, { signal: AbortSignal.timeout(240_000) });
   } catch (error) {
     logEvent("error", "image.download.failed", { ...downloadTrace, phase: "headers", elapsedMs: Date.now() - startedAt, error: errorDetails(error) });
     throw error;
@@ -275,31 +282,61 @@ async function runOpenAi(provider, input, onProgress) {
   const trace = { jobId: input.jobId, phase: "provider-generate", requestMode: provider.requestMode || "sync", mode: input.mode };
   if (input.mode === "image-to-image") {
     const reference = await downloadImage(input.inputImageUrl, { jobId: input.jobId, phase: "reference-image" });
-    const form = new FormData();
-    form.append("model", model);
-    form.append("prompt", input.prompt);
-    form.append("size", input.size);
-    form.append("n", String(input.count));
-    for (const [key, value] of Object.entries(params)) form.append(key, String(value));
-    form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
-    const payload = await requestJson(provider.endpoint, { method: "POST", headers: { Authorization: `Bearer ${provider.apiKey}`, Accept: "application/json" }, body: form }, trace);
-    return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
+    const requestEdit = async (index, count) => {
+      const form = new FormData();
+      form.append("model", model);
+      form.append("prompt", input.prompt);
+      form.append("size", input.size);
+      form.append("n", String(count));
+      for (const [key, value] of Object.entries(params)) form.append(key, String(value));
+      form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
+      return requestJson(provider.endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${provider.apiKey}`, Accept: "application/json", "X-Request-Id": `${input.jobId}-${index + 1}` },
+        body: form
+      }, { ...trace, outputIndex: index });
+    };
+    if (provider.requestMode === "async") {
+      const payload = await requestEdit(0, input.count);
+      return pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress);
+    }
+    const payloads = await settledProviderRequests(Array.from({ length: Math.max(1, input.count) }, (_, index) => () => requestEdit(index, 1)), input.jobId);
+    return payloads.flatMap((payload) => parseOpenAiResponse(payload, responseImageFormat(provider.params), provider.responseMapping)).slice(0, input.count);
   }
-  const payload = await requestJson(provider.endpoint, {
+  const requestGeneration = (index, count) => requestJson(provider.endpoint, {
     method: "POST",
-    headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ ...params, model, prompt: input.prompt, size: input.size, n: input.count })
-  }, trace);
-  return provider.requestMode === "async" ? pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress) : parseOpenAiResponse(payload, responseImageFormat(provider.params));
+    headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json", Accept: "application/json", "X-Request-Id": `${input.jobId}-${index + 1}` },
+    body: JSON.stringify({ ...params, model, prompt: input.prompt, size: input.size, n: count })
+  }, { ...trace, outputIndex: index });
+  if (provider.requestMode === "async") {
+    const payload = await requestGeneration(0, input.count);
+    return pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress);
+  }
+  const payloads = await settledProviderRequests(Array.from({ length: Math.max(1, input.count) }, (_, index) => () => requestGeneration(index, 1)), input.jobId);
+  return payloads.flatMap((payload) => parseOpenAiResponse(payload, responseImageFormat(provider.params), provider.responseMapping)).slice(0, input.count);
 }
 
-function parseOpenAiResponse(payload, defaultContentType) {
-  const data = Array.isArray(payload?.data) ? payload.data : [];
-  return data.flatMap((item) => {
-    if (typeof item?.b64_json === "string") return [decodeBase64Image(item.b64_json, defaultContentType)];
-    if (typeof item?.url === "string") return [{ url: item.url }];
-    return [];
-  });
+async function settledProviderRequests(requests, jobId) {
+  const settled = await Promise.allSettled(requests.map((request) => request()));
+  const payloads = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+  if (payloads.length < requests.length) {
+    logEvent("warn", "provider.batch.partial", { jobId, requested: requests.length, completed: payloads.length });
+  }
+  if (!payloads.length) {
+    const failure = settled.find((result) => result.status === "rejected");
+    throw failure?.reason || new Error("provider batch failed");
+  }
+  return payloads;
+}
+
+function parseOpenAiResponse(payload, defaultContentType, mapping = {}) {
+  const urls = valuesAtPath(payload, mapping.resultUrlPath || "data[].url")
+    .filter((item) => typeof item === "string" && item)
+    .map((url) => ({ url, allowHttpResultUrl: mapping.allowHttpResultUrl === "true" }));
+  const base64 = valuesAtPath(payload, mapping.resultBase64Path || "data[].b64_json")
+    .filter((item) => typeof item === "string" && item)
+    .map((value) => decodeBase64Image(value, defaultContentType));
+  return [...urls, ...base64];
 }
 
 async function runGemini(provider, input) {
@@ -329,7 +366,7 @@ async function runGemini(provider, input) {
 async function putImage(client, objectKey, output, trace = {}) {
   const startedAt = Date.now();
   let image = output;
-  if (output.url) image = await downloadImage(output.url, { ...trace, phase: "result-image" });
+  if (output.url) image = await downloadImage(output.url, { ...trace, phase: "result-image", allowHttpResultUrl: output.allowHttpResultUrl === true });
   validateImageBuffer(image.buffer, image.contentType);
   logEvent("info", "oss.upload.start", { ...trace, objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await client.put(objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });
