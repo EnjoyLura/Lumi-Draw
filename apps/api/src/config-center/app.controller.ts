@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Header } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "./config.service";
 
@@ -8,6 +8,7 @@ export class AppBootstrapController {
   constructor(private readonly config: ConfigService) {}
 
   @Get("bootstrap")
+  @Header("Cache-Control", "public, max-age=60, stale-while-revalidate=300")
   bootstrap() {
     return this.config.getBootstrap();
   }

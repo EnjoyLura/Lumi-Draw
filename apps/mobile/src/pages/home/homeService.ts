@@ -104,6 +104,19 @@ export interface HomeFeedView {
   hasMore: boolean;
 }
 
+type CachedHomeBootstrap = {
+  version: 1;
+  savedAt: number;
+  data: HomeBootstrapView;
+};
+
+const HOME_BOOTSTRAP_CACHE_KEY = "lumi-home-bootstrap-v1";
+const HOME_BOOTSTRAP_CACHE_TTL = 5 * 60_000;
+const HOME_BOOTSTRAP_MAX_STALE = 24 * 60 * 60_000;
+const warmedBootstrapImages = new Set<string>();
+let memoryBootstrapCache: CachedHomeBootstrap | undefined;
+let bootstrapRequest: Promise<HomeBootstrapView> | undefined;
+
 function fallbackByIndex<T>(items: T[], index: number) {
   return items[index % items.length];
 }
@@ -119,6 +132,69 @@ function uniqueUsers(users: HomeUser[]) {
   const map = new Map<number, HomeUser>();
   users.forEach((user) => map.set(user.id, user));
   return Array.from(map.values());
+}
+
+function validBootstrap(value: unknown): value is HomeBootstrapView {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const data = value as Partial<HomeBootstrapView>;
+  return Array.isArray(data.banners)
+    && data.banners.every((item) => Boolean(item) && typeof item === "object")
+    && Array.isArray(data.gameplays)
+    && data.gameplays.every((item) => Boolean(item) && typeof item === "object")
+    && Array.isArray(data.announcements)
+    && data.announcements.every((item) => Boolean(item) && typeof item === "object")
+    && Number.isFinite(Number(data.publishReward));
+}
+
+function readStoredBootstrap() {
+  if (memoryBootstrapCache) return memoryBootstrapCache;
+  try {
+    const raw = uni.getStorageSync(HOME_BOOTSTRAP_CACHE_KEY);
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!parsed || parsed.version !== 1 || !Number.isFinite(parsed.savedAt) || !validBootstrap(parsed.data)) return undefined;
+    if (Date.now() - parsed.savedAt > HOME_BOOTSTRAP_MAX_STALE) {
+      uni.removeStorageSync(HOME_BOOTSTRAP_CACHE_KEY);
+      return undefined;
+    }
+    memoryBootstrapCache = parsed as CachedHomeBootstrap;
+    return memoryBootstrapCache;
+  } catch {
+    return undefined;
+  }
+}
+
+function storeBootstrap(data: HomeBootstrapView) {
+  const entry: CachedHomeBootstrap = { version: 1, savedAt: Date.now(), data };
+  memoryBootstrapCache = entry;
+  try {
+    uni.setStorageSync(HOME_BOOTSTRAP_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // The in-memory cache still serves the current session when storage is full or unavailable.
+  }
+}
+
+export function getCachedHomeBootstrap() {
+  return readStoredBootstrap()?.data;
+}
+
+export function prewarmHomeBootstrapImages(data: Pick<HomeBootstrapView, "banners" | "gameplays">) {
+  const urls = [
+    ...data.banners.slice(0, 2).map((item) => item.image),
+    ...data.gameplays.slice(0, 4).map((item) => item.image)
+  ].filter((url) => url && !warmedBootstrapImages.has(url));
+  urls.forEach((url) => warmedBootstrapImages.add(url));
+
+  const queue = [...urls];
+  const worker = async () => {
+    while (queue.length) {
+      const src = queue.shift();
+      if (!src) return;
+      await new Promise<void>((resolve) => {
+        uni.getImageInfo({ src, success: () => resolve(), fail: () => resolve() });
+      });
+    }
+  };
+  void Promise.all([worker(), worker()]);
 }
 
 function normalizeBannerAction(action: string, title = "") {
@@ -187,8 +263,7 @@ function toHomeWork(item: BackendWork): HomeWork {
   };
 }
 
-export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
-  const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
+function normalizeHomeBootstrap(data: BackendBootstrap): HomeBootstrapView {
   return {
     banners: data.banners.map((item, index) => {
       const action = normalizeBannerAction(item.action || "", item.title || "");
@@ -223,6 +298,23 @@ export async function fetchHomeBootstrap(): Promise<HomeBootstrapView> {
     }).filter((item) => inviteRewardsEnabled || item.action !== "invite"),
     publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 2))
   };
+}
+
+export async function fetchHomeBootstrap(options?: { force?: boolean }): Promise<HomeBootstrapView> {
+  const cached = readStoredBootstrap();
+  if (!options?.force && cached && Date.now() - cached.savedAt < HOME_BOOTSTRAP_CACHE_TTL) return cached.data;
+  if (bootstrapRequest) return bootstrapRequest;
+
+  bootstrapRequest = api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true })
+    .then(normalizeHomeBootstrap)
+    .then((data) => {
+      storeBootstrap(data);
+      return data;
+    })
+    .finally(() => {
+      bootstrapRequest = undefined;
+    });
+  return bootstrapRequest;
 }
 
 export async function fetchHomeFeed(tab: FeedTab, page: number, pageSize: number, options?: { skipAuth?: boolean }): Promise<HomeFeedView> {

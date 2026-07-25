@@ -20,7 +20,7 @@ import {
   type HomeUser,
   type HomeWork
 } from "./homeData";
-import { fetchHomeBootstrap, fetchHomeFeed, type HomeFeedView } from "./homeService";
+import { fetchHomeBootstrap, fetchHomeFeed, getCachedHomeBootstrap, prewarmHomeBootstrapImages, type HomeFeedView } from "./homeService";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
@@ -53,6 +53,7 @@ const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
 const pageInstance = getCurrentInstance();
 let unsubscribeWorkVisibility: (() => void) | undefined;
 const { useMockData } = useDataMode();
+const cachedBootstrap = useMockData.value ? undefined : getCachedHomeBootstrap();
 
 const statusBarHeight = ref(0);
 const navigationBarHeight = ref(50);
@@ -63,9 +64,9 @@ navigationBarHeight.value = navigationMetrics.navigationBarHeight;
 const activeBanner = ref(0);
 const selectedHomeTab = ref<HomeTab>("recommend");
 const renderedHomeTab = ref<HomeTab>("recommend");
-const bannerList = ref<HomeBanner[]>(useMockData.value ? mockHomeBanners : []);
-const announcementList = ref<HomeAnnouncement[]>(useMockData.value ? mockHomeAnnouncements : []);
-const gameplayList = ref<Gameplay[]>(useMockData.value ? mockGameplays : []);
+const bannerList = ref<HomeBanner[]>(useMockData.value ? mockHomeBanners : cachedBootstrap?.banners ?? []);
+const announcementList = ref<HomeAnnouncement[]>(useMockData.value ? mockHomeAnnouncements : cachedBootstrap?.announcements ?? []);
+const gameplayList = ref<Gameplay[]>(useMockData.value ? mockGameplays : cachedBootstrap?.gameplays ?? []);
 const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : []);
 const recommendWorks = ref<HomeWork[]>(useMockData.value ? mockHomeWorks : []);
 const latestWorks = ref<HomeWork[]>(useMockData.value ? [...mockHomeWorks].reverse() : []);
@@ -75,7 +76,7 @@ const showLoginSheet = ref(false);
 const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
-const isPageLoading = ref(!useMockData.value);
+const isPageLoading = ref(!useMockData.value && !cachedBootstrap);
 const isWorksSwitching = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
@@ -121,11 +122,12 @@ onShow(() => {
   const loadKey = `${useMockData.value}-${isLoggedIn.value}`;
   const changed = lastLoadKey !== loadKey;
   lastLoadKey = loadKey;
-  void loadHomeData(changed || activeEmbeddedPrimaryTab.value === "home");
+  if (changed) invalidateTabPage("home");
+  void loadHomeData();
 });
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
-  if (tab === "home") void loadHomeData(true);
+  if (tab === "home") void loadHomeData();
 });
 
 onReady(() => {
@@ -138,6 +140,7 @@ onReady(() => {
 });
 
 onMounted(() => {
+  if (cachedBootstrap) prewarmHomeBootstrapImages(cachedBootstrap);
   unsubscribeWorkVisibility = subscribeWorkVisibilityChange(({ id }) => {
     recommendWorks.value = recommendWorks.value.filter((work) => work.id !== id);
     latestWorks.value = latestWorks.value.filter((work) => work.id !== id);
@@ -247,7 +250,7 @@ function mergeUsers(nextUsers: HomeUser[]) {
   userList.value = Array.from(map.values());
 }
 
-async function loadHomeData(force = false) {
+async function loadHomeData(forceBootstrap = false) {
   if (useMockData.value) {
     resetMockHomeData();
     return;
@@ -260,7 +263,7 @@ async function loadHomeData(force = false) {
   try {
     const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
     const [bootstrap, recommendFeed, latestFeed] = await Promise.all([
-      fetchHomeBootstrap(),
+      fetchHomeBootstrap({ force: forceBootstrap }),
       fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE, requestOptions),
       fetchHomeFeed("latest", 1, FEED_PAGE_SIZE, requestOptions)
     ]);
@@ -268,6 +271,7 @@ async function loadHomeData(force = false) {
     bannerList.value = bootstrap.banners;
     announcementList.value = bootstrap.announcements;
     gameplayList.value = bootstrap.gameplays;
+    prewarmHomeBootstrapImages(bootstrap);
     recommendWorks.value = recommendFeed.works;
     latestWorks.value = latestFeed.works;
     syncLikedWorkIds([...recommendFeed.works, ...latestFeed.works]);
@@ -292,7 +296,7 @@ async function loadHomeData(force = false) {
   } finally {
     isPageLoading.value = false;
   }
-  }, { force });
+  }, { force: forceBootstrap });
 }
 
 function refreshHomeData() {
@@ -814,6 +818,9 @@ function getWorkTitle(work: HomeWork) {
             </view>
           </view>
         </scroll-view>
+        <view v-else-if="isPageLoading" class="gameplay-list gameplay-skeleton-list">
+          <view v-for="index in 4" :key="index" class="gameplay-card gameplay-skeleton" />
+        </view>
         <view v-else class="home-empty-card compact">
           <view class="home-empty-title">暂无玩法模板</view>
           <view class="home-empty-sub">后台配置玩法后会显示在这里。</view>
@@ -1313,6 +1320,18 @@ function getWorkTitle(work: HomeWork) {
   overflow: hidden;
   border-radius: 7px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.gameplay-skeleton-list {
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.gameplay-skeleton {
+  background: linear-gradient(100deg, var(--bg-soft) 20%, var(--bg-card) 48%, var(--bg-soft) 76%);
+  background-size: 240% 100%;
+  box-shadow: none;
+  animation: home-skeleton-shimmer 1.25s ease-in-out infinite;
 }
 
 .gameplay-img {
