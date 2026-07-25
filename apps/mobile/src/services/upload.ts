@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, localizeApiErrorMessage } from "./api";
 import { requireWechatPrivacyAuthorization } from "./wechatPrivacy";
 
 interface UploadPolicy {
@@ -100,7 +100,7 @@ function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
         const tempFile = tempFiles[0] as ({ path?: string; name?: string; type?: string; file?: Blob; size?: number } | string | undefined);
         const path = result.tempFilePaths?.[0] || (typeof tempFile === "object" ? tempFile.path : "") || "";
         if (!path) {
-          reject(new Error("No image selected"));
+          reject(new Error("未选择图片"));
           return;
         }
         const name = typeof tempFile === "object" && tempFile.name ? tempFile.name : fileNameFromPath(path);
@@ -118,7 +118,7 @@ function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
         });
       },
       fail(error) {
-        reject(new Error(error.errMsg || "chooseImage failed"));
+        reject(new Error(localizeApiErrorMessage(error.errMsg || "图片选择失败，请稍后重试")));
       }
     });
   }));
@@ -132,7 +132,7 @@ function getImageInfoByUni(path: string) {
         resolve({ width: result.width, height: result.height, type: result.type });
       },
       fail(error) {
-        reject(new Error(error.errMsg || "getImageInfo failed"));
+        reject(new Error(localizeApiErrorMessage(error.errMsg || "图片读取失败，请重新选择")));
       }
     });
   });
@@ -141,12 +141,12 @@ function getImageInfoByUni(path: string) {
 function getImageInfoByBrowser(path: string) {
   return new Promise<{ width: number; height: number }>((resolve, reject) => {
     if (typeof Image === "undefined") {
-      reject(new Error("Image unavailable"));
+      reject(new Error("当前环境无法读取图片"));
       return;
     }
     const image = new Image();
     image.onload = () => resolve({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
-    image.onerror = () => reject(new Error("image load failed"));
+    image.onerror = () => reject(new Error("图片读取失败，请重新选择"));
     image.src = path;
   });
 }
@@ -166,7 +166,7 @@ async function resolveImageSize(image: ChosenImage) {
 
 async function blobFromPath(path: string) {
   const response = await fetch(path);
-  if (!response.ok) throw new Error(`Fetch image failed: ${response.status}`);
+  if (!response.ok) throw new Error(`图片下载失败（${response.status}）`);
   return response.blob();
 }
 
@@ -184,7 +184,7 @@ function getLocalFileSize(path: string) {
     uni.getFileInfo({
       filePath: path,
       success: (result) => resolve(result.size),
-      fail: (error) => reject(new Error(error.errMsg || "getFileInfo failed"))
+      fail: (error) => reject(new Error(localizeApiErrorMessage(error.errMsg || "图片文件信息读取失败")))
     });
   });
 }
@@ -197,7 +197,7 @@ function compressLocalImage(path: string, width: number, height: number) {
       compressedWidth: width,
       compressedHeight: height,
       success: (result) => resolve(result.tempFilePath),
-      fail: (error) => reject(new Error(error.errMsg || "compressImage failed"))
+      fail: (error) => reject(new Error(localizeApiErrorMessage(error.errMsg || "图片压缩失败，请重新选择")))
     });
   });
 }
@@ -234,14 +234,14 @@ async function putWithFetch(policy: UploadPolicy, body: Blob) {
     headers: policy.headers,
     body
   });
-  if (!response.ok) throw new Error(`OSS upload failed: ${response.status}`);
+  if (!response.ok) throw new Error(`图片上传失败（${response.status}）`);
 }
 
 function putWithUniRequest(policy: UploadPolicy, filePath: string) {
   return new Promise<void>((resolve, reject) => {
     const fs = (uni as unknown as { getFileSystemManager?: () => { readFile: (options: unknown) => void } }).getFileSystemManager?.();
     if (!fs) {
-      reject(new Error("FileSystemManager unavailable"));
+      reject(new Error("当前环境无法读取图片文件"));
       return;
     }
 
@@ -258,15 +258,15 @@ function putWithUniRequest(policy: UploadPolicy, filePath: string) {
               resolve();
               return;
             }
-            reject(new Error(`OSS upload failed: ${response.statusCode}`));
+            reject(new Error(`图片上传失败（${response.statusCode}）`));
           },
           fail(error) {
-            reject(new Error(error.errMsg || "OSS upload failed"));
+            reject(new Error(localizeApiErrorMessage(error.errMsg || "图片上传失败，请稍后重试")));
           }
         });
       },
       fail(error: { errMsg?: string }) {
-        reject(new Error(error.errMsg || "readFile failed"));
+        reject(new Error(localizeApiErrorMessage(error.errMsg || "图片文件读取失败，请重新选择")));
       }
     });
   });

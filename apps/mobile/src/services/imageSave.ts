@@ -52,10 +52,10 @@ function downloadImage(url: string) {
       url,
       success(result) {
         if (result.statusCode >= 200 && result.statusCode < 300 && result.tempFilePath) resolve(result.tempFilePath);
-        else reject(new ImageSaveError("download", `download failed (${result.statusCode})`));
+        else reject(new ImageSaveError("download", `图片下载失败（${result.statusCode}）`));
       },
       fail(error) {
-        reject(new ImageSaveError("download", "download failed", error));
+        reject(new ImageSaveError("download", "图片下载失败", error));
       }
     });
   });
@@ -70,7 +70,7 @@ function inspectLocalImage(filePath: string) {
         resolve({ path: result.path || filePath, type });
       },
       fail(error) {
-        reject(new ImageSaveError("unsupported-format", "downloaded image is invalid", error));
+        reject(new ImageSaveError("unsupported-format", "下载的图片无效", error));
       }
     });
   });
@@ -98,7 +98,7 @@ function copyImageWithExtension(filePath: string, extension: string) {
         path: destination,
         cleanup: () => fs.unlink({ filePath: destination })
       }),
-      fail: (error) => reject(new ImageSaveError("storage", "prepare local image failed", error))
+      fail: (error) => reject(new ImageSaveError("storage", "本地图片准备失败", error))
     });
   });
   // #endif
@@ -125,7 +125,7 @@ function saveImageToAlbum(filePath: string) {
               : /invalid|format|type|webp/.test(message)
                 ? "unsupported-format"
                 : "save";
-        reject(new ImageSaveError(code, "save image failed: " + message, error));
+        reject(new ImageSaveError(code, "图片保存失败：" + message, error));
       }
     });
   });
@@ -147,7 +147,7 @@ function openPhotoAlbumSetting() {
   return new Promise<void>((resolve, reject) => {
     uni.openSetting({
       success: () => resolve(),
-      fail: (error) => reject(new ImageSaveError("permission", "open settings failed", error))
+      fail: (error) => reject(new ImageSaveError("permission", "打开权限设置失败", error))
     });
   });
 }
@@ -171,7 +171,7 @@ function authorizePhotoAlbum() {
         const code: ImageSaveErrorCode = /privacy agreement|privacy.*scope|scope.*privacy|not declared/.test(message)
           ? "privacy-scope"
           : "permission";
-        reject(new ImageSaveError(code, "photo album authorization failed", error));
+        reject(new ImageSaveError(code, "相册权限授权失败", error));
       }
     });
   });
@@ -185,11 +185,11 @@ async function ensurePhotoAlbumPermission() {
     return;
   }
   if (!(await askToOpenPhotoAlbumSetting())) {
-    throw new ImageSaveError("permission", "photo album permission denied");
+    throw new ImageSaveError("permission", "未获得相册权限");
   }
   await openPhotoAlbumSetting();
   if ((await getPhotoAlbumAuthorizationState()) !== true) {
-    throw new ImageSaveError("permission", "photo album permission remains disabled");
+    throw new ImageSaveError("permission", "相册权限仍未开启");
   }
 }
 
@@ -223,7 +223,7 @@ export async function saveImageToDevice(url: string, filename = `lumi-${Date.now
   try {
     await requireWechatPrivacyAuthorization();
   } catch (error) {
-    throw new ImageSaveError("permission", "privacy authorization denied", error);
+    throw new ImageSaveError("permission", "未同意隐私保护授权", error);
   }
   await ensurePhotoAlbumPermission();
   const downloadedPath = await downloadImage(url);

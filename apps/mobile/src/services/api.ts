@@ -26,11 +26,52 @@ export class ApiError extends Error {
   readonly statusCode?: number;
 
   constructor(message: string, code: number, statusCode?: number) {
-    super(message);
+    super(localizeApiErrorMessage(message, statusCode));
     this.name = "ApiError";
     this.code = code;
     this.statusCode = statusCode;
   }
+}
+
+export function localizeApiErrorMessage(message: string, statusCode?: number): string {
+  const normalized = message.trim();
+  if (!normalized) return "操作失败，请稍后重试";
+
+  const providerFailure = normalized.match(/^(?:ainb|change2pro)?\s*request failed:\s*(.+)$/i);
+  if (providerFailure) {
+    const detail = localizeApiErrorMessage(providerFailure[1], statusCode);
+    return detail === "操作失败，请稍后重试" ? "图片生成服务请求失败，请稍后重试" : detail;
+  }
+
+  // Business errors written in Chinese are already suitable for direct display.
+  if (/[\u3400-\u9fff]/u.test(normalized)) return normalized;
+
+  const lower = normalized.toLowerCase();
+  if (/cancel(?:led)?/.test(lower)) return "已取消操作";
+  if (/generation task.*(already|in progress)|already.*in progress/.test(lower)) {
+    return "当前已有任务正在生成，请等待完成后再试";
+  }
+  if (/already.*published|result.*published/.test(lower)) return "该生成结果已发布，请勿重复操作";
+  if (/no available compatible accounts|model.*unavailable/.test(lower)) return "当前模型暂时不可用，请稍后重试";
+  if (/content policy|safety|moderation/.test(lower)) return "内容可能不安全，请修改提示词后重试";
+  if (/login expired|unauthori[sz]ed|token.*(expired|invalid)|invalid.*token/.test(lower) || statusCode === 401) {
+    return "登录状态已过期，请重新登录";
+  }
+  if (/permission denied|forbidden|no permission/.test(lower) || statusCode === 403) return "暂无权限执行此操作";
+  if (/timeout|timed out/.test(lower)) return "请求超时，请稍后重试";
+  if (/network|fetch failed|request:fail|connection|socket|dns/.test(lower)) return "网络连接异常，请检查网络后重试";
+  if (/chooseimage|no image selected/.test(lower)) return "未选择图片";
+  if (/getimageinfo|image unavailable|image load failed/.test(lower)) return "图片读取失败，请重新选择";
+  if (/compressimage/.test(lower)) return "图片压缩失败，请重新选择";
+  if (/oss upload|upload failed|readfile|filesystemmanager/.test(lower)) return "图片上传失败，请稍后重试";
+  if (/too many requests|rate limit/.test(lower) || statusCode === 429) return "操作过于频繁，请稍后再试";
+  if (/not found/.test(lower) || statusCode === 404) return "请求的内容不存在或已被删除";
+  if (/invalid|bad request|validation failed/.test(lower) || statusCode === 400) return "请求参数有误，请检查后重试";
+  if (/service unavailable|bad gateway|gateway timeout|internal server error/.test(lower) || (statusCode !== undefined && statusCode >= 500)) {
+    return "服务暂时不可用，请稍后重试";
+  }
+
+  return "操作失败，请稍后重试";
 }
 
 let refreshPromise: Promise<void> | null = null;
@@ -104,7 +145,7 @@ async function refreshAuthToken() {
   refreshPromise = (async () => {
     const refreshToken = getRefreshToken();
     if (!refreshToken) {
-      throw new ApiError("Login expired", 40001, 401);
+      throw new ApiError("登录状态已过期，请重新登录", 40001, 401);
     }
 
     const data = await request<RefreshResponse>("POST", "/auth/refresh", { refreshToken }, { skipAuth: true, skipRefresh: true });
@@ -160,7 +201,7 @@ function rawRequest<T>(method: HttpMethod, path: string, data: unknown, headers:
         const statusCode = response.statusCode;
         const body = response.data as Partial<ApiEnvelope<T>> | undefined;
         const code = typeof body?.code === "number" ? body.code : statusCode >= 200 && statusCode < 300 ? 0 : statusCode;
-        const message = typeof body?.message === "string" ? body.message : "Request failed";
+        const message = typeof body?.message === "string" ? body.message : "请求失败，请稍后重试";
 
         if (statusCode >= 200 && statusCode < 300 && code === 0) {
           resolve(body?.data as T);
@@ -170,7 +211,7 @@ function rawRequest<T>(method: HttpMethod, path: string, data: unknown, headers:
         reject(new ApiError(message, code, statusCode));
       },
       fail(error) {
-        reject(new ApiError(error.errMsg || "Network error", -1));
+        reject(new ApiError(error.errMsg || "网络连接异常，请检查网络后重试", -1));
       }
     });
   });

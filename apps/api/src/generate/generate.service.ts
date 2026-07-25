@@ -70,7 +70,7 @@ export function calculatePartialRefund(costCredits: number, refundCredits: numbe
 }
 const REVERSE_PROMPT_COST = 2;
 
-function userFacingGenerateError(errorMessage: string) {
+export function userFacingGenerateError(errorMessage: string) {
   const message = errorMessage.toLowerCase();
   if (/操作金额不足|积分不足|insufficient.*(?:balance|credit|fund)/.test(message)) {
     return "积分不足，请充值后再试";
@@ -86,6 +86,17 @@ function userFacingGenerateError(errorMessage: string) {
   if (/连接失败|network|fetch failed|econn|enotfound/.test(message)) return "生成服务连接异常，请稍后重试";
   if (/did not include an image|no usable images|未获取到/.test(message)) return "未获取到生成图片，请稍后重试";
   return "生成失败，请稍后重试";
+}
+
+export function userFacingGenerateStageText(stageText: string, status = "running") {
+  const normalized = stageText.trim();
+  if (normalized && /[\u3400-\u9fff]/u.test(normalized)) return normalized;
+  if (status === "failed") return "生成失败";
+  if (status === "cancelled") return "任务已取消";
+  if (status === "finalizing") return "图片已生成，正在安全保存原图";
+  if (status === "succeeded" || status === "partial_failed") return "生成完成";
+  if (/queue|submit|pending|progress|running|generat|process/i.test(normalized)) return "任务已提交，正在生成";
+  return "AI 正在生成中";
 }
 
 function mockGeneratedImageUrl(seed: string) {
@@ -236,7 +247,7 @@ export class GenerateService implements OnApplicationBootstrap {
         where: { userId, status: { in: ACTIVE_JOB_STATUSES } },
         select: { id: true }
       });
-      if (activeJob) throw new ConflictException("A generation task is already in progress");
+      if (activeJob) throw new ConflictException("当前已有任务正在生成，请等待完成后再试");
 
       const walletUser = this.wallet.enabled
         ? await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } })
@@ -444,10 +455,10 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async publishResult(userId: number, resultId: string, dto: PublishGenerateResultDto) {
     const result = await this.prisma.generateResult.findUnique({ where: { id: resultId }, include: { job: true } });
-    if (!result) throw new NotFoundException("generate result not found");
-    if (result.job.userId !== userId) throw new ForbiddenException("no permission to publish this result");
-    if (result.status !== "succeeded" || !result.imageUrl) throw new BadRequestException("generate result is not publishable");
-    if (result.workId) throw new ConflictException("generate result has already been published");
+    if (!result) throw new NotFoundException("生成结果不存在或已被删除");
+    if (result.job.userId !== userId) throw new ForbiddenException("无权发布该生成结果");
+    if (result.status !== "succeeded" || !result.imageUrl) throw new BadRequestException("该生成结果暂不可发布");
+    if (result.workId) throw new ConflictException("该生成结果已发布，请勿重复操作");
 
     const isPublic = dto.isPublic ?? true;
     const textModerationStatus = isPublic
@@ -476,7 +487,7 @@ export class GenerateService implements OnApplicationBootstrap {
         }
       });
       const linked = await tx.generateResult.updateMany({ where: { id: result.id, workId: null }, data: { workId: work.id } });
-      if (linked.count === 0) throw new ConflictException("generate result has already been published");
+      if (linked.count === 0) throw new ConflictException("该生成结果已发布，请勿重复操作");
       await tx.user.update({ where: { id: userId }, data: { worksCount: { increment: 1 } } });
       return work;
     });
@@ -593,7 +604,7 @@ export class GenerateService implements OnApplicationBootstrap {
       data: {
         status: event.status,
         progress: event.progress ?? (event.status === "running" ? Math.max(job.progress, 30) : job.progress),
-        stageText: event.stageText || "AI 正在生成中",
+        stageText: userFacingGenerateStageText(event.stageText || "", "running"),
         startedAt: job.startedAt ?? new Date()
       },
       include: { results: true }
@@ -759,7 +770,7 @@ export class GenerateService implements OnApplicationBootstrap {
         data: {
           status: "running",
           progress: 5,
-          stageText: "Submitted to KIE",
+          stageText: "任务已提交，正在生成",
           kieTaskId: submitted.taskId,
           startedAt: new Date()
         },
@@ -874,7 +885,10 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!input.error && !input.outputs?.length && Number.isFinite(input.progress)) {
       await this.prisma.generateJob.updateMany({
         where: { id: job.id, status: { in: ["queued", "running", "finalizing"] } },
-        data: { progress: Math.max(5, Math.min(94, Math.floor(input.progress as number))), stageText: String(input.stageText || "AI 正在生成").slice(0, 120) }
+        data: {
+          progress: Math.max(5, Math.min(94, Math.floor(input.progress as number))),
+          stageText: userFacingGenerateStageText(String(input.stageText || ""), "running").slice(0, 120)
+        }
       });
       return { ok: true };
     }
@@ -1161,7 +1175,7 @@ export class GenerateService implements OnApplicationBootstrap {
         data: {
           status: "failed",
           progress: 0,
-          stageText: "Generation failed",
+          stageText: "生成失败",
           errorMessage: userMessage,
           refundCredits: job.refundCredits + Math.max(creditedRefund, 0),
           walletRefunded: Boolean(walletRefund) || job.walletRefunded,
@@ -1280,9 +1294,13 @@ export class GenerateService implements OnApplicationBootstrap {
       refundCredits: job.refundCredits,
       status: job.status,
       progress: job.progress,
-      stageText: job.stageText,
+      stageText: userFacingGenerateStageText(job.stageText, job.status),
       kieTaskId: job.kieTaskId ?? undefined,
-      errorMessage: job.errorMessage || undefined,
+      errorMessage: job.errorMessage
+        ? /[\u3400-\u9fff]/u.test(job.errorMessage)
+          ? job.errorMessage
+          : userFacingGenerateError(job.errorMessage)
+        : undefined,
       retryOfJobId: job.retryOfJobId || undefined,
       results: job.results.map((result) => {
         const imageUrl = result.imageUrl ? this.uploads.readUrl(result.imageUrl, "private") : undefined;
@@ -1297,7 +1315,11 @@ export class GenerateService implements OnApplicationBootstrap {
           height: result.height ?? undefined,
           sizeBytes: result.sizeBytes ?? undefined,
           ossKey: result.ossKey || undefined,
-          errorMessage: result.errorMessage || undefined,
+          errorMessage: result.errorMessage
+            ? /[\u3400-\u9fff]/u.test(result.errorMessage)
+              ? result.errorMessage
+              : userFacingGenerateError(result.errorMessage)
+            : undefined,
           workId: result.workId ?? undefined,
           createdAt: result.createdAt.toISOString()
         };

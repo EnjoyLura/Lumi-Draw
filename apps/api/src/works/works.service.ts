@@ -192,7 +192,7 @@ export class WorksService {
       throw new NotFoundException("作品不存在");
     }
     if ((work.status !== "published" || !work.isPublic) && work.userId !== currentUserId) {
-      throw new NotFoundException("work not found");
+      throw new NotFoundException("作品不存在或暂不可见");
     }
     const model = work.modelId
       ? await this.prisma.modelConfig.findUnique({ where: { id: work.modelId } })

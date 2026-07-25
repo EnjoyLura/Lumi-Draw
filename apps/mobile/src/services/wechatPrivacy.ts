@@ -1,3 +1,5 @@
+import { localizeApiErrorMessage } from "./api";
+
 type WechatPrivacyRuntime = {
   getPrivacySetting?: (options: {
     success: (result: { needAuthorization?: boolean; privacyContractName?: string }) => void;
@@ -27,7 +29,7 @@ export function requireWechatPrivacyAuthorization() {
   return new Promise<void>((resolve, reject) => {
     runtime.requirePrivacyAuthorize?.({
       success: resolve,
-      fail: (error) => reject(new Error(error.errMsg || "privacy authorization denied"))
+      fail: (error) => reject(new Error(localizeApiErrorMessage(error.errMsg || "未同意隐私保护授权")))
     });
   });
 }

@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { api, clearAuthTokens, getRefreshToken, hasAccessToken, setAuthTokens, setUnauthorizedHandler } from "./api";
+import { api, clearAuthTokens, getRefreshToken, hasAccessToken, localizeApiErrorMessage, setAuthTokens, setUnauthorizedHandler } from "./api";
 import { useDataMode } from "./dataMode";
 import { inviteRewardsEnabled } from "./featureFlags";
 
@@ -135,10 +135,10 @@ export function getWechatLoginCode() {
           resolve(result.code);
           return;
         }
-        reject(new Error("wx.login did not return a code"));
+        reject(new Error("微信登录失败，请稍后重试"));
       },
       fail(error) {
-        reject(new Error(error.errMsg || "wx.login failed"));
+        reject(new Error(localizeApiErrorMessage(error.errMsg || "微信登录失败，请稍后重试")));
       }
     });
   });
