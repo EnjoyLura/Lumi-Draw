@@ -10,6 +10,7 @@ import type { CreateWorkDto, UpdateWorkDto } from "./works.write.dto";
 
 type WorkWithAuthor = Work & { user: User };
 type PlazaFilters = {
+  featuredOnly?: boolean;
   categoryId?: number;
   categoryIds?: string;
   modelIds?: string;
@@ -144,6 +145,7 @@ export class WorksService {
 
   async plaza(filters: PlazaFilters, sort: "hot" | "latest", page: number, pageSize: number, currentUserId?: number) {
     const where: Prisma.WorkWhereInput = { ...PUBLIC_WHERE };
+    if (filters.featuredOnly) where.featured = true;
     const categoryIds = Array.from(new Set([filters.categoryId, ...splitCsvNumbers(filters.categoryIds)].filter((id): id is number => Boolean(id))));
     if (categoryIds.length) {
       const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
@@ -357,10 +359,25 @@ export class WorksService {
       this.prisma.work.count({ where })
     ]);
     const modelIds = Array.from(new Set(rows.map((work) => work.modelId).filter(Boolean)));
-    const models = modelIds.length
-      ? await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
-      : [];
+    const [models, generatedResults] = await Promise.all([
+      modelIds.length
+        ? this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
+        : Promise.resolve([]),
+      rows.length
+        ? this.prisma.generateResult.findMany({
+            where: { workId: { in: rows.map((work) => work.id) } },
+            orderBy: { createdAt: "desc" },
+            select: { workId: true, width: true, height: true }
+          })
+        : Promise.resolve([])
+    ]);
     const modelNames = new Map(models.map((model) => [model.id, model.name]));
+    const dimensions = new Map<number, { width: number; height: number }>();
+    generatedResults.forEach((result) => {
+      if (result.workId && result.width && result.height && !dimensions.has(result.workId)) {
+        dimensions.set(result.workId, { width: result.width, height: result.height });
+      }
+    });
     const items = rows.map((w) => ({
       id: w.id,
       imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
@@ -379,6 +396,8 @@ export class WorksService {
       modelName: modelNames.get(w.modelId) ?? w.modelId,
       style: w.style,
       tags: w.tags,
+      width: dimensions.get(w.id)?.width,
+      height: dimensions.get(w.id)?.height,
       createdAt: w.createdAt.toISOString()
     }));
     return buildPage(items, total, page, pageSize);

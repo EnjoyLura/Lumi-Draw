@@ -335,6 +335,7 @@ function plazaFeedKey() {
 function getPlazaFeedParams(page: number) {
   const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[renderedCategoryIndex.value]?.id;
   return {
+    featuredOnly: renderedTab.value === "recommend",
     categoryId,
     categoryIds: selectedCategoryIds(),
     modelIds: selectedOptionValues(modelFilterOptions.value, filterSelection.model),

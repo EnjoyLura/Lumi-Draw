@@ -1,5 +1,5 @@
-import { Type } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString } from "class-validator";
 import { PageQueryDto } from "../common/dto/pagination";
 
 export class FeedQueryDto extends PageQueryDto {
@@ -9,6 +9,11 @@ export class FeedQueryDto extends PageQueryDto {
 }
 
 export class PlazaQueryDto extends PageQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === "true")
+  @IsBoolean()
+  featuredOnly?: boolean;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

@@ -210,19 +210,6 @@ function selectDraft(draft: DraftWork) {
   closePicker();
 }
 
-function syncDraftResolution(draftId: number, event: Event) {
-  const detail = (event as unknown as { detail?: { width?: number; height?: number } }).detail;
-  const width = Number(detail?.width);
-  const height = Number(detail?.height);
-  if (!width || !height) return;
-
-  const resolution = `${width}x${height}`;
-  backendDrafts.value = backendDrafts.value.map((draft) => (draft.id === draftId && draft.resolution !== resolution ? { ...draft, resolution } : draft));
-  if (selectedDraft.value?.id === draftId && selectedDraft.value.resolution !== resolution) {
-    selectedDraft.value = { ...selectedDraft.value, resolution };
-  }
-}
-
 function applyPendingDraft() {
   if (!pendingDraftId.value || selectedDraft.value) return;
   const draft = draftOptions.value.find((item) => item.id === pendingDraftId.value);
@@ -338,7 +325,7 @@ async function submit() {
               </view>
             </template>
             <template v-else>
-              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" @click.stop="previewDraftImage" @load="syncDraftResolution(selectedDraft.id, $event)" />
+              <image class="draft-thumb" :src="selectedDraft.image" mode="aspectFill" @click.stop="previewDraftImage" />
               <view class="draft-selected-text">
                 <view class="draft-selected-title">{{ selectedDraft.title }}</view>
                 <view class="draft-selected-sub">{{ selectedDraft.resolution }}</view>
@@ -410,7 +397,7 @@ async function submit() {
             :class="{ active: selectedDraft && selectedDraft.id === draft.id }"
             @click="selectDraft(draft)"
           >
-            <image class="picker-thumb" :src="draft.image" mode="aspectFill" lazy-load @load="syncDraftResolution(draft.id, $event)" />
+            <image class="picker-thumb" :src="draft.image" mode="aspectFill" lazy-load />
             <view class="picker-info">
               <view class="picker-name">{{ draft.title }}</view>
               <view class="picker-res">{{ draft.resolution }}</view>

@@ -144,6 +144,7 @@ export async function fetchPlazaConfig(): Promise<PlazaConfig> {
 }
 
 export async function fetchPlazaWorks(params: {
+  featuredOnly?: boolean;
   categoryId?: number;
   categoryIds?: number[];
   modelIds?: string[];
@@ -155,6 +156,7 @@ export async function fetchPlazaWorks(params: {
   skipAuth?: boolean;
 }): Promise<PlazaWorkPage> {
   const query = [
+    params.featuredOnly ? "featuredOnly=true" : "",
     `sort=${encodeURIComponent(params.sort)}`,
     `page=${params.page}`,
     `pageSize=${params.pageSize}`,

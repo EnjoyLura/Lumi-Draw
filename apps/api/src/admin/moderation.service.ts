@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -20,6 +20,8 @@ const PUSH_FIELDS = ["title", "content", "target", "status"];
 
 @Injectable()
 export class ModerationService {
+  private readonly logger = new Logger(ModerationService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
@@ -58,8 +60,14 @@ export class ModerationService {
     if (work.status !== "pending") throw new BadRequestException("只有待审核作品可以执行通过操作");
     await this.safety.prepareWorkForManualApproval(work, this.uploads.readUrl(work.imageUrl, "private"));
     await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true } });
-    await this.publishRewards.awardPublishedWork(work.userId, work.id);
-    return { ok: true, id, status: "published" };
+    try {
+      await this.publishRewards.awardPublishedWork(work.userId, work.id);
+      return { ok: true, id, status: "published", rewardPending: false };
+    } catch (error) {
+      const detail = error instanceof Error ? error.stack || error.message : String(error);
+      this.logger.error(`作品 ${work.id} 已审核通过，但发布奖励暂未发放`, detail);
+      return { ok: true, id, status: "published", rewardPending: true };
+    }
   }
 
   async rejectReview(id: number, reason: unknown) {

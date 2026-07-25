@@ -152,6 +152,47 @@ function openPhotoAlbumSetting() {
   });
 }
 
+function getPhotoAlbumAuthorizationState() {
+  return new Promise<boolean | undefined>((resolve) => {
+    uni.getSetting({
+      success: (result) => resolve((result.authSetting as unknown as Record<string, boolean | undefined>)["scope.writePhotosAlbum"]),
+      fail: () => resolve(undefined)
+    });
+  });
+}
+
+function authorizePhotoAlbum() {
+  return new Promise<void>((resolve, reject) => {
+    uni.authorize({
+      scope: "scope.writePhotosAlbum",
+      success: () => resolve(),
+      fail: (error) => {
+        const message = errorMessage(error);
+        const code: ImageSaveErrorCode = /privacy agreement|privacy.*scope|scope.*privacy|not declared/.test(message)
+          ? "privacy-scope"
+          : "permission";
+        reject(new ImageSaveError(code, "photo album authorization failed", error));
+      }
+    });
+  });
+}
+
+async function ensurePhotoAlbumPermission() {
+  const state = await getPhotoAlbumAuthorizationState();
+  if (state === true) return;
+  if (state === undefined) {
+    await authorizePhotoAlbum();
+    return;
+  }
+  if (!(await askToOpenPhotoAlbumSetting())) {
+    throw new ImageSaveError("permission", "photo album permission denied");
+  }
+  await openPhotoAlbumSetting();
+  if ((await getPhotoAlbumAuthorizationState()) !== true) {
+    throw new ImageSaveError("permission", "photo album permission remains disabled");
+  }
+}
+
 async function saveImageToAlbumWithPermissionRecovery(filePath: string) {
   try {
     await saveImageToAlbum(filePath);
@@ -184,6 +225,7 @@ export async function saveImageToDevice(url: string, filename = `lumi-${Date.now
   } catch (error) {
     throw new ImageSaveError("permission", "privacy authorization denied", error);
   }
+  await ensurePhotoAlbumPermission();
   const downloadedPath = await downloadImage(url);
   const inspected = await inspectLocalImage(downloadedPath);
   const prepared = await copyImageWithExtension(inspected.path, imageExtension(inspected.type, url));

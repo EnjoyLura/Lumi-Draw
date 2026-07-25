@@ -266,24 +266,28 @@ export class WechatVirtualPayClient {
     options: { sessionKey?: string; acceptedErrcodes?: number[] } = {}
   ) {
     const body = JSON.stringify(payload);
-    const accessToken = await this.getAccessToken();
-    const url = new URL(uri, this.config.apiBase);
-    url.searchParams.set("access_token", accessToken);
-    if (options.sessionKey) {
-      url.searchParams.set("pay_sig", this.paySignature(uri, body));
-      url.searchParams.set("signature", this.hmac(options.sessionKey, body));
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const accessToken = await this.getAccessToken(attempt > 0);
+      const url = new URL(uri, this.config.apiBase);
+      url.searchParams.set("access_token", accessToken);
+      if (options.sessionKey) {
+        url.searchParams.set("pay_sig", this.paySignature(uri, body));
+        url.searchParams.set("signature", this.hmac(options.sessionKey, body));
+      }
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body
+      });
+      const data = (await response.json().catch(() => ({}))) as T & WechatApiResponse;
+      const errcode = data.errcode ?? 0;
+      if (attempt === 0 && this.isAccessTokenError(errcode)) continue;
+      if (!response.ok || (errcode !== 0 && !options.acceptedErrcodes?.includes(errcode))) {
+        throw new Error(`微信虚拟支付接口 ${uri} 调用失败：${data.errmsg || data.errcode || response.status}`);
+      }
+      return data;
     }
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body
-    });
-    const data = (await response.json().catch(() => ({}))) as T & WechatApiResponse;
-    const errcode = data.errcode ?? 0;
-    if (!response.ok || (errcode !== 0 && !options.acceptedErrcodes?.includes(errcode))) {
-      throw new Error(`微信虚拟支付接口 ${uri} 调用失败：${data.errmsg || data.errcode || response.status}`);
-    }
-    return data;
+    throw new Error(`微信虚拟支付接口 ${uri} 调用失败：access_token 刷新后仍不可用`);
   }
 
   private createPaymentParams(
@@ -310,30 +314,46 @@ export class WechatVirtualPayClient {
     return createHmac("sha256", key).update(value, "utf8").digest("hex");
   }
 
-  private async getAccessToken() {
-    if (this.accessToken && Date.now() < this.accessTokenExpiresAt) return this.accessToken;
-    if (!this.accessTokenPromise) {
-      this.accessTokenPromise = (async () => {
-        const url = new URL("/cgi-bin/token", this.config.apiBase);
-        url.searchParams.set("grant_type", "client_credential");
-        url.searchParams.set("appid", this.config.appId);
-        url.searchParams.set("secret", this.config.appSecret);
-        const response = await fetch(url);
-        const data = (await response.json()) as WechatApiResponse & {
-          access_token?: string;
-          expires_in?: number;
-        };
-        if (!response.ok || !data.access_token) {
-          throw new Error(`获取微信接口凭证失败：${data.errmsg || data.errcode || response.status}`);
-        }
-        this.accessToken = data.access_token;
-        this.accessTokenExpiresAt =
-          Date.now() + Math.max(60, (data.expires_in ?? 7200) - 300) * 1000;
-        return this.accessToken;
-      })().finally(() => {
-        this.accessTokenPromise = undefined;
-      });
+  private isAccessTokenError(errcode: number) {
+    return [40001, 40014, 42001].includes(errcode);
+  }
+
+  private async getAccessToken(forceRefresh = false) {
+    if (forceRefresh) {
+      this.accessToken = "";
+      this.accessTokenExpiresAt = 0;
     }
-    return this.accessTokenPromise;
+    if (!forceRefresh && this.accessToken && Date.now() < this.accessTokenExpiresAt) return this.accessToken;
+    if (!forceRefresh && this.accessTokenPromise) return this.accessTokenPromise;
+
+    const request = (async () => {
+      const url = new URL("/cgi-bin/stable_token", this.config.apiBase);
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body: JSON.stringify({
+          grant_type: "client_credential",
+          appid: this.config.appId,
+          secret: this.config.appSecret,
+          force_refresh: forceRefresh
+        })
+      });
+      const data = (await response.json()) as WechatApiResponse & {
+        access_token?: string;
+        expires_in?: number;
+      };
+      if (!response.ok || !data.access_token) {
+        throw new Error(`获取微信接口凭证失败：${data.errmsg || data.errcode || response.status}`);
+      }
+      this.accessToken = data.access_token;
+      this.accessTokenExpiresAt = Date.now() + Math.max(60, (data.expires_in ?? 7200) - 300) * 1000;
+      return this.accessToken;
+    })();
+    this.accessTokenPromise = request;
+    try {
+      return await request;
+    } finally {
+      if (this.accessTokenPromise === request) this.accessTokenPromise = undefined;
+    }
   }
 }

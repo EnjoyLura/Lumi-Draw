@@ -23,6 +23,7 @@ export class WorksController {
   plaza(@CurrentUser() user: { id: number } | undefined, @Query() query: PlazaQueryDto) {
     return this.works.plaza(
       {
+        featuredOnly: query.featuredOnly,
         categoryId: query.categoryId,
         categoryIds: query.categoryIds,
         modelIds: query.modelIds,

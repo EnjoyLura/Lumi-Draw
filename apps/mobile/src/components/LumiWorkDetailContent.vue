@@ -108,6 +108,22 @@ const likeCount = computed(() => (work.value?.likes || 0) + (useMockData.value &
 const favoriteCount = computed(() => (work.value?.favorites || 0) + (useMockData.value && favorited.value ? 1 : 0));
 const qualityTag = computed(() => work.value?.quality?.match(/(?:1|2|4)\s*K/i)?.[0].replace(/\s/g, "").toUpperCase() || "");
 const ratioTag = computed(() => normalizeAspectRatio(work.value?.ratio));
+const detailTags = computed(() => {
+  const normalized = (value: unknown) => String(value || "").trim().toLocaleLowerCase();
+  const reserved = new Set([
+    normalized(work.value?.modelName),
+    normalized(ratioTag.value),
+    normalized(qualityTag.value),
+    normalized(work.value?.styleName)
+  ].filter(Boolean));
+  const seen = new Set<string>();
+  return (work.value?.tags || []).filter((tag) => {
+    const key = normalized(tag);
+    if (!key || reserved.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+});
 const authorSub = computed(() => {
   if (!user.value) return "";
   if ("worksText" in user.value) {
@@ -937,7 +953,7 @@ function handleDetailPreviewLoad() {
             <text class="tag mint">{{ ratioTag }}</text>
             <text v-if="qualityTag" class="tag lavender">{{ qualityTag }}</text>
             <text class="tag lavender">{{ work.styleName }}</text>
-            <text v-for="tag in work.tags" :key="tag" class="tag peach">{{ tag }}</text>
+            <text v-for="tag in detailTags" :key="tag" class="tag peach">{{ tag }}</text>
           </view>
 
           <view class="prompt-card">

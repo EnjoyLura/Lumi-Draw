@@ -470,7 +470,9 @@ async function confirmUnfollow() {
 }
 
 .page-scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .profile-empty {
@@ -947,9 +949,4 @@ async function confirmUnfollow() {
   flex-direction: column;
 }
 
-.profile-page > .page-scroll {
-  flex: 1;
-  min-height: 0;
-  height: auto;
-}
 </style>

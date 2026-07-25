@@ -77,7 +77,7 @@ test("server wallet APIs sign and send the exact official request bodies", async
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
-    if (url.pathname === "/cgi-bin/token") {
+    if (url.pathname === "/cgi-bin/stable_token") {
       return new Response(JSON.stringify({ access_token: "access-token", expires_in: 7200 }));
     }
     const body = String(init?.body ?? "");
@@ -151,6 +151,37 @@ test("server wallet APIs sign and send the exact official request bodies", async
       assert.equal(call.url.searchParams.get("pay_sig"), hmac("virtual-app-key", `${call.url.pathname}&${call.body}`));
       assert.equal(call.url.searchParams.get("signature"), hmac("session-key", call.body));
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("server wallet refreshes an invalid access token once with stable_token", async () => {
+  const client = new WechatVirtualPayClient(config());
+  const tokenRequests: Array<{ force_refresh?: boolean }> = [];
+  let balanceRequests = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
+    if (url.pathname === "/cgi-bin/stable_token") {
+      tokenRequests.push(JSON.parse(String(init?.body || "{}")) as { force_refresh?: boolean });
+      return new Response(JSON.stringify({ access_token: `access-token-${tokenRequests.length}`, expires_in: 7200 }));
+    }
+    if (url.pathname === "/xpay/query_user_balance") {
+      balanceRequests += 1;
+      if (balanceRequests === 1) {
+        return new Response(JSON.stringify({ errcode: 40014, errmsg: "access_token is invalid or not latest" }));
+      }
+      return new Response(JSON.stringify({ errcode: 0, balance: 120, present_balance: 20 }));
+    }
+    return new Response(JSON.stringify({ errcode: -1 }), { status: 500 });
+  };
+
+  try {
+    const balance = await client.queryUserBalance("openid-1", "session-key", "1.2.3.4");
+    assert.deepEqual(balance, { balance: 120, presentBalance: 20 });
+    assert.equal(balanceRequests, 2);
+    assert.deepEqual(tokenRequests.map((item) => item.force_refresh), [false, true]);
   } finally {
     globalThis.fetch = originalFetch;
   }
