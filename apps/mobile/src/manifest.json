@@ -11,6 +11,11 @@
     "darkmode": true,
     "themeLocation": "theme.json",
     "lazyCodeLoading": "requiredComponents",
+    "permission": {
+      "scope.writeClipboard": {
+        "desc": "用于复制作品提示词、作品链接和邀请码"
+      }
+    },
     "setting": {
       "urlCheck": true,
       "minified": true

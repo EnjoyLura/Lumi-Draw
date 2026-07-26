@@ -33,7 +33,10 @@ export async function copyToClipboard(text: string) {
 export function clipboardFailureMessage(error: unknown) {
   const message = errorMessage(error).toLowerCase();
   if (/没有可复制/.test(message)) return "没有可复制的内容";
-  if (/privacy|隐私|scope|not declared/.test(message)) return "请先同意隐私保护指引后再复制";
+  if (/not declared|scope is not declared/.test(message)) {
+    return "剪切板功能尚未在隐私保护指引中声明";
+  }
+  if (/privacy|隐私|scope/.test(message)) return "请先同意隐私保护指引后再复制";
   if (/deny|denied|auth|permission|拒绝/.test(message)) return "未获得剪贴板权限，请稍后重试";
   return "复制失败，请稍后重试";
 }
