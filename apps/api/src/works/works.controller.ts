@@ -54,7 +54,7 @@ export class WorksController {
   @UseGuards(JwtAuthGuard)
   @Get("me/drafts")
   myDrafts(@CurrentUser() user: { id: number }, @Query() query: MyGalleryQueryDto) {
-    return this.works.myGallery(user.id, "draft", query.page, query.pageSize);
+    return this.works.myGallery(user.id, ["draft", "offline", "rejected"], query.page, query.pageSize);
   }
 
   @ApiBearerAuth()

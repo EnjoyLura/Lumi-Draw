@@ -21,7 +21,7 @@ import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { invalidateWorkDetailPreload, preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { clearWorkDetailCache, patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { notifyWorkVisibilityChange, subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
-import { subscribeGalleryWorksCreated } from "../../services/galleryWorkEvents";
+import { subscribeGalleryWorksCreated, subscribeGalleryWorkUpdated } from "../../services/galleryWorkEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { refreshRechargePageSnapshot } from "../recharge/rechargeCache";
 import {
@@ -168,7 +168,9 @@ let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 let unsubscribeWorkVisibility: (() => void) | undefined;
 let unsubscribeGalleryWorksCreated: (() => void) | undefined;
+let unsubscribeGalleryWorkUpdated: (() => void) | undefined;
 let latestGalleryMerge: Promise<void> | undefined;
+let skipNextShowRefresh = false;
 const mergedGenerationJobs = new Set<string>();
 
 const modelOptions = computed(() => availableModels.value);
@@ -269,7 +271,11 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
-  void refreshGalleryPage().catch(() => undefined);
+  if (skipNextShowRefresh) {
+    skipNextShowRefresh = false;
+  } else {
+    void refreshGalleryPage().catch(() => undefined);
+  }
   scheduleRechargePreload();
 });
 
@@ -298,6 +304,16 @@ onMounted(() => {
     if (mergedGenerationJobs.has(jobId)) return;
     mergedGenerationJobs.add(jobId);
     void mergeLatestGalleryWorks().catch(() => undefined);
+  });
+  unsubscribeGalleryWorkUpdated = subscribeGalleryWorkUpdated(({ workId, returnRoute, patch }) => {
+    const normalizedReturnRoute = returnRoute?.replace(/^\/+/, "");
+    const normalizedOwnerRoute = detailOverlayOwnerRoute.value.replace(/^\/+/, "");
+    if (!normalizedReturnRoute || normalizedReturnRoute === normalizedOwnerRoute) skipNextShowRefresh = true;
+    const index = works.value.findIndex((work) => work.id === workId);
+    if (index < 0) return;
+    const nextWorks = works.value.slice();
+    nextWorks[index] = { ...nextWorks[index], ...patch, id: workId };
+    works.value = nextWorks;
   });
   void loadModelOptions();
   markInitialContentReady();
@@ -339,6 +355,8 @@ onBeforeUnmount(() => {
   unsubscribeWorkVisibility = undefined;
   unsubscribeGalleryWorksCreated?.();
   unsubscribeGalleryWorksCreated = undefined;
+  unsubscribeGalleryWorkUpdated?.();
+  unsubscribeGalleryWorkUpdated = undefined;
   if (loadingTimer) clearTimeout(loadingTimer);
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
   if (genTaskTimer) clearTimeout(genTaskTimer);

@@ -352,9 +352,13 @@ export class WorksService {
     return { ok: true, action: "delete" };
   }
 
-  async myGallery(userId: number, status: string | undefined, page: number, pageSize: number) {
+  async myGallery(userId: number, status: string | string[] | undefined, page: number, pageSize: number) {
     const where: Prisma.WorkWhereInput = { userId };
-    if (status) where.status = status;
+    if (Array.isArray(status)) {
+      if (status.length) where.status = { in: status };
+    } else if (status) {
+      where.status = status;
+    }
     const [rows, total] = await Promise.all([
       this.prisma.work.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })

@@ -7,7 +7,7 @@ import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { navigateBackOrRedirect } from "../../services/navigation";
-import { invalidateTabPages } from "../../services/tabPageCache";
+import { notifyGalleryWorkUpdated } from "../../services/galleryWorkEvents";
 import { invalidateWorkDetailPreload } from "../../services/workDetailListPreload";
 import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
@@ -48,6 +48,15 @@ const publishButtonText = computed(() => {
 
 function leavePublishPage() {
   navigateBackOrRedirect("/pages/gallery/index");
+}
+
+function previousPageRoute() {
+  try {
+    const pages = getCurrentPages() as Array<{ route?: string }>;
+    return pages[pages.length - 2]?.route;
+  } catch {
+    return undefined;
+  }
 }
 
 onLoad((query) => {
@@ -277,7 +286,7 @@ async function submit() {
       tags: selectedTags.value,
       draft: selectedDraft.value
     });
-    patchWorkDetailSnapshot(result.id, {
+    const workPatch = {
       title: result.title,
       description: result.description || "",
       prompt: result.prompt || title.value.trim(),
@@ -288,9 +297,10 @@ async function submit() {
       tags: result.tags || selectedTags.value,
       published: result.status === "published" && result.isPublic !== false,
       status: result.status
-    });
+    };
+    patchWorkDetailSnapshot(result.id, workPatch);
+    notifyGalleryWorkUpdated({ workId: result.id, returnRoute: previousPageRoute(), patch: workPatch });
     invalidateWorkDetailPreload(result.id);
-    invalidateTabPages("gallery:");
     uni.showToast({ title: publishSuccessMessage(result), icon: "none" });
     setTimeout(leavePublishPage, 900);
   } catch (error) {
