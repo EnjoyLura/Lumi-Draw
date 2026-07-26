@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { userName } from "../data/mock";
+import { userName, type AdminWork } from "../data/mock";
 import { getWorks } from "../data/service";
-import { apiGetWorks, apiGetWorksSummary, type AdminWorksSummary } from "../data/api";
+import { apiFeatureWork, apiGetWorks, apiGetWorksSummary, apiRecommendWork, type AdminWorksSummary } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
@@ -22,18 +22,21 @@ function formatCount(value: number) {
 }
 
 export function Works() {
-  const { openSheet } = useNav();
+  const { openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
   const { data, reload } = useAsyncData(useMock ? null : apiGetWorks, [useMock]);
   const summaryState = useAsyncData(useMock ? null : apiGetWorksSummary, [useMock]);
   const works = useMock ? getWorks() : data ?? [];
   const [filter, setFilter] = useState("全部");
   const [query, setQuery] = useState("");
+  const [workOverrides, setWorkOverrides] = useState<Record<number, Pick<AdminWork, "featured" | "recommend">>>({});
+  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
+  const displayedWorks = works.map((work) => ({ ...work, ...workOverrides[work.id] }));
   const localSummary: AdminWorksSummary = {
-    total: works.length,
-    todayNew: works.filter((w) => isToday(w.time)).length,
-    featured: works.filter((w) => w.featured).length,
-    offline: works.filter((w) => w.status === "已下架").length
+    total: displayedWorks.length,
+    todayNew: displayedWorks.filter((w) => isToday(w.time)).length,
+    featured: displayedWorks.filter((w) => w.featured).length,
+    offline: displayedWorks.filter((w) => w.status === "已下架").length
   };
   const summary = useMock ? localSummary : summaryState.data ?? localSummary;
   const afterPublished = () => {
@@ -42,13 +45,49 @@ export function Works() {
   };
 
   const q = query.toLowerCase();
-  const list = works.filter((w) => {
+  const list = displayedWorks.filter((w) => {
     if (filter === "精选") { if (!w.featured) return false; }
     else if (filter === "首页推荐") { if (!w.recommend) return false; }
     else if (filter !== "全部" && w.status !== filter) return false;
     if (q && (w.title || "").toLowerCase().indexOf(q) < 0 && w.prompt.toLowerCase().indexOf(q) < 0 && userName(w.userId).toLowerCase().indexOf(q) < 0) return false;
     return true;
   });
+
+  async function toggleWorkOperation(work: AdminWork, key: "featured" | "recommend") {
+    const operationKey = `${work.id}:${key}`;
+    if (pendingOperations.has(operationKey)) return;
+
+    const previous = { featured: Boolean(work.featured), recommend: Boolean(work.recommend) };
+    const next = !previous[key];
+    setWorkOverrides((current) => ({ ...current, [work.id]: { ...previous, ...current[work.id], [key]: next } }));
+    setPendingOperations((current) => new Set(current).add(operationKey));
+
+    try {
+      if (useMock) {
+        const mockWork = works.find((item) => item.id === work.id);
+        if (mockWork) mockWork[key] = next;
+      } else {
+        const updated = key === "featured"
+          ? await apiFeatureWork(work.id, next)
+          : await apiRecommendWork(work.id, next);
+        setWorkOverrides((current) => ({
+          ...current,
+          [work.id]: { featured: updated.featured, recommend: updated.recommend }
+        }));
+        summaryState.reload();
+      }
+      toast(next ? `已开启${key === "featured" ? "精选" : "首页推荐"}` : `已关闭${key === "featured" ? "精选" : "首页推荐"}`);
+    } catch (error) {
+      setWorkOverrides((current) => ({ ...current, [work.id]: previous }));
+      toast(error instanceof Error ? error.message : "操作失败，请稍后重试");
+    } finally {
+      setPendingOperations((current) => {
+        const nextPending = new Set(current);
+        nextPending.delete(operationKey);
+        return nextPending;
+      });
+    }
+  }
 
   return (
     <>
@@ -69,7 +108,18 @@ export function Works() {
         {list.length === 0 ? (
           <div className="empty" style={{ gridColumn: "1/-1" }}><i className="ri-image-line" /><div className="et">暂无匹配作品</div></div>
         ) : (
-          list.map((w) => <WorkCard key={w.id} w={w} />)
+          list.map((w) => (
+            <WorkCard
+              key={w.id}
+              w={w}
+              operations={{
+                featuredPending: pendingOperations.has(`${w.id}:featured`),
+                recommendPending: pendingOperations.has(`${w.id}:recommend`),
+                onToggleFeatured: () => void toggleWorkOperation(w, "featured"),
+                onToggleRecommend: () => void toggleWorkOperation(w, "recommend")
+              }}
+            />
+          ))
         )}
       </div>
     </>

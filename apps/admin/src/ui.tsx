@@ -76,7 +76,14 @@ export function Seg({ items, active, onPick, small }: { items: Array<[string, st
   );
 }
 
-export function WorkCard({ w }: { w: AdminWork }) {
+export interface WorkCardOperations {
+  featuredPending?: boolean;
+  recommendPending?: boolean;
+  onToggleFeatured: () => void;
+  onToggleRecommend: () => void;
+}
+
+export function WorkCard({ w, operations }: { w: AdminWork; operations?: WorkCardOperations }) {
   const { go } = useNav();
   const featured = Boolean(w.featured || w.status === "精选");
   return (
@@ -96,6 +103,18 @@ export function WorkCard({ w }: { w: AdminWork }) {
           <span><i className="ri-heart-3-line" /> {w.likes}</span>
         </div>
       </div>
+      {operations ? (
+        <div className="work-card-operations" onClick={(event) => event.stopPropagation()}>
+          <div className="work-card-operation">
+            <span><i className="ri-star-fill" />精选</span>
+            <Switch on={Boolean(w.featured)} disabled={operations.featuredPending} onToggle={operations.onToggleFeatured} />
+          </div>
+          <div className="work-card-operation">
+            <span><i className="ri-home-heart-fill" />首页推荐</span>
+            <Switch on={Boolean(w.recommend)} disabled={operations.recommendPending} onToggle={operations.onToggleRecommend} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

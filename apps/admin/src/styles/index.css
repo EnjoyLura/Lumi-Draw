@@ -767,6 +767,30 @@ textarea.input { resize: none; line-height: 1.6; }
 
 .wcard:active { transform: scale(.98); }
 
+.work-card-operations {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-soft) 58%, transparent);
+}
+
+.work-card-operation {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 7px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.work-card-operation + .work-card-operation { border-left: 1px solid var(--border); }
+.work-card-operation i { margin-right: 3px; color: #D88900; }
+.work-card-operation:nth-child(2) i { color: #347CC2; }
+.work-card-operation .switch { transform: scale(.72); transform-origin: right center; margin-right: -5px; }
+
 .kv {
   display: flex;
   justify-content: space-between;
