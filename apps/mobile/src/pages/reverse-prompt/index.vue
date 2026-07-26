@@ -8,6 +8,7 @@ import { mockImage } from "../../services/mockImages";
 import { uploadChosenImage } from "../../services/upload";
 import { reversePrompt } from "./reversePromptService";
 import { useTheme } from "../../services/theme";
+import { clipboardFailureMessage, copyToClipboard } from "../../services/clipboard";
 
 const { themeClass } = useTheme();
 
@@ -79,9 +80,14 @@ async function startReverse() {
   }
 }
 
-function copyResult() {
+async function copyResult() {
   if (!resultText.value) return;
-  uni.setClipboardData({ data: resultText.value });
+  try {
+    await copyToClipboard(resultText.value);
+    uni.showToast({ title: "提示词已复制", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+  }
 }
 
 function useResult() {

@@ -148,6 +148,7 @@ const drawerProfile = ref<MineUser | null>(null);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(10);
 const isLoading = ref(!useMockData.value);
+const isRefreshing = ref(false);
 const isPageRequesting = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
@@ -527,6 +528,18 @@ function openWorkDetail(work: HomeWork, sourceRect: WorkDetailSourceRect | null)
   );
 }
 
+async function handlePlazaRefresh() {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  try {
+    await reloadPlazaData();
+  } catch {
+    // The page loader already reports the failure; always stop the native refresher.
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
 function switchPlazaTab(tab: PlazaTab, index: number) {
   if (tab === activeTab.value || isLoading.value) return;
   const previousIndex = plazaTabs.findIndex((item) => item.key === activeTab.value);
@@ -794,7 +807,15 @@ function handleReachBottom() {
 
 <template>
   <view class="plaza-page" :class="themeClass">
-    <scroll-view class="plaza-scroll" scroll-y :lower-threshold="320" @scrolltolower="handleReachBottom">
+    <scroll-view
+      class="plaza-scroll"
+      scroll-y
+      refresher-enabled
+      :refresher-triggered="isRefreshing"
+      :lower-threshold="320"
+      @refresherrefresh="handlePlazaRefresh"
+      @scrolltolower="handleReachBottom"
+    >
       <view class="plaza-content">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />

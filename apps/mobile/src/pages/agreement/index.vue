@@ -120,7 +120,7 @@ async function loadAgreement() {
 <template>
   <view class="agreement-page" :class="themeClass">
     <LumiPageHeader />
-    <LumiDeferredPageContent>
+    <LumiDeferredPageContent class="agreement-deferred">
     <scroll-view class="page-scroll" scroll-y>
       <view class="agreement-content">
         <view class="title-row">
@@ -256,9 +256,12 @@ async function loadAgreement() {
   flex-direction: column;
 }
 
-.agreement-page > .page-scroll {
+.agreement-page > .agreement-deferred {
   flex: 1;
   min-height: 0;
-  height: auto;
+}
+
+.agreement-deferred > .page-scroll {
+  height: 100%;
 }
 </style>

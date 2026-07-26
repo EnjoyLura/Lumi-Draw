@@ -10,6 +10,7 @@ import { inviteCode as mockInviteCode, invitedUsers as mockInvitedUsers, type In
 import { fetchInviteSummary } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
+import { clipboardFailureMessage, copyToClipboard } from "../../services/clipboard";
 
 const { themeClass } = useTheme();
 
@@ -88,24 +89,26 @@ async function login() {
   }
 }
 
-function copyInviteCode() {
+async function copyInviteCode() {
   if (!ensureLogin()) return;
-  uni.setClipboardData({ data: inviteCode.value });
+  try {
+    await copyToClipboard(inviteCode.value);
+    uni.showToast({ title: "邀请码已复制", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+  }
 }
 
-function shareInvite() {
+async function shareInvite() {
   if (!ensureLogin()) return;
   const path = `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`;
   const link = typeof window !== "undefined" && window.location?.origin ? `${window.location.origin}/#${path}` : path;
-  uni.setClipboardData({
-    data: `我在露米绘画AI创作图片，邀请码 ${inviteCode.value}，一起领积分：${link}`,
-    success() {
-      uni.showToast({ title: "邀请文案已复制", icon: "none" });
-    },
-    fail() {
-      uni.showToast({ title: "分享失败，请稍后重试", icon: "none" });
-    }
-  });
+  try {
+    await copyToClipboard(`我在露米绘画AI创作图片，邀请码 ${inviteCode.value}，一起领积分：${link}`);
+    uni.showToast({ title: "邀请文案已复制", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+  }
 }
 </script>
 

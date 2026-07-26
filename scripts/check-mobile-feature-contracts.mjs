@@ -85,8 +85,7 @@ const pageContracts = [
       "deleteGalleryWorks",
       "takeDownSelectedWorks",
       "LumiSideDrawer",
-      "生成完成",
-      "生成作品已自动保存到画廊",
+      "生成任务已结束，请刷新画廊查看",
       "去创作页",
       "goCreate"
     ]
@@ -144,7 +143,7 @@ const pageContracts = [
   },
   {
     route: "pages/recharge/index",
-    tokens: ["useDataMode", "fetchCreditsBalance", "fetchCreditRecordPage", "fetchRechargeTiers", "createRechargeOrder", "requestOrderPayment"]
+    tokens: ["useDataMode", "refreshRechargePageSnapshot", "fetchCreditRecordPage", "createRechargeOrder", "requestOrderPayment"]
   },
   {
     route: "pages/checkin/index",

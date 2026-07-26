@@ -120,6 +120,7 @@ const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : [])
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(!useMockData.value && isLoggedIn.value);
+const isRefreshing = ref(false);
 const isPageRequesting = ref(false);
 const isLoadingMore = ref(false);
 const sideOpen = ref(false);
@@ -962,6 +963,18 @@ function displayTitle(work: HomeWork) {
   return work.title || (work.prompt.length > 18 ? `${work.prompt.slice(0, 18)}...` : work.prompt);
 }
 
+async function handleGalleryRefresh() {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  try {
+    await reloadGalleryData();
+  } catch {
+    // The page loader already reports the failure; always stop the native refresher.
+  } finally {
+    isRefreshing.value = false;
+  }
+}
+
 function statusBadgeText(work: HomeWork) {
   if (work.status === "pending") return "审核中";
   if (work.status === "rejected") return "未通过";
@@ -996,7 +1009,15 @@ function openWork(work: HomeWork) {
 
 <template>
   <view class="gallery-page" :class="themeClass">
-    <scroll-view class="gallery-scroll" scroll-y :lower-threshold="320" @scrolltolower="handleReachBottom">
+    <scroll-view
+      class="gallery-scroll"
+      scroll-y
+      refresher-enabled
+      :refresher-triggered="isRefreshing"
+      :lower-threshold="320"
+      @refresherrefresh="handleGalleryRefresh"
+      @scrolltolower="handleReachBottom"
+    >
       <view class="header-bg">
         <view class="nav-header">
           <view class="status-spacer" :style="{ height: statusBarHeight + 'px' }" />

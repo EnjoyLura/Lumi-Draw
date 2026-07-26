@@ -11,7 +11,7 @@ export class CreateRechargeOrderDto {
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @Min(0.1)
+  @Min(1)
   amount?: number;
 
   @IsOptional()

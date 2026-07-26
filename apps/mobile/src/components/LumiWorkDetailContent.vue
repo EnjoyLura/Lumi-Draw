@@ -20,6 +20,7 @@ import { deleteWork, fetchWorkDetail, takeDownWork, type DetailAuthor } from "..
 import { useTheme } from "../services/theme";
 import { getNavigationMetrics } from "../services/navigationMetrics";
 import { imageSaveFailureMessage, saveImageToDevice } from "../services/imageSave";
+import { clipboardFailureMessage, copyToClipboard } from "../services/clipboard";
 import { openEmbeddedCreate } from "../services/primaryShell";
 import { invalidateTabPages } from "../services/tabPageCache";
 import { consumeWorkDetailStale } from "../services/workDetailRefresh";
@@ -467,9 +468,14 @@ async function loadDetail() {
   }
 }
 
-function copyPrompt() {
+async function copyPrompt() {
   if (!work.value) return;
-  uni.setClipboardData({ data: work.value.prompt });
+  try {
+    await copyToClipboard(work.value.prompt);
+    uni.showToast({ title: "提示词已复制", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+  }
 }
 
 function updateAuthorFollowers(followers: number) {
@@ -684,18 +690,15 @@ function getShareLink() {
   return path;
 }
 
-function shareWork() {
+async function shareWork() {
   longPressOpen.value = false;
   detailManageOpen.value = false;
-  uni.setClipboardData({
-    data: getShareLink(),
-    success() {
-      uni.showToast({ title: "作品链接已复制", icon: "none" });
-    },
-    fail() {
-      uni.showToast({ title: "分享失败，请稍后重试", icon: "none" });
-    }
-  });
+  try {
+    await copyToClipboard(getShareLink());
+    uni.showToast({ title: "作品链接已复制", icon: "none" });
+  } catch (error) {
+    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+  }
 }
 
 async function saveWorkImage() {

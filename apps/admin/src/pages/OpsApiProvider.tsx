@@ -182,7 +182,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
           requestMode,
           adapter: requestMode === "sync" ? "change2pro" : current.adapter === "change2pro" ? "ainb" : current.adapter,
           statusEnabled: requestMode === "async" && current.statusEnabled,
-          responseMapping: requestMode === "async" ? { ...DEFAULT_ASYNC_MAPPING, ...current.responseMapping } : {}
+          responseMapping: requestMode === "async" ? { ...DEFAULT_ASYNC_MAPPING, ...current.responseMapping } : current.responseMapping
         }));
       }}>
         {REQUEST_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
@@ -239,7 +239,14 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         {value.statusEnabled ? <MappingField label="任务进度数据路径" value={value.responseMapping.progressPath || ""} placeholder="data.progress" onChange={(next) => update("responseMapping", { ...value.responseMapping, progressPath: next })} /> : null}
       </> : null}
 
-      {value.requestMode === "async" && (value.textResultMode === "base64" || value.imageResultMode === "base64") ? <MappingField label="结果 Base64 数据路径" value={value.responseMapping.resultBase64Path || ""} placeholder="data.data[].b64_json" onChange={(next) => update("responseMapping", { ...value.responseMapping, resultBase64Path: next })} /> : null}
+      {value.requestMode === "sync" ? <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+        <MappingField label="结果图片 URL 数据路径" value={value.responseMapping.resultUrlPath || ""} placeholder="data[].url" onChange={(next) => update("responseMapping", { ...value.responseMapping, resultUrlPath: next })} />
+        <MappingField label="结果 Base64 数据路径" value={value.responseMapping.resultBase64Path || ""} placeholder="data[].b64_json" onChange={(next) => update("responseMapping", { ...value.responseMapping, resultBase64Path: next })} />
+        {(value.textResultMode === "base64" || value.imageResultMode === "base64") ? <label className="lrow" style={{ cursor: "pointer", padding: "8px 0" }}>
+          <input type="checkbox" checked={value.responseMapping.allowHttpResultUrl === "true"} onChange={(event) => update("responseMapping", { ...value.responseMapping, allowHttpResultUrl: event.target.checked ? "true" : "" })} />
+          <div className="lr-main"><div className="lr-t">允许平台返回 HTTP 图片地址</div><div className="lr-s">仅在平台确实返回 HTTP 原图 URL 时开启；仍会拦截内网地址。</div></div>
+        </label> : null}
+      </div> : null}
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
         <input type="checkbox" checked={value.textToImageEnabled} onChange={(event) => update("textToImageEnabled", event.target.checked)} />
         <div className="lr-main"><div className="lr-t">启用文生图</div><div className="lr-s">关闭后该平台不接受文生图任务</div></div>

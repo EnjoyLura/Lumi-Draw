@@ -77,6 +77,7 @@ const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
 const isPageLoading = ref(!useMockData.value && !cachedBootstrap);
+const isRefreshing = ref(false);
 const isWorksSwitching = ref(false);
 const isLoadingMore = ref(false);
 const loadFailed = ref(false);
@@ -302,6 +303,18 @@ async function loadHomeData(forceBootstrap = false) {
 function refreshHomeData() {
   invalidateTabPage("home");
   return loadHomeData(true);
+}
+
+async function handleHomeRefresh() {
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+  try {
+    await refreshHomeData();
+  } catch {
+    // The page loader already reports the failure; always stop the native refresher.
+  } finally {
+    isRefreshing.value = false;
+  }
 }
 
 function showUnsupportedBanner(title: string) {
@@ -626,10 +639,6 @@ function handleReachBottom() {
       worksRenderKey.value += 1;
     } else {
       worksRenderKey.value += 1;
-      uni.showToast({
-        title: "已刷新最新作品",
-        icon: "none"
-      });
     }
 
     isLoadingMore.value = false;
@@ -733,7 +742,10 @@ function getWorkTitle(work: HomeWork) {
     <scroll-view
       class="content-area"
       scroll-y
+      refresher-enabled
+      :refresher-triggered="isRefreshing"
       :lower-threshold="320"
+      @refresherrefresh="handleHomeRefresh"
       @scrolltolower="handleReachBottom"
     >
       <view class="nav-header">

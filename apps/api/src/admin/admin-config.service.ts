@@ -413,7 +413,8 @@ export class AdminConfigService {
   }
 
   private normalizeResponseMapping(value: unknown, adapter: string, requestMode: string) {
-    if (requestMode !== "async") return {};
+    const supplied = this.normalizeGenerationParams(value);
+    if (requestMode !== "async") return supplied;
     const defaults: Record<string, string> = adapter === "ainb" ? {
       taskIdPath: "task_id",
       statusPath: "data.status",
@@ -424,7 +425,7 @@ export class AdminConfigService {
       failureValue: "FAILURE",
       pendingValue: "IN_PROGRESS"
     } : {};
-    const mapping = { ...defaults, ...this.normalizeGenerationParams(value) };
+    const mapping = { ...defaults, ...supplied };
     if (adapter === "ainb" && (!mapping.taskIdPath || !mapping.statusPath || (!mapping.resultUrlPath && !mapping.resultBase64Path))) {
       throw new BadRequestException("异步接口必须配置任务 ID、状态和结果图片的数据路径");
     }

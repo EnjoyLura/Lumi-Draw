@@ -9,6 +9,8 @@ agent.md
 *.crt
 *.p12
 infra/ainb-image-transfer/*.zip
+/infra/*.zip
+/.deploy-*
 *_cert.zip
 CertificateDownloader-*.jar
 *_nginx.zip
