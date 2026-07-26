@@ -39,18 +39,28 @@ function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock:
   const [title, setTitle] = useState(work.title);
   const [desc, setDesc] = useState(work.desc);
   const [tags, setTags] = useState((work.tags && work.tags.length ? work.tags : [work.style]).join("、"));
+  const [likes, setLikes] = useState(String(work.likes));
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
+    const likeCount = Number(likes);
+    if (!likes.trim() || !Number.isSafeInteger(likeCount) || likeCount < 0 || likeCount > 2_000_000_000) {
+      toast("点赞数量请输入 0 到 20 亿之间的整数");
+      return;
+    }
     setSaving(true);
     try {
       const tagList = tags.split(/[、,，]/).map((s) => s.trim()).filter(Boolean);
       if (useMock) {
+        const previousLikes = work.likes;
         work.title = title;
         work.desc = desc;
         work.tags = tagList;
+        work.likes = likeCount;
+        const author = USERS.find((user) => user.id === work.userId);
+        if (author) author.likes = Math.max(0, author.likes + likeCount - previousLikes);
       } else {
-        await apiUpdateWork(work.id, { title, desc, style: tagList[0] ?? work.style });
+        await apiUpdateWork(work.id, { title, desc, style: tagList[0] ?? work.style, likes: likeCount });
       }
       closeSheet();
       onDone();
@@ -70,6 +80,18 @@ function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock:
       <textarea className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="作品描述" />
       <label className="field-label" style={{ marginTop: 12 }}>标签</label>
       <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="多个用、分隔" />
+      <label className="field-label" style={{ marginTop: 12 }}>点赞数量</label>
+      <input
+        className="input"
+        type="number"
+        min={0}
+        max={2_000_000_000}
+        step={1}
+        inputMode="numeric"
+        value={likes}
+        onChange={(event) => setLikes(event.target.value)}
+        placeholder="请输入作品点赞数量"
+      />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>

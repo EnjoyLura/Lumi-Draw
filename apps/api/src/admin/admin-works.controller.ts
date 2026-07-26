@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { AdminWorkQueryDto } from "./admin.query";
-import { AdminCreateWorkDto } from "./admin-work.dto";
+import { AdminCreateWorkDto, AdminUpdateWorkDto } from "./admin-work.dto";
 import { AdminService } from "./admin.service";
 
 type Body_ = Record<string, unknown>;
@@ -43,8 +43,8 @@ export class AdminWorksController {
   }
 
   @Patch(":id")
-  update(@Param("id", ParseIntPipe) id: number, @Body() b: Body_) {
-    return this.admin.updateWork(id, b);
+  update(@Param("id", ParseIntPipe) id: number, @Body() dto: AdminUpdateWorkDto) {
+    return this.admin.updateWork(id, dto);
   }
 
   @Post(":id/feature")

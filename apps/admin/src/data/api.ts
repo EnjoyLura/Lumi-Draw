@@ -178,11 +178,12 @@ export async function apiGetWorkDetail(id: number): Promise<AdminWorkDetailData>
   return mapWork(await http.get<ApiWork>(`/admin/works/${id}`));
 }
 
-export async function apiUpdateWork(id: number, values: { title: string; desc: string; style: string }) {
+export async function apiUpdateWork(id: number, values: { title: string; desc: string; style: string; likes: number }) {
   return mapWork(await http.patch<ApiWork>(`/admin/works/${id}`, {
     title: values.title,
     description: values.desc,
-    style: values.style
+    style: values.style,
+    likes: values.likes
   }));
 }
 

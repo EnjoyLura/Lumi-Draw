@@ -1,4 +1,31 @@
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+
+export class AdminUpdateWorkDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  style?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(2_000_000_000)
+  likes?: number;
+
+  @IsOptional()
+  @IsIn(["draft", "pending", "published", "rejected", "offline"])
+  status?: string;
+}
 
 export class AdminCreateWorkDto {
   @IsInt()

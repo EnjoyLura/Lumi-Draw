@@ -6,7 +6,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
-import { AdminCreateWorkDto } from "./admin-work.dto";
+import { AdminCreateWorkDto, AdminUpdateWorkDto } from "./admin-work.dto";
 import { AdminUserQueryDto, AdminWorkQueryDto } from "./admin.query";
 
 function userRow(user: User) {
@@ -278,14 +278,23 @@ export class AdminService {
     return work;
   }
 
-  async updateWork(id: number, body: Record<string, unknown>) {
+  async updateWork(id: number, body: AdminUpdateWorkDto) {
     await this.ensureWork(id);
     const data: Prisma.WorkUpdateInput = {};
     if (typeof body.title === "string") data.title = body.title;
     if (typeof body.description === "string") data.description = body.description;
     if (typeof body.style === "string") data.style = body.style;
-    if (["draft", "pending", "published", "rejected", "offline"].includes(String(body.status))) data.status = String(body.status);
-    const work = await this.prisma.work.update({ where: { id }, data, include: { user: true } });
+    if (typeof body.status === "string") data.status = body.status;
+    if (typeof body.likes === "number") data.likes = body.likes;
+
+    const work = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.work.update({ where: { id }, data, include: { user: true } });
+      if (typeof body.likes === "number") {
+        const total = await tx.work.aggregate({ where: { userId: updated.userId }, _sum: { likes: true } });
+        await tx.user.update({ where: { id: updated.userId }, data: { likesCount: total._sum.likes ?? 0 } });
+      }
+      return updated;
+    });
     return this.adminWorkRow(work);
   }
 
