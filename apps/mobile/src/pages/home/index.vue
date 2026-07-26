@@ -28,7 +28,7 @@ import { goRootTab } from "../../services/tabNavigation";
 import { activeEmbeddedPrimaryTab, createRouteQuery, openEmbeddedCreate, setEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { invalidateTabPage, refreshTabPage } from "../../services/tabPageCache";
 import { savePendingInviteCode, useAuth } from "../../services/auth";
-import { inviteRewardsEnabled } from "../../services/featureFlags";
+import { inviteRewardsEnabled, reversePromptEnabled } from "../../services/featureFlags";
 import { toggleWorkLike } from "../../services/social";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
@@ -110,9 +110,12 @@ const leftColumnWorks = computed(() => displayedWorks.value.filter((_, index) =>
 const rightColumnWorks = computed(() => displayedWorks.value.filter((_, index) => index % 2 === 1));
 const currentFeedState = computed(() => (renderedHomeTab.value === "new" ? feedState.new : feedState.recommend));
 const hasMoreWorks = computed(() => visibleWorkCount.value < currentTabWorks.value.length || (!useMockData.value && currentFeedState.value.hasMore));
-const popupAnnouncement = computed(() => announcementList.value.find((item) => item.popup));
+const popupAnnouncement = computed(() => announcementList.value.find((item) => (
+  item.popup && (reversePromptEnabled || !isReversePromptAction(item.action))
+)));
 const showUnreadDot = computed(() => useMockData.value || unreadMessageCount.value > 0);
 const isWaterfallSwitching = computed(() => selectedHomeTab.value !== renderedHomeTab.value);
+const visibleBanners = computed(() => bannerList.value.filter((banner) => reversePromptEnabled || !isReversePromptAction(banner.action)));
 onLoad((query) => {
   applyInviteCode(query);
 });
@@ -512,6 +515,7 @@ function goAllGameplays() {
 function handleBannerTap(action: string, title: string) {
   const route = resolvePageAction(action);
   if (route) {
+    if (!reversePromptEnabled && route.startsWith("/pages/reverse-prompt/index")) return;
     if (!inviteRewardsEnabled && route.startsWith("/pages/invite/index")) return;
     if (route.startsWith("/pages/home/index")) return;
     if (route.startsWith("/pages/create/index")) {
@@ -550,6 +554,10 @@ function openWorkDetail(work: HomeWork) {
     pageInstance?.proxy,
     "pages/home/index"
   );
+}
+
+function isReversePromptAction(action: string) {
+  return resolvePageAction(action)?.startsWith("/pages/reverse-prompt/index") ?? false;
 }
 
 function clearWorksSwitchTimers() {
@@ -768,7 +776,7 @@ function getWorkTitle(work: HomeWork) {
         </view>
 
         <template v-else>
-        <view v-if="bannerList.length" class="banner-card">
+        <view v-if="visibleBanners.length" class="banner-card">
           <swiper
             class="banner-swiper"
             circular
@@ -777,7 +785,7 @@ function getWorkTitle(work: HomeWork) {
             :current="activeBanner"
             @change="activeBanner = $event.detail.current"
           >
-            <swiper-item v-for="banner in bannerList" :key="banner.title">
+            <swiper-item v-for="banner in visibleBanners" :key="banner.title">
               <view class="banner-slide" @tap="handleBannerTap(banner.action, banner.title)">
                 <image class="banner-image" :src="banner.image" mode="aspectFill" />
                 <view class="banner-shade" />
@@ -791,7 +799,7 @@ function getWorkTitle(work: HomeWork) {
           </swiper>
           <view class="banner-dots">
             <text
-              v-for="(_, index) in bannerList"
+              v-for="(_, index) in visibleBanners"
               :key="index"
               class="banner-dot"
               :class="{ active: index === activeBanner }"

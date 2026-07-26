@@ -27,6 +27,7 @@ import { parseQueryString } from "../../services/routeQuery";
 import { goRootTab } from "../../services/tabNavigation";
 import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
 import { notifyGalleryWorksCreated } from "../../services/galleryWorkEvents";
+import { reversePromptEnabled } from "../../services/featureFlags";
 import {
   GENERATION_PROGRESS_STAGES,
   generationDurationSeconds,
@@ -142,11 +143,12 @@ const selectedRatio = computed(
 );
 const selectedCount = computed(() => countOptions[selectedCountIndex.value]);
 const totalCost = computed(() => Math.ceil(selectedModel.value.cost * selectedQuality.value.multiplier * selectedCount.value));
-const visibleStyles = computed(() => styleOptions.value.slice(0, 7));
-const allStyles = computed(() => styleOptions.value.slice(0, -1));
+const allStyles = computed(() => styleOptions.value.filter((style) => style.name !== "更多"));
+const visibleStyles = computed(() => allStyles.value.slice(0, 7));
+const moreStyleCount = computed(() => Math.max(0, allStyles.value.length - visibleStyles.value.length));
 const inlineRatios = computed(() => ratioList.value);
 const moreStyleSelected = computed(() => {
-  return !!selectedStyleName.value && styleOptions.value.findIndex((style) => style.name === selectedStyleName.value) > 6;
+  return !!selectedStyleName.value && allStyles.value.findIndex((style) => style.name === selectedStyleName.value) > 6;
 });
 const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
 const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
@@ -1174,7 +1176,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
             <text class="prompt-count">{{ promptText.length }}/1200</text>
           </view>
           <view class="prompt-actions">
-            <view class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
+            <view v-if="reversePromptEnabled" class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
             <view class="prompt-action accent" :class="{ disabled: isUploadingPromptImage }" @click="uploadPromptImage">
               {{ isUploadingPromptImage ? "选择中..." : "上传图片" }}
             </view>
@@ -1204,10 +1206,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <view class="style-overlay" />
               <text class="style-label">{{ style.name }}</text>
             </view>
-            <view class="style-card" :class="{ selected: moreStyleSelected }" @click="openStyleSheet">
-              <image class="style-img" :src="styleOptions[7]?.image || styleOptions[0]?.image" mode="aspectFill" />
+            <view v-if="moreStyleCount > 0" class="style-card" :class="{ selected: moreStyleSelected }" @click="openStyleSheet">
+              <image class="style-img" :src="allStyles[7]?.image || allStyles[0]?.image" mode="aspectFill" />
               <view class="style-overlay strong" />
-              <text class="style-more">+8</text>
+              <text class="style-more">+{{ moreStyleCount }}</text>
               <text class="style-label">更多</text>
             </view>
           </view>
