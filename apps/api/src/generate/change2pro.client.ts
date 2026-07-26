@@ -135,8 +135,7 @@ export class Change2ProClient {
           model: providerModel,
           prompt: input.prompt,
           n: 1,
-          size: normalizeImage2Size(input.ratio, input.quality),
-          transparent_output: false
+          size: normalizeImage2Size(input.ratio, input.quality)
         }
       )), input.jobId);
     }
@@ -184,10 +183,9 @@ export class Change2ProClient {
         "--form-string", `prompt=${input.prompt}`,
         "--form-string", `n=${input.count}`,
         "--form-string", `size=${normalizeImage2Size(input.ratio, input.quality)}`,
-        "--form-string", "transparent_output=false",
       ];
       Object.entries(pickProviderParams(params, dynamicParams
-        ? Object.keys(params).filter((key) => !["model", "prompt", "size", "n", "image", "image[]", "transparent_output"].includes(key))
+        ? Object.keys(params).filter((key) => !["model", "prompt", "size", "n", "image", "image[]"].includes(key))
         : ["quality", "input_fidelity", "moderation", "output_format", "output_compression", "response_format"]))
         .forEach(([key, value]) => args.push("--form-string", `${key}=${value}`));
       args.push("--form", `image=@${referencePath};type=${reference.contentType}`);
