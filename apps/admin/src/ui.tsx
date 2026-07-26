@@ -156,9 +156,10 @@ export function SortCtrl({ index, len, onMove }: { index: number; len: number; o
   );
 }
 
-export function CtrlIcons({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+export function CtrlIcons({ onCopy, onEdit, onDelete }: { onCopy?: () => void; onEdit: () => void; onDelete: () => void }) {
   return (
     <>
+      {onCopy ? <span className="nav-btn" title="复制配置" aria-label="复制配置" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onCopy(); }}><i className="ri-file-copy-line" /></span> : null}
       <span className="nav-btn" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onEdit(); }}><i className="ri-edit-line" /></span>
       <span className="nav-btn" style={{ width: 32, height: 32, fontSize: 17, color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(); }}><i className="ri-delete-bin-line" /></span>
     </>

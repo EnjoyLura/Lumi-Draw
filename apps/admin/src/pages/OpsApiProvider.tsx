@@ -92,10 +92,38 @@ function emptyProvider(): AdminGenerationProvider {
   };
 }
 
-function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: AdminGenerationProvider; providers: AdminGenerationProvider[]; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
+function nextCopyId(sourceId: string, providers: AdminGenerationProvider[]) {
+  const existingIds = new Set(providers.map((provider) => provider.id));
+  for (let index = 1; index <= 999; index += 1) {
+    const suffix = index === 1 ? "-copy" : `-copy-${index}`;
+    const candidate = `${sourceId.slice(0, 40 - suffix.length)}${suffix}`;
+    if (!existingIds.has(candidate)) return candidate;
+  }
+  return "";
+}
+
+function copiedProvider(source: AdminGenerationProvider, providers: AdminGenerationProvider[]): AdminGenerationProvider {
+  return {
+    ...source,
+    id: nextCopyId(source.id, providers),
+    name: `${source.name} 副本`,
+    apiKey: "",
+    apiKeyConfigured: false,
+    apiKeyHint: "",
+    apiKeySource: "none",
+    requestParams: { ...source.requestParams },
+    imageRequestParams: { ...source.imageRequestParams },
+    responseMapping: { ...source.responseMapping },
+    modelIds: [],
+    sort: Math.max(0, ...providers.map((provider) => provider.sort)) + 1,
+    on: false
+  };
+}
+
+function ProviderForm({ item, copyFrom, providers, models, useMock, onSaved }: { item?: AdminGenerationProvider; copyFrom?: AdminGenerationProvider; providers: AdminGenerationProvider[]; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const originalId = item?.id || "";
-  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? {
+  const [value, setValue] = useState<AdminGenerationProvider>(() => copyFrom ? copiedProvider(copyFrom, providers) : item ? {
     ...item,
     textResultMode: item.textResultMode || "auto",
     imageResultMode: item.imageResultMode || "auto",
@@ -158,6 +186,10 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
 
   return (
     <>
+      {copyFrom ? <div className="card" style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 12, padding: 10, color: "var(--fg-2)", background: "var(--info-soft)" }}>
+        <i className="ri-information-line" />
+        <span>已复制“{copyFrom.name}”的接口和参数。为避免误切换线上模型，请重新填写 API Key，保存后再按需关联模型并启用。</span>
+      </div> : null}
       <label className="field-label">平台标识</label>
       <input className="input" value={value.id} disabled={Boolean(originalId)} onChange={(event) => update("id", event.target.value.toLowerCase())} placeholder="如 ainb-backup" />
       <label className="field-label" style={{ marginTop: 12 }}>平台名称</label>
@@ -308,6 +340,7 @@ export function OpsApiProvider() {
     || (activeGroupFilter === "未分组" ? !provider.groupName : provider.groupName === activeGroupFilter));
   const reload = () => useMock ? refresh() : state.reload();
   const openForm = (provider?: AdminGenerationProvider) => openSheet(provider ? "编辑 API 平台" : "新增 API 平台", <ProviderForm item={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
+  const copyProvider = (provider: AdminGenerationProvider) => openSheet("复制 API 平台", <ProviderForm copyFrom={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
 
   const toggle = async (provider: AdminGenerationProvider) => {
     try {
@@ -367,7 +400,7 @@ export function OpsApiProvider() {
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
             <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{ADAPTERS.find((item) => item.value === provider.adapter)?.label} · 排序 {provider.sort}</span>
-            <CtrlIcons onEdit={() => openForm(provider)} onDelete={() => remove(provider)} />
+            <CtrlIcons onCopy={() => copyProvider(provider)} onEdit={() => openForm(provider)} onDelete={() => remove(provider)} />
           </div>
         </div>
       ))}
