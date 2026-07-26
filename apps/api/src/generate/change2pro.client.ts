@@ -141,10 +141,11 @@ export class Change2ProClient {
     }
 
     const mapping = runtime?.responseMapping || {};
+    const defaultContentType = this.imageContentType(String(config.params.output_format || "png"));
     const outputs: Change2ProOutput[] = payloads.flatMap((payload) => [
         ...this.stringValuesAtPath(payload, mapping.resultUrlPath || "data[].url").map((url) => ({ url })),
         ...this.stringValuesAtPath(payload, mapping.resultBase64Path || "data[].b64_json")
-          .map((base64) => ({ buffer: Buffer.from(base64.replace(/^data:image\/[a-z+]+;base64,/i, ""), "base64"), contentType: `image/${IMAGE_2_OUTPUT_FORMAT}` }))
+          .map((base64) => this.decodeBase64Image(base64, defaultContentType))
       ]);
     if (!outputs.length) throw new Error("Image 2 response did not include an image");
     return outputs.slice(0, input.count);
@@ -446,6 +447,25 @@ export class Change2ProClient {
       });
     }
     return current.filter((item): item is string => typeof item === "string" && Boolean(item));
+  }
+
+  private decodeBase64Image(value: string, fallbackContentType: string): Change2ProOutput {
+    const dataUrl = value.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,/i);
+    const buffer = Buffer.from(value.slice(dataUrl?.[0].length || 0), "base64");
+    let contentType = dataUrl?.[1]?.toLowerCase().replace("image/jpg", "image/jpeg") || fallbackContentType;
+    if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) contentType = "image/png";
+    else if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) contentType = "image/jpeg";
+    else if (buffer.length >= 12 && buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP") contentType = "image/webp";
+    else if (buffer.length >= 6 && ["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString("ascii"))) contentType = "image/gif";
+    return { buffer, contentType };
+  }
+
+  private imageContentType(format: string) {
+    const normalized = format.trim().toLowerCase();
+    if (normalized === "jpg" || normalized === "jpeg") return "image/jpeg";
+    if (normalized === "webp") return "image/webp";
+    if (normalized === "gif") return "image/gif";
+    return "image/png";
   }
 
   private allowedReferenceHosts() {

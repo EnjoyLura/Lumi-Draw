@@ -915,18 +915,53 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async stageUrlOutputsForTransfer(job: JobWithResults, outputs: Change2ProOutput[]) {
-    if (!this.imageTransfer.isConfigured()) throw new Error("图片永久保存服务未配置");
-    const urls = outputs.slice(0, job.count).flatMap((output) => {
-      if (!output.url) return [];
-      try {
-        return new URL(output.url).protocol === "https:" ? [output.url] : [];
-      } catch {
-        return [];
+    const fallbackContentType = this.providerOutputContentType(job);
+    const selectedOutputs = outputs.slice(0, job.count);
+    const uploadedInline = await Promise.allSettled(selectedOutputs.map(async (output, index) => {
+      if (!output.buffer?.length) return undefined;
+      return this.uploads.uploadBuffer(
+        "generate",
+        `${job.id}-${index + 1}`,
+        output.contentType || fallbackContentType,
+        output.buffer
+      );
+    }));
+    const inlineByIndex = new Map(uploadedInline.flatMap((result, index) =>
+      result.status === "fulfilled" && result.value ? [[index, result.value] as const] : []
+    ));
+    for (const [index, result] of uploadedInline.entries()) {
+      if (result.status === "rejected") {
+        this.logger.warn(`Inline image upload failed for ${job.id} output ${index + 1}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+      }
+    }
+    const targets: Array<{
+      status: "transferring" | "succeeded";
+      imageUrl: string;
+      sourceUrl: string;
+      ossKey: string;
+      sizeBytes: number;
+    }> = [];
+    selectedOutputs.forEach((output, index) => {
+      if (output.url) {
+        try {
+          if (new URL(output.url).protocol === "https:") {
+            const reserved = this.uploads.reserveGenerationImage(job.id, index + 1, fallbackContentType);
+            targets.push({ status: "transferring", imageUrl: output.url, sourceUrl: output.url, ossKey: reserved.ossKey, sizeBytes: 0 });
+            return;
+          }
+        } catch {
+          // Fall through to an inline result when the provider supplied one.
+        }
+      }
+      const inline = inlineByIndex.get(index);
+      if (inline) {
+        targets.push({ status: "succeeded", imageUrl: inline.imageUrl, sourceUrl: "", ossKey: inline.ossKey, sizeBytes: inline.sizeBytes });
       }
     });
-    if (!urls.length) throw new Error("图片平台没有返回可用的图片地址");
-    const contentType = this.providerOutputContentType(job);
-    const targets = urls.map((sourceUrl, index) => ({ sourceUrl, ...this.uploads.reserveGenerationImage(job.id, index + 1, contentType) }));
+    if (!targets.length) throw new Error("图片平台没有返回可用的图片结果");
+    if (targets.some((target) => target.status === "transferring") && !this.imageTransfer.isConfigured()) {
+      throw new Error("图片永久保存服务未配置");
+    }
     const staged = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.generateJob.updateMany({
         where: { id: job.id, status: { in: ["queued", "running"] } },
@@ -936,15 +971,24 @@ export class GenerateService implements OnApplicationBootstrap {
       await tx.generateResult.deleteMany({ where: { jobId: job.id } });
       for (const target of targets) {
         await tx.generateResult.create({
-          data: { jobId: job.id, status: "transferring", imageUrl: target.sourceUrl, ossKey: target.ossKey }
+          data: {
+            jobId: job.id,
+            status: target.status,
+            imageUrl: target.imageUrl,
+            ossKey: target.ossKey,
+            sizeBytes: target.sizeBytes,
+            ...(target.status === "succeeded" ? resolveGeneratedImageSize(job.ratio, job.quality) : {})
+          }
         });
       }
       return tx.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
     });
     if (staged.status !== "finalizing") return staged;
-    for (const result of staged.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey)) {
+    const pending = staged.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey);
+    for (const result of pending) {
       this.dispatchUrlTransfer(staged.id, result);
     }
+    if (!pending.length) return this.finalizeTransferredUrlJob(staged);
     return staged;
   }
 

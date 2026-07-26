@@ -137,6 +137,35 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   assert.equal(request?.payload.model, "image2-vip");
 });
 
+test("Image 2 accepts Base64 when a URL-configured provider changes its response format", async () => {
+  const provider = client();
+  (provider as unknown as {
+    requestImage2Json: () => Promise<Record<string, unknown>>;
+  }).requestImage2Json = async () => ({
+    data: [{ b64_json: Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]).toString("base64") }]
+  });
+
+  const outputs = await provider.generate({
+    jobId: "flaky-result-format",
+    modelId: "gpt-image-2",
+    mode: "text-to-image",
+    prompt: "orange cat",
+    inputImageUrl: "",
+    ratio: "1:1",
+    quality: "1K",
+    count: 1
+  }, {
+    apiBase: "https://custom.example.com/v1/images/generations",
+    apiKey: "runtime-key",
+    params: { model: "gpt-image-2-count", response_format: "url" }
+  });
+
+  assert.equal(outputs.length, 1);
+  assert.equal(outputs[0]?.url, undefined);
+  assert.equal(outputs[0]?.contentType, "image/png");
+  assert.deepEqual(outputs[0]?.buffer, Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]));
+});
+
 test("Image 2 submits one request per requested output when providers ignore n", async () => {
   const provider = client();
   const requests: Array<{ id: string; n: unknown }> = [];
