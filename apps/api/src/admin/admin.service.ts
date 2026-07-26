@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomBytes } from "node:crypto";
 import type { Prisma, User, Work } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { CreditsService } from "../credits/credits.service";
@@ -189,16 +190,82 @@ export class AdminService {
     return userRow(await this.prisma.user.update({ where: { id }, data: { status: "normal" } }));
   }
 
-  async adjustCredits(id: number, amount: unknown, reason: unknown) {
+  async adjustCredits(
+    id: number,
+    amount: unknown,
+    reason: unknown,
+    requestId: unknown,
+    admin: { id: number; role: string }
+  ) {
     await this.ensureUser(id);
-    if (this.wallet.enabled) {
-      throw new BadRequestException("现网积分由微信虚拟支付统一管理，暂不支持后台直接调整");
+    if (!["super_admin", "finance"].includes(admin.role)) {
+      throw new ForbiddenException("仅超级管理员或财务管理员可以调整用户积分");
     }
-    if (typeof amount !== "number" || !Number.isFinite(amount) || amount === 0) {
-      throw new BadRequestException("amount 必须为非零数字");
+    if (typeof amount !== "number" || !Number.isSafeInteger(amount) || amount === 0) {
+      throw new BadRequestException("积分数量必须为非零整数");
     }
-    const { balance } = await this.credits.addTransaction(id, "adjust", amount, typeof reason === "string" && reason ? reason : "人工调整");
-    return { id, balance, amount };
+    if (Math.abs(amount) > 100_000) {
+      throw new BadRequestException("单次调整积分不能超过 100000");
+    }
+    const note = typeof reason === "string" ? reason.trim() : "";
+    if (note.length < 2 || note.length > 100) {
+      throw new BadRequestException("请填写 2 到 100 个字符的调整原因");
+    }
+    const operationId = this.creditAdjustmentOperationId(requestId);
+    const billNo = `A${admin.id}_${operationId}`.slice(0, 32);
+    const refId = `admin_credit:${billNo}`;
+    const existing = await this.prisma.creditTransaction.findFirst({
+      where: { userId: id, refId },
+      select: { balanceAfter: true }
+    });
+    if (existing) {
+      return {
+        id,
+        balance: existing.balanceAfter,
+        amount,
+        operation: amount > 0 ? "gift" : "deduct",
+        requestId: operationId
+      };
+    }
+
+    if (!this.wallet.enabled) {
+      const { balance } = await this.credits.addTransaction(id, "adjust", amount, note, refId);
+      return {
+        id,
+        balance,
+        amount,
+        operation: amount > 0 ? "gift" : "deduct",
+        requestId: operationId
+      };
+    }
+
+    const walletResult = amount > 0
+      ? await this.wallet.present(id, amount, billNo, `后台赠送：${note}`)
+      : await this.wallet.deduct(id, Math.abs(amount), billNo, `后台扣减：${note}`);
+    if (!walletResult) {
+      throw new BadRequestException("微信虚拟积分服务暂不可用，请稍后重试");
+    }
+    const { balance } = await this.credits.syncExternalBalance(
+      id,
+      "adjust",
+      amount,
+      walletResult.balance,
+      `${amount > 0 ? "后台赠送" : "后台扣减"}：${note}`,
+      refId
+    );
+    return {
+      id,
+      balance,
+      amount,
+      operation: amount > 0 ? "gift" : "deduct",
+      requestId: operationId
+    };
+  }
+
+  private creditAdjustmentOperationId(value: unknown) {
+    const supplied = typeof value === "string" ? value.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) : "";
+    if (supplied.length >= 8) return supplied;
+    return `${Date.now().toString(36)}${randomBytes(5).toString("hex")}`.slice(0, 24);
   }
 
   async giftMember(id: number, planId: unknown, reason: unknown) {

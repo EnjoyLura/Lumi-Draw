@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { CurrentAdmin } from "../auth/decorators/current-user.decorator";
 import { AdminJwtGuard } from "../auth/guards/admin-jwt.guard";
 import { AdminUserQueryDto } from "./admin.query";
 import { AdminService } from "./admin.service";
@@ -44,8 +45,12 @@ export class AdminUsersController {
   }
 
   @Post(":id/credits/adjust")
-  adjust(@Param("id", ParseIntPipe) id: number, @Body() b: Body_) {
-    return this.admin.adjustCredits(id, b.amount, b.reason);
+  adjust(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() b: Body_,
+    @CurrentAdmin() admin: { id: number; role: string }
+  ) {
+    return this.admin.adjustCredits(id, b.amount, b.reason, b.requestId, admin);
   }
 
   @Post(":id/member/gift")

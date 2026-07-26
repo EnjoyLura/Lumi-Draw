@@ -150,8 +150,14 @@ export async function apiUnbanUser(id: number) {
   return mapUser(await http.post<ApiUser>(`/admin/users/${id}/unban`));
 }
 
-export async function apiAdjustUserCredits(id: number, amount: number, reason: string) {
-  return http.post<{ id: number; balance: number; amount: number }>(`/admin/users/${id}/credits/adjust`, { amount, reason });
+export async function apiAdjustUserCredits(id: number, amount: number, reason: string, requestId: string) {
+  return http.post<{
+    id: number;
+    balance: number;
+    amount: number;
+    operation: "gift" | "deduct";
+    requestId: string;
+  }>(`/admin/users/${id}/credits/adjust`, { amount, reason, requestId });
 }
 
 export async function apiGiftUserMember(id: number, planId: number, reason: string) {

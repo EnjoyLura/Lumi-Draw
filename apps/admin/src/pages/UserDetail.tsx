@@ -108,22 +108,33 @@ function AdjustCreditsForm({ user, useMock, onDone }: { user: AdminUser; useMock
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
+    if (saving) return;
     const num = Number(amount);
-    if (!Number.isFinite(num) || num <= 0) {
-      toast("请输入有效积分数量");
+    if (!Number.isSafeInteger(num) || num <= 0) {
+      toast("请输入有效的整数积分数量");
+      return;
+    }
+    if (num > 100000) {
+      toast("单次调整不能超过 100000 积分");
+      return;
+    }
+    const note = reason.trim();
+    if (note.length < 2 || note.length > 100) {
+      toast("请填写 2 到 100 个字符的调整原因");
       return;
     }
     const signedAmount = op === "sub" ? -num : num;
+    const requestId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
     setSaving(true);
     try {
       if (useMock) {
         user.credits += signedAmount;
       } else {
-        await apiAdjustUserCredits(user.id, signedAmount, reason.trim() || "人工调整");
+        await apiAdjustUserCredits(user.id, signedAmount, note, requestId);
       }
       closeSheet();
       onDone();
-      toast("积分已调整");
+      toast(op === "sub" ? `已扣除 ${num} 积分` : `已赠送 ${num} 积分`);
     } catch (e) {
       toast(e instanceof Error ? e.message : "调整失败");
     } finally {
@@ -134,14 +145,19 @@ function AdjustCreditsForm({ user, useMock, onDone }: { user: AdminUser; useMock
   return (
     <>
       <label className="field-label">操作类型</label>
-      <Seg items={[["add", "增加"], ["sub", "扣减"]]} active={op} onPick={setOp} />
+      <Seg items={[["add", "赠送"], ["sub", "扣除"]]} active={op} onPick={setOp} />
       <label className="field-label" style={{ marginTop: 12 }}>数量</label>
-      <input className="input" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="请输入积分数量" />
+      <input className="input" type="number" min={1} max={100000} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="请输入整数积分数量" />
       <label className="field-label" style={{ marginTop: 12 }}>原因</label>
-      <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="如：活动补偿" />
+      <input className="input" maxLength={100} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={op === "sub" ? "如：异常积分追回" : "如：活动补偿"} />
+      <div className="muted" style={{ marginTop: 10, lineHeight: 1.6 }}>
+        现网会直接{op === "sub" ? "扣除" : "赠送"}用户的微信虚拟积分，并记录操作流水。用户需保持有效的微信登录状态。
+      </div>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={submit} disabled={saving}>确定</button>
+        <button className={op === "sub" ? "btn btn-danger btn-block" : "btn btn-primary btn-block"} onClick={submit} disabled={saving}>
+          {saving ? "处理中" : op === "sub" ? "确认扣除" : "确认赠送"}
+        </button>
       </div>
     </>
   );
