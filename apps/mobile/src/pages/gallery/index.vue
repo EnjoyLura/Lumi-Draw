@@ -21,7 +21,12 @@ import { openPreloadedWorkDetail } from "../../services/workDetailNavigation";
 import { invalidateWorkDetailPreload, preloadWorkDetailSnapshots } from "../../services/workDetailListPreload";
 import { clearWorkDetailCache, patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { notifyWorkVisibilityChange, subscribeWorkVisibilityChange } from "../../services/workVisibilityEvents";
-import { subscribeGalleryWorksCreated, subscribeGalleryWorkUpdated } from "../../services/galleryWorkEvents";
+import {
+  subscribeGalleryGenerateTaskStarted,
+  subscribeGalleryWorksCreated,
+  subscribeGalleryWorkUpdated,
+  type GalleryGenerateTaskStartedEvent
+} from "../../services/galleryWorkEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
 import { refreshRechargePageSnapshot } from "../recharge/rechargeCache";
 import {
@@ -168,6 +173,7 @@ let rechargePreloadTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 let unsubscribeWorkVisibility: (() => void) | undefined;
+let unsubscribeGalleryGenerateTaskStarted: (() => void) | undefined;
 let unsubscribeGalleryWorksCreated: (() => void) | undefined;
 let unsubscribeGalleryWorkUpdated: (() => void) | undefined;
 let latestGalleryMerge: Promise<void> | undefined;
@@ -277,6 +283,7 @@ onShow(() => {
   } else {
     void refreshGalleryPage().catch(() => undefined);
   }
+  void loadGenerateTasks(true);
   scheduleRechargePreload();
 });
 
@@ -287,6 +294,29 @@ function scheduleRechargePreload() {
     rechargePreloadTimer = undefined;
     void refreshRechargePageSnapshot(Number(currentUser.value?.id), false).catch(() => undefined);
   }, 800);
+}
+
+function upsertStartedGenerateTask(event: GalleryGenerateTaskStartedEvent) {
+  const createdAt = new Date(event.createdAt).getTime();
+  const elapsed = Number.isFinite(createdAt) ? Math.max(0, Math.floor((Date.now() - createdAt) / 1000)) : 0;
+  const simulated = simulateGenerationProgress(elapsed, event.quality);
+  const percent = Math.max(event.progress, simulated.percent);
+  const task: GalleryGenTask = {
+    id: event.jobId,
+    prompt: event.prompt,
+    model: event.model,
+    count: event.count,
+    ratio: event.ratio,
+    quality: event.quality,
+    percent,
+    elapsed,
+    stage: event.stage || generationStageForPercent(percent)
+  };
+  genTasks.value = [task, ...genTasks.value.filter((item) => String(item.id) !== event.jobId)];
+  activeGenerateTaskIds.add(event.jobId);
+  syncActiveGenerateJobIds(activeGenerateTaskIds);
+  if (genTaskTimer) clearTimeout(genTaskTimer);
+  genTaskTimer = setTimeout(() => void loadGenerateTasks(true), 1000);
 }
 
 onMounted(() => {
@@ -301,6 +331,7 @@ onMounted(() => {
     selectedIds.value.delete(id);
     selectedIds.value = new Set(selectedIds.value);
   });
+  unsubscribeGalleryGenerateTaskStarted = subscribeGalleryGenerateTaskStarted(upsertStartedGenerateTask);
   unsubscribeGalleryWorksCreated = subscribeGalleryWorksCreated(({ jobId }) => {
     if (mergedGenerationJobs.has(jobId)) return;
     mergedGenerationJobs.add(jobId);
@@ -347,6 +378,7 @@ async function loadModelOptions() {
 watch(activeEmbeddedPrimaryTab, (tab) => {
   if (tab === props.pageMode) {
     void refreshGalleryPage().catch(() => undefined);
+    void loadGenerateTasks(true);
     scheduleRechargePreload();
   }
 });
@@ -354,6 +386,8 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
 onBeforeUnmount(() => {
   unsubscribeWorkVisibility?.();
   unsubscribeWorkVisibility = undefined;
+  unsubscribeGalleryGenerateTaskStarted?.();
+  unsubscribeGalleryGenerateTaskStarted = undefined;
   unsubscribeGalleryWorksCreated?.();
   unsubscribeGalleryWorksCreated = undefined;
   unsubscribeGalleryWorkUpdated?.();
@@ -459,15 +493,33 @@ async function loadGenerateTasks(scheduleNext = false) {
   try {
     nextTasks = await fetchGalleryGenerateTasks();
     const listedIds = new Set(nextTasks.map((task) => String(task.id)));
-    const missingActiveIds = [...previousIds].filter((id) => !listedIds.has(id));
+    const knownActiveIds = new Set([...previousIds, ...readActiveGenerateJobIds()]);
+    const missingActiveIds = [...knownActiveIds].filter((id) => !listedIds.has(id));
     if (missingActiveIds.length) {
-      const recovered = await Promise.all(missingActiveIds.map((id) => fetchGalleryGenerateTask(id).catch(() => undefined)));
-      nextTasks.push(...recovered.filter((task): task is GalleryGenTask => Boolean(task)));
+      const recovered = await Promise.all(missingActiveIds.map(async (id) => {
+        try {
+          return { id, task: await fetchGalleryGenerateTask(id), requestFailed: false };
+        } catch {
+          return { id, task: undefined, requestFailed: true };
+        }
+      }));
+      const optimisticById = new Map(genTasks.value.map((task) => [String(task.id), task]));
+      recovered.forEach(({ id, task, requestFailed }) => {
+        if (task) {
+          nextTasks.push(task);
+        } else if (requestFailed) {
+          const optimisticTask = optimisticById.get(id);
+          if (optimisticTask) nextTasks.push(optimisticTask);
+        }
+      });
     }
     genTasks.value = nextTasks;
     loadedTasks = true;
   } catch {
-    genTasks.value = [];
+    if (genTaskTimer) clearTimeout(genTaskTimer);
+    if (scheduleNext || previousIds.size || genTasks.value.length) {
+      genTaskTimer = setTimeout(() => void loadGenerateTasks(true), 5000);
+    }
   }
   if (!loadedTasks) return;
 

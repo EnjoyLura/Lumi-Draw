@@ -3,6 +3,18 @@ export interface GalleryWorksCreatedEvent {
   workIds: number[];
 }
 
+export interface GalleryGenerateTaskStartedEvent {
+  jobId: string;
+  prompt: string;
+  model: string;
+  count: number;
+  ratio: string;
+  quality: string;
+  progress: number;
+  stage: string;
+  createdAt: string;
+}
+
 export interface GalleryWorkUpdatedEvent {
   workId: number;
   returnRoute?: string;
@@ -22,6 +34,7 @@ export interface GalleryWorkUpdatedEvent {
 }
 
 const listeners = new Set<(event: GalleryWorksCreatedEvent) => void>();
+const generateTaskStartedListeners = new Set<(event: GalleryGenerateTaskStartedEvent) => void>();
 const updatedListeners = new Set<(event: GalleryWorkUpdatedEvent) => void>();
 let latestEvent: GalleryWorksCreatedEvent | undefined;
 
@@ -34,6 +47,15 @@ export function subscribeGalleryWorksCreated(listener: (event: GalleryWorksCreat
   listeners.add(listener);
   if (latestEvent) listener(latestEvent);
   return () => listeners.delete(listener);
+}
+
+export function notifyGalleryGenerateTaskStarted(event: GalleryGenerateTaskStartedEvent) {
+  generateTaskStartedListeners.forEach((listener) => listener(event));
+}
+
+export function subscribeGalleryGenerateTaskStarted(listener: (event: GalleryGenerateTaskStartedEvent) => void) {
+  generateTaskStartedListeners.add(listener);
+  return () => generateTaskStartedListeners.delete(listener);
 }
 
 export function notifyGalleryWorkUpdated(event: GalleryWorkUpdatedEvent) {

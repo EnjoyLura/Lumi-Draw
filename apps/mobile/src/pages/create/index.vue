@@ -26,7 +26,7 @@ import { activeEmbeddedPrimaryTab } from "../../services/primaryShell";
 import { parseQueryString } from "../../services/routeQuery";
 import { goRootTab } from "../../services/tabNavigation";
 import { imageSaveFailureMessage, saveImageToDevice } from "../../services/imageSave";
-import { notifyGalleryWorksCreated } from "../../services/galleryWorkEvents";
+import { notifyGalleryGenerateTaskStarted, notifyGalleryWorksCreated } from "../../services/galleryWorkEvents";
 import { reversePromptEnabled } from "../../services/featureFlags";
 import {
   GENERATION_PROGRESS_STAGES,
@@ -877,6 +877,17 @@ async function startBackendGenerate(prompt: string) {
     if (typeof created.creditsAfter === "number") updateCurrentUser({ credits: created.creditsAfter });
     applyBackendJob(created.job);
     if (!isTerminalJob(created.job.status)) {
+      notifyGalleryGenerateTaskStarted({
+        jobId: created.jobId,
+        prompt: created.job.prompt,
+        model: created.job.modelId || created.job.providerModel || "AI",
+        count: created.job.count,
+        ratio: created.job.ratio,
+        quality: created.job.quality,
+        progress: created.job.progress,
+        stage: created.job.stageText,
+        createdAt: created.job.createdAt
+      });
       pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
     }
   } catch (error) {
