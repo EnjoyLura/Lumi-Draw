@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { WechatVirtualPayClient, type WechatVirtualPayConfig } from "./wechat-virtual-pay.client";
+import {
+  isWechatVirtualOrderPaid,
+  WechatVirtualPayClient,
+  type WechatVirtualPayConfig
+} from "./wechat-virtual-pay.client";
 
 function config(overrides: Partial<WechatVirtualPayConfig> = {}): WechatVirtualPayConfig {
   return {
@@ -23,6 +27,16 @@ test("virtual payment is configured only when all signing values exist", () => {
   assert.equal(new WechatVirtualPayClient(config()).configured, true);
   assert.equal(new WechatVirtualPayClient(config({ offerId: "" })).configured, false);
   assert.equal(new WechatVirtualPayClient(config({ appKey: "" })).configured, false);
+});
+
+test("paid virtual orders include paid, delivering, and delivered states", () => {
+  assert.equal(isWechatVirtualOrderPaid(0), false);
+  assert.equal(isWechatVirtualOrderPaid(1), false);
+  assert.equal(isWechatVirtualOrderPaid(2), true);
+  assert.equal(isWechatVirtualOrderPaid(3), true);
+  assert.equal(isWechatVirtualOrderPaid(4), true);
+  assert.equal(isWechatVirtualOrderPaid(5), false);
+  assert.equal(isWechatVirtualOrderPaid(6), false);
 });
 
 test("coin payment signs the exact serialized payload", () => {
@@ -181,6 +195,42 @@ test("server wallet refreshes an invalid access token once with stable_token", a
     const balance = await client.queryUserBalance("openid-1", "session-key", "1.2.3.4");
     assert.deepEqual(balance, { balance: 120, presentBalance: 20 });
     assert.equal(balanceRequests, 2);
+    assert.deepEqual(tokenRequests.map((item) => item.force_refresh), [false, true]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("order query refreshes an invalid access token once", async () => {
+  const client = new WechatVirtualPayClient(config());
+  const tokenRequests: Array<{ force_refresh?: boolean }> = [];
+  let orderRequests = 0;
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
+    if (url.pathname === "/cgi-bin/stable_token") {
+      tokenRequests.push(JSON.parse(String(init?.body || "{}")) as { force_refresh?: boolean });
+      return new Response(JSON.stringify({ access_token: `access-token-${tokenRequests.length}`, expires_in: 7200 }));
+    }
+    if (url.pathname === "/xpay/query_order") {
+      orderRequests += 1;
+      if (orderRequests === 1) {
+        return new Response(JSON.stringify({ errcode: 40014, errmsg: "access_token is invalid or not latest" }));
+      }
+      return new Response(
+        JSON.stringify({
+          errcode: 0,
+          order: { status: 3, order_fee: 600, paid_fee: 600, wxpay_order_id: "wx-order-id" }
+        })
+      );
+    }
+    return new Response(JSON.stringify({ errcode: -1 }), { status: 500 });
+  };
+
+  try {
+    const order = await client.queryOrder("openid-1", "R20260725000001");
+    assert.equal(order?.status, 3);
+    assert.equal(orderRequests, 2);
     assert.deepEqual(tokenRequests.map((item) => item.force_refresh), [false, true]);
   } finally {
     globalThis.fetch = originalFetch;

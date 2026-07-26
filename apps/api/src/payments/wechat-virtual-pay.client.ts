@@ -23,6 +23,18 @@ export interface WechatVirtualOrder {
   channel_order_id?: string;
 }
 
+export const WECHAT_VIRTUAL_ORDER_STATUS = {
+  PAID: 2,
+  DELIVERING: 3,
+  DELIVERED: 4
+} as const;
+
+export function isWechatVirtualOrderPaid(status: number) {
+  return status === WECHAT_VIRTUAL_ORDER_STATUS.PAID ||
+    status === WECHAT_VIRTUAL_ORDER_STATUS.DELIVERING ||
+    status === WECHAT_VIRTUAL_ORDER_STATUS.DELIVERED;
+}
+
 export interface WechatVirtualBalance {
   balance: number;
   presentBalance: number;
@@ -117,25 +129,10 @@ export class WechatVirtualPayClient {
   }
 
   async queryOrder(openId: string, orderNo: string): Promise<WechatVirtualOrder | null> {
-    const uri = "/xpay/query_order";
-    const body = JSON.stringify({
-      openid: openId,
-      env: this.config.env,
-      order_id: orderNo
-    });
-    const accessToken = await this.getAccessToken();
-    const url = new URL(uri, this.config.apiBase);
-    url.searchParams.set("access_token", accessToken);
-    url.searchParams.set("pay_sig", this.paySignature(uri, body));
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body
-    });
-    const data = (await response.json()) as WechatApiResponse & { order?: WechatVirtualOrder };
-    if (!response.ok || (data.errcode ?? 0) !== 0) {
-      throw new Error(`查询虚拟支付订单失败：${data.errmsg || data.errcode || response.status}`);
-    }
+    const data = await this.paymentSignedRequest<{ order?: WechatVirtualOrder }>(
+      "/xpay/query_order",
+      { openid: openId, env: this.config.env, order_id: orderNo }
+    );
     return data.order ?? null;
   }
 
@@ -243,21 +240,38 @@ export class WechatVirtualPayClient {
   }
 
   async notifyGoodsProvided(orderNo: string) {
-    const uri = "/xpay/notify_provide_goods";
-    const body = JSON.stringify({ order_id: orderNo, env: this.config.env });
-    const accessToken = await this.getAccessToken();
-    const url = new URL(uri, this.config.apiBase);
-    url.searchParams.set("access_token", accessToken);
-    url.searchParams.set("pay_sig", this.paySignature(uri, body));
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=utf-8" },
-      body
+    await this.paymentSignedRequest("/xpay/notify_provide_goods", {
+      order_id: orderNo,
+      env: this.config.env
     });
-    const data = (await response.json().catch(() => ({}))) as WechatApiResponse;
-    if (!response.ok || (data.errcode ?? 0) !== 0) {
-      throw new Error(`确认虚拟商品发货失败：${data.errmsg || data.errcode || response.status}`);
+  }
+
+  private async paymentSignedRequest<T extends Record<string, unknown>>(
+    uri: string,
+    payload: Record<string, unknown>
+  ) {
+    const body = JSON.stringify(payload);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const accessToken = await this.getAccessToken(attempt > 0);
+      const url = new URL(uri, this.config.apiBase);
+      url.searchParams.set("access_token", accessToken);
+      url.searchParams.set("pay_sig", this.paySignature(uri, body));
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json; charset=utf-8" },
+        body
+      });
+      const data = (await response.json().catch(() => ({}))) as T & WechatApiResponse;
+      const errcode = data.errcode ?? 0;
+      if (attempt === 0 && this.isAccessTokenError(errcode)) continue;
+      if (!response.ok || errcode !== 0) {
+        throw new Error(
+          `微信虚拟支付接口 ${uri} 调用失败：${data.errmsg || data.errcode || response.status}`
+        );
+      }
+      return data;
     }
+    throw new Error(`微信虚拟支付接口 ${uri} 调用失败：access_token 刷新后仍不可用`);
   }
 
   private async signedRequest<T extends Record<string, unknown>>(
@@ -324,7 +338,7 @@ export class WechatVirtualPayClient {
       this.accessTokenExpiresAt = 0;
     }
     if (!forceRefresh && this.accessToken && Date.now() < this.accessTokenExpiresAt) return this.accessToken;
-    if (!forceRefresh && this.accessTokenPromise) return this.accessTokenPromise;
+    if (this.accessTokenPromise) return this.accessTokenPromise;
 
     const request = (async () => {
       const url = new URL("/cgi-bin/stable_token", this.config.apiBase);

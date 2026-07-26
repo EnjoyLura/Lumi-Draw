@@ -11,7 +11,12 @@ import {
   type WechatNotifyHeaders,
   type WechatPayConfig
 } from "./wechat-pay.client";
-import { WechatVirtualPayClient, type WechatVirtualSession } from "./wechat-virtual-pay.client";
+import {
+  isWechatVirtualOrderPaid,
+  WECHAT_VIRTUAL_ORDER_STATUS,
+  WechatVirtualPayClient,
+  type WechatVirtualSession
+} from "./wechat-virtual-pay.client";
 import { WechatWalletService } from "./wechat-wallet.service";
 import { encryptWechatSessionKey } from "../auth/session-secret";
 
@@ -410,7 +415,7 @@ export class PaymentsService {
 
     try {
       const remote = await client.queryOrder(user.openId, order.orderNo);
-      if (!remote || ![2, 4].includes(remote.status)) return order;
+      if (!remote || !isWechatVirtualOrderPaid(remote.status)) return order;
       const paidAmount = remote.paid_fee ?? remote.order_fee;
       if (paidAmount !== undefined && paidAmount !== order.amountFen) {
         throw new BadRequestException("虚拟支付金额与订单金额不一致");
@@ -450,7 +455,7 @@ export class PaymentsService {
         }
       }
       const paid = await this.markOrderPaid(order, transactionId, this.wallet.enabled);
-      if (paid.type === "membership" && remote.status !== 4) {
+      if (remote.status !== WECHAT_VIRTUAL_ORDER_STATUS.DELIVERED) {
         try {
           await client.notifyGoodsProvided(paid.orderNo);
         } catch (error) {
