@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnApplicationBootstrap, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
-import type { GenerateJob, GenerateResult } from "@prisma/client";
+import type { GenerateJob, GenerateResult, GenerationProvider, ModelConfig } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { requiresManualReview } from "../common/review-policy";
@@ -17,8 +17,15 @@ import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
 import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
-import { resolveProviderId } from "./provider-routing";
+import { resolveProviderIds } from "./provider-routing";
 import { decryptProviderApiKey } from "./provider-secret";
+import {
+  beginProviderAttempt,
+  decideProviderFailure,
+  finishProviderAttempt,
+  normalizeProviderAttempts,
+  normalizeProviderCandidates
+} from "./provider-attempts";
 
 type JobWithResults = GenerateJob & { results: GenerateResult[] };
 type ProviderEvent = {
@@ -36,11 +43,23 @@ type GeneratedImage = {
   width?: number;
   height?: number;
 };
+type ProviderSubmission = {
+  job: JobWithResults;
+  id: string;
+  status: string;
+  creditsAfter: number | undefined;
+};
+type ProviderFailureResult = {
+  job: JobWithResults;
+  balance: number | undefined;
+};
 
 const TERMINAL_STATUSES = new Set(["succeeded", "partial_failed", "failed", "cancelled"]);
 const ACTIVE_JOB_STATUSES = ["queued", "running", "finalizing"];
 const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "finalizing", "succeeded", "partial_failed", "failed", "cancelled"]);
+const QUICK_PROVIDER_FAILURE_MS = 8_000;
+const MAX_ATTEMPTS_PER_PROVIDER = 2;
 
 type ProviderResultMode = "url" | "base64";
 
@@ -141,7 +160,7 @@ export class GenerateService implements OnApplicationBootstrap {
         continue;
       }
       if (resultMode === "base64" && job.startedAt && Date.now() - job.startedAt.getTime() < 35 * 60_000) continue;
-      await this.failAndRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
+      await this.failoverOrRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
     }
     await this.resumeAinbJobsAfterRestart();
   }
@@ -157,7 +176,7 @@ export class GenerateService implements OnApplicationBootstrap {
         continue;
       }
       if (!job.kieTaskId) {
-        await this.failAndRefund(job.id, "generation service restarted before task could resume").catch(() => undefined);
+        await this.failoverOrRefund(job.id, "generation service restarted before task could resume").catch(() => undefined);
         continue;
       }
       void this.completeAinbJob(job).catch(async (error) => {
@@ -206,6 +225,19 @@ export class GenerateService implements OnApplicationBootstrap {
     return process.env[envName] || "";
   }
 
+  private buildProviderSnapshot(provider: GenerationProvider, model: ModelConfig, mode: string) {
+    const isImageToImage = mode === "image-to-image";
+    const providerParams = normalizeProviderParams(
+      isImageToImage ? provider.imageRequestParams : provider.requestParams
+    );
+    return {
+      providerBaseUrl: isImageToImage ? provider.imageEndpoint : provider.baseUrl,
+      providerResultMode: isImageToImage ? provider.imageResultMode : provider.textResultMode,
+      providerParams,
+      providerModel: providerParams.model || model.providerModel
+    };
+  }
+
   async createJob(userId: number, dto: CreateGenerateJobDto, retryOfJobId = "") {
     const normalized = this.normalizeCreateDto(dto);
     await this.safety.checkText(userId, [normalized.prompt], 3);
@@ -223,21 +255,22 @@ export class GenerateService implements OnApplicationBootstrap {
     if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
     if (normalized.mode === "image-to-image") this.uploads.assertManagedImageUrl(normalized.inputImageUrl);
 
-    const providerId = resolveProviderId(model.provider, model.providerRouting, quality.label);
-    const provider = await this.prisma.generationProvider.findFirst({ where: { id: providerId, enabled: true } });
-    if (!provider) throw new BadRequestException("所选分辨率配置的 API 平台不可用，请联系管理员");
     const isImageToImage = normalized.mode === "image-to-image";
-    const providerModeEnabled = isImageToImage ? provider.imageToImageEnabled : provider.textToImageEnabled;
-    const providerEndpoint = isImageToImage ? provider.imageEndpoint : provider.baseUrl;
-    const providerParams = isImageToImage ? provider.imageRequestParams : provider.requestParams;
-    const normalizedProviderParams = normalizeProviderParams(providerParams);
-    const providerResultMode = isImageToImage ? provider.imageResultMode : provider.textResultMode;
-    const providerModel = normalizedProviderParams.model || model.providerModel;
-    if (!providerModeEnabled || !providerEndpoint) {
-      throw new BadRequestException(isImageToImage ? "当前 API 平台未启用图生图" : "当前 API 平台未启用文生图");
-    }
-    const apiKey = this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv);
-    if (!apiKey) throw new BadRequestException("该模型的 API 密钥尚未配置");
+    const configuredProviderIds = resolveProviderIds(model.provider, model.providerRouting, quality.label);
+    const providerRows = await this.prisma.generationProvider.findMany({
+      where: { id: { in: configuredProviderIds }, enabled: true }
+    });
+    const providerById = new Map(providerRows.map((provider) => [provider.id, provider]));
+    const providers = configuredProviderIds
+      .map((providerId) => providerById.get(providerId))
+      .filter((provider): provider is GenerationProvider => Boolean(
+        provider
+        && (isImageToImage ? provider.imageToImageEnabled && provider.imageEndpoint : provider.textToImageEnabled && provider.baseUrl)
+        && this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv)
+      ));
+    const provider = providers[0];
+    if (!provider) throw new BadRequestException("当前模型和分辨率没有可用的 API 平台，请联系管理员");
+    const providerSnapshot = this.buildProviderSnapshot(provider, model, normalized.mode);
     if (["ainb", "change2pro"].includes(provider.adapter) && model.id === "gpt-image-2") normalizeImage2Size(ratio.label, quality.label);
     const costCredits = Math.ceil(model.costCredits * quality.multiplier * normalized.count);
     const created = await this.prisma.$transaction(async (tx) => {
@@ -263,16 +296,19 @@ export class GenerateService implements OnApplicationBootstrap {
           modelId: model.id,
           provider: provider.id,
           providerAdapter: provider.adapter,
-          providerBaseUrl: providerEndpoint,
+          providerBaseUrl: providerSnapshot.providerBaseUrl,
           providerRequestMode: provider.requestMode,
-          providerResultMode,
+          providerResultMode: providerSnapshot.providerResultMode,
           providerQueryEndpoint: provider.queryEndpoint,
           providerStatusEnabled: provider.statusEnabled,
           providerResponseMapping: normalizeProviderParams(provider.responseMapping),
           providerApiKeyEnv: provider.apiKeyEnv,
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
-          providerParams: normalizedProviderParams,
-          providerModel,
+          providerParams: providerSnapshot.providerParams,
+          providerModel: providerSnapshot.providerModel,
+          providerCandidates: providers.map((candidate) => candidate.id),
+          providerAttemptIndex: 0,
+          providerAttempts: [],
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
           gameplayId: normalized.gameplayId,
@@ -568,7 +604,7 @@ export class GenerateService implements OnApplicationBootstrap {
   private async syncProviderJob(job: JobWithResults) {
     const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
     if (resultMode === "base64" && !TERMINAL_STATUSES.has(job.status) && job.startedAt && Date.now() - job.startedAt.getTime() >= 35 * 60_000) {
-      return (await this.failAndRefund(job.id, "Base64 image generation timeout")).job;
+      return (await this.failoverOrRefund(job.id, "Base64 image generation timeout")).job;
     }
     const runtime = this.providerRuntime(job);
     if (this.providerAdapter(job) !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured(runtime)) return job;
@@ -587,15 +623,16 @@ export class GenerateService implements OnApplicationBootstrap {
   private async applyProviderEvent(job: JobWithResults, event: ProviderEvent) {
     if (event.status === "succeeded") {
       if (!event.imageUrls.length) {
-        const failed = await this.failAndRefund(job.id, "KIE callback did not include images");
+        const failed = await this.failoverOrRefund(job.id, "KIE callback did not include images");
         return failed.job;
       }
+      await this.markProviderAttemptSucceeded(job.id);
       const results = await this.transferGeneratedImages(job.id, event.imageUrls);
       return this.finishJobWithDrafts(job, results, "Generation completed");
     }
 
     if (event.status === "failed") {
-      const failed = await this.failAndRefund(job.id, event.errorMessage || "KIE task failed");
+      const failed = await this.failoverOrRefund(job.id, event.errorMessage || "KIE task failed");
       return failed.job;
     }
 
@@ -672,11 +709,12 @@ export class GenerateService implements OnApplicationBootstrap {
     ].join(", ");
   }
 
-  private async submitToProvider(jobId: string) {
-    const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+  private async submitToProvider(jobId: string): Promise<ProviderSubmission> {
+    let job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
     if (this.config.get<boolean>("app.generate.allowMock")) {
       return this.completeMockProviderJob(job);
     }
+    job = await this.startProviderAttempt(job);
 
     const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
     const adapter = this.providerAdapter(job);
@@ -723,7 +761,7 @@ export class GenerateService implements OnApplicationBootstrap {
         });
         return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
       } catch (error) {
-        const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "Ainb submit failed");
+        const failed = await this.failoverOrRefund(job.id, error instanceof Error ? error.message : "Ainb submit failed");
         return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
       }
     }
@@ -778,7 +816,7 @@ export class GenerateService implements OnApplicationBootstrap {
       });
       return { job: updated, id: updated.id, status: updated.status, creditsAfter: undefined as number | undefined };
     } catch (error) {
-      const failed = await this.failAndRefund(job.id, error instanceof Error ? error.message : "KIE submit failed");
+      const failed = await this.failoverOrRefund(job.id, error instanceof Error ? error.message : "KIE submit failed");
       return { job: failed.job, id: failed.job.id, status: failed.job.status, creditsAfter: failed.balance };
     }
   }
@@ -895,7 +933,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
     if (resultMode !== "base64") throw new BadRequestException("image generation callback does not match job");
     if (input.error) {
-      await this.failAndRefund(job.id, input.error);
+      await this.failoverOrRefund(job.id, input.error);
       return { ok: true };
     }
     const outputs = (input.outputs || []).flatMap((item) => {
@@ -909,6 +947,7 @@ export class GenerateService implements OnApplicationBootstrap {
       }];
     });
     if (!outputs.length) throw new BadRequestException("image generation callback has no valid outputs");
+    await this.markProviderAttemptSucceeded(job.id);
     await this.finishJobWithDrafts(job, outputs, "Generation completed", ["queued", "running", "finalizing"]);
     for (const output of outputs) void this.uploads.prewarmWorkImageVariants(output.imageUrl);
     return { ok: true };
@@ -962,6 +1001,7 @@ export class GenerateService implements OnApplicationBootstrap {
     if (targets.some((target) => target.status === "transferring") && !this.imageTransfer.isConfigured()) {
       throw new Error("图片永久保存服务未配置");
     }
+    await this.markProviderAttemptSucceeded(job.id);
     const staged = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.generateJob.updateMany({
         where: { id: job.id, status: { in: ["queued", "running"] } },
@@ -1016,10 +1056,134 @@ export class GenerateService implements OnApplicationBootstrap {
     return "image/png";
   }
 
+  private async startProviderAttempt(job: JobWithResults) {
+    const provider = await this.prisma.generationProvider.findUnique({
+      where: { id: job.provider },
+      select: { name: true }
+    });
+    const providerAttempts = beginProviderAttempt(job.providerAttempts, job.provider, provider?.name || job.provider);
+    if (normalizeProviderAttempts(job.providerAttempts).length === providerAttempts.length) return job;
+    return this.prisma.generateJob.update({
+      where: { id: job.id },
+      data: { providerAttempts: providerAttempts as Prisma.InputJsonValue },
+      include: { results: true }
+    });
+  }
+
+  private async markProviderAttemptSucceeded(jobId: string) {
+    const job = await this.prisma.generateJob.findUnique({ where: { id: jobId }, select: { providerAttempts: true } });
+    if (!job) return;
+    const providerAttempts = finishProviderAttempt(job.providerAttempts, "succeeded");
+    await this.prisma.generateJob.update({
+      where: { id: jobId },
+      data: { providerAttempts: providerAttempts as Prisma.InputJsonValue }
+    });
+  }
+
+  private providerFailureCanRetry(message: string) {
+    return !/unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感|参考图|input image|积分不足|insufficient.*(?:balance|credit|fund)/i.test(message);
+  }
+
+  private async failoverOrRefund(jobId: string, errorMessage: string): Promise<ProviderFailureResult> {
+    const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+    if (TERMINAL_STATUSES.has(current.status)) {
+      return this.failAndRefund(jobId, errorMessage);
+    }
+
+    const providerAttempts = finishProviderAttempt(current.providerAttempts, "failed", errorMessage);
+    await this.prisma.generateJob.update({
+      where: { id: jobId },
+      data: { providerAttempts: providerAttempts as Prisma.InputJsonValue }
+    });
+    const lastAttempt = providerAttempts[providerAttempts.length - 1];
+    const durationMs = lastAttempt?.durationMs ?? Number.MAX_SAFE_INTEGER;
+    const candidates = normalizeProviderCandidates(current.providerCandidates, current.provider);
+    const sameProviderAttempts = providerAttempts.filter((attempt) => (
+      attempt.providerId === current.provider && attempt.status === "failed"
+    )).length;
+    const decision = decideProviderFailure({
+      durationMs,
+      quickFailureWindowMs: QUICK_PROVIDER_FAILURE_MS,
+      attemptsForProvider: sameProviderAttempts,
+      maxAttemptsPerProvider: MAX_ATTEMPTS_PER_PROVIDER,
+      retryable: this.providerFailureCanRetry(errorMessage),
+      hasNextProvider: current.providerAttemptIndex + 1 < candidates.length
+    });
+    if (decision === "fail") return this.failAndRefund(jobId, errorMessage);
+    let targetIndex = decision === "retry-same" ? current.providerAttemptIndex : current.providerAttemptIndex + 1;
+    const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: current.modelId } });
+    let selected: GenerationProvider | null = null;
+    while (targetIndex < candidates.length) {
+      const provider = await this.prisma.generationProvider.findFirst({
+        where: { id: candidates[targetIndex], enabled: true }
+      });
+      const modeEnabled = current.mode === "image-to-image"
+        ? provider?.imageToImageEnabled && provider.imageEndpoint
+        : provider?.textToImageEnabled && provider.baseUrl;
+      const keyConfigured = provider
+        ? Boolean(this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))
+        : false;
+      if (provider && modeEnabled && keyConfigured) {
+        selected = provider;
+        break;
+      }
+      targetIndex += 1;
+    }
+    if (!selected) return this.failAndRefund(jobId, errorMessage);
+
+    const snapshot = this.buildProviderSnapshot(selected, model, current.mode);
+    const claimed = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.generateJob.updateMany({
+        where: {
+          id: jobId,
+          provider: current.provider,
+          providerAttemptIndex: current.providerAttemptIndex,
+          status: { in: ACTIVE_JOB_STATUSES }
+        },
+        data: {
+          provider: selected.id,
+          providerAdapter: selected.adapter,
+          providerBaseUrl: snapshot.providerBaseUrl,
+          providerRequestMode: selected.requestMode,
+          providerResultMode: snapshot.providerResultMode,
+          providerQueryEndpoint: selected.queryEndpoint,
+          providerStatusEnabled: selected.statusEnabled,
+          providerResponseMapping: normalizeProviderParams(selected.responseMapping),
+          providerApiKeyEnv: selected.apiKeyEnv,
+          providerApiKeyEncrypted: selected.apiKeyEncrypted,
+          providerParams: snapshot.providerParams,
+          providerModel: snapshot.providerModel,
+          providerAttemptIndex: targetIndex,
+          status: "queued",
+          progress: Math.max(3, Math.min(current.progress, 8)),
+          stageText: targetIndex === current.providerAttemptIndex ? "线路连接失败，正在自动重试" : "线路异常，正在切换备用线路",
+          errorMessage: "",
+          kieTaskId: null
+        }
+      });
+      if (updated.count) await tx.generateResult.deleteMany({ where: { jobId } });
+      return updated.count > 0;
+    });
+    if (!claimed) {
+      const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
+      return { job, balance: undefined as number | undefined };
+    }
+
+    this.logger.warn(
+      `Generation provider ${current.provider} failed quickly after ${durationMs}ms; `
+      + `${selected.id === current.provider ? "retrying once" : `falling back to ${selected.id}`} for job ${jobId}`
+    );
+    if (selected.id === current.provider) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    const submitted = await this.submitToProvider(jobId);
+    return { job: submitted.job, balance: submitted.creditsAfter };
+  }
+
   private async failProviderJobIfActive(jobId: string, message: string) {
     try {
       const job = await this.prisma.generateJob.findUnique({ where: { id: jobId }, select: { status: true } });
-      if (job && !TERMINAL_STATUSES.has(job.status)) await this.failAndRefund(jobId, message);
+      if (job && !TERMINAL_STATUSES.has(job.status)) await this.failoverOrRefund(jobId, message);
     } catch {
       // The original request has already returned; polling will surface the persisted job state.
     }
@@ -1193,6 +1357,13 @@ export class GenerateService implements OnApplicationBootstrap {
       const balance = (await this.prisma.user.findUniqueOrThrow({ where: { id: current.userId }, select: { credits: true } })).credits;
       const job = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
       return { job, balance };
+    }
+    const providerAttempts = finishProviderAttempt(current.providerAttempts, "failed", errorMessage);
+    if (providerAttempts.some((attempt) => attempt.status === "failed" && attempt.finishedAt)) {
+      await this.prisma.generateJob.update({
+        where: { id: jobId },
+        data: { providerAttempts: providerAttempts as Prisma.InputJsonValue }
+      });
     }
     let walletRefund = null;
     if (current.walletBillNo && !current.walletRefunded) {

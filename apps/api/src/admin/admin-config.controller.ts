@@ -69,6 +69,8 @@ export class AdminConfigController {
 
   // ---------- generation providers ----------
   @Post("generation-providers") createGenerationProvider(@Body() b: Body_) { return this.config.createGenerationProvider(b); }
+  @Post("generation-providers/:id/duplicate") duplicateGenerationProvider(@Param("id") id: string, @Body() b: Body_) { return this.config.duplicateGenerationProvider(id, b); }
+  @Patch("generation-providers/:id/order") moveGenerationProvider(@Param("id") id: string, @Body() b: Body_) { return this.config.moveGenerationProvider(id, String(b.direction || "")); }
   @Patch("generation-providers/:id") updateGenerationProvider(@Param("id") id: string, @Body() b: Body_) { return this.config.updateGenerationProvider(id, b); }
   @Delete("generation-providers/:id") deleteGenerationProvider(@Param("id") id: string) { return this.config.deleteGenerationProvider(id); }
 

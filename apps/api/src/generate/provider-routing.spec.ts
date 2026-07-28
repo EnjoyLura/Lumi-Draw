@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractQualityTier, normalizeProviderRouting, resolveProviderId } from "./provider-routing";
+import { extractQualityTier, normalizeProviderRouting, resolveProviderId, resolveProviderIds } from "./provider-routing";
 
 test("extracts the standard quality tier from administrator labels", () => {
   assert.equal(extractQualityTier("全高清 1K"), "1K");
@@ -14,11 +14,16 @@ test("uses the configured provider for the selected quality tier", () => {
   assert.equal(resolveProviderId("default-api", routing, "超高清 4K"), "quality-api");
 });
 
+test("keeps an ordered fallback chain for each quality tier", () => {
+  const routing = { "4K": ["primary-api", "backup-api", "primary-api", ""] };
+  assert.deepEqual(resolveProviderIds("default-api", routing, "超高清 4K"), ["primary-api", "backup-api", "default-api"]);
+});
+
 test("falls back to the model default provider for an unconfigured tier", () => {
   assert.equal(resolveProviderId("default-api", { "1K": "fast-api" }, "超清 2K"), "default-api");
 });
 
 test("drops unsupported, blank, and malformed routing entries", () => {
-  assert.deepEqual(normalizeProviderRouting({ "1K": " fast-api ", "2K": "", "8K": "other" }), { "1K": "fast-api" });
+  assert.deepEqual(normalizeProviderRouting({ "1K": " fast-api ", "2K": "", "8K": "other" }), { "1K": ["fast-api"] });
   assert.deepEqual(normalizeProviderRouting(null), {});
 });

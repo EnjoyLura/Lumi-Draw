@@ -478,7 +478,7 @@ export async function apiDeleteHotSearch(id: number) {
 }
 
 interface ApiModelConfig {
-  id: string; provider?: string; providerRouting?: Partial<Record<"1K" | "2K" | "4K", string>>; providerModel: string; name: string; description: string;
+  id: string; provider?: string; providerRouting?: Partial<Record<"1K" | "2K" | "4K", string | string[]>>; providerModel: string; name: string; description: string;
   tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
   supportsTextToImage: boolean; supportsImageToImage: boolean;
 }
@@ -488,7 +488,11 @@ function modelTags(tags: string[] | string) {
 }
 
 function mapModelConfig(m: ApiModelConfig): AdminModel {
-  return { id: m.id, provider: m.provider, providerRouting: m.providerRouting || {}, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+  const providerRouting = Object.fromEntries(Object.entries(m.providerRouting || {}).flatMap(([tier, value]) => {
+    const ids = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
+    return ids.length ? [[tier, ids]] : [];
+  })) as AdminModel["providerRouting"];
+  return { id: m.id, provider: m.provider, providerRouting, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
 }
 
 export async function apiGetModels() {
@@ -535,6 +539,7 @@ interface ApiGenerationProvider {
   requestParams: Record<string, string>;
   imageRequestParams: Record<string, string>;
   modelIds: string[];
+  metrics: AdminGenerationProvider["metrics"];
   enabled: boolean;
   sort: number;
 }
@@ -546,6 +551,7 @@ function mapGenerationProvider(provider: ApiGenerationProvider): AdminGeneration
     requestParams: { model: "", ...(provider.requestParams || {}) },
     imageRequestParams: { model: "", ...(provider.imageRequestParams || {}) },
     modelIds: provider.modelIds || [],
+    metrics: provider.metrics || { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     on: provider.enabled
   };
 }
@@ -584,6 +590,17 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
 
 export async function apiDeleteGenerationProvider(id: string) {
   return http.del<ApiGenerationProvider>(`/admin/generation-providers/${id}`);
+}
+
+export async function apiDuplicateGenerationProvider(
+  sourceId: string,
+  values: { id: string; name: string; groupName: string; copyApiKey: boolean; enabled: boolean; sort: number }
+) {
+  return mapGenerationProvider(await http.post<ApiGenerationProvider>(`/admin/generation-providers/${sourceId}/duplicate`, values));
+}
+
+export async function apiMoveGenerationProvider(id: string, direction: "up" | "down") {
+  return mapGenerationProvider(await http.patch<ApiGenerationProvider>(`/admin/generation-providers/${id}/order`, { direction }));
 }
 
 export async function apiDeleteModel(id: string) {

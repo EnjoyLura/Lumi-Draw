@@ -95,13 +95,15 @@ export class AdminConfigService {
     return this.prisma.modelConfig.findMany(bySort);
   }
   async generationProviders() {
-    const [providers, models] = await Promise.all([
+    const [providers, models, metrics] = await Promise.all([
       this.prisma.generationProvider.findMany(bySort),
-      this.prisma.modelConfig.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, name: true, provider: true } })
+      this.prisma.modelConfig.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, name: true, provider: true, providerRouting: true } }),
+      this.generationProviderMetrics()
     ]);
     return providers.map((provider) => this.generationProviderView(
       provider,
-      models.filter((model) => model.provider === provider.id).map((model) => model.id)
+      models.filter((model) => this.modelUsesProvider(model, provider.id)).map((model) => model.id),
+      metrics.get(provider.id)
     ));
   }
   qualities() {
@@ -222,34 +224,26 @@ export class AdminConfigService {
     return this.prisma.modelConfig.delete({ where: { id } });
   }
 
-  private async assertModelProviderRouting(modelId: string, defaultProvider: string, routingValue: unknown, modelEnabled: boolean) {
+  private async assertModelProviderRouting(_modelId: string, defaultProvider: string, routingValue: unknown, modelEnabled: boolean) {
     const routing = normalizeProviderRouting(routingValue);
-    const providerIds = [...new Set([defaultProvider, ...Object.values(routing)])];
+    const providerIds = [...new Set([defaultProvider, ...Object.values(routing).flat()])];
     const providers = await this.prisma.generationProvider.findMany({
       where: { id: { in: providerIds } },
       select: { id: true, enabled: true }
     });
     if (providers.length !== providerIds.length) throw new BadRequestException("分辨率路由包含不存在的 API 平台");
-    if (modelEnabled && providers.some((provider) => !provider.enabled)) {
-      throw new BadRequestException("已上线模型不能使用已停用的 API 平台");
+    if (modelEnabled && !providers.some((provider) => provider.enabled)) {
+      throw new BadRequestException("已上线模型至少需要一个已启用的 API 平台");
     }
-    await this.assertModelsExist([modelId]);
   }
 
   // ---------- 生图 API 平台 ----------
   async createGenerationProvider(body: Record<string, unknown>) {
     const data = this.normalizeGenerationProvider(body, true);
-    this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
-    await this.assertModelsExist(data.modelIds);
     const existing = await this.prisma.generationProvider.findUnique({ where: { id: data.provider.id }, select: { id: true } });
     if (existing) throw new ConflictException("平台标识已存在，请更换一个标识");
     try {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.generationProvider.create({ data: data.provider as never });
-        if (data.modelIds.length) {
-          await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: data.provider.id } });
-        }
-      });
+      await this.prisma.generationProvider.create({ data: data.provider as never });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw new ConflictException("平台标识已存在，请更换一个标识");
@@ -259,26 +253,47 @@ export class AdminConfigService {
     return this.generationProvider(data.provider.id);
   }
 
+  async duplicateGenerationProvider(id: string, body: Record<string, unknown>) {
+    const source = await this.prisma.generationProvider.findUnique({ where: { id } });
+    if (!source) throw new BadRequestException("API 平台不存在");
+    const copyApiKey = body.copyApiKey !== false;
+    return this.createGenerationProvider({
+      ...source,
+      id: body.id,
+      name: body.name,
+      groupName: body.groupName === undefined ? source.groupName : body.groupName,
+      apiKeyEncrypted: copyApiKey ? source.apiKeyEncrypted : "",
+      apiKeyEnv: copyApiKey ? source.apiKeyEnv : "",
+      enabled: Boolean(body.enabled),
+      sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : source.sort + 1,
+      modelIds: []
+    });
+  }
+
+  async moveGenerationProvider(id: string, direction: string) {
+    if (direction !== "up" && direction !== "down") throw new BadRequestException("排序方向无效");
+    const current = await this.prisma.generationProvider.findUnique({ where: { id } });
+    if (!current) throw new BadRequestException("API 平台不存在");
+    const rows = await this.prisma.generationProvider.findMany({
+      where: { groupName: current.groupName },
+      orderBy: [{ sort: "asc" }, { id: "asc" }]
+    });
+    const index = rows.findIndex((provider) => provider.id === id);
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (index < 0 || targetIndex < 0 || targetIndex >= rows.length) return this.generationProvider(id);
+    [rows[index], rows[targetIndex]] = [rows[targetIndex], rows[index]];
+    await this.prisma.$transaction(rows.map((provider, order) => (
+      this.prisma.generationProvider.update({ where: { id: provider.id }, data: { sort: (order + 1) * 10 } })
+    )));
+    return this.generationProvider(id);
+  }
+
   async updateGenerationProvider(id: string, body: Record<string, unknown>) {
     const current = await this.prisma.generationProvider.findUnique({ where: { id } });
     if (!current) throw new BadRequestException("API 平台不存在");
     const data = this.normalizeGenerationProvider({ ...current, ...body, id }, false);
-    this.assertEnabledProviderBindings(data.provider.enabled, data.modelIds);
-    await this.assertModelsExist(data.modelIds);
-    if (!data.provider.enabled) {
-      const activeModels = await this.countEnabledModelsUsingProvider(id);
-      if (activeModels) throw new BadRequestException("请先把生效模型切换到其他 API 平台");
-    }
-    await this.prisma.$transaction(async (tx) => {
-      const { id: _id, ...providerData } = data.provider;
-      await tx.generationProvider.update({ where: { id }, data: providerData as never });
-      if (data.modelIds.length) {
-        await tx.modelConfig.updateMany({ where: { id: { in: data.modelIds } }, data: { provider: id } });
-      }
-      if (id !== "kie") {
-        await tx.modelConfig.updateMany({ where: { provider: id, id: { notIn: data.modelIds } }, data: { provider: "kie" } });
-      }
-    });
+    const { id: _id, ...providerData } = data.provider;
+    await this.prisma.generationProvider.update({ where: { id }, data: providerData as never });
     return this.generationProvider(id);
   }
 
@@ -293,19 +308,112 @@ export class AdminConfigService {
       where: enabled === undefined ? undefined : { enabled },
       select: { provider: true, providerRouting: true }
     });
-    return models.filter((model) => (
-      model.provider === providerId || Object.values(normalizeProviderRouting(model.providerRouting)).includes(providerId)
-    )).length;
-  }
-
-  private countEnabledModelsUsingProvider(providerId: string) {
-    return this.countModelsUsingProvider(providerId, true);
+    return models.filter((model) => this.modelUsesProvider(model, providerId)).length;
   }
 
   private async generationProvider(id: string) {
     const provider = await this.prisma.generationProvider.findUniqueOrThrow({ where: { id } });
-    const models = await this.prisma.modelConfig.findMany({ where: { provider: id }, orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true } });
-    return this.generationProviderView(provider, models.map((model) => model.id));
+    const [models, metrics] = await Promise.all([
+      this.prisma.modelConfig.findMany({ orderBy: [{ sort: "asc" }, { id: "asc" }], select: { id: true, provider: true, providerRouting: true } }),
+      this.generationProviderMetrics()
+    ]);
+    return this.generationProviderView(
+      provider,
+      models.filter((model) => this.modelUsesProvider(model, id)).map((model) => model.id),
+      metrics.get(id)
+    );
+  }
+
+  private modelUsesProvider(model: { provider: string; providerRouting: unknown }, providerId: string) {
+    return model.provider === providerId
+      || Object.values(normalizeProviderRouting(model.providerRouting)).flat().includes(providerId);
+  }
+
+  private async generationProviderMetrics() {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60_000);
+    const jobs = await this.prisma.generateJob.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+      select: {
+        provider: true,
+        providerAttempts: true,
+        status: true,
+        errorMessage: true,
+        startedAt: true,
+        finishedAt: true,
+        createdAt: true
+      }
+    });
+    type Metric = {
+      attempts: number;
+      successes: number;
+      failures: number;
+      durationTotalMs: number;
+      durationSamples: number;
+      lastUsedAt: string;
+      lastError: string;
+    };
+    const metrics = new Map<string, Metric>();
+    const append = (providerId: string, status: string, durationMs: number, usedAt: Date, error = "") => {
+      if (!providerId || !["succeeded", "failed"].includes(status)) return;
+      const current = metrics.get(providerId) || {
+        attempts: 0,
+        successes: 0,
+        failures: 0,
+        durationTotalMs: 0,
+        durationSamples: 0,
+        lastUsedAt: "",
+        lastError: ""
+      };
+      current.attempts += 1;
+      if (status === "succeeded") {
+        current.successes += 1;
+        if (durationMs > 0) {
+          current.durationTotalMs += durationMs;
+          current.durationSamples += 1;
+        }
+      } else {
+        current.failures += 1;
+        if (!current.lastError && error) current.lastError = error.slice(0, 160);
+      }
+      if (!current.lastUsedAt || usedAt.toISOString() > current.lastUsedAt) current.lastUsedAt = usedAt.toISOString();
+      metrics.set(providerId, current);
+    };
+
+    for (const job of jobs) {
+      const attempts = Array.isArray(job.providerAttempts) ? job.providerAttempts : [];
+      if (attempts.length) {
+        for (const raw of attempts) {
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+          const attempt = raw as Record<string, unknown>;
+          const startedAt = new Date(String(attempt.startedAt || job.createdAt.toISOString()));
+          append(
+            String(attempt.providerId || ""),
+            String(attempt.status || ""),
+            Math.max(0, Number(attempt.durationMs) || 0),
+            Number.isNaN(startedAt.getTime()) ? job.createdAt : startedAt,
+            String(attempt.error || "")
+          );
+        }
+        continue;
+      }
+      if (!["succeeded", "partial_failed", "failed"].includes(job.status)) continue;
+      const startedAt = job.startedAt || job.createdAt;
+      const durationMs = job.finishedAt ? Math.max(0, job.finishedAt.getTime() - startedAt.getTime()) : 0;
+      append(job.provider, job.status === "failed" ? "failed" : "succeeded", durationMs, startedAt, job.errorMessage);
+    }
+
+    return new Map([...metrics.entries()].map(([providerId, metric]) => [providerId, {
+      windowDays: 30,
+      attempts: metric.attempts,
+      successes: metric.successes,
+      failures: metric.failures,
+      successRate: metric.attempts ? Math.round((metric.successes / metric.attempts) * 1000) / 10 : null,
+      avgDurationMs: metric.durationSamples ? Math.round(metric.durationTotalMs / metric.durationSamples) : null,
+      lastUsedAt: metric.lastUsedAt || null,
+      lastError: metric.lastError
+    }]));
   }
 
   private normalizeGenerationProvider(body: Record<string, unknown>, creating: boolean) {
@@ -322,6 +430,7 @@ export class AdminConfigService {
     const statusEnabled = requestMode === "async" && Boolean(body.statusEnabled);
     const textToImageEnabled = body.textToImageEnabled === undefined ? true : Boolean(body.textToImageEnabled);
     const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
+    const enabled = body.enabled === undefined ? creating : Boolean(body.enabled);
     const apiKeyEnv = String(body.apiKeyEnv || `GENERATION_PROVIDER_${id.replace(/-/g, "_").toUpperCase()}_API_KEY`).trim();
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
@@ -348,7 +457,7 @@ export class AdminConfigService {
       : rawApiKey
         ? encryptProviderApiKey(rawApiKey, this.providerEncryptionKey())
         : String(body.apiKeyEncrypted || "");
-    if (creating && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("请填写 API Key");
+    if (enabled && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("启用 API 平台前请填写 API Key");
     const requestParams = this.normalizeGenerationParams(body.requestParams);
     const imageRequestParams = this.normalizeGenerationParams(body.imageRequestParams);
     const responseMapping = this.normalizeResponseMapping(body.responseMapping, adapter, requestMode);
@@ -373,7 +482,7 @@ export class AdminConfigService {
         apiKeyEncrypted,
         requestParams,
         imageRequestParams,
-        enabled: body.enabled === undefined ? creating : Boolean(body.enabled),
+        enabled,
         sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0
       },
       modelIds
@@ -432,13 +541,36 @@ export class AdminConfigService {
     return mapping;
   }
 
-  private generationProviderView(provider: GenerationProvider, modelIds: string[]) {
+  private generationProviderView(
+    provider: GenerationProvider,
+    modelIds: string[],
+    metrics?: {
+      windowDays: number;
+      attempts: number;
+      successes: number;
+      failures: number;
+      successRate: number | null;
+      avgDurationMs: number | null;
+      lastUsedAt: string | null;
+      lastError: string;
+    }
+  ) {
     const { apiKeyEncrypted, apiKeyEnv, ...safeProvider } = provider;
     const storedKey = apiKeyEncrypted ? decryptProviderApiKey(apiKeyEncrypted, this.providerEncryptionKey()) : "";
     const apiKey = storedKey || process.env[apiKeyEnv] || "";
     return {
       ...safeProvider,
       modelIds,
+      metrics: metrics || {
+        windowDays: 30,
+        attempts: 0,
+        successes: 0,
+        failures: 0,
+        successRate: null,
+        avgDurationMs: null,
+        lastUsedAt: null,
+        lastError: ""
+      },
       apiKeyConfigured: Boolean(apiKey),
       apiKeyHint: providerApiKeyHint(apiKey),
       apiKeySource: storedKey ? "admin" : apiKey ? "environment" : "none"
@@ -447,18 +579,6 @@ export class AdminConfigService {
 
   private providerEncryptionKey() {
     return this.config.get<string>("app.generationProviderEncryptionKey") || "";
-  }
-
-  private async assertModelsExist(modelIds: string[]) {
-    if (!modelIds.length) return;
-    const models = await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true } });
-    if (models.length !== modelIds.length) throw new BadRequestException("包含不存在的创作模型");
-  }
-
-  private assertEnabledProviderBindings(enabled: boolean, modelIds: string[]) {
-    if (!enabled && modelIds.length) {
-      throw new BadRequestException("停用平台不能绑定创作模型");
-    }
   }
 
   // ---------- 协议 / 键值设置 ----------

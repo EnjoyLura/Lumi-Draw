@@ -1,7 +1,7 @@
 export const QUALITY_TIERS = ["1K", "2K", "4K"] as const;
 
 export type QualityTier = (typeof QUALITY_TIERS)[number];
-export type ProviderRouting = Partial<Record<QualityTier, string>>;
+export type ProviderRouting = Partial<Record<QualityTier, string[]>>;
 
 export function extractQualityTier(label: string): QualityTier | undefined {
   return label.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() as QualityTier | undefined;
@@ -13,13 +13,24 @@ export function normalizeProviderRouting(value: unknown): ProviderRouting {
   return Object.fromEntries(
     QUALITY_TIERS.flatMap((tier) => {
       const value = input[tier];
-      const providerId = typeof value === "string" ? value.trim() : "";
-      return providerId ? [[tier, providerId]] : [];
+      const providerIds = (Array.isArray(value) ? value : [value])
+        .map((item) => typeof item === "string" ? item.trim() : "")
+        .filter(Boolean)
+        .filter((providerId, index, all) => all.indexOf(providerId) === index);
+      return providerIds.length ? [[tier, providerIds]] : [];
     })
   ) as ProviderRouting;
 }
 
-export function resolveProviderId(defaultProviderId: string, routing: unknown, qualityLabel: string) {
+export function resolveProviderIds(defaultProviderId: string, routing: unknown, qualityLabel: string) {
   const tier = extractQualityTier(qualityLabel);
-  return (tier && normalizeProviderRouting(routing)[tier]) || defaultProviderId;
+  const configured = tier ? normalizeProviderRouting(routing)[tier] || [] : [];
+  return [...configured, defaultProviderId]
+    .map((providerId) => providerId.trim())
+    .filter(Boolean)
+    .filter((providerId, index, all) => all.indexOf(providerId) === index);
+}
+
+export function resolveProviderId(defaultProviderId: string, routing: unknown, qualityLabel: string) {
+  return resolveProviderIds(defaultProviderId, routing, qualityLabel)[0] || defaultProviderId;
 }

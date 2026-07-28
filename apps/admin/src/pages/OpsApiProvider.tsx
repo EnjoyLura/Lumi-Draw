@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { apiDeleteGenerationProvider, apiGetGenerationProviders, apiGetModels, apiSaveGenerationProvider } from "../data/api";
+import {
+  apiDeleteGenerationProvider,
+  apiDuplicateGenerationProvider,
+  apiGetGenerationProviders,
+  apiGetModels,
+  apiMoveGenerationProvider,
+  apiSaveGenerationProvider
+} from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { GENERATION_PROVIDERS, MODELS, type AdminGenerationProvider, type AdminModel } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
@@ -32,6 +39,12 @@ const DEFAULT_ASYNC_MAPPING = {
   pendingValue: "IN_PROGRESS"
 };
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
+
+function formatDuration(value: number | null) {
+  if (!value) return "暂无";
+  const seconds = Math.round(value / 1000);
+  return seconds < 60 ? `${seconds} 秒` : `${Math.floor(seconds / 60)}分${String(seconds % 60).padStart(2, "0")}秒`;
+}
 
 function ParamEditor({ value, onChange }: { value: Record<string, string>; onChange: (value: Record<string, string>) => void }) {
   const [rows, setRows] = useState(() => Object.entries(value).map(([key, item], index) => ({ id: `${index}-${key}`, key, value: item })));
@@ -87,6 +100,7 @@ function emptyProvider(): AdminGenerationProvider {
     requestParams: { model: "" },
     imageRequestParams: { model: "" },
     modelIds: [],
+    metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     sort: GENERATION_PROVIDERS.length + 1,
     on: true
   };
@@ -102,28 +116,98 @@ function nextCopyId(sourceId: string, providers: AdminGenerationProvider[]) {
   return "";
 }
 
-function copiedProvider(source: AdminGenerationProvider, providers: AdminGenerationProvider[]): AdminGenerationProvider {
-  return {
-    ...source,
-    id: nextCopyId(source.id, providers),
-    name: `${source.name} 副本`,
-    apiKey: "",
-    apiKeyConfigured: false,
-    apiKeyHint: "",
-    apiKeySource: "none",
-    requestParams: { ...source.requestParams },
-    imageRequestParams: { ...source.imageRequestParams },
-    responseMapping: { ...source.responseMapping },
-    modelIds: [],
-    sort: Math.max(0, ...providers.map((provider) => provider.sort)) + 1,
-    on: false
+function DuplicateProviderForm({
+  source,
+  providers,
+  useMock,
+  onSaved
+}: {
+  source: AdminGenerationProvider;
+  providers: AdminGenerationProvider[];
+  useMock: boolean;
+  onSaved: () => void;
+}) {
+  const { closeSheet, toast } = useNav();
+  const [id, setId] = useState(nextCopyId(source.id, providers));
+  const [name, setName] = useState(`${source.name} 副本`);
+  const [groupName, setGroupName] = useState(source.groupName);
+  const [copyApiKey, setCopyApiKey] = useState(true);
+  const [enabled, setEnabled] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!id.trim() || !name.trim()) { toast("请填写平台标识和名称"); return; }
+    if (providers.some((provider) => provider.id === id.trim())) { toast("平台标识已存在"); return; }
+    setSaving(true);
+    try {
+      if (useMock) {
+        GENERATION_PROVIDERS.push({
+          ...source,
+          id: id.trim(),
+          name: name.trim(),
+          groupName: groupName.trim(),
+          apiKey: "",
+          apiKeyConfigured: copyApiKey && source.apiKeyConfigured,
+          apiKeyHint: copyApiKey ? source.apiKeyHint : "",
+          apiKeySource: copyApiKey ? source.apiKeySource : "none",
+          requestParams: { ...source.requestParams },
+          imageRequestParams: { ...source.imageRequestParams },
+          responseMapping: { ...source.responseMapping },
+          modelIds: [],
+          metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
+          sort: source.sort + 1,
+          on: enabled
+        });
+      } else {
+        await apiDuplicateGenerationProvider(source.id, {
+          id: id.trim(),
+          name: name.trim(),
+          groupName: groupName.trim(),
+          copyApiKey,
+          enabled,
+          sort: source.sort + 1
+        });
+      }
+      closeSheet();
+      onSaved();
+      toast("副本已创建");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "复制失败");
+    } finally {
+      setSaving(false);
+    }
   };
+  return (
+    <>
+      <div className="card" style={{ padding: 10, marginBottom: 12, background: "var(--info-soft)" }}>
+        <div className="lr-t">从“{source.name}”创建副本</div>
+        <div className="lr-s" style={{ marginTop: 3 }}>接口、协议、请求参数和结果映射会完整复制，模型线路不会自动变更。</div>
+      </div>
+      <label className="field-label">新平台标识</label>
+      <input className="input" value={id} onChange={(event) => setId(event.target.value.toLowerCase())} />
+      <label className="field-label" style={{ marginTop: 12 }}>新平台名称</label>
+      <input className="input" value={name} onChange={(event) => setName(event.target.value)} />
+      <label className="field-label" style={{ marginTop: 12 }}>所属分组</label>
+      <input className="input" value={groupName} onChange={(event) => setGroupName(event.target.value)} />
+      <label className="lrow" style={{ cursor: "pointer", marginTop: 12 }}>
+        <input type="checkbox" checked={copyApiKey} onChange={(event) => setCopyApiKey(event.target.checked)} />
+        <div className="lr-main"><div className="lr-t">复制已保存的 API Key</div><div className="lr-s">密钥只在服务器内部复制，不会返回浏览器</div></div>
+      </label>
+      <label className="lrow" style={{ cursor: "pointer" }}>
+        <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+        <div className="lr-main"><div className="lr-t">创建后立即启用</div><div className="lr-s">建议先测试无误，再加入模型降级链</div></div>
+      </label>
+      <div style={FOOT_STYLE}>
+        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
+        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "复制中" : "创建副本"}</button>
+      </div>
+    </>
+  );
 }
 
-function ProviderForm({ item, copyFrom, providers, models, useMock, onSaved }: { item?: AdminGenerationProvider; copyFrom?: AdminGenerationProvider; providers: AdminGenerationProvider[]; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
+function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: AdminGenerationProvider; providers: AdminGenerationProvider[]; models: AdminModel[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const originalId = item?.id || "";
-  const [value, setValue] = useState<AdminGenerationProvider>(() => copyFrom ? copiedProvider(copyFrom, providers) : item ? {
+  const [value, setValue] = useState<AdminGenerationProvider>(() => item ? {
     ...item,
     textResultMode: item.textResultMode || "auto",
     imageResultMode: item.imageResultMode || "auto",
@@ -135,8 +219,6 @@ function ProviderForm({ item, copyFrom, providers, models, useMock, onSaved }: {
   } : emptyProvider());
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof AdminGenerationProvider>(key: K, next: AdminGenerationProvider[K]) => setValue((current) => ({ ...current, [key]: next }));
-  const toggleModel = (modelId: string) => update("modelIds", value.modelIds.includes(modelId) ? value.modelIds.filter((id) => id !== modelId) : [...value.modelIds, modelId]);
-
   const save = async () => {
     if (!value.id.trim() || !value.name.trim() || (!value.apiKeyConfigured && !value.apiKey.trim())) {
       toast("请填写平台标识、名称和 API Key");
@@ -186,10 +268,6 @@ function ProviderForm({ item, copyFrom, providers, models, useMock, onSaved }: {
 
   return (
     <>
-      {copyFrom ? <div className="card" style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 12, padding: 10, color: "var(--fg-2)", background: "var(--info-soft)" }}>
-        <i className="ri-information-line" />
-        <span>已复制“{copyFrom.name}”的接口和参数。为避免误切换线上模型，请重新填写 API Key，保存后再按需关联模型并启用。</span>
-      </div> : null}
       <label className="field-label">平台标识</label>
       <input className="input" value={value.id} disabled={Boolean(originalId)} onChange={(event) => update("id", event.target.value.toLowerCase())} placeholder="如 ainb-backup" />
       <label className="field-label" style={{ marginTop: 12 }}>平台名称</label>
@@ -301,18 +379,15 @@ function ProviderForm({ item, copyFrom, providers, models, useMock, onSaved }: {
         <ParamEditor value={value.imageRequestParams} onChange={(params) => update("imageRequestParams", params)} />
       </> : null}
 
-      <label className="field-label" style={{ marginTop: 12 }}>生效的创作模型</label>
-      <div className="card" style={{ padding: "4px 12px" }}>
-        {models.map((model) => (
-          <label key={model.id} className="lrow" style={{ cursor: "pointer", padding: "10px 0" }}>
-            <input type="checkbox" checked={value.modelIds.includes(model.id)} onChange={() => toggleModel(model.id)} />
-            <div className="lr-main"><div className="lr-t">{model.name}</div><div className="lr-s">{model.id}</div></div>
-          </label>
-        ))}
+      <label className="field-label" style={{ marginTop: 12 }}>当前使用模型</label>
+      <div className="card" style={{ padding: 10 }}>
+        <div className="lr-s" style={{ marginBottom: value.modelIds.length ? 6 : 0 }}>模型与分辨率线路统一在“模型管理”中配置，避免两处设置互相覆盖。</div>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {value.modelIds.length
+            ? value.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />)
+            : <Badge text="暂未加入线路" type="muted" />}
+        </div>
       </div>
-
-      <label className="field-label" style={{ marginTop: 12 }}>排序</label>
-      <input className="input" type="number" value={value.sort} onChange={(event) => update("sort", Number(event.target.value) || 0)} />
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
@@ -326,6 +401,7 @@ export function OpsApiProvider() {
   const { openSheet, toast, confirmDlg } = useNav();
   const refresh = useRefresh();
   const [groupFilter, setGroupFilter] = useState("全部");
+  const [keyword, setKeyword] = useState("");
   const state = useAsyncData(useMock ? null : async () => {
     const [providers, models] = await Promise.all([apiGetGenerationProviders(), apiGetModels()]);
     return { providers, models };
@@ -336,11 +412,33 @@ export function OpsApiProvider() {
   const hasUngrouped = providers.some((provider) => !provider.groupName);
   const groupFilters = ["全部", ...groups, ...(hasUngrouped ? ["未分组"] : [])];
   const activeGroupFilter = groupFilters.includes(groupFilter) ? groupFilter : "全部";
-  const visibleProviders = providers.filter((provider) => activeGroupFilter === "全部"
-    || (activeGroupFilter === "未分组" ? !provider.groupName : provider.groupName === activeGroupFilter));
+  const normalizedKeyword = keyword.trim().toLowerCase();
+  const visibleProviders = providers.filter((provider) => (
+    activeGroupFilter === "全部"
+    || (activeGroupFilter === "未分组" ? !provider.groupName : provider.groupName === activeGroupFilter)
+  ) && (!normalizedKeyword || [provider.name, provider.id, provider.groupName, provider.baseUrl]
+    .some((value) => value.toLowerCase().includes(normalizedKeyword))));
   const reload = () => useMock ? refresh() : state.reload();
   const openForm = (provider?: AdminGenerationProvider) => openSheet(provider ? "编辑 API 平台" : "新增 API 平台", <ProviderForm item={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
-  const copyProvider = (provider: AdminGenerationProvider) => openSheet("复制 API 平台", <ProviderForm copyFrom={provider} providers={providers} models={models} useMock={useMock} onSaved={reload} />);
+  const copyProvider = (provider: AdminGenerationProvider) => openSheet("快速创建 API 副本", <DuplicateProviderForm source={provider} providers={providers} useMock={useMock} onSaved={reload} />);
+
+  const moveProvider = async (provider: AdminGenerationProvider, direction: "up" | "down") => {
+    try {
+      if (useMock) {
+        const peers = providers.filter((item) => item.groupName === provider.groupName).sort((a, b) => a.sort - b.sort);
+        const index = peers.findIndex((item) => item.id === provider.id);
+        const target = direction === "up" ? index - 1 : index + 1;
+        if (target < 0 || target >= peers.length) return;
+        [peers[index].sort, peers[target].sort] = [peers[target].sort, peers[index].sort];
+      } else {
+        await apiMoveGenerationProvider(provider.id, direction);
+      }
+      reload();
+      toast(direction === "up" ? "优先级已提高" : "优先级已降低");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "调整失败");
+    }
+  };
 
   const toggle = async (provider: AdminGenerationProvider) => {
     try {
@@ -370,6 +468,17 @@ export function OpsApiProvider() {
   return (
     <>
       <AddBtn text="新增 API 平台" onClick={() => openForm()} />
+      <div className="card" style={{ padding: 12, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, textAlign: "center" }}>
+          <div><div className="lr-t">{providers.length}</div><div className="lr-s">平台总数</div></div>
+          <div><div className="lr-t">{providers.filter((provider) => provider.on).length}</div><div className="lr-s">已启用</div></div>
+          <div><div className="lr-t">{groups.length + (hasUngrouped ? 1 : 0)}</div><div className="lr-s">分组</div></div>
+        </div>
+      </div>
+      <div style={{ position: "relative", marginBottom: 10 }}>
+        <i className="ri-search-line" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--fg-muted)" }} />
+        <input className="input" style={{ paddingLeft: 36 }} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索平台名称、标识、分组或接口地址" />
+      </div>
       {providers.length ? <Chips items={groupFilters} active={activeGroupFilter} onPick={setGroupFilter} /> : null}
       {state.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
       {state.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{state.error}</div></div> : null}
@@ -395,12 +504,31 @@ export function OpsApiProvider() {
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 9 }}>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{provider.metrics.successRate === null ? "暂无" : `${provider.metrics.successRate}%`}</div>
+                  <div className="lr-s">近30天成功率</div>
+                </div>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{formatDuration(provider.metrics.avgDurationMs)}</div>
+                  <div className="lr-s">平均成功耗时</div>
+                </div>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{provider.metrics.attempts}</div>
+                  <div className="lr-s">请求次数</div>
+                </div>
+              </div>
+              {provider.metrics.lastError ? <div className="lr-s" style={{ marginTop: 6, color: "var(--danger)" }}>最近故障：{provider.metrics.lastError}</div> : null}
             </div>
             <Switch on={provider.on} onToggle={() => toggle(provider)} />
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{ADAPTERS.find((item) => item.value === provider.adapter)?.label} · 排序 {provider.sort}</span>
-            <CtrlIcons onCopy={() => copyProvider(provider)} onEdit={() => openForm(provider)} onDelete={() => remove(provider)} />
+            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{ADAPTERS.find((item) => item.value === provider.adapter)?.label} · 组内优先级</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <button className="nav-btn" type="button" aria-label="提高优先级" onClick={() => moveProvider(provider, "up")}><i className="ri-arrow-up-line" /></button>
+              <button className="nav-btn" type="button" aria-label="降低优先级" onClick={() => moveProvider(provider, "down")}><i className="ri-arrow-down-line" /></button>
+              <CtrlIcons onCopy={() => copyProvider(provider)} onEdit={() => openForm(provider)} onDelete={() => remove(provider)} />
+            </div>
           </div>
         </div>
       ))}
