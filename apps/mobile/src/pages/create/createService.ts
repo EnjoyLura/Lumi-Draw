@@ -24,6 +24,7 @@ interface BackendModel {
 interface BackendStyle {
   id: number;
   name: string;
+  prompt: string;
   imageUrl?: string;
 }
 
@@ -42,6 +43,7 @@ interface BackendRatio {
 interface BackendGameplay {
   id: number;
   name: string;
+  prompt: string;
   uses: string | number;
   imageUrl?: string;
 }
@@ -192,7 +194,8 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
       const fallback = mockStyles.find((style) => style.name === item.name) ?? fallbackByIndex(mockStyles, index);
       return {
         name: item.name || fallback.name,
-        image: item.imageUrl || fallback.image
+        image: item.imageUrl || fallback.image,
+        prompt: item.prompt || fallback.prompt
       };
     }),
     qualities: data.qualities.map((item, index) => {
@@ -208,9 +211,11 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
     gameplays: data.gameplays.map((item, index) => {
       const fallback = mockGameplays.find((gameplay) => gameplay.name === item.name) ?? fallbackByIndex(mockGameplays, index);
       return {
+        id: item.id,
         name: item.name || fallback.name,
         image: item.imageUrl || fallback.image,
-        uses: formatUses(item.uses, fallback.uses)
+        uses: formatUses(item.uses, fallback.uses),
+        prompt: item.prompt || fallback.prompt
       };
     })
   }));

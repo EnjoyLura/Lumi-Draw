@@ -70,6 +70,8 @@ const selectedQualityIndex = ref(0);
 const selectedRatioLabel = ref("1:1");
 const selectedCountIndex = ref(0);
 const promptText = ref("");
+const appliedStylePrompt = ref("");
+const lastAppliedGameplayName = ref("");
 const promptImage = ref("");
 const promptLocalImage = ref<ChosenImage | null>(null);
 const promptUploadedImageUrl = ref("");
@@ -227,6 +229,7 @@ function resetCreateConfig() {
     selectedRatioLabel.value = ratioList.value[0]?.label || "1:1";
   }
   applyPendingRouteOptions();
+  applySelectedGameplayPrompt();
 }
 
 async function loadCreateConfig() {
@@ -249,6 +252,7 @@ async function loadCreateConfig() {
       selectedRatioLabel.value = ratioList.value[0]?.label || "1:1";
     }
     applyPendingRouteOptions();
+    applySelectedGameplayPrompt();
   } catch {
     modelOptions.value = [];
     styleOptions.value = [];
@@ -277,7 +281,9 @@ onShow(() => {
 
   const promptDraft = uni.getStorageSync("lumiCreatePromptDraft");
   if (typeof promptDraft === "string" && promptDraft.trim()) {
-    promptText.value = promptDraft.slice(0, 500);
+    promptText.value = promptDraft.slice(0, 1200);
+    appliedStylePrompt.value = "";
+    lastAppliedGameplayName.value = selectedGameplayName.value;
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
@@ -378,6 +384,8 @@ function applyRouteQuery(query?: Record<string, unknown>, force = false) {
   if (routeQuery.gameplay) {
     const changedGameplay = selectedGameplayName.value !== routeQuery.gameplay;
     selectedGameplayName.value = routeQuery.gameplay;
+    if (routeQuery.prompt) lastAppliedGameplayName.value = routeQuery.gameplay;
+    else if (changedGameplay) applySelectedGameplayPrompt(true);
     if (changedGameplay) showToast(`已套用「${routeQuery.gameplay}」模板`);
   }
   else if (hasCreationParams) selectedGameplayName.value = "";
@@ -397,17 +405,61 @@ function applyRouteQuery(query?: Record<string, unknown>, force = false) {
     applySelectedQuality(routeQuery.quality);
   }
 
+  if (routeQuery.prompt) {
+    promptText.value = routeQuery.prompt.slice(0, 1200);
+    appliedStylePrompt.value = "";
+  }
+
   if (routeQuery.style) {
     pendingRouteOptions.value.style = routeQuery.style;
     applySelectedStyle(routeQuery.style);
   }
-
-  if (routeQuery.prompt) promptText.value = routeQuery.prompt.slice(0, 500);
   if (routeQuery.jobId) void resumeBackendJob(routeQuery.jobId);
 }
 
 function showToast(title: string) {
   uni.showToast({ title, icon: "none" });
+}
+
+function normalizePromptPart(value: string) {
+  return value.trim().replace(/\r\n/g, "\n");
+}
+
+function removeManagedPromptSuffix(value: string, managedPrompt: string) {
+  const text = value.trimEnd();
+  const managed = normalizePromptPart(managedPrompt);
+  if (!managed) return text;
+  if (text === managed) return "";
+  const suffix = `\n${managed}`;
+  return text.endsWith(suffix) ? text.slice(0, -suffix.length).trimEnd() : text;
+}
+
+function appendVisiblePrompt(value: string, prompt: string) {
+  const text = value.trim();
+  const part = normalizePromptPart(prompt);
+  if (!part) return text.slice(0, 1200);
+  if (text === part || text.endsWith(`\n${part}`)) return text.slice(0, 1200);
+  return [text, part].filter(Boolean).join("\n").slice(0, 1200);
+}
+
+function selectedStylePrompt() {
+  return styleOptions.value.find((style) => style.name === selectedStyleName.value)?.prompt || "";
+}
+
+function applyStylePrompt(prompt: string) {
+  const base = removeManagedPromptSuffix(promptText.value, appliedStylePrompt.value);
+  const nextPrompt = normalizePromptPart(prompt);
+  promptText.value = appendVisiblePrompt(base, nextPrompt);
+  appliedStylePrompt.value = nextPrompt;
+}
+
+function applySelectedGameplayPrompt(force = false) {
+  const template = selectedGameplay.value;
+  if (!template?.prompt || (!force && lastAppliedGameplayName.value === template.name)) return;
+  appliedStylePrompt.value = "";
+  promptText.value = appendVisiblePrompt(template.prompt, selectedStylePrompt());
+  appliedStylePrompt.value = normalizePromptPart(selectedStylePrompt());
+  lastAppliedGameplayName.value = template.name;
 }
 
 function generatedImageUrl(seed: string, size = 800) {
@@ -463,6 +515,7 @@ function closeGameplaySheet() {
 
 function selectGameplayTemplate(name: string) {
   selectedGameplayName.value = name;
+  applySelectedGameplayPrompt(true);
   closeGameplaySheet();
   showToast(`已套用「${name}」模板`);
 }
@@ -516,7 +569,10 @@ function applySelectedQuality(label: string) {
 
 function applySelectedStyle(name: string) {
   if (!name) return;
-  if (styleOptions.value.some((style) => style.name === name)) selectedStyleName.value = name;
+  const style = styleOptions.value.find((item) => item.name === name);
+  if (!style) return;
+  selectedStyleName.value = name;
+  applyStylePrompt(style.prompt);
 }
 
 function applyPendingRouteOptions() {
@@ -550,7 +606,7 @@ function goReversePrompt() {
 
 function selectStyle(name: string) {
   if (!ensureLogin()) return;
-  selectedStyleName.value = name;
+  applySelectedStyle(name);
 }
 
 function openStyleSheet() {
@@ -563,7 +619,7 @@ function closeStyleSheet() {
 }
 
 function selectStyleFromSheet(name: string) {
-  selectedStyleName.value = name;
+  applySelectedStyle(name);
 }
 
 async function uploadPromptImage() {
@@ -607,6 +663,7 @@ function previewPromptImage() {
 
 function clearPrompt() {
   promptText.value = "";
+  appliedStylePrompt.value = "";
 }
 
 function ratioShapeStyle(width: number, height: number) {
@@ -867,6 +924,7 @@ async function startBackendGenerate(prompt: string) {
       modelId: selectedModel.value.id,
       prompt,
       inputImageUrl: inputImageUrl || undefined,
+      gameplayId: selectedGameplay.value?.id,
       style: selectedStyleName.value,
       ratio: selectedRatio.value.label,
       quality: selectedQuality.value.label,

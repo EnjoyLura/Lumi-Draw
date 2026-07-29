@@ -88,6 +88,7 @@ export class ConfigService {
       id: g.id,
       name: g.name,
       description: g.description,
+      prompt: g.prompt,
       imageUrl: this.uploads.readUrl(g.imageUrl, "public"),
       uses: g.uses,
       hot: g.hot

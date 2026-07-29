@@ -18,22 +18,22 @@ function GameplayForm({ id, item, useMock, onSaved }: { id: number; item?: Admin
   const [name, setName] = useState(g?.name ?? "");
   const [desc, setDesc] = useState(g?.desc ?? "");
   const [uses, setUses] = useState(g?.uses ?? "0");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(g?.prompt ?? "");
   const [imageUrl, setImageUrl] = useState(g?.imageUrl ?? "");
   const [hot, setHot] = useState(g?.hot ?? false);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
+    if (!prompt.trim()) { toast("请输入关联提示词模板"); return; }
     if (!imageUrl) { toast("请上传玩法封面"); return; }
-    void prompt;
     setSaving(true);
     try {
       if (useMock) {
-        if (g) Object.assign(g, { name: name.trim(), desc, uses: uses.trim() || "0", hot, imageUrl });
-        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, hot, uses: uses.trim() || "0", imageUrl, on: true });
+        if (g) Object.assign(g, { name: name.trim(), desc, prompt: prompt.trim(), uses: uses.trim() || "0", hot, imageUrl });
+        else GAMEPLAYS.push({ id: nextId(GAMEPLAYS), name: name.trim(), desc, prompt: prompt.trim(), hot, uses: uses.trim() || "0", imageUrl, on: true });
       } else {
-        await apiSaveGameplay(id, { name: name.trim(), desc, uses: uses.trim() || "0", hot, imageUrl, on: g?.on ?? true });
+        await apiSaveGameplay(id, { name: name.trim(), desc, prompt: prompt.trim(), uses: uses.trim() || "0", hot, imageUrl, on: g?.on ?? true });
       }
       closeSheet();
       onSaved();
@@ -123,6 +123,7 @@ export function OpsGameplay() {
             <div className="lr-main">
               <div className="lr-t">{g.name}{g.hot ? <>&nbsp;<Badge text="HOT" type="danger" /></> : null}</div>
               <div className="lr-s">{g.desc}</div>
+              <div className="lr-s" style={{ marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.prompt}</div>
               <div className="lr-s" style={{ marginTop: 1 }}>使用 {g.uses}</div>
             </div>
             <Switch on={g.on} onToggle={() => toggle(g)} />

@@ -384,19 +384,19 @@ export async function apiSetBannerEnabled(id: number, enabled: boolean) {
 }
 
 interface ApiGameplay {
-  id: number; name: string; description: string; uses: string | number; hot: boolean; imageUrl?: string; thumbnailUrl?: string; enabled: boolean; sort: number;
+  id: number; name: string; description: string; prompt: string; uses: string | number; hot: boolean; imageUrl?: string; thumbnailUrl?: string; enabled: boolean; sort: number;
 }
 
 function mapGameplay(g: ApiGameplay): AdminGameplay {
-  return { id: g.id, name: g.name, desc: g.description, uses: String(g.uses), hot: g.hot, imageUrl: g.imageUrl, thumbnailUrl: g.thumbnailUrl, on: g.enabled };
+  return { id: g.id, name: g.name, desc: g.description, prompt: g.prompt || "", uses: String(g.uses), hot: g.hot, imageUrl: g.imageUrl, thumbnailUrl: g.thumbnailUrl, on: g.enabled };
 }
 
 export async function apiGetGameplays() {
   return (await http.get<ApiGameplay[]>("/admin/gameplays")).map(mapGameplay);
 }
 
-export async function apiSaveGameplay(id: number, values: { name: string; desc: string; uses?: string; hot: boolean; imageUrl?: string; on?: boolean }) {
-  const body = { name: values.name, description: values.desc, uses: values.uses, hot: values.hot, imageUrl: values.imageUrl, enabled: values.on };
+export async function apiSaveGameplay(id: number, values: { name: string; desc: string; prompt: string; uses?: string; hot: boolean; imageUrl?: string; on?: boolean }) {
+  const body = { name: values.name, description: values.desc, prompt: values.prompt, uses: values.uses, hot: values.hot, imageUrl: values.imageUrl, enabled: values.on };
   return mapGameplay(id ? await http.patch<ApiGameplay>(`/admin/gameplays/${id}`, body) : await http.post<ApiGameplay>("/admin/gameplays", body));
 }
 

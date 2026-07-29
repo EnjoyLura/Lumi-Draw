@@ -210,6 +210,7 @@ export interface AdminGameplay {
   id: number;
   name: string;
   desc: string;
+  prompt: string;
   uses: string;
   hot: boolean;
   on: boolean;
@@ -262,12 +263,12 @@ export const GENERATION_PROVIDERS: AdminGenerationProvider[] = [
 ];
 
 export const GAMEPLAYS: AdminGameplay[] = [
-  { id: 1, name: "人物美颜", desc: "一键美颜，智能磨皮提亮肤色", uses: "12.6w", hot: true, on: true, imageUrl: publishRewardBanner },
-  { id: 2, name: "证件照", desc: "快速生成标准规格证件照", uses: "8.3w", hot: true, on: true, imageUrl: gptImage2Banner },
-  { id: 3, name: "宠物头像", desc: "萌宠专属卡通头像生成", uses: "5.1w", hot: false, on: true, imageUrl: publishRewardBanner },
-  { id: 4, name: "古风国潮", desc: "国风古韵人像与场景创作", uses: "4.8w", hot: false, on: true, imageUrl: gptImage2Banner },
-  { id: 5, name: "Q版头像", desc: "可爱Q版卡通形象定制", uses: "6.2w", hot: true, on: true, imageUrl: publishRewardBanner },
-  { id: 6, name: "Logo设计", desc: "AI辅助品牌Logo灵感生成", uses: "3.9w", hot: false, on: false, imageUrl: gptImage2Banner }
+  { id: 1, name: "人物美颜", desc: "一键美颜，智能磨皮提亮肤色", prompt: "自然精致的人像美颜，保留真实五官与皮肤纹理，柔和光线，肤色通透，细节清晰", uses: "12.6w", hot: true, on: true, imageUrl: publishRewardBanner },
+  { id: 2, name: "证件照", desc: "快速生成标准规格证件照", prompt: "正面标准证件照，人物居中，端正自然，纯色背景，光线均匀，五官清晰，专业摄影", uses: "8.3w", hot: true, on: true, imageUrl: gptImage2Banner },
+  { id: 3, name: "宠物头像", desc: "萌宠专属卡通头像生成", prompt: "一只可爱的宠物头像，表情生动，主体居中，干净背景，细节丰富，适合作为社交头像", uses: "5.1w", hot: false, on: true, imageUrl: publishRewardBanner },
+  { id: 4, name: "古风国潮", desc: "国风古韵人像与场景创作", prompt: "中国古风国潮画面，传统东方美学，精致纹样，典雅配色，电影感光影，细节丰富", uses: "4.8w", hot: false, on: true, imageUrl: gptImage2Banner },
+  { id: 5, name: "Q版头像", desc: "可爱Q版卡通形象定制", prompt: "可爱的Q版卡通头像，大眼睛，圆润造型，表情生动，主体居中，干净背景，精致插画", uses: "6.2w", hot: true, on: true, imageUrl: publishRewardBanner },
+  { id: 6, name: "Logo设计", desc: "AI辅助品牌Logo灵感生成", prompt: "简洁专业的品牌Logo设计，视觉识别度高，构图平衡，现代设计语言，纯色背景，可用于商业品牌", uses: "3.9w", hot: false, on: false, imageUrl: gptImage2Banner }
 ];
 
 export const HOT_SEARCHES: AdminHotSearch[] = [

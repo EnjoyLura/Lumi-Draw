@@ -30,6 +30,7 @@ model Gameplay {
   id          Int      @id @default(autoincrement())
   name        String
   description String
+  prompt      String   @default("")
   uses        String   @default("")
   hot         Boolean  @default(false)
   imageUrl    String   @default("")

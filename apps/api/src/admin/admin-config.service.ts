@@ -28,7 +28,7 @@ function requireFields(body: Record<string, unknown>, keys: string[]) {
 // 各配置实体的可写字段白名单（防止未知字段进 Prisma）
 const FIELDS = {
   banner: ["title", "description", "imageUrl", "action", "sort", "enabled"],
-  gameplay: ["name", "description", "uses", "hot", "imageUrl", "enabled", "sort"],
+  gameplay: ["name", "description", "prompt", "uses", "hot", "imageUrl", "enabled", "sort"],
   style: ["name", "prompt", "uses", "imageUrl", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
   hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
@@ -162,7 +162,7 @@ export class AdminConfigService {
   updateBanner(id: number, b: Record<string, unknown>) { return this.updateNumeric(this.prisma.banner, "banner", id, b); }
   deleteBanner(id: number) { return this.removeNumeric(this.prisma.banner, id); }
   // gameplays
-  createGameplay(b: Record<string, unknown>) { return this.createNumeric(this.prisma.gameplay, "gameplay", b, ["name", "description"]); }
+  createGameplay(b: Record<string, unknown>) { return this.createNumeric(this.prisma.gameplay, "gameplay", b, ["name", "description", "prompt"]); }
   updateGameplay(id: number, b: Record<string, unknown>) { return this.updateNumeric(this.prisma.gameplay, "gameplay", id, b); }
   deleteGameplay(id: number) { return this.removeNumeric(this.prisma.gameplay, id); }
   // styles
