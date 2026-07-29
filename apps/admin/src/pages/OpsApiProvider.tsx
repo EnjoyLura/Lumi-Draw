@@ -77,6 +77,42 @@ function MappingField({ label, value, placeholder, onChange }: { label: string; 
   );
 }
 
+function ResultUrlRewriteEditor({
+  value,
+  onChange
+}: {
+  value: Array<{ sourceHost: string; targetHost: string }>;
+  onChange: (value: Array<{ sourceHost: string; targetHost: string }>) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {value.map((rule, index) => (
+        <div key={index} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 20px minmax(0, 1fr) 32px", gap: 6, alignItems: "center" }}>
+          <input
+            className="input"
+            value={rule.sourceHost}
+            onChange={(event) => onChange(value.map((item, rowIndex) => rowIndex === index ? { ...item, sourceHost: event.target.value } : item))}
+            placeholder="files.example.com"
+          />
+          <i className="ri-arrow-right-line" style={{ textAlign: "center", color: "var(--muted)" }} />
+          <input
+            className="input"
+            value={rule.targetHost}
+            onChange={(event) => onChange(value.map((item, rowIndex) => rowIndex === index ? { ...item, targetHost: event.target.value } : item))}
+            placeholder="files.example.cn"
+          />
+          <button className="nav-btn" type="button" aria-label="删除域名映射" onClick={() => onChange(value.filter((_, rowIndex) => rowIndex !== index))}>
+            <i className="ri-close-line" />
+          </button>
+        </div>
+      ))}
+      <button className="btn btn-ghost" type="button" disabled={value.length >= 10} onClick={() => onChange([...value, { sourceHost: "", targetHost: "" }])}>
+        <i className="ri-add-line" /> 添加结果图片域名映射
+      </button>
+    </div>
+  );
+}
+
 function emptyProvider(): AdminGenerationProvider {
   return {
     id: "",
@@ -91,6 +127,7 @@ function emptyProvider(): AdminGenerationProvider {
     queryEndpoint: "",
     statusEnabled: false,
     responseMapping: { ...DEFAULT_ASYNC_MAPPING },
+    resultUrlRewriteRules: [],
     textToImageEnabled: true,
     imageToImageEnabled: false,
     apiKey: "",
@@ -158,6 +195,7 @@ function DuplicateProviderForm({
           requestParams: { ...source.requestParams },
           imageRequestParams: { ...source.imageRequestParams },
           responseMapping: { ...source.responseMapping },
+          resultUrlRewriteRules: source.resultUrlRewriteRules.map((rule) => ({ ...rule })),
           modelIds: [],
           metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
           sort: source.sort + 1,
@@ -222,6 +260,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     imageRequestParams: { model: "", ...item.imageRequestParams },
     imageInputMode: item.imageInputMode || "multipart",
     imageInputField: item.imageInputField || (item.adapter === "ainb" ? "image[]" : "image"),
+    resultUrlRewriteRules: (item.resultUrlRewriteRules || []).map((rule) => ({ ...rule })),
     responseMapping: { ...(item.requestMode === "async" ? DEFAULT_ASYNC_MAPPING : {}), ...item.responseMapping },
     modelIds: [...item.modelIds]
   } : emptyProvider());
@@ -265,6 +304,10 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         toast("图片比例和图片精度不能使用同一个字段名");
         return;
       }
+    }
+    if (value.resultUrlRewriteRules.some((rule) => !rule.sourceHost.trim() || !rule.targetHost.trim())) {
+      toast("请完整填写结果图片的原始域名和加速域名");
+      return;
     }
     setSaving(true);
     try {
@@ -423,6 +466,16 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
           <div className="lr-main"><div className="lr-t">允许平台返回 HTTP 图片地址</div><div className="lr-s">仅在平台确实返回 HTTP 原图 URL 时开启；仍会拦截内网地址。</div></div>
         </label> : null}
       </div> : null}
+      <div className="card" style={{ padding: 12, marginTop: 12 }}>
+        <div className="lr-t">结果图片域名加速</div>
+        <div className="lr-s" style={{ margin: "4px 0 10px" }}>
+          只填写域名，不包含 https:// 和路径。永久保存图片时优先使用加速域名，下载失败会自动回退原始地址。
+        </div>
+        <ResultUrlRewriteEditor
+          value={value.resultUrlRewriteRules}
+          onChange={(rules) => update("resultUrlRewriteRules", rules)}
+        />
+      </div>
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
         <input type="checkbox" checked={value.textToImageEnabled} onChange={(event) => update("textToImageEnabled", event.target.checked)} />
         <div className="lr-main"><div className="lr-t">启用文生图</div><div className="lr-s">关闭后该平台不接受文生图任务</div></div>
@@ -604,6 +657,9 @@ export function OpsApiProvider() {
                     : `${provider.pixelSizeField}=3840x2160`}
                   type="muted"
                 /> : null}
+                {provider.resultUrlRewriteRules.length
+                  ? <Badge text={`域名加速 ${provider.resultUrlRewriteRules.length} 条`} type="success" />
+                  : null}
               </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}

@@ -118,6 +118,7 @@ model GenerationProvider {
   queryEndpoint String   @default("")
   statusEnabled Boolean  @default(false)
   responseMapping Json   @default("{}")
+  resultUrlRewriteRules Json @default("[]")
   textToImageEnabled Boolean @default(true)
   imageToImageEnabled Boolean @default(false)
   apiKeyEnv     String
@@ -531,6 +532,7 @@ model GenerateJob {
   providerQueryEndpoint String @default("")
   providerStatusEnabled Boolean @default(false)
   providerResponseMapping Json?
+  providerResultUrlRewriteRules Json @default("[]")
   providerApiKeyEnv String @default("")
   providerApiKeyEncrypted String @default("")
   providerParams Json?

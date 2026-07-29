@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHmac } from "node:crypto";
 import type { ProviderSizeConfig } from "./provider-size";
+import type { ProviderResultUrlRewriteRule } from "./provider-result-url";
 
 type ImageTransferConfig = {
   functionUrl: string;
@@ -13,6 +14,7 @@ export type ImageTransferRequest = {
   jobId: string;
   resultId: string;
   sourceUrl: string;
+  fallbackSourceUrl?: string;
   objectKey: string;
 };
 
@@ -31,6 +33,7 @@ export type ImageGenerationRequest = {
     sizeConfig?: ProviderSizeConfig;
     imageInputMode?: "multipart" | "url-array";
     imageInputField?: string;
+    resultUrlRewriteRules?: ProviderResultUrlRewriteRule[];
   };
   input: {
     mode: string;

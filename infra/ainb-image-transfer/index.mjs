@@ -19,6 +19,27 @@ function safeEndpoint(value) {
   }
 }
 
+function rewriteResultUrl(value, rulesValue) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return { url: value, fallbackUrl: "" };
+  }
+  if (url.protocol !== "https:" || !Array.isArray(rulesValue)) return { url: value, fallbackUrl: "" };
+  const sourceHost = url.hostname.toLowerCase();
+  const rule = rulesValue.find((item) =>
+    item && typeof item === "object"
+    && String(item.sourceHost || "").trim().toLowerCase() === sourceHost
+    && String(item.targetHost || "").trim()
+  );
+  if (!rule) return { url: value, fallbackUrl: "" };
+  const targetHost = String(rule.targetHost).trim().toLowerCase();
+  if (targetHost === sourceHost) return { url: value, fallbackUrl: "" };
+  url.hostname = targetHost;
+  return { url: url.toString(), fallbackUrl: value };
+}
+
 function errorDetails(error) {
   const value = error && typeof error === "object" ? error : {};
   const cause = value.cause && typeof value.cause === "object" ? value.cause : {};
@@ -215,6 +236,21 @@ async function downloadImageWithRetry(url, trace = {}) {
     }
   }
   throw lastError;
+}
+
+async function downloadImageWithFallback(url, fallbackUrl, trace = {}) {
+  try {
+    return await downloadImageWithRetry(url, trace);
+  } catch (error) {
+    if (!fallbackUrl || fallbackUrl === url) throw error;
+    logEvent("warn", "image.download.fallback", {
+      ...trace,
+      failedEndpoint: safeEndpoint(url),
+      fallbackEndpoint: safeEndpoint(fallbackUrl),
+      error: errorDetails(error)
+    });
+    return downloadImageWithRetry(fallbackUrl, { ...trace, fallback: true });
+  }
 }
 
 function extension(contentType) {
@@ -440,10 +476,24 @@ async function runGemini(provider, input) {
   return outputs;
 }
 
-async function putImage(client, objectKey, output, trace = {}) {
+async function putImage(client, objectKey, output, trace = {}, rewriteRules = []) {
   const startedAt = Date.now();
   let image = output;
-  if (output.url) image = await downloadImage(output.url, { ...trace, phase: "result-image", allowHttpResultUrl: output.allowHttpResultUrl === true });
+  if (output.url) {
+    const source = rewriteResultUrl(output.url, rewriteRules);
+    if (source.fallbackUrl) {
+      logEvent("info", "image.url.rewritten", {
+        ...trace,
+        sourceHost: new URL(source.fallbackUrl).hostname,
+        targetHost: new URL(source.url).hostname
+      });
+    }
+    image = await downloadImageWithFallback(source.url, source.fallbackUrl, {
+      ...trace,
+      phase: "result-image",
+      allowHttpResultUrl: output.allowHttpResultUrl === true
+    });
+  }
   validateImageBuffer(image.buffer, image.contentType);
   logEvent("info", "oss.upload.start", { ...trace, objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await client.put(objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });
@@ -517,7 +567,15 @@ async function runGeneration(payload, context) {
     logEvent("info", "generation.outputs.ready", { jobId: payload.jobId, elapsedMs: Date.now() - startedAt, outputCount: outputs.length, outputTypes: outputs.map((item) => item.url ? "url" : "base64") });
     const client = ossClient(context);
     const stored = [];
-    for (const [index, output] of outputs.slice(0, payload.objectKeys.length).entries()) stored.push(await putImage(client, payload.objectKeys[index], output, { jobId: payload.jobId, outputIndex: index }));
+    for (const [index, output] of outputs.slice(0, payload.objectKeys.length).entries()) {
+      stored.push(await putImage(
+        client,
+        payload.objectKeys[index],
+        output,
+        { jobId: payload.jobId, outputIndex: index },
+        provider.resultUrlRewriteRules
+      ));
+    }
     if (!stored.length) throw new Error("provider returned no usable images");
     await notify({ jobId: payload.jobId, outputs: stored });
     logEvent("info", "generation.complete", { jobId: payload.jobId, elapsedMs: Date.now() - startedAt, outputCount: stored.length, totalBytes: stored.reduce((sum, item) => sum + item.sizeBytes, 0) });
@@ -530,7 +588,11 @@ async function runGeneration(payload, context) {
 async function runTransfer(payload, context) {
   if (![payload.jobId, payload.resultId, payload.sourceUrl, payload.objectKey].every((item) => typeof item === "string" && item)) throw new Error("invalid transfer request");
   if (!payload.sourceUrl.startsWith("https://") || !payload.objectKey.startsWith("uploads/system/generate/")) throw new Error("invalid source or object key");
-  const image = await downloadImageWithRetry(payload.sourceUrl, { jobId: payload.jobId, resultId: payload.resultId, phase: "result-image" });
+  const image = await downloadImageWithFallback(
+    payload.sourceUrl,
+    payload.fallbackSourceUrl,
+    { jobId: payload.jobId, resultId: payload.resultId, phase: "result-image" }
+  );
   const startedAt = Date.now();
   logEvent("info", "oss.upload.start", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await ossClient(context).put(payload.objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });

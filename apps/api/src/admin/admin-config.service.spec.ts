@@ -120,6 +120,23 @@ test("stores JSON URL reference-image transport configuration", () => {
   assert.equal(result.provider.imageInputField, "image_urls");
 });
 
+test("stores validated result image host acceleration rules", () => {
+  const result = normalize({
+    id: "accelerated-provider",
+    name: "Accelerated provider",
+    adapter: "change2pro",
+    apiKey: "sk-accelerated-secret",
+    baseUrl: "https://images.example.com/v1/images/generations",
+    resultUrlRewriteRules: [
+      { sourceHost: "FILES.EXAMPLE.COM", targetHost: "files.example.cn" }
+    ]
+  }, true);
+
+  assert.deepEqual(result.provider.resultUrlRewriteRules, [
+    { sourceHost: "files.example.com", targetHost: "files.example.cn" }
+  ]);
+});
+
 test("stores a normalized custom provider group", () => {
   const result = normalize({
     id: "grouped-provider",
@@ -186,6 +203,7 @@ test("never exposes encrypted or environment key fields in administrator respons
     queryEndpoint: "https://images.example.com/v1/tasks/{task_id}",
     statusEnabled: true,
     responseMapping: {},
+    resultUrlRewriteRules: [],
     textToImageEnabled: true,
     imageToImageEnabled: false,
     apiKeyEnv: "GENERATION_PROVIDER_SAFE_VIEW_API_KEY",

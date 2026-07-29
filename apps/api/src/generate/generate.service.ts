@@ -19,6 +19,7 @@ import { KieClient } from "./kie.client";
 import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 import { resolveProviderIds } from "./provider-routing";
 import { decryptProviderApiKey } from "./provider-secret";
+import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "./provider-result-url";
 import {
   beginProviderAttempt,
   decideProviderFailure,
@@ -196,7 +197,7 @@ export class GenerateService implements OnApplicationBootstrap {
       return;
     }
     for (const result of pending) {
-      this.dispatchUrlTransfer(job.id, result);
+      this.dispatchUrlTransfer(job.id, result, job.providerResultUrlRewriteRules);
     }
   }
 
@@ -215,6 +216,7 @@ export class GenerateService implements OnApplicationBootstrap {
       queryEndpoint: job.providerQueryEndpoint,
       statusEnabled: job.providerStatusEnabled,
       responseMapping: normalizeProviderParams(job.providerResponseMapping),
+      resultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(job.providerResultUrlRewriteRules),
       imageInputMode: job.providerImageInputMode === "url-array" ? "url-array" : "multipart",
       imageInputField: job.providerImageInputField,
       sizeConfig: {
@@ -241,6 +243,7 @@ export class GenerateService implements OnApplicationBootstrap {
     return {
       providerBaseUrl: isImageToImage ? provider.imageEndpoint : provider.baseUrl,
       providerResultMode: isImageToImage ? provider.imageResultMode : provider.textResultMode,
+      providerResultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(provider.resultUrlRewriteRules),
       providerParams,
       providerModel: providerParams.model || model.providerModel,
       providerImageInputMode: provider.imageInputMode === "url-array" ? "url-array" : "multipart",
@@ -316,6 +319,7 @@ export class GenerateService implements OnApplicationBootstrap {
           providerQueryEndpoint: provider.queryEndpoint,
           providerStatusEnabled: provider.statusEnabled,
           providerResponseMapping: normalizeProviderParams(provider.responseMapping),
+          providerResultUrlRewriteRules: providerSnapshot.providerResultUrlRewriteRules,
           providerApiKeyEnv: provider.apiKeyEnv,
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
           providerParams: providerSnapshot.providerParams,
@@ -869,7 +873,7 @@ export class GenerateService implements OnApplicationBootstrap {
     await this.imageTransfer.dispatchGeneration({
       operation: "generate",
       jobId: job.id,
-      provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping, sizeConfig: runtime.sizeConfig, imageInputMode: runtime.imageInputMode, imageInputField: runtime.imageInputField },
+      provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping, sizeConfig: runtime.sizeConfig, imageInputMode: runtime.imageInputMode, imageInputField: runtime.imageInputField, resultUrlRewriteRules: runtime.resultUrlRewriteRules },
       input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
       objectKeys
     });
@@ -1046,15 +1050,25 @@ export class GenerateService implements OnApplicationBootstrap {
     if (staged.status !== "finalizing") return staged;
     const pending = staged.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey);
     for (const result of pending) {
-      this.dispatchUrlTransfer(staged.id, result);
+      this.dispatchUrlTransfer(staged.id, result, staged.providerResultUrlRewriteRules);
     }
     if (!pending.length) return this.finalizeTransferredUrlJob(staged);
     return staged;
   }
 
-  private dispatchUrlTransfer(jobId: string, result: GenerateResult) {
+  private dispatchUrlTransfer(jobId: string, result: GenerateResult, rulesValue: unknown) {
     if (!result.imageUrl || !result.ossKey) return;
-    void this.imageTransfer.dispatchInBackground({ jobId, resultId: result.id, sourceUrl: result.imageUrl, objectKey: result.ossKey })
+    const source = rewriteProviderResultUrl(result.imageUrl, rulesValue);
+    if (source.fallbackUrl) {
+      this.logger.log(`Image result host rewritten for ${result.id}: ${new URL(source.fallbackUrl).hostname} -> ${new URL(source.url).hostname}`);
+    }
+    void this.imageTransfer.dispatchInBackground({
+      jobId,
+      resultId: result.id,
+      sourceUrl: source.url,
+      fallbackSourceUrl: source.fallbackUrl,
+      objectKey: result.ossKey
+    })
       .catch(async (error) => {
         const message = error instanceof Error ? error.message : "图片保存服务连接失败";
         const failed = await this.prisma.generateResult.updateMany({
@@ -1169,6 +1183,7 @@ export class GenerateService implements OnApplicationBootstrap {
           providerQueryEndpoint: selected.queryEndpoint,
           providerStatusEnabled: selected.statusEnabled,
           providerResponseMapping: normalizeProviderParams(selected.responseMapping),
+          providerResultUrlRewriteRules: snapshot.providerResultUrlRewriteRules,
           providerApiKeyEnv: selected.apiKeyEnv,
           providerApiKeyEncrypted: selected.apiKeyEncrypted,
           providerParams: snapshot.providerParams,

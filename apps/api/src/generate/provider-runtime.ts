@@ -1,4 +1,5 @@
 import type { ProviderSizeConfig } from "./provider-size";
+import type { ProviderResultUrlRewriteRule } from "./provider-result-url";
 
 export type ProviderRequestParams = Record<string, string>;
 
@@ -14,6 +15,7 @@ export interface ProviderRuntimeConfig {
   sizeConfig?: ProviderSizeConfig;
   imageInputMode?: "multipart" | "url-array";
   imageInputField?: string;
+  resultUrlRewriteRules?: ProviderResultUrlRewriteRule[];
 }
 
 export function normalizeProviderParams(value: unknown): ProviderRequestParams {

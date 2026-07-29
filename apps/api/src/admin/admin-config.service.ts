@@ -441,6 +441,7 @@ export class AdminConfigService {
     const pixelSizeField = this.normalizeProviderFieldName(body.pixelSizeField, "size", "像素尺寸");
     const ratioField = this.normalizeProviderFieldName(body.ratioField, "size", "图片比例");
     const resolutionField = this.normalizeProviderFieldName(body.resolutionField, "resolution", "图片精度");
+    const resultUrlRewriteRules = this.normalizeResultUrlRewriteRules(body.resultUrlRewriteRules);
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
@@ -488,6 +489,7 @@ export class AdminConfigService {
         queryEndpoint,
         statusEnabled,
         responseMapping,
+        resultUrlRewriteRules,
         textToImageEnabled,
         imageToImageEnabled,
         apiKeyEnv,
@@ -534,6 +536,30 @@ export class AdminConfigService {
       throw new BadRequestException("参考图字段名格式不正确");
     }
     return field;
+  }
+
+  private normalizeResultUrlRewriteRules(value: unknown) {
+    if (value === undefined || value === null) return [];
+    if (!Array.isArray(value)) throw new BadRequestException("结果 URL 域名映射格式不正确");
+    if (value.length > 10) throw new BadRequestException("结果 URL 域名映射最多配置 10 条");
+    const sourceHosts = new Set<string>();
+    return value.map((item, index) => {
+      if (!item || typeof item !== "object") throw new BadRequestException(`第 ${index + 1} 条结果 URL 域名映射格式不正确`);
+      const record = item as Record<string, unknown>;
+      const sourceHost = this.normalizePublicDomain(record.sourceHost, `第 ${index + 1} 条原始域名`);
+      const targetHost = this.normalizePublicDomain(record.targetHost, `第 ${index + 1} 条加速域名`);
+      if (sourceHost === targetHost) throw new BadRequestException(`第 ${index + 1} 条原始域名和加速域名不能相同`);
+      if (sourceHosts.has(sourceHost)) throw new BadRequestException(`原始域名 ${sourceHost} 重复配置`);
+      sourceHosts.add(sourceHost);
+      return { sourceHost, targetHost };
+    });
+  }
+
+  private normalizePublicDomain(value: unknown, label: string) {
+    const host = String(value || "").trim().toLowerCase();
+    const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+    if (!domainPattern.test(host)) throw new BadRequestException(`${label}格式不正确，只填写域名，不要包含协议或路径`);
+    return host;
   }
 
   private assertGenerationEndpoint(endpoint: string, label: string, enabled: boolean) {

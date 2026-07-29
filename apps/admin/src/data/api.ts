@@ -531,6 +531,7 @@ interface ApiGenerationProvider {
   queryEndpoint: string;
   statusEnabled: boolean;
   responseMapping: Record<string, string>;
+  resultUrlRewriteRules: Array<{ sourceHost: string; targetHost: string }>;
   textToImageEnabled: boolean;
   imageToImageEnabled: boolean;
   apiKeyConfigured: boolean;
@@ -556,6 +557,7 @@ function mapGenerationProvider(provider: ApiGenerationProvider): AdminGeneration
     apiKey: "",
     requestParams: { model: "", ...(provider.requestParams || {}) },
     imageRequestParams: { model: "", ...(provider.imageRequestParams || {}) },
+    resultUrlRewriteRules: provider.resultUrlRewriteRules || [],
     imageInputMode: provider.imageInputMode || "multipart",
     imageInputField: provider.imageInputField || (provider.adapter === "ainb" ? "image[]" : "image"),
     sizeMode: provider.sizeMode || "pixels",
@@ -586,6 +588,7 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     queryEndpoint: values.queryEndpoint,
     statusEnabled: values.statusEnabled,
     responseMapping: values.responseMapping,
+    resultUrlRewriteRules: values.resultUrlRewriteRules,
     textToImageEnabled: values.textToImageEnabled,
     imageToImageEnabled: values.imageToImageEnabled,
     apiKey: values.apiKey || undefined,
