@@ -4,6 +4,7 @@ import { Avatar, Drawer, Dropdown, Modal, Space, Tag, Typography, message } from
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAdminSession } from "../data/adminSession";
+import { MOCK_DATA_AVAILABLE } from "../dataMode";
 import { renderPage } from "../pages/registry";
 import { PageBoundary } from "./PageBoundary";
 import { useNav } from "./NavContext";
@@ -74,12 +75,12 @@ export function AdminLayout() {
             <Dropdown
               menu={{
                 items: [
-                  {
+                  ...(MOCK_DATA_AVAILABLE ? [{
                     key: "mock",
                     icon: <SettingOutlined />,
                     label: useMock ? "切换到真实数据" : "切换到模拟数据",
                     onClick: () => setUseMock(!useMock)
-                  },
+                  }] : []),
                   {
                     type: "group",
                     label: "显示密度",
