@@ -106,6 +106,32 @@ function typedParams(params, excluded = []) {
   return Object.fromEntries(Object.entries(params || {}).filter(([key, value]) => !excluded.includes(key) && value !== "").map(([key, value]) => [key, parseValue(String(value))]));
 }
 
+function providerSizeConfig(provider) {
+  const value = provider?.sizeConfig || {};
+  return {
+    mode: value.mode === "ratio-resolution" ? "ratio-resolution" : "pixels",
+    pixelSizeField: String(value.pixelSizeField || "size").trim(),
+    ratioField: String(value.ratioField || "size").trim(),
+    resolutionField: String(value.resolutionField || "resolution").trim()
+  };
+}
+
+function providerSizeParams(provider, input) {
+  const config = providerSizeConfig(provider);
+  if (config.mode === "ratio-resolution") {
+    return {
+      [config.ratioField]: input.ratio,
+      [config.resolutionField]: String(input.quality).match(/\b(1K|2K|4K)\b/i)?.[1]?.toLowerCase() || "1k"
+    };
+  }
+  return { [config.pixelSizeField]: input.size };
+}
+
+function providerSizeFieldNames(provider) {
+  const config = providerSizeConfig(provider);
+  return [...new Set([config.pixelSizeField, config.ratioField, config.resolutionField])];
+}
+
 async function readResponseBody(upstream, trace = {}) {
   const length = Number(upstream.headers.get("content-length") || 0);
   if (length > MAX_RESPONSE_BYTES) throw new Error("provider response exceeds 60 MB");
@@ -250,11 +276,19 @@ function normalizedProgress(value) {
 async function pollAsyncProvider(provider, initialPayload, input, contentType, onProgress) {
   if (!provider.queryEndpoint) throw new Error("async provider query endpoint is not configured");
   const mapping = provider.responseMapping || {};
-  const taskId = firstString(initialPayload, mapping.taskIdPath || "task_id") || firstString(initialPayload, "data.task_id") || firstString(initialPayload, "data.id");
+  const taskId = firstString(initialPayload, mapping.taskIdPath || "task_id")
+    || firstString(initialPayload, "task_id")
+    || firstString(initialPayload, "id")
+    || firstString(initialPayload, "data.task_id")
+    || firstString(initialPayload, "data.id");
   if (!taskId) throw new Error("provider response did not include task id");
   const queryUrl = provider.queryEndpoint.replace("{task_id}", encodeURIComponent(taskId)).replace("{taskId}", encodeURIComponent(taskId));
   const startedAt = Date.now();
   let pollCount = 0;
+  const pendingValues = String(mapping.pendingValue || "IN_PROGRESS")
+    .split(/[,\s|]+/)
+    .map((value) => value.trim().toUpperCase())
+    .filter(Boolean);
   logEvent("info", "provider.poll.start", { jobId: input.jobId, endpoint: safeEndpoint(queryUrl), taskIdLength: taskId.length });
   while (Date.now() - startedAt < REQUEST_TIMEOUT_MS) {
     pollCount += 1;
@@ -270,24 +304,67 @@ async function pollAsyncProvider(provider, initialPayload, input, contentType, o
       return outputs;
     }
     if (status === String(mapping.failureValue || "FAILURE").toUpperCase()) throw new Error(firstString(payload, mapping.errorPath || "data.fail_reason") || "async provider generation failed");
+    if (status && !pendingValues.includes(status)) {
+      logEvent("warn", "provider.poll.unexpected-status", { jobId: input.jobId, pollCount, status });
+    }
     await new Promise((resolve) => setTimeout(resolve, 3000));
   }
   throw new Error("async provider generation timeout");
 }
 
 async function runOpenAi(provider, input, onProgress) {
-  const imageField = String(provider.params?.image_field || "image");
-  const params = typedParams(provider.params, ["model", "prompt", "size", "n", "image", "image[]", "image_field"]);
+  const imageInputMode = provider.imageInputMode === "url-array" ? "url-array" : "multipart";
+  const imageField = String(
+    provider.imageInputField
+      || provider.params?.image_field
+      || (imageInputMode === "url-array" ? "image_urls" : "image")
+  );
+  const sizeParams = providerSizeParams(provider, input);
+  const params = typedParams(provider.params, [
+    "model", "prompt", "n", "image", "image[]", "image_urls", "reference_images",
+    "image_field", imageField, ...providerSizeFieldNames(provider)
+  ]);
   const model = provider.model || provider.params?.model || "gpt-image-2";
   const trace = { jobId: input.jobId, phase: "provider-generate", requestMode: provider.requestMode || "sync", mode: input.mode };
   if (input.mode === "image-to-image") {
+    const requestEditJson = (index, count) => requestJson(provider.endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${provider.apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Request-Id": `${input.jobId}-${index + 1}`
+      },
+      body: JSON.stringify({
+        ...params,
+        model,
+        prompt: input.prompt,
+        n: count,
+        ...sizeParams,
+        [imageField]: [input.inputImageUrl]
+      })
+    }, { ...trace, outputIndex: index });
+    if (imageInputMode === "url-array") {
+      if (provider.requestMode === "async") {
+        const payload = await requestEditJson(0, input.count);
+        return pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress);
+      }
+      const payloads = await settledProviderRequests(
+        Array.from({ length: Math.max(1, input.count) }, (_, index) => () => requestEditJson(index, 1)),
+        input.jobId
+      );
+      return payloads
+        .flatMap((payload) => parseOpenAiResponse(payload, responseImageFormat(provider.params), provider.responseMapping))
+        .slice(0, input.count);
+    }
+
     const reference = await downloadImage(input.inputImageUrl, { jobId: input.jobId, phase: "reference-image" });
     const requestEdit = async (index, count) => {
       const form = new FormData();
       form.append("model", model);
       form.append("prompt", input.prompt);
-      form.append("size", input.size);
       form.append("n", String(count));
+      for (const [key, value] of Object.entries(sizeParams)) form.append(key, String(value));
       for (const [key, value] of Object.entries(params)) form.append(key, String(value));
       form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
       return requestJson(provider.endpoint, {
@@ -306,7 +383,7 @@ async function runOpenAi(provider, input, onProgress) {
   const requestGeneration = (index, count) => requestJson(provider.endpoint, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json", Accept: "application/json", "X-Request-Id": `${input.jobId}-${index + 1}` },
-    body: JSON.stringify({ ...params, model, prompt: input.prompt, size: input.size, n: count })
+    body: JSON.stringify({ ...params, model, prompt: input.prompt, n: count, ...sizeParams })
   }, { ...trace, outputIndex: index });
   if (provider.requestMode === "async") {
     const payload = await requestGeneration(0, input.count);

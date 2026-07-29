@@ -83,6 +83,43 @@ test("stores independent mode endpoints and arbitrary administrator parameters",
   assert.deepEqual(result.provider.imageRequestParams, { model: "image2-edit-vip", response_format: "url", input_fidelity: "high" });
 });
 
+test("stores separate ratio and resolution field mappings", () => {
+  const result = normalize({
+    id: "ratio-provider",
+    name: "Ratio provider",
+    adapter: "change2pro",
+    apiKey: "sk-ratio-secret",
+    baseUrl: "https://images.example.com/v1/images/generations",
+    sizeMode: "ratio-resolution",
+    ratioField: "aspect_ratio",
+    resolutionField: "image_resolution"
+  }, true);
+
+  assert.equal(result.provider.sizeMode, "ratio-resolution");
+  assert.equal(result.provider.ratioField, "aspect_ratio");
+  assert.equal(result.provider.resolutionField, "image_resolution");
+  assert.equal(result.provider.pixelSizeField, "size");
+});
+
+test("stores JSON URL reference-image transport configuration", () => {
+  const result = normalize({
+    id: "url-edit-provider",
+    name: "URL edit provider",
+    adapter: "ainb",
+    requestMode: "async",
+    apiKey: "sk-url-edit-secret",
+    baseUrl: "https://images.example.com/v1/images/generations",
+    imageEndpoint: "https://images.example.com/v1/images/generations",
+    queryEndpoint: "https://images.example.com/v1/images/generations/{task_id}",
+    imageToImageEnabled: true,
+    imageInputMode: "url-array",
+    imageInputField: "image_urls"
+  }, true);
+
+  assert.equal(result.provider.imageInputMode, "url-array");
+  assert.equal(result.provider.imageInputField, "image_urls");
+});
+
 test("stores a normalized custom provider group", () => {
   const result = normalize({
     id: "grouped-provider",
@@ -155,6 +192,12 @@ test("never exposes encrypted or environment key fields in administrator respons
     apiKeyEncrypted: encrypted,
     requestParams: {},
     imageRequestParams: {},
+    imageInputMode: "multipart",
+    imageInputField: "image[]",
+    sizeMode: "pixels",
+    pixelSizeField: "size",
+    ratioField: "size",
+    resolutionField: "resolution",
     enabled: true,
     sort: 1,
     createdAt: new Date(),

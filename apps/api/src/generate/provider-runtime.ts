@@ -1,3 +1,5 @@
+import type { ProviderSizeConfig } from "./provider-size";
+
 export type ProviderRequestParams = Record<string, string>;
 
 export interface ProviderRuntimeConfig {
@@ -9,6 +11,9 @@ export interface ProviderRuntimeConfig {
   queryEndpoint?: string;
   statusEnabled?: boolean;
   responseMapping?: ProviderRequestParams;
+  sizeConfig?: ProviderSizeConfig;
+  imageInputMode?: "multipart" | "url-array";
+  imageInputField?: string;
 }
 
 export function normalizeProviderParams(value: unknown): ProviderRequestParams {

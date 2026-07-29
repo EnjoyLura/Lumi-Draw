@@ -214,7 +214,15 @@ export class GenerateService implements OnApplicationBootstrap {
       resultMode: ["url", "base64"].includes(job.providerResultMode) ? job.providerResultMode as ProviderResultMode : "auto",
       queryEndpoint: job.providerQueryEndpoint,
       statusEnabled: job.providerStatusEnabled,
-      responseMapping: normalizeProviderParams(job.providerResponseMapping)
+      responseMapping: normalizeProviderParams(job.providerResponseMapping),
+      imageInputMode: job.providerImageInputMode === "url-array" ? "url-array" : "multipart",
+      imageInputField: job.providerImageInputField,
+      sizeConfig: {
+        mode: job.providerSizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels",
+        pixelSizeField: job.providerPixelSizeField,
+        ratioField: job.providerRatioField,
+        resolutionField: job.providerResolutionField
+      }
     };
   }
 
@@ -234,7 +242,13 @@ export class GenerateService implements OnApplicationBootstrap {
       providerBaseUrl: isImageToImage ? provider.imageEndpoint : provider.baseUrl,
       providerResultMode: isImageToImage ? provider.imageResultMode : provider.textResultMode,
       providerParams,
-      providerModel: providerParams.model || model.providerModel
+      providerModel: providerParams.model || model.providerModel,
+      providerImageInputMode: provider.imageInputMode === "url-array" ? "url-array" : "multipart",
+      providerImageInputField: provider.imageInputField,
+      providerSizeMode: provider.sizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels",
+      providerPixelSizeField: provider.pixelSizeField,
+      providerRatioField: provider.ratioField,
+      providerResolutionField: provider.resolutionField
     };
   }
 
@@ -306,6 +320,12 @@ export class GenerateService implements OnApplicationBootstrap {
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
           providerParams: providerSnapshot.providerParams,
           providerModel: providerSnapshot.providerModel,
+          providerImageInputMode: providerSnapshot.providerImageInputMode,
+          providerImageInputField: providerSnapshot.providerImageInputField,
+          providerSizeMode: providerSnapshot.providerSizeMode,
+          providerPixelSizeField: providerSnapshot.providerPixelSizeField,
+          providerRatioField: providerSnapshot.providerRatioField,
+          providerResolutionField: providerSnapshot.providerResolutionField,
           providerCandidates: providers.map((candidate) => candidate.id),
           providerAttemptIndex: 0,
           providerAttempts: [],
@@ -849,7 +869,7 @@ export class GenerateService implements OnApplicationBootstrap {
     await this.imageTransfer.dispatchGeneration({
       operation: "generate",
       jobId: job.id,
-      provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping },
+      provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping, sizeConfig: runtime.sizeConfig, imageInputMode: runtime.imageInputMode, imageInputField: runtime.imageInputField },
       input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
       objectKeys
     });
@@ -1153,6 +1173,12 @@ export class GenerateService implements OnApplicationBootstrap {
           providerApiKeyEncrypted: selected.apiKeyEncrypted,
           providerParams: snapshot.providerParams,
           providerModel: snapshot.providerModel,
+          providerImageInputMode: snapshot.providerImageInputMode,
+          providerImageInputField: snapshot.providerImageInputField,
+          providerSizeMode: snapshot.providerSizeMode,
+          providerPixelSizeField: snapshot.providerPixelSizeField,
+          providerRatioField: snapshot.providerRatioField,
+          providerResolutionField: snapshot.providerResolutionField,
           providerAttemptIndex: targetIndex,
           status: "queued",
           progress: Math.max(3, Math.min(current.progress, 8)),

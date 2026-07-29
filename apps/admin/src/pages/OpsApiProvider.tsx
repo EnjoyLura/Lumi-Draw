@@ -99,6 +99,12 @@ function emptyProvider(): AdminGenerationProvider {
     apiKeySource: "none",
     requestParams: { model: "" },
     imageRequestParams: { model: "" },
+    imageInputMode: "multipart",
+    imageInputField: "image[]",
+    sizeMode: "pixels",
+    pixelSizeField: "size",
+    ratioField: "size",
+    resolutionField: "resolution",
     modelIds: [],
     metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     sort: GENERATION_PROVIDERS.length + 1,
@@ -214,6 +220,8 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     apiKey: "",
     requestParams: { model: "", ...item.requestParams },
     imageRequestParams: { model: "", ...item.imageRequestParams },
+    imageInputMode: item.imageInputMode || "multipart",
+    imageInputField: item.imageInputField || (item.adapter === "ainb" ? "image[]" : "image"),
     responseMapping: { ...(item.requestMode === "async" ? DEFAULT_ASYNC_MAPPING : {}), ...item.responseMapping },
     modelIds: [...item.modelIds]
   } : emptyProvider());
@@ -236,9 +244,27 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       toast("请填写已启用能力的完整接口 URL");
       return;
     }
+    if (value.imageToImageEnabled && !value.imageInputField.trim()) {
+      toast("请填写参考图字段名");
+      return;
+    }
     if (value.requestMode === "async" && (!value.queryEndpoint.trim() || (!value.queryEndpoint.includes("{task_id}") && !value.queryEndpoint.includes("{taskId}")))) {
       toast("异步接口的查询 URL 必须包含 {task_id}");
       return;
+    }
+    if (value.adapter !== "kie") {
+      if (value.sizeMode === "pixels" && !value.pixelSizeField.trim()) {
+        toast("请填写像素尺寸字段名");
+        return;
+      }
+      if (value.sizeMode === "ratio-resolution" && (!value.ratioField.trim() || !value.resolutionField.trim())) {
+        toast("请填写图片比例和图片精度字段名");
+        return;
+      }
+      if (value.sizeMode === "ratio-resolution" && value.ratioField.trim() === value.resolutionField.trim()) {
+        toast("图片比例和图片精度不能使用同一个字段名");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -312,6 +338,46 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
           .map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
       </select>
+      {value.adapter !== "kie" ? <div className="card" style={{ padding: 12, marginTop: 12 }}>
+        <div className="lrow" style={{ padding: 0 }}>
+          <div className="lr-main">
+            <div className="lr-t">使用像素尺寸映射</div>
+            <div className="lr-s">
+              {value.sizeMode === "pixels"
+                ? `开启：将比例和精度映射为实际像素，例如 ${value.pixelSizeField || "size"}=3840x2160`
+                : `关闭：分别传递比例和精度，例如 ${value.ratioField || "size"}=16:9、${value.resolutionField || "resolution"}=4k`}
+            </div>
+          </div>
+          <Switch
+            on={value.sizeMode === "pixels"}
+            onToggle={() => update("sizeMode", value.sizeMode === "pixels" ? "ratio-resolution" : "pixels")}
+          />
+        </div>
+        {value.sizeMode === "pixels" ? <div style={{ marginTop: 12 }}>
+          <MappingField
+            label="像素尺寸字段名"
+            value={value.pixelSizeField}
+            placeholder="size"
+            onChange={(next) => update("pixelSizeField", next)}
+          />
+        </div> : <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <MappingField
+            label="图片比例字段名"
+            value={value.ratioField}
+            placeholder="size"
+            onChange={(next) => update("ratioField", next)}
+          />
+          <MappingField
+            label="图片精度字段名"
+            value={value.resolutionField}
+            placeholder="resolution"
+            onChange={(next) => update("resolutionField", next)}
+          />
+        </div>}
+        <div className="lr-s" style={{ marginTop: 8 }}>
+          比例值使用 1:1、16:9 等标准格式；精度值使用 1k、2k、4k。请求参数中的同名字段会由这里的动态值覆盖。
+        </div>
+      </div> : null}
       <label className="field-label" style={{ marginTop: 12 }}>API Key</label>
       <input
         className="input"
@@ -339,7 +405,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
           <div style={{ display: "grid", gap: 10 }}>
             <MappingField label="成功状态值" value={value.responseMapping.successValue || ""} placeholder="SUCCESS" onChange={(next) => update("responseMapping", { ...value.responseMapping, successValue: next })} />
             <MappingField label="失败状态值" value={value.responseMapping.failureValue || ""} placeholder="FAILURE" onChange={(next) => update("responseMapping", { ...value.responseMapping, failureValue: next })} />
-            <MappingField label="处理中状态值" value={value.responseMapping.pendingValue || ""} placeholder="IN_PROGRESS" onChange={(next) => update("responseMapping", { ...value.responseMapping, pendingValue: next })} />
+            <MappingField label="处理中状态值（多个用逗号分隔）" value={value.responseMapping.pendingValue || ""} placeholder="queued,in_progress" onChange={(next) => update("responseMapping", { ...value.responseMapping, pendingValue: next })} />
           </div>
         </div>
         <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
@@ -375,6 +441,35 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       {value.imageToImageEnabled ? <>
         <label className="field-label">图生图完整接口 URL</label>
         <input className="input" value={value.imageEndpoint} onChange={(event) => update("imageEndpoint", event.target.value)} placeholder="https://api.example.com/v1/images/edits" />
+        {value.adapter !== "kie" ? <>
+          <label className="field-label" style={{ marginTop: 10 }}>参考图传输方式</label>
+          <select className="input" value={value.imageInputMode} onChange={(event) => {
+            const imageInputMode = event.target.value as AdminGenerationProvider["imageInputMode"];
+            setValue((current) => ({
+              ...current,
+              imageInputMode,
+              imageInputField: imageInputMode === "url-array"
+                ? (current.imageInputField === "image" || current.imageInputField === "image[]" ? "image_urls" : current.imageInputField)
+                : (current.imageInputField === "image_urls" ? (current.adapter === "ainb" ? "image[]" : "image") : current.imageInputField)
+            }));
+          }}>
+            <option value="multipart">Multipart 文件上传</option>
+            <option value="url-array">JSON URL 数组</option>
+          </select>
+          <div style={{ marginTop: 10 }}>
+            <MappingField
+              label={value.imageInputMode === "url-array" ? "参考图 URL 数组字段名" : "参考图文件字段名"}
+              value={value.imageInputField}
+              placeholder={value.imageInputMode === "url-array" ? "image_urls" : "image"}
+              onChange={(next) => update("imageInputField", next)}
+            />
+          </div>
+          <div className="lr-s" style={{ marginTop: 5 }}>
+            {value.imageInputMode === "url-array"
+              ? `发送 JSON：${value.imageInputField || "image_urls"}=["https://..."]，不会先下载参考图。`
+              : `发送 multipart/form-data，并把参考图写入 ${value.imageInputField || "image"} 字段。`}
+          </div>
+        </> : null}
         <label className="field-label" style={{ marginTop: 10 }}>图生图请求参数</label>
         <ParamEditor value={value.imageRequestParams} onChange={(params) => update("imageRequestParams", params)} />
       </> : null}
@@ -498,8 +593,17 @@ export function OpsApiProvider() {
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
                 {provider.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
+                {provider.imageToImageEnabled && provider.adapter !== "kie"
+                  ? <Badge text={provider.imageInputMode === "url-array" ? `参考图 URL · ${provider.imageInputField}` : `参考图文件 · ${provider.imageInputField}`} type="muted" />
+                  : null}
                 <Badge text={provider.requestMode === "async" ? "异步" : "普通"} type={provider.requestMode === "async" ? "info" : "muted"} />
                 {provider.statusEnabled ? <Badge text="真实进度" type="success" /> : null}
+                {provider.adapter !== "kie" ? <Badge
+                  text={provider.sizeMode === "ratio-resolution"
+                    ? `${provider.ratioField}=16:9 + ${provider.resolutionField}=4k`
+                    : `${provider.pixelSizeField}=3840x2160`}
+                  type="muted"
+                /> : null}
               </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
                 {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}

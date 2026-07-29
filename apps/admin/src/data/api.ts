@@ -538,6 +538,12 @@ interface ApiGenerationProvider {
   apiKeySource: "admin" | "environment" | "none";
   requestParams: Record<string, string>;
   imageRequestParams: Record<string, string>;
+  imageInputMode: "multipart" | "url-array";
+  imageInputField: string;
+  sizeMode: "pixels" | "ratio-resolution";
+  pixelSizeField: string;
+  ratioField: string;
+  resolutionField: string;
   modelIds: string[];
   metrics: AdminGenerationProvider["metrics"];
   enabled: boolean;
@@ -550,6 +556,12 @@ function mapGenerationProvider(provider: ApiGenerationProvider): AdminGeneration
     apiKey: "",
     requestParams: { model: "", ...(provider.requestParams || {}) },
     imageRequestParams: { model: "", ...(provider.imageRequestParams || {}) },
+    imageInputMode: provider.imageInputMode || "multipart",
+    imageInputField: provider.imageInputField || (provider.adapter === "ainb" ? "image[]" : "image"),
+    sizeMode: provider.sizeMode || "pixels",
+    pixelSizeField: provider.pixelSizeField || "size",
+    ratioField: provider.ratioField || "size",
+    resolutionField: provider.resolutionField || "resolution",
     modelIds: provider.modelIds || [],
     metrics: provider.metrics || { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     on: provider.enabled
@@ -579,6 +591,12 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     apiKey: values.apiKey || undefined,
     requestParams: values.requestParams,
     imageRequestParams: values.imageRequestParams,
+    imageInputMode: values.imageInputMode,
+    imageInputField: values.imageInputField,
+    sizeMode: values.sizeMode,
+    pixelSizeField: values.pixelSizeField,
+    ratioField: values.ratioField,
+    resolutionField: values.resolutionField,
     modelIds: values.modelIds,
     enabled: values.on,
     sort: values.sort

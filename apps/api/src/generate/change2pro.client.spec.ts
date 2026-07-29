@@ -127,7 +127,8 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   }, {
     apiBase: "https://custom.example.com/image/create",
     apiKey: "runtime-key",
-    params: { quality: "high", background: "transparent", transparent_output: "true", model: "image2-vip" }
+    params: { quality: "high", background: "transparent", transparent_output: "true", model: "image2-vip", size: "stale", image_resolution: "stale" },
+    sizeConfig: { mode: "ratio-resolution", pixelSizeField: "size", ratioField: "aspect_ratio", resolutionField: "image_resolution" }
   });
 
   assert.equal(request?.url, "https://custom.example.com/image/create");
@@ -135,6 +136,48 @@ test("Image 2 uses the full configured endpoint and forwards dynamic text parame
   assert.equal(request?.payload.transparent_output, "true");
   assert.equal(request?.payload.quality, "high");
   assert.equal(request?.payload.model, "image2-vip");
+  assert.equal(request?.payload.aspect_ratio, "1:1");
+  assert.equal(request?.payload.image_resolution, "1k");
+  assert.equal("size" in (request?.payload || {}), false);
+});
+
+test("Image 2 sends reference URLs as JSON when the provider requires URL arrays", async () => {
+  const provider = client();
+  let request: { url: string; payload: Record<string, unknown> } | undefined;
+  (provider as unknown as {
+    requestImage2Json: (url: string, key: string, id: string, payload: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  }).requestImage2Json = async (url, _key, _id, payload) => {
+    request = { url, payload };
+    return { data: [{ url: "https://images.example.com/result.png" }] };
+  };
+  (provider as unknown as {
+    requestImage2Form: () => Promise<Record<string, unknown>>;
+  }).requestImage2Form = async () => {
+    throw new Error("multipart request should not be used");
+  };
+
+  await provider.generate({
+    jobId: "url-array-edit",
+    modelId: "gpt-image-2",
+    mode: "image-to-image",
+    prompt: "watercolor",
+    inputImageUrl: "https://cdn.example.com/reference.png",
+    ratio: "16:9",
+    quality: "4K",
+    count: 1
+  }, {
+    apiBase: "https://images.example.com/v1/images/generations",
+    apiKey: "runtime-key",
+    params: { model: "gpt-image-2", response_format: "url" },
+    sizeConfig: { mode: "ratio-resolution", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution" },
+    imageInputMode: "url-array",
+    imageInputField: "image_urls"
+  });
+
+  assert.equal(request?.url, "https://images.example.com/v1/images/generations");
+  assert.deepEqual(request?.payload.image_urls, ["https://cdn.example.com/reference.png"]);
+  assert.equal(request?.payload.size, "16:9");
+  assert.equal(request?.payload.resolution, "4k");
 });
 
 test("Image 2 accepts Base64 when a URL-configured provider changes its response format", async () => {

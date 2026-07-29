@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHmac } from "node:crypto";
+import type { ProviderSizeConfig } from "./provider-size";
 
 type ImageTransferConfig = {
   functionUrl: string;
@@ -27,6 +28,9 @@ export type ImageGenerationRequest = {
     requestMode?: "sync" | "async";
     queryEndpoint?: string;
     responseMapping?: Record<string, string>;
+    sizeConfig?: ProviderSizeConfig;
+    imageInputMode?: "multipart" | "url-array";
+    imageInputField?: string;
   };
   input: {
     mode: string;

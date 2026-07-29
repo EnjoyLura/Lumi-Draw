@@ -151,7 +151,8 @@ test("uses the configured full endpoint and forwards administrator-defined param
     }, {
       apiBase: "https://backup.example.com/custom/generate?async=true",
       apiKey: "backup-key",
-      params: { model: "image2-vip", response_format: "url", background: "transparent" }
+      params: { model: "image2-vip", response_format: "url", background: "transparent", size: "stale", resolution: "stale" },
+      sizeConfig: { mode: "ratio-resolution", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution" }
     });
     const payload = JSON.parse(request?.body || "{}") as Record<string, unknown>;
     assert.equal(request?.url, "https://backup.example.com/custom/generate?async=true");
@@ -159,8 +160,52 @@ test("uses the configured full endpoint and forwards administrator-defined param
     assert.equal(payload.response_format, "url");
     assert.equal(payload.background, "transparent");
     assert.equal(payload.model, "image2-vip");
+    assert.equal(payload.size, "1:1");
+    assert.equal(payload.resolution, "1k");
     assert.equal("quality" in payload, false);
     assert.equal("output_format" in payload, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("submits JSON URL image edits and accepts a top-level async task id", async () => {
+  const originalFetch = globalThis.fetch;
+  let request: { url: string; body: Record<string, unknown> } | undefined;
+  globalThis.fetch = async (input, init) => {
+    request = {
+      url: String(input),
+      body: JSON.parse(String(init?.body)) as Record<string, unknown>
+    };
+    return jsonResponse({ id: "toapis-task" });
+  };
+
+  try {
+    const submitted = await client().submit({
+      mode: "image-to-image",
+      prompt: "watercolor",
+      inputImageUrl: "https://cdn.example.com/reference.png",
+      ratio: "16:9",
+      quality: "4K",
+      count: 1
+    }, {
+      apiBase: "https://toapis.example.com/v1/images/generations",
+      apiKey: "toapis-key",
+      params: { model: "gpt-image-2", response_format: "url" },
+      requestMode: "async",
+      queryEndpoint: "https://toapis.example.com/v1/images/generations/{task_id}",
+      responseMapping: { taskIdPath: "id" },
+      sizeConfig: { mode: "ratio-resolution", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution" },
+      imageInputMode: "url-array",
+      imageInputField: "image_urls"
+    });
+
+    assert.equal(submitted.taskId, "toapis-task");
+    assert.equal(request?.url, "https://toapis.example.com/v1/images/generations");
+    assert.deepEqual(request?.body.image_urls, ["https://cdn.example.com/reference.png"]);
+    assert.equal(request?.body.size, "16:9");
+    assert.equal(request?.body.resolution, "4k");
+    assert.equal(request?.body.response_format, "url");
   } finally {
     globalThis.fetch = originalFetch;
   }

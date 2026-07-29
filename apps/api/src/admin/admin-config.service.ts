@@ -430,8 +430,17 @@ export class AdminConfigService {
     const statusEnabled = requestMode === "async" && Boolean(body.statusEnabled);
     const textToImageEnabled = body.textToImageEnabled === undefined ? true : Boolean(body.textToImageEnabled);
     const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
+    const imageInputMode = body.imageInputMode === "url-array" ? "url-array" : "multipart";
+    const imageInputField = this.normalizeProviderImageFieldName(
+      body.imageInputField,
+      imageInputMode === "url-array" ? "image_urls" : adapter === "ainb" ? "image[]" : "image"
+    );
     const enabled = body.enabled === undefined ? creating : Boolean(body.enabled);
     const apiKeyEnv = String(body.apiKeyEnv || `GENERATION_PROVIDER_${id.replace(/-/g, "_").toUpperCase()}_API_KEY`).trim();
+    const sizeMode = body.sizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels";
+    const pixelSizeField = this.normalizeProviderFieldName(body.pixelSizeField, "size", "像素尺寸");
+    const ratioField = this.normalizeProviderFieldName(body.ratioField, "size", "图片比例");
+    const resolutionField = this.normalizeProviderFieldName(body.resolutionField, "resolution", "图片精度");
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
@@ -444,6 +453,9 @@ export class AdminConfigService {
     }
     if ((adapter === "change2pro") !== (requestMode === "sync")) {
       throw new BadRequestException("请求协议与接口类型不匹配");
+    }
+    if (sizeMode === "ratio-resolution" && ratioField === resolutionField) {
+      throw new BadRequestException("图片比例和图片精度不能使用相同字段名");
     }
     if (!textToImageEnabled && !imageToImageEnabled) throw new BadRequestException("请至少启用文生图或图生图能力");
     this.assertGenerationEndpoint(baseUrl, "文生图", textToImageEnabled);
@@ -482,6 +494,12 @@ export class AdminConfigService {
         apiKeyEncrypted,
         requestParams,
         imageRequestParams,
+        imageInputMode,
+        imageInputField,
+        sizeMode,
+        pixelSizeField,
+        ratioField,
+        resolutionField,
         enabled,
         sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0
       },
@@ -500,6 +518,22 @@ export class AdminConfigService {
       if (item.length > 500) throw new BadRequestException(`请求参数值过长: ${key}`);
     }
     return Object.fromEntries(entries);
+  }
+
+  private normalizeProviderFieldName(value: unknown, fallback: string, label: string) {
+    const field = String(value || fallback).trim();
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(field)) {
+      throw new BadRequestException(`${label}字段名格式不正确`);
+    }
+    return field;
+  }
+
+  private normalizeProviderImageFieldName(value: unknown, fallback: string) {
+    const field = String(value || fallback).trim();
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,61}(?:\[\])?$/.test(field)) {
+      throw new BadRequestException("参考图字段名格式不正确");
+    }
+    return field;
   }
 
   private assertGenerationEndpoint(endpoint: string, label: string, enabled: boolean) {

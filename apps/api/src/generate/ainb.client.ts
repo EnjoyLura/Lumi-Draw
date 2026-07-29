@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "./provider-response";
+import { buildProviderSizeParams, normalizeProviderSizeConfig, type ProviderSizeConfig } from "./provider-size";
 
 type AinbConfig = {
   apiBase: string;
@@ -13,6 +14,9 @@ type AinbConfig = {
   queryEndpoint: string;
   statusEnabled: boolean;
   responseMapping: Record<string, string>;
+  sizeConfig: ProviderSizeConfig;
+  imageInputMode: "multipart" | "url-array";
+  imageInputField: string;
 };
 
 type AinbGenerateInput = {
@@ -59,8 +63,14 @@ export class AinbClient {
   async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {
     const config = this.getConfig(runtime);
     const providerModel = input.providerModel || ("model" in config.params ? String(config.params.model) : "") || IMAGE_2_MODEL_ID;
+    const sizeParams = buildProviderSizeParams(
+      input.ratio,
+      input.quality,
+      normalizeImage2Size(input.ratio, input.quality),
+      config.sizeConfig
+    );
     if (!config.imageApiKey) throw new Error("Ainb image provider is not configured");
-    if (input.mode === "image-to-image" && input.count > 1) {
+    if (input.mode === "image-to-image" && config.imageInputMode === "multipart" && input.count > 1) {
       if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
       const reference = await this.downloadReferenceImage(input.inputImageUrl);
       const submitted = await Promise.allSettled(
@@ -82,12 +92,12 @@ export class AinbClient {
             headers: this.jsonHeaders(config.imageApiKey),
             body: JSON.stringify({
               ...pickProviderParams(config.params, config.dynamicParams
-                ? Object.keys(config.params)
+                ? Object.keys(config.params).filter((key) => !this.sizeParamKeys(config.sizeConfig).includes(key))
                 : ["quality", "output_format", "response_format", "moderation", "output_compression"]),
               model: providerModel,
               prompt: input.prompt,
-              size: normalizeImage2Size(input.ratio, input.quality),
-              n: input.count
+              n: input.count,
+              ...sizeParams
             })
           });
     return { taskId: this.extractTaskId(payload, config.responseMapping) };
@@ -124,7 +134,7 @@ export class AinbClient {
       if (status === config.responseMapping.failureValue.toUpperCase()) {
         throw new Error(firstStringAtPath(payload, config.responseMapping.errorPath) || "Ainb generation failed");
       }
-      if (status && status !== config.responseMapping.pendingValue.toUpperCase()) {
+      if (status && !this.statusValues(config.responseMapping.pendingValue).includes(status)) {
         this.logger.warn(`Ainb task ${taskId} returned unexpected status: ${status}`);
       }
       const providerProgress = config.statusEnabled
@@ -138,19 +148,48 @@ export class AinbClient {
 
   private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage, providerModel?: string) {
     if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
+    const configuredModel = "model" in config.params ? String(config.params.model) : "";
+    const resolvedModel = providerModel || input.providerModel || configuredModel || IMAGE_2_MODEL_ID;
+    const sizeParams = buildProviderSizeParams(
+      input.ratio,
+      input.quality,
+      normalizeImage2Size(input.ratio, input.quality),
+      config.sizeConfig
+    );
+    const excludedFields = [
+      "model", "prompt", "n", "image", "image[]", "image_urls", "reference_images",
+      config.imageInputField,
+      ...this.sizeParamKeys(config.sizeConfig)
+    ];
+    const dynamicParams = pickProviderParams(config.params, config.dynamicParams
+      ? Object.keys(config.params).filter((key) => !excludedFields.includes(key))
+      : ["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]);
+    const endpoint = config.endpoint || `${config.apiBase}/v1/images/edits?async=true`;
+    if (config.imageInputMode === "url-array") {
+      return this.requestJson(endpoint, {
+        method: "POST",
+        headers: this.jsonHeaders(config.imageApiKey),
+        body: JSON.stringify({
+          ...dynamicParams,
+          model: resolvedModel,
+          prompt: input.prompt,
+          n: input.count,
+          ...sizeParams,
+          [config.imageInputField || "image_urls"]: [input.inputImageUrl]
+        })
+      });
+    }
+
     const reference = suppliedReference ?? await this.downloadReferenceImage(input.inputImageUrl);
     const form = new FormData();
-    const configuredModel = "model" in config.params ? String(config.params.model) : "";
-    form.append("model", providerModel || input.providerModel || configuredModel || IMAGE_2_MODEL_ID);
+    form.append("model", resolvedModel);
     form.append("prompt", input.prompt);
-    form.append("size", normalizeImage2Size(input.ratio, input.quality));
     form.append("n", String(input.count));
-    Object.entries(pickProviderParams(config.params, config.dynamicParams
-      ? Object.keys(config.params).filter((key) => !["model", "prompt", "size", "n", "image", "image[]"].includes(key))
-      : ["quality", "input_fidelity", "output_format", "response_format", "moderation", "output_compression"]))
+    Object.entries(sizeParams).forEach(([key, value]) => form.append(key, value));
+    Object.entries(dynamicParams)
       .forEach(([key, value]) => form.append(key, String(value)));
-    form.append("image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
-    return this.requestJson(config.endpoint || `${config.apiBase}/v1/images/edits?async=true`, {
+    form.append(config.imageInputField || "image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
+    return this.requestJson(endpoint, {
       method: "POST",
       headers: this.authHeaders(config.imageApiKey),
       body: form
@@ -164,7 +203,10 @@ export class AinbClient {
     }
     const record = asRecord(payload);
     const data = asRecord(record?.data);
-    const taskId = this.stringValue(record?.task_id) || this.stringValue(data?.task_id) || this.stringValue(data?.id);
+    const taskId = this.stringValue(record?.task_id)
+      || this.stringValue(record?.id)
+      || this.stringValue(data?.task_id)
+      || this.stringValue(data?.id);
     if (!taskId) throw new Error("Ainb response did not include task_id");
     return taskId;
   }
@@ -213,7 +255,7 @@ export class AinbClient {
     return { ...this.authHeaders(apiKey), "Content-Type": "application/json; charset=utf-8" };
   }
 
-  private getConfig(runtime?: ProviderRuntimeConfig) {
+  private getConfig(runtime?: ProviderRuntimeConfig): AinbConfig {
     if (runtime) {
       const configuredUrl = new URL(runtime.apiBase);
       const endpoint = configuredUrl.pathname === "/" && !configuredUrl.search ? undefined : runtime.apiBase;
@@ -225,7 +267,10 @@ export class AinbClient {
         dynamicParams: Boolean(endpoint),
         queryEndpoint: runtime.queryEndpoint || `${configuredUrl.origin}/v1/images/tasks/{task_id}`,
         statusEnabled: Boolean(runtime.statusEnabled),
-        responseMapping: this.responseMapping(runtime.responseMapping)
+        responseMapping: this.responseMapping(runtime.responseMapping),
+        sizeConfig: normalizeProviderSizeConfig(runtime.sizeConfig),
+        imageInputMode: runtime.imageInputMode === "url-array" ? "url-array" : "multipart",
+        imageInputField: runtime.imageInputField || (runtime.imageInputMode === "url-array" ? "image_urls" : "image[]")
       };
     }
     const value = this.config.get<Omit<AinbConfig, "params">>("app.ainb");
@@ -236,8 +281,15 @@ export class AinbClient {
       dynamicParams: false,
       queryEndpoint: `${(value?.apiBase || "https://ainb.plus").replace(/\/+$/, "")}/v1/images/tasks/{task_id}`,
       statusEnabled: false,
-      responseMapping: this.responseMapping()
+      responseMapping: this.responseMapping(),
+      sizeConfig: normalizeProviderSizeConfig(),
+      imageInputMode: "multipart" as const,
+      imageInputField: "image[]"
     };
+  }
+
+  private sizeParamKeys(config: ProviderSizeConfig) {
+    return [...new Set([config.pixelSizeField, config.ratioField, config.resolutionField])];
   }
 
   private responseMapping(value: Record<string, string> = {}) {
@@ -251,6 +303,10 @@ export class AinbClient {
       failureValue: value.failureValue || "FAILURE",
       pendingValue: value.pendingValue || "IN_PROGRESS"
     };
+  }
+
+  private statusValues(value: string) {
+    return value.split(/[,\s|]+/).map((item) => item.trim().toUpperCase()).filter(Boolean);
   }
 
   private queryUrl(template: string, taskId: string) {
