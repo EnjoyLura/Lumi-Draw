@@ -1,4 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { entryToPath, pathToEntry } from "./routes";
 
 export interface StackEntry {
   id: string;
@@ -48,7 +50,13 @@ const CLOSED_SHEET: SheetState = { open: false, title: "", body: null, foot: nul
 const CLOSED_DIALOG: DialogState = { open: false, title: "", msg: "", danger: false, onOk: undefined };
 
 export function NavProvider({ children }: { children: ReactNode }) {
-  const [stack, setStack] = useState<StackEntry[]>([{ id: "home" }]);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const current = useMemo(
+    () => pathToEntry(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+  const stack = useMemo(() => [current], [current]);
   const [dir, setDir] = useState<"in" | "back">("in");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(CLOSED_SHEET);
@@ -61,28 +69,21 @@ export function NavProvider({ children }: { children: ReactNode }) {
 
   const go = useCallback((id: string, param?: string, root?: boolean) => {
     setDir("in");
-    setStack((prev) => (root ? [{ id, param }] : [...prev, { id, param }]));
+    navigate(entryToPath(id, param), { replace: Boolean(root && id === current.id) });
     setDrawerOpen(false);
-  }, []);
+  }, [current.id, navigate]);
 
   const back = useCallback(() => {
-    setStack((prev) => {
-      if (prev.length <= 1) return prev;
-      setDir("back");
-      return prev.slice(0, -1);
-    });
-  }, []);
+    setDir("back");
+    navigate(-1);
+  }, [navigate]);
 
   const toggleDrawer = useCallback(() => setDrawerOpen((v) => !v), []);
 
   const onNavLeft = useCallback(() => {
-    if (stack.length > 1) {
-      setDir("back");
-      setStack((prev) => (prev.length > 1 ? prev.slice(0, -1) : prev));
-      return;
-    }
-    setDrawerOpen((v) => !v);
-  }, [stack.length]);
+    setDir("back");
+    navigate(-1);
+  }, [navigate]);
 
   const openSheet = useCallback((title: string, body: ReactNode, foot?: ReactNode) => {
     setSheet({ open: true, title, body, foot: foot ?? null });
@@ -112,7 +113,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
   const value = useMemo<NavContextValue>(
     () => ({
       stack,
-      current: stack[stack.length - 1],
+      current,
       dir,
       drawerOpen,
       sheet,
@@ -131,7 +132,7 @@ export function NavProvider({ children }: { children: ReactNode }) {
       closeAll,
       toast
     }),
-    [stack, dir, drawerOpen, sheet, dialog, toastMsg, toastShow, go, back, onNavLeft, toggleDrawer, closeDrawer, openSheet, closeSheet, confirmDlg, closeDialog, closeAll, toast]
+    [stack, current, dir, drawerOpen, sheet, dialog, toastMsg, toastShow, go, back, onNavLeft, toggleDrawer, closeDrawer, openSheet, closeSheet, confirmDlg, closeDialog, closeAll, toast]
   );
 
   return <NavContext.Provider value={value}>{children}</NavContext.Provider>;

@@ -121,7 +121,8 @@ export function WorkCard({ w, operations }: { w: AdminWork; operations?: WorkCar
 
 export function Switch({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) {
   return (
-    <span
+    <button
+      type="button"
       className={`switch${on ? " on" : ""}`}
       role="switch"
       aria-checked={on}
@@ -150,8 +151,8 @@ export function SortCtrl({ index, len, onMove }: { index: number; len: number; o
   const down = index < len - 1;
   return (
     <>
-      <span className="nav-btn" style={{ ...CTRL_BTN, color: up ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (up) onMove(-1); }}><i className="ri-arrow-up-s-line" /></span>
-      <span className="nav-btn" style={{ ...CTRL_BTN, color: down ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (down) onMove(1); }}><i className="ri-arrow-down-s-line" /></span>
+      <button type="button" className="nav-btn" aria-label="提高优先级" disabled={!up} style={{ ...CTRL_BTN, color: up ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (up) onMove(-1); }}><i className="ri-arrow-up-s-line" /></button>
+      <button type="button" className="nav-btn" aria-label="降低优先级" disabled={!down} style={{ ...CTRL_BTN, color: down ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (down) onMove(1); }}><i className="ri-arrow-down-s-line" /></button>
     </>
   );
 }
@@ -159,9 +160,9 @@ export function SortCtrl({ index, len, onMove }: { index: number; len: number; o
 export function CtrlIcons({ onCopy, onEdit, onDelete }: { onCopy?: () => void; onEdit: () => void; onDelete: () => void }) {
   return (
     <>
-      {onCopy ? <span className="nav-btn" title="复制配置" aria-label="复制配置" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onCopy(); }}><i className="ri-file-copy-line" /></span> : null}
-      <span className="nav-btn" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onEdit(); }}><i className="ri-edit-line" /></span>
-      <span className="nav-btn" style={{ width: 32, height: 32, fontSize: 17, color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(); }}><i className="ri-delete-bin-line" /></span>
+      {onCopy ? <button type="button" className="nav-btn" title="复制配置" aria-label="复制配置" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onCopy(); }}><i className="ri-file-copy-line" /></button> : null}
+      <button type="button" className="nav-btn" aria-label="编辑" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onEdit(); }}><i className="ri-edit-line" /></button>
+      <button type="button" className="nav-btn" aria-label="删除" style={{ width: 32, height: 32, fontSize: 17, color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(); }}><i className="ri-delete-bin-line" /></button>
     </>
   );
 }

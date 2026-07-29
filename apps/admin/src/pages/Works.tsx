@@ -1,127 +1,296 @@
-import { useState } from "react";
-import { userName, type AdminWork } from "../data/mock";
-import { getWorks } from "../data/service";
-import { apiFeatureWork, apiGetWorks, apiGetWorksSummary, apiRecommendWork, type AdminWorksSummary } from "../data/api";
+import {
+  EyeInvisibleOutlined,
+  FileImageOutlined,
+  PlusOutlined,
+  StarOutlined,
+  ThunderboltOutlined
+} from "@ant-design/icons";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Button,
+  Card,
+  Image,
+  Input,
+  Select,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+  type TableProps
+} from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { AdminMetrics } from "../components/AdminMetrics";
+import {
+  apiFeatureWork,
+  apiGetWorksPage,
+  apiGetWorksSummary,
+  apiRecommendWork,
+  type AdminWorksSummary,
+  type AdminWorkQuery
+} from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { useAsyncData } from "../data/useAsyncData";
+import { IMG, userName, type AdminWork } from "../data/mock";
+import { getWorks } from "../data/service";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Chips, SearchBar, StatCard, WorkCard } from "../ui";
 import { WorkUploadForm } from "./WorkUploadForm";
 
-const FILTERS = ["全部", "已发布", "待审核", "已下架", "精选", "首页推荐"];
+const PAGE_SIZE = 20;
+const STATUS_OPTIONS: Array<{ label: string; value: "all" | NonNullable<AdminWorkQuery["status"]> }> = [
+  { label: "全部状态", value: "all" },
+  { label: "已发布", value: "published" },
+  { label: "待审核", value: "pending" },
+  { label: "已下架", value: "offline" },
+  { label: "已驳回", value: "rejected" },
+  { label: "草稿", value: "draft" }
+];
 
-function isToday(dateText: string) {
-  const date = new Date(dateText);
-  if (Number.isNaN(date.getTime())) return false;
-  const now = new Date();
-  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
-}
+const STATUS_TO_CN: Record<string, string> = {
+  published: "已发布",
+  pending: "待审核",
+  offline: "已下架",
+  rejected: "已驳回",
+  draft: "草稿"
+};
 
-function formatCount(value: number) {
-  return new Intl.NumberFormat("zh-CN").format(value);
+function statusColor(status: string) {
+  if (status === "已发布") return "success";
+  if (status === "待审核") return "warning";
+  if (status === "已下架" || status === "已驳回") return "error";
+  return "default";
 }
 
 export function Works() {
-  const { openSheet, toast } = useNav();
+  const { go, openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
-  const { data, reload } = useAsyncData(useMock ? null : apiGetWorks, [useMock]);
-  const summaryState = useAsyncData(useMock ? null : apiGetWorksSummary, [useMock]);
-  const works = useMock ? getWorks() : data ?? [];
-  const [filter, setFilter] = useState("全部");
-  const [query, setQuery] = useState("");
-  const [workOverrides, setWorkOverrides] = useState<Record<number, Pick<AdminWork, "featured" | "recommend">>>({});
-  const [pendingOperations, setPendingOperations] = useState<Set<string>>(new Set());
-  const displayedWorks = works.map((work) => ({ ...work, ...workOverrides[work.id] }));
-  const localSummary: AdminWorksSummary = {
-    total: displayedWorks.length,
-    todayNew: displayedWorks.filter((w) => isToday(w.time)).length,
-    featured: displayedWorks.filter((w) => w.featured).length,
-    offline: displayedWorks.filter((w) => w.status === "已下架").length
-  };
-  const summary = useMock ? localSummary : summaryState.data ?? localSummary;
-  const afterPublished = () => {
-    reload();
-    summaryState.reload();
-  };
-
-  const q = query.toLowerCase();
-  const list = displayedWorks.filter((w) => {
-    if (filter === "精选") { if (!w.featured) return false; }
-    else if (filter === "首页推荐") { if (!w.recommend) return false; }
-    else if (filter !== "全部" && w.status !== filter) return false;
-    if (q && (w.title || "").toLowerCase().indexOf(q) < 0 && w.prompt.toLowerCase().indexOf(q) < 0 && userName(w.userId).toLowerCase().indexOf(q) < 0) return false;
-    return true;
+  const queryClient = useQueryClient();
+  const [urlParams, setUrlParams] = useSearchParams();
+  const [page, setPage] = useState(() => Math.max(1, Number(urlParams.get("page")) || 1));
+  const [keyword, setKeyword] = useState(() => urlParams.get("keyword") || "");
+  const [searchKeyword, setSearchKeyword] = useState(() => urlParams.get("keyword") || "");
+  const [status, setStatus] = useState<(typeof STATUS_OPTIONS)[number]["value"]>(() => {
+    const value = urlParams.get("status");
+    return STATUS_OPTIONS.some((item) => item.value === value)
+      ? value as (typeof STATUS_OPTIONS)[number]["value"]
+      : "all";
+  });
+  const [special, setSpecial] = useState<"all" | "featured" | "recommend">(() => {
+    const value = urlParams.get("special");
+    return value === "featured" || value === "recommend" ? value : "all";
   });
 
-  async function toggleWorkOperation(work: AdminWork, key: "featured" | "recommend") {
-    const operationKey = `${work.id}:${key}`;
-    if (pendingOperations.has(operationKey)) return;
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    if (urlParams.get("mock") === "1") next.mock = "1";
+    if (page > 1) next.page = String(page);
+    if (searchKeyword) next.keyword = searchKeyword;
+    if (status !== "all") next.status = status;
+    if (special !== "all") next.special = special;
+    setUrlParams(next, { replace: true });
+  }, [page, searchKeyword, setUrlParams, special, status]);
 
-    const previous = { featured: Boolean(work.featured), recommend: Boolean(work.recommend) };
-    const next = !previous[key];
-    setWorkOverrides((current) => ({ ...current, [work.id]: { ...previous, ...current[work.id], [key]: next } }));
-    setPendingOperations((current) => new Set(current).add(operationKey));
+  const worksQuery = useQuery({
+    queryKey: ["admin", "works", { page, searchKeyword, status, special }],
+    queryFn: () => apiGetWorksPage({
+      page,
+      pageSize: PAGE_SIZE,
+      keyword: searchKeyword,
+      status: status === "all" ? undefined : status,
+      featured: special === "featured" ? true : undefined,
+      recommend: special === "recommend" ? true : undefined
+    }),
+    enabled: !useMock,
+    placeholderData: keepPreviousData
+  });
+  const summaryQuery = useQuery({
+    queryKey: ["admin", "works", "summary"],
+    queryFn: apiGetWorksSummary,
+    enabled: !useMock,
+    staleTime: 30_000
+  });
 
-    try {
+  const mockRows = useMemo(() => {
+    const query = searchKeyword.trim().toLowerCase();
+    return getWorks().filter((work) => {
+      if (status !== "all" && work.status !== STATUS_TO_CN[status]) return false;
+      if (special === "featured" && !work.featured) return false;
+      if (special === "recommend" && !work.recommend) return false;
+      return !query
+        || work.title.toLowerCase().includes(query)
+        || work.prompt.toLowerCase().includes(query)
+        || (work.authorName || userName(work.userId)).toLowerCase().includes(query);
+    });
+  }, [searchKeyword, special, status]);
+
+  const allMockWorks = getWorks();
+  const localSummary: AdminWorksSummary = {
+    total: allMockWorks.length,
+    todayNew: 0,
+    featured: allMockWorks.filter((work) => work.featured).length,
+    offline: allMockWorks.filter((work) => work.status === "已下架").length
+  };
+  const summary = useMock ? localSummary : summaryQuery.data ?? localSummary;
+  const rows = useMock
+    ? mockRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : worksQuery.data?.items ?? [];
+  const total = useMock ? mockRows.length : worksQuery.data?.total ?? 0;
+
+  const refreshWorks = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["admin", "works"] }),
+      queryClient.invalidateQueries({ queryKey: ["admin", "works", "summary"] })
+    ]);
+  };
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ work, kind, enabled }: { work: AdminWork; kind: "featured" | "recommend"; enabled: boolean }) => {
       if (useMock) {
-        const mockWork = works.find((item) => item.id === work.id);
-        if (mockWork) mockWork[key] = next;
-      } else {
-        const updated = key === "featured"
-          ? await apiFeatureWork(work.id, next)
-          : await apiRecommendWork(work.id, next);
-        setWorkOverrides((current) => ({
-          ...current,
-          [work.id]: { featured: updated.featured, recommend: updated.recommend }
-        }));
-        summaryState.reload();
+        work[kind] = enabled;
+        return work;
       }
-      toast(next ? `已开启${key === "featured" ? "精选" : "首页推荐"}` : `已关闭${key === "featured" ? "精选" : "首页推荐"}`);
-    } catch (error) {
-      setWorkOverrides((current) => ({ ...current, [work.id]: previous }));
-      toast(error instanceof Error ? error.message : "操作失败，请稍后重试");
-    } finally {
-      setPendingOperations((current) => {
-        const nextPending = new Set(current);
-        nextPending.delete(operationKey);
-        return nextPending;
-      });
+      return kind === "featured"
+        ? apiFeatureWork(work.id, enabled)
+        : apiRecommendWork(work.id, enabled);
+    },
+    onSuccess: async (_, variables) => {
+      toast(variables.enabled ? "设置已启用" : "设置已关闭");
+      await refreshWorks();
+    },
+    onError: (reason) => toast(reason instanceof Error ? reason.message : "操作失败，请稍后重试")
+  });
+
+  const columns: TableProps<AdminWork>["columns"] = [
+    {
+      title: "作品",
+      key: "work",
+      width: 330,
+      fixed: "left",
+      render: (_, work) => (
+        <Space size={12}>
+          <Image
+            width={64}
+            height={64}
+            preview={false}
+            className="lumi-table-image"
+            src={work.thumbnailUrl || work.imageUrl || IMG(`w${work.id}`)}
+            fallback={IMG("placeholder")}
+          />
+          <div className="lumi-work-cell">
+            <Typography.Text strong ellipsis={{ tooltip: work.title }}>{work.title || "未命名作品"}</Typography.Text>
+            <Typography.Text type="secondary" ellipsis>
+              {work.authorName || userName(work.userId)} · ID {work.id}
+            </Typography.Text>
+          </div>
+        </Space>
+      )
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 100,
+      render: (value) => <Tag color={statusColor(value)}>{value}</Tag>
+    },
+    { title: "模型", dataIndex: "model", width: 150, ellipsis: true },
+    { title: "规格", key: "spec", width: 130, render: (_, work) => `${work.ratio || "—"} / ${work.quality || "—"}` },
+    { title: "获赞", dataIndex: "likes", width: 80, sorter: (a, b) => a.likes - b.likes },
+    {
+      title: "精选",
+      dataIndex: "featured",
+      width: 90,
+      render: (value, work) => (
+        <Switch
+          size="small"
+          checked={value}
+          loading={toggleMutation.isPending && toggleMutation.variables?.work.id === work.id && toggleMutation.variables.kind === "featured"}
+          onChange={(enabled) => toggleMutation.mutate({ work, kind: "featured", enabled })}
+        />
+      )
+    },
+    {
+      title: "首页推荐",
+      dataIndex: "recommend",
+      width: 110,
+      render: (value, work) => (
+        <Switch
+          size="small"
+          checked={value}
+          loading={toggleMutation.isPending && toggleMutation.variables?.work.id === work.id && toggleMutation.variables.kind === "recommend"}
+          onChange={(enabled) => toggleMutation.mutate({ work, kind: "recommend", enabled })}
+        />
+      )
+    },
+    { title: "发布时间", dataIndex: "time", width: 120 },
+    {
+      title: "操作",
+      key: "action",
+      width: 90,
+      fixed: "right",
+      render: (_, work) => <Button type="link" onClick={() => go("workDetail", String(work.id))}>查看</Button>
     }
-  }
+  ];
+
+  const openUpload = () => {
+    openSheet("上传并发布作品", <WorkUploadForm useMock={useMock} onPublished={() => void refreshWorks()} />);
+  };
 
   return (
-    <>
-      <div className="stat-grid" style={{ marginBottom: 4 }}>
-        <StatCard label="总作品" val={formatCount(summary.total)} icon="ri-image-2-line" color="#5B9FE8" soft="var(--info-soft)" />
-        <StatCard label="今日新增" val={formatCount(summary.todayNew)} icon="ri-add-box-line" color="#6FD4B0" soft="var(--success-soft)" />
-        <StatCard label="精选作品" val={formatCount(summary.featured)} icon="ri-star-line" color="#F59E0B" soft="var(--warning-soft)" />
-        <StatCard label="已下架" val={formatCount(summary.offline)} icon="ri-eye-off-line" color="#9AA5B4" soft="var(--bg-soft)" />
-      </div>
-      <div style={{ height: 14 }} />
-      <AddBtn text="上传并发布作品" onClick={() => openSheet("上传并发布作品", <WorkUploadForm useMock={useMock} onPublished={afterPublished} />)} />
-      <SearchBar value={query} onChange={setQuery} placeholder="搜索作品标题 / 提示词 / 作者" />
-      <Chips items={FILTERS} active={filter} onPick={setFilter} />
-      {query ? (
-        <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "0 2px 8px" }}>搜索“{query}” · {list.length} 个结果</div>
-      ) : null}
-      <div className="wgrid">
-        {list.length === 0 ? (
-          <div className="empty" style={{ gridColumn: "1/-1" }}><i className="ri-image-line" /><div className="et">暂无匹配作品</div></div>
-        ) : (
-          list.map((w) => (
-            <WorkCard
-              key={w.id}
-              w={w}
-              operations={{
-                featuredPending: pendingOperations.has(`${w.id}:featured`),
-                recommendPending: pendingOperations.has(`${w.id}:recommend`),
-                onToggleFeatured: () => void toggleWorkOperation(w, "featured"),
-                onToggleRecommend: () => void toggleWorkOperation(w, "recommend")
-              }}
+    <div className="lumi-admin-page">
+      <AdminMetrics
+        loading={!useMock && summaryQuery.isLoading}
+        items={[
+          { key: "total", title: "总作品", value: summary.total, icon: <FileImageOutlined />, color: "#5B9FE8" },
+          { key: "today", title: "今日新增", value: summary.todayNew, icon: <ThunderboltOutlined />, color: "#22C55E" },
+          { key: "featured", title: "精选作品", value: summary.featured, icon: <StarOutlined />, color: "#F59E0B" },
+          { key: "offline", title: "已下架", value: summary.offline, icon: <EyeInvisibleOutlined />, color: "#EF4444" }
+        ]}
+      />
+      <Card className="lumi-table-card">
+        <div className="lumi-table-toolbar">
+          <Space wrap>
+            <Input.Search
+              allowClear
+              value={keyword}
+              placeholder="搜索作品标题、提示词或作者"
+              className="lumi-search-input"
+              onChange={(event) => setKeyword(event.target.value)}
+              onSearch={(value) => { setSearchKeyword(value.trim()); setPage(1); }}
             />
-          ))
-        )}
-      </div>
-    </>
+            <Select
+              value={status}
+              options={STATUS_OPTIONS}
+              onChange={(value) => { setStatus(value); setPage(1); }}
+            />
+            <Select
+              value={special}
+              options={[
+                { label: "全部推荐状态", value: "all" },
+                { label: "精选作品", value: "featured" },
+                { label: "首页推荐", value: "recommend" }
+              ]}
+              onChange={(value) => { setSpecial(value); setPage(1); }}
+            />
+          </Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openUpload}>上传作品</Button>
+        </div>
+        <Table<AdminWork>
+          rowKey="id"
+          columns={columns}
+          dataSource={rows}
+          loading={!useMock && worksQuery.isFetching}
+          scroll={{ x: 1280 }}
+          pagination={{
+            current: page,
+            pageSize: PAGE_SIZE,
+            total,
+            showSizeChanger: false,
+            showQuickJumper: true,
+            showTotal: (value) => `共 ${value} 条`
+          }}
+          onChange={(pagination) => setPage(pagination.current || 1)}
+          onRow={(work) => ({ onDoubleClick: () => go("workDetail", String(work.id)) })}
+        />
+      </Card>
+    </div>
   );
 }

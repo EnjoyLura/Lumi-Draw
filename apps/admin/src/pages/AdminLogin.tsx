@@ -1,49 +1,79 @@
+import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Form, Input, Typography } from "antd";
 import { useState } from "react";
 import { adminLogin } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { ApiError } from "../data/http";
 
+interface LoginValues {
+  username: string;
+  password: string;
+}
+
 export function AdminLogin() {
   const { onLoggedIn } = useAdminSession();
-  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
-    if (!username || !password) {
-      setError("请输入账号和密码");
-      return;
-    }
+  const submit = async ({ username, password }: LoginValues) => {
     setLoading(true);
     setError("");
     try {
-      const token = await adminLogin(username, password);
+      const token = await adminLogin(username.trim(), password);
       onLoggedIn(token);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "登录失败");
+    } catch (reason) {
+      setError(reason instanceof ApiError ? reason.message : "登录失败，请稍后重试");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="phone-frame">
-      <div className="phone-screen" style={{ display: "flex", flexDirection: "column", justifyContent: "center", padding: 28, gap: 16 }}>
-        <div style={{ textAlign: "center" }}>
-          <span className="avatar" style={{ width: 64, height: 64, background: "#5B9FE8", fontSize: 26 }}>管</span>
-          <div style={{ fontSize: 18, fontWeight: 700, marginTop: 12 }}>露米绘画 · 管理后台</div>
-          <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 4 }}>请登录管理员账号</div>
+    <div className="lumi-login-page">
+      <div className="lumi-login-brand">
+        <div className="lumi-login-logo">露</div>
+        <div>
+          <Typography.Title level={2}>露米绘画AI</Typography.Title>
+          <Typography.Text>运营管理后台</Typography.Text>
         </div>
-        <input className="input" placeholder="管理员账号" value={username} onChange={(e) => setUsername(e.target.value)} />
-        <input className="input" type="password" placeholder="密码" value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void submit(); }} />
-        {error ? <div style={{ color: "var(--danger, #EF4444)", fontSize: 12 }}>{error}</div> : null}
-        <button className="btn btn-primary btn-block" disabled={loading} onClick={() => void submit()}>
-          {loading ? "登录中..." : "登录"}
-        </button>
       </div>
+      <Card className="lumi-login-card" bordered={false}>
+        <Typography.Title level={3}>管理员登录</Typography.Title>
+        <Typography.Paragraph type="secondary">
+          登录后可管理用户、作品、内容审核与运营配置。
+        </Typography.Paragraph>
+        {error ? <Alert type="error" showIcon message={error} className="lumi-login-error" /> : null}
+        <Form<LoginValues>
+          layout="vertical"
+          initialValues={{ username: "admin" }}
+          requiredMark={false}
+          onFinish={(values) => void submit(values)}
+        >
+          <Form.Item
+            label="管理员账号"
+            name="username"
+            rules={[{ required: true, message: "请输入管理员账号" }]}
+          >
+            <Input size="large" prefix={<UserOutlined />} placeholder="请输入管理员账号" autoComplete="username" />
+          </Form.Item>
+          <Form.Item
+            label="登录密码"
+            name="password"
+            rules={[{ required: true, message: "请输入登录密码" }]}
+          >
+            <Input.Password
+              size="large"
+              prefix={<LockOutlined />}
+              placeholder="请输入登录密码"
+              autoComplete="current-password"
+            />
+          </Form.Item>
+          <Button type="primary" size="large" htmlType="submit" loading={loading} block>
+            登录
+          </Button>
+        </Form>
+        <div className="lumi-login-foot">仅限授权管理员使用</div>
+      </Card>
     </div>
   );
 }

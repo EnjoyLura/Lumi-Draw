@@ -9,88 +9,118 @@ test.beforeEach(async ({ page }) => {
   }, MOCK_KEY);
 });
 
-test("admin renders mock dashboard shell", async ({ page }) => {
+test("新版后台渲染桌面工作台和响应式导航", async ({ page }) => {
   const runtimeErrors = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.message));
   page.on("console", (message) => {
     if (message.type() === "error") runtimeErrors.push(message.text());
   });
 
-  await page.goto("/");
-  await expect(page.locator(".phone-screen")).toBeVisible();
-  await expect(page.locator(".nav-header")).toBeVisible();
-  await expect(page.locator(".page-body")).toBeVisible();
-  await expect(page.locator(".stat-grid").first()).toBeVisible();
-  await expect(page.locator(".grid-nav").first()).toBeVisible();
+  await page.goto("/workbench");
+  await expect(page.locator(".lumi-admin-v2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "工作台", exact: true })).toBeVisible();
+  await expect(page.getByText("今日核心指标", { exact: true })).toBeVisible();
+  await expect(page.getByText("待办事项", { exact: true })).toBeVisible();
+  await expect(page.locator(".ant-pro-sider")).toBeVisible();
   expect(runtimeErrors).toEqual([]);
 });
 
-test("admin opens mock menu and navigates core sections", async ({ page }) => {
-  await page.goto("/");
-  await page.locator(".nav-avatar").click();
-  await expect(page.locator(".sheet.show")).toBeVisible();
-  await page.locator(".sheet.show .lrow").first().click();
-  await expect(page.locator(".page-body")).toBeVisible();
-  await expect(page.locator(".card").first()).toBeVisible();
+test("用户与作品列表使用真实 URL、表格和详情跳转", async ({ page }) => {
+  await page.goto("/users");
+  await expect(page.getByRole("heading", { name: "用户管理", exact: true })).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByText("共 6 位用户", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "查看" }).first().click();
+  await expect(page).toHaveURL(/\/users\/\d+$/);
+  await expect(page.getByRole("heading", { name: "用户详情", exact: true })).toBeVisible();
+
+  await page.goto("/works");
+  await expect(page.getByRole("heading", { name: "作品管理", exact: true })).toBeVisible();
+  await expect(page.getByRole("table")).toBeVisible();
+  await expect(page.getByRole("button", { name: "上传作品" })).toBeVisible();
 });
 
-test("admin opens the complete work upload form", async ({ page }) => {
-  await page.goto("/");
-  await page.locator(".nav-header .nav-btn").click();
-  await page.locator(".drawer.show .ditem", { hasText: "作品管理" }).click();
-  await expect(page.locator(".chip", { hasText: "首页推荐" })).toBeVisible();
-  await page.getByRole("button", { name: "上传并发布作品" }).click();
+test("作品上传表单在统一右侧抽屉中完整呈现", async ({ page }) => {
+  await page.goto("/works");
+  await page.getByRole("button", { name: "上传作品" }).click();
 
-  const sheet = page.locator(".sheet.show");
-  await expect(sheet).toBeVisible();
-  await expect(sheet.getByText("作品图片", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("选择作者", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("提示词", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("模型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("画面比例", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("图片精度", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("作品风格", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("作品标签", { exact: true })).toBeVisible();
-  await expect(sheet.locator(".chip", { hasText: "二次元" })).toBeVisible();
-  await expect(sheet.getByText("已选择 0/5", { exact: true })).toBeVisible();
-  await expect(sheet.locator('input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
-  await expect(sheet.getByRole("button", { name: "立即发布" })).toBeVisible();
+  const drawer = page.locator(".ant-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByText("作品图片", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("选择作者", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("提示词", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("模型", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("画面比例", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("图片精度", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("作品风格", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("作品标签", { exact: true })).toBeVisible();
+  await expect(drawer.locator('input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
+  await expect(drawer.getByRole("button", { name: "立即发布" })).toBeVisible();
 });
 
-test("admin gameplay and style forms provide image upload", async ({ page }) => {
-  await page.goto("/");
-  await page.locator(".nav-header .nav-btn").click();
-  await page.locator(".drawer.show .ditem", { hasText: "玩法模板" }).click();
-  await page.locator(".page-body .lrow .nav-btn").first().click();
-  await expect(page.locator(".sheet.show").getByText("玩法封面", { exact: true })).toBeVisible();
-  await expect(page.locator('.sheet.show input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
-  await page.locator(".sheet.show .sh-head .nav-btn").click();
+test("玩法、风格和 API 平台编辑交互使用统一抽屉", async ({ page }) => {
+  await page.goto("/operations/gameplays");
+  await page.getByRole("button", { name: "编辑" }).first().click();
+  await expect(page.locator(".ant-drawer").getByText("玩法封面", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "关闭" }).click();
 
-  await page.locator(".nav-header .nav-btn").click();
-  await page.locator(".drawer.show .ditem", { hasText: "风格管理" }).click();
-  await page.locator(".page-body .lrow .nav-btn").nth(2).click();
-  await expect(page.locator(".sheet.show").getByText("封面图", { exact: true })).toBeVisible();
-  await expect(page.locator('.sheet.show input[type="file"]')).toHaveAttribute("accept", "image/png,image/jpeg,image/webp,image/gif");
-});
+  await page.goto("/operations/styles");
+  await page.getByRole("button", { name: "编辑" }).first().click();
+  await expect(page.locator(".ant-drawer").getByText("封面图", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "关闭" }).click();
 
-test("admin manages generation API platforms and model bindings", async ({ page }) => {
-  await page.goto("/");
-  await page.locator(".nav-header .nav-btn").click();
-  await page.locator(".drawer.show .ditem", { hasText: "API 平台" }).click();
-  const ainbCard = page.locator(".page-body .card", { hasText: "Ainb" }).first();
-  await expect(ainbCard).toBeVisible();
-  await expect(ainbCard.getByText(/密钥已配置/)).toBeVisible();
+  await page.goto("/operations/providers");
+  await expect(page.locator(".lumi-page-opsApiProvider .lr-t").filter({ hasText: "Ainb" }).first()).toBeVisible();
   await page.getByRole("button", { name: "新增 API 平台" }).click();
-
-  const sheet = page.locator(".sheet.show");
-  await expect(sheet.getByText("接口类型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("生效的创作模型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("文生图完整接口 URL", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("文生图请求参数", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("启用图生图", { exact: true })).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "添加请求参数" })).toBeVisible();
-  await expect(sheet.locator('input[type="checkbox"]')).toHaveCount(MODEL_COUNT + 2);
-  await expect(sheet.getByRole("button", { name: "保存" })).toBeVisible();
+  const drawer = page.locator(".ant-drawer");
+  await expect(drawer.getByText("接口类型", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("结果处理方式（是否使用 FC）", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("文生图完整接口 URL", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("文生图请求参数", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("启用图生图", { exact: true })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "添加请求参数" })).toBeVisible();
+  await expect(drawer.getByRole("button", { name: "保存" })).toBeVisible();
 });
 
-const MODEL_COUNT = 6;
+test("主要运营模块均可通过深链接直接打开", async ({ page }) => {
+  const routes = [
+    ["/dashboard", "数据大屏"],
+    ["/reviews", "内容审核"],
+    ["/operations/banners", "走马灯"],
+    ["/operations/categories", "分类管理"],
+    ["/operations/models", "模型管理"],
+    ["/operations/qualities", "分辨率配置"],
+    ["/finance", "财务概览"],
+    ["/finance/transactions", "交易记录"],
+    ["/messages/announcements", "弹窗公告"],
+    ["/messages/feedback", "用户反馈"],
+    ["/settings", "系统设置"],
+    ["/settings/agreements", "协议管理"]
+  ];
+
+  for (const [route, title] of routes) {
+    await page.goto(route);
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await expect(page.locator(".lumi-admin-v2")).toBeVisible();
+  }
+});
+
+test("窄屏下保持可用且不会产生页面级横向溢出", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/workbench");
+
+  await expect(page.getByRole("heading", { name: "工作台", exact: true })).toBeVisible();
+  await expect(page.getByText("今日核心指标", { exact: true })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("真实数据模式下未登录用户进入统一登录页", async ({ page }) => {
+  await page.goto("/workbench?mock=0");
+
+  await expect(page.getByRole("heading", { name: "管理员登录", exact: true })).toBeVisible();
+  await expect(page.getByLabel("管理员账号")).toBeVisible();
+  await expect(page.getByLabel("登录密码")).toBeVisible();
+  await expect(page.getByRole("button", { name: /登\s*录/ })).toBeVisible();
+});

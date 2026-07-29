@@ -1,5 +1,26 @@
-import { useState } from "react";
-import { AdminImage } from "../components/AdminImage";
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  FlagOutlined,
+  PieChartOutlined
+} from "@ant-design/icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Button,
+  Card,
+  Form,
+  Image,
+  Input,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Typography,
+  type TableProps
+} from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { AdminMetrics } from "../components/AdminMetrics";
 import {
   apiApproveReview,
   apiGetReports,
@@ -10,19 +31,9 @@ import {
   type AdminWorkDetailData
 } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { IMG, REPORTS, WORKS, modelName, userName, type AdminReport, type AdminWork } from "../data/mock";
+import { IMG, REPORTS, WORKS, userName, type AdminReport, type AdminWork } from "../data/mock";
 import { getReports, getWorks } from "../data/service";
-import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Badge, StatCard, StatusBadge } from "../ui";
-
-const FOOT_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  margin: "12px -18px 0",
-  padding: "12px 18px 0",
-  borderTop: "1px solid var(--border)"
-};
 
 const MODERATION_STATUS_TEXT: Record<string, string> = {
   unchecked: "未提交",
@@ -39,59 +50,76 @@ export function moderationStatusText(status?: string) {
   return MODERATION_STATUS_TEXT[status || ""] || "未提交";
 }
 
-function hasReportData(report: AdminReport | AdminReportData): report is AdminReportData {
-  return Object.prototype.hasOwnProperty.call(report, "workTitle");
-}
-
-export function RejectForm({ work, useMock = true, onAfter }: { work: AdminWork; useMock?: boolean; onAfter?: () => void }) {
+export function RejectForm({
+  work,
+  useMock = true,
+  onAfter
+}: {
+  work: AdminWork;
+  useMock?: boolean;
+  onAfter?: () => void;
+}) {
   const { closeSheet, toast } = useNav();
-  const [reason, setReason] = useState("色情低俗");
   const [saving, setSaving] = useState(false);
-  const doReject = async () => {
+
+  const submit = async ({ reason, description }: { reason: string; description?: string }) => {
     setSaving(true);
     try {
-      if (useMock) {
-        work.status = "已下架";
-      } else {
-        await apiRejectReview(work.id, reason);
-      }
+      const finalReason = description?.trim() || reason;
+      if (useMock) work.status = "已下架";
+      else await apiRejectReview(work.id, finalReason);
       closeSheet();
       onAfter?.();
-      toast("已拒绝并下架");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "拒绝失败");
+      toast("作品已拒绝并下架");
+    } catch (reasonValue) {
+      toast(reasonValue instanceof Error ? reasonValue.message : "拒绝失败，请稍后重试");
     } finally {
       setSaving(false);
     }
   };
+
   return (
-    <>
-      <label className="field-label">选择拒绝原因</label>
-      <select className="input" value={reason} onChange={(e) => setReason(e.target.value)}>
-        <option>色情低俗</option>
-        <option>违法违规</option>
-        <option>侵权盗版</option>
-        <option>低质量内容</option>
-        <option>其他</option>
-      </select>
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-danger btn-block" onClick={doReject} disabled={saving}>{saving ? "处理中" : "确认拒绝"}</button>
-      </div>
-    </>
+    <Form
+      layout="vertical"
+      initialValues={{ reason: "低质量内容" }}
+      requiredMark={false}
+      onFinish={(values) => void submit(values)}
+    >
+      <Form.Item label="拒绝原因" name="reason" rules={[{ required: true }]}>
+        <Select
+          options={["色情低俗", "违法违规", "侵权盗版", "低质量内容", "其他"].map((value) => ({ label: value, value }))}
+        />
+      </Form.Item>
+      <Form.Item label="补充说明" name="description">
+        <Input.TextArea rows={4} maxLength={200} showCount placeholder="可填写更具体的原因，便于作者修改" />
+      </Form.Item>
+      <Space className="lumi-drawer-actions">
+        <Button onClick={closeSheet}>取消</Button>
+        <Button type="primary" danger htmlType="submit" loading={saving}>确认拒绝</Button>
+      </Space>
+    </Form>
   );
 }
 
-function HandleReportForm({ report, useMock, onDone }: { report: AdminReport | AdminReportData; useMock: boolean; onDone: () => void }) {
+function HandleReportForm({
+  report,
+  useMock,
+  onDone
+}: {
+  report: AdminReport | AdminReportData;
+  useMock: boolean;
+  onDone: () => void;
+}) {
   const { closeSheet, toast } = useNav();
   const [saving, setSaving] = useState(false);
-  const doReport = async (action: "offline" | "warn" | "ignore") => {
+
+  const submit = async (action: "offline" | "warn" | "ignore") => {
     setSaving(true);
     try {
       if (useMock) {
         if (action === "offline") {
-          const w = WORKS.find((x) => x.id === report.workId);
-          if (w) w.status = "已下架";
+          const work = WORKS.find((item) => item.id === report.workId);
+          if (work) work.status = "已下架";
         }
         const index = REPORTS.findIndex((item) => item.id === report.id);
         if (index >= 0) REPORTS.splice(index, 1);
@@ -100,149 +128,208 @@ function HandleReportForm({ report, useMock, onDone }: { report: AdminReport | A
       }
       closeSheet();
       onDone();
-      toast(action === "ignore" ? "已驳回举报" : "举报已处理");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "处理失败");
+      toast(action === "ignore" ? "举报已驳回" : "举报已处理");
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : "处理失败，请稍后重试");
     } finally {
       setSaving(false);
     }
   };
+
   return (
-    <>
-      <label className="field-label">处理方式</label>
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv" style={{ cursor: saving ? "default" : "pointer" }} onClick={() => !saving && doReport("offline")}>
-          <span className="k" style={{ color: "var(--danger)" }}>下架被举报作品</span>
-          <i className="ri-arrow-right-s-line lr-arrow" />
-        </div>
-        <div className="kv" style={{ cursor: saving ? "default" : "pointer" }} onClick={() => !saving && doReport("warn")}>
-          <span className="k" style={{ color: "var(--warning)" }}>警告作者</span>
-          <i className="ri-arrow-right-s-line lr-arrow" />
-        </div>
-        <div className="kv" style={{ cursor: saving ? "default" : "pointer" }} onClick={() => !saving && doReport("ignore")}>
-          <span className="k">驳回举报（内容合规）</span>
-          <i className="ri-arrow-right-s-line lr-arrow" />
-        </div>
-      </div>
-    </>
+    <Space direction="vertical" size={12} className="lumi-report-actions">
+      <Button danger block loading={saving} onClick={() => void submit("offline")}>下架被举报作品</Button>
+      <Button block loading={saving} onClick={() => void submit("warn")}>警告作者并标记已处理</Button>
+      <Button block loading={saving} onClick={() => void submit("ignore")}>驳回举报（内容合规）</Button>
+    </Space>
   );
 }
 
 export function Review({ param }: { param?: string }) {
   const { go, openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState(param === "report" ? "report" : "work");
-  const reviewsState = useAsyncData<AdminWorkDetailData[]>(useMock ? null : () => apiGetReviews(), [useMock]);
-  const reportsState = useAsyncData<AdminReportData[]>(useMock ? null : () => apiGetReports(), [useMock]);
-  const works = useMock ? getWorks() : reviewsState.data ?? [];
-  const reports = useMock ? getReports() : reportsState.data ?? [];
-  const pend = works.filter((w) => w.status === "待审核");
-  const pendReports = reports.filter((r) => r.status === "待处理");
 
-  const reload = () => {
+  useEffect(() => {
+    if (param === "report") setTab("report");
+  }, [param]);
+
+  const reviewsQuery = useQuery({
+    queryKey: ["admin", "reviews", "pending"],
+    queryFn: () => apiGetReviews(),
+    enabled: !useMock
+  });
+  const reportsQuery = useQuery({
+    queryKey: ["admin", "reports", "pending"],
+    queryFn: apiGetReports,
+    enabled: !useMock
+  });
+
+  const works = useMock ? getWorks().filter((work) => work.status === "待审核") : reviewsQuery.data ?? [];
+  const reports = useMock ? getReports().filter((report) => report.status === "待处理") : reportsQuery.data ?? [];
+  const reload = async () => {
     if (!useMock) {
-      reviewsState.reload();
-      reportsState.reload();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "reports"] })
+      ]);
     }
   };
 
-  const approve = async (w: AdminWork) => {
+  const approve = async (work: AdminWork) => {
     try {
-      if (useMock) {
-        w.status = "已发布";
-      } else {
-        await apiApproveReview(w.id);
-        reviewsState.reload();
-      }
-      toast("已通过审核");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "审核失败");
+      if (useMock) work.status = "已发布";
+      else await apiApproveReview(work.id);
+      toast("作品已通过审核");
+      await reload();
+    } catch (reason) {
+      toast(reason instanceof Error ? reason.message : "审核失败，请稍后重试");
     }
   };
-  const reject = (w: AdminWork) => openSheet("拒绝原因", <RejectForm work={w} useMock={useMock} onAfter={reload} />);
-  const getWorkImage = (w: AdminWork | AdminWorkDetailData) => "imageUrl" in w && w.imageUrl ? w.imageUrl : IMG("w" + w.id);
-  const getAuthorName = (w: AdminWork | AdminWorkDetailData) => "author" in w && w.author ? w.author.name : userName(w.userId);
-  const imageReviewStatus = (w: AdminWork | AdminWorkDetailData) =>
-    (w as AdminWorkDetailData).imageModerationStatus || "";
-  const imageReviewPending = (w: AdminWork | AdminWorkDetailData) =>
-    ["submitting", "pending"].includes(imageReviewStatus(w));
-  const approveText = (w: AdminWork | AdminWorkDetailData) => {
-    const status = imageReviewStatus(w);
-    if (status === "unchecked") return "提交微信审核";
-    if (status === "failed") return "重新提交审核";
-    return "通过";
-  };
-  const loading = tab === "work" ? reviewsState.loading : reportsState.loading;
-  const error = tab === "work" ? reviewsState.error : reportsState.error;
+
+  const reviewColumns = useMemo<TableProps<AdminWorkDetailData>["columns"]>(() => [
+    {
+      title: "待审作品",
+      key: "work",
+      width: 360,
+      render: (_, work) => (
+        <Space size={12}>
+          <Image
+            width={72}
+            height={72}
+            preview={false}
+            className="lumi-table-image"
+            src={work.thumbnailUrl || work.imageUrl || IMG(`w${work.id}`)}
+          />
+          <div className="lumi-review-work">
+            <Typography.Text strong ellipsis={{ tooltip: work.title }}>{work.title || "未命名作品"}</Typography.Text>
+            <Typography.Text type="secondary" ellipsis={{ tooltip: work.prompt }}>{work.prompt || "暂无提示词"}</Typography.Text>
+            <Typography.Text type="secondary">{work.author?.name || work.authorName || userName(work.userId)}</Typography.Text>
+          </div>
+        </Space>
+      )
+    },
+    {
+      title: "文本审核",
+      dataIndex: "textModerationStatus",
+      width: 130,
+      render: (value) => <Tag>{moderationStatusText(value)}</Tag>
+    },
+    {
+      title: "图片审核",
+      dataIndex: "imageModerationStatus",
+      width: 130,
+      render: (value) => {
+        const text = moderationStatusText(value);
+        const color = value === "pass" ? "success" : value === "risky" ? "error" : value === "pending" ? "processing" : "default";
+        return <Tag color={color}>{text}</Tag>;
+      }
+    },
+    { title: "风格", dataIndex: "style", width: 130, render: (value) => value || "—" },
+    { title: "提交时间", dataIndex: "time", width: 120 },
+    {
+      title: "操作",
+      key: "action",
+      width: 230,
+      fixed: "right",
+      render: (_, work) => (
+        <Space>
+          <Button type="link" onClick={() => go("reviewDetail", String(work.id))}>详情</Button>
+          <Button
+            type="primary"
+            disabled={["submitting", "pending"].includes(work.imageModerationStatus || "")}
+            onClick={() => void approve(work)}
+          >
+            通过
+          </Button>
+          <Button danger onClick={() => openSheet("拒绝作品", <RejectForm work={work} useMock={useMock} onAfter={() => void reload()} />)}>
+            拒绝
+          </Button>
+        </Space>
+      )
+    }
+  ], [go, openSheet, useMock]);
+
+  const reportColumns = useMemo<TableProps<AdminReportData>["columns"]>(() => [
+    { title: "作品", dataIndex: "workTitle", width: 240, render: (value, report) => <Button type="link" onClick={() => go("reviewDetail", String(report.workId))}>{value || `作品 ${report.workId}`}</Button> },
+    { title: "举报原因", dataIndex: "reason", width: 180, render: (value) => <Tag color="error">{value}</Tag> },
+    { title: "举报人", dataIndex: "reporterName", width: 150 },
+    { title: "提交时间", dataIndex: "time", width: 130 },
+    { title: "状态", dataIndex: "status", width: 110, render: (value) => <Tag color={value === "待处理" ? "warning" : "default"}>{value}</Tag> },
+    {
+      title: "操作",
+      key: "action",
+      width: 120,
+      fixed: "right",
+      render: (_, report) => (
+        <Button
+          type="primary"
+          ghost
+          onClick={() => openSheet("处理举报", <HandleReportForm report={report} useMock={useMock} onDone={() => void reload()} />)}
+        >
+          处理举报
+        </Button>
+      )
+    }
+  ], [go, openSheet, useMock]);
+
+  const reportRows: AdminReportData[] = reports.map((report) => {
+    const detail = report as Partial<AdminReportData>;
+    return {
+      ...report,
+      workTitle: typeof detail.workTitle === "string" ? detail.workTitle : `作品 ${report.workId}`,
+      reporterName: typeof detail.reporterName === "string" ? detail.reporterName : userName(report.reporter)
+    };
+  });
 
   return (
-    <>
-      <div className="stat-grid" style={{ marginBottom: 14 }}>
-        <StatCard label="待审核" val={pend.length} icon="ri-time-line" color="#F59E0B" soft="var(--warning-soft)" />
-        <StatCard label="今日已审" val="328" icon="ri-checkbox-circle-line" color="#6FD4B0" soft="var(--success-soft)" />
-        <StatCard label="通过率" val="94%" icon="ri-pie-chart-line" color="#5B9FE8" soft="var(--info-soft)" />
-        <StatCard label="举报待处理" val={pendReports.length} icon="ri-flag-line" color="#EF4444" soft="var(--danger-soft)" />
-      </div>
-
-      <div className="seg">
-        <span className={`seg-i${tab === "work" ? " active" : ""}`} onClick={() => setTab("work")}>作品审核</span>
-        <span className={`seg-i${tab === "report" ? " active" : ""}`} onClick={() => setTab("report")}>举报管理</span>
-      </div>
-
-      {tab === "work" ? (
-        <>
-          {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载审核列表中</div></div> : null}
-          {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-          {pend.length === 0 ? (
-            <div className="empty"><i className="ri-checkbox-circle-line" /><div className="et">暂无待审核作品</div></div>
-          ) : null}
-          {pend.map((w) => (
-            <div key={w.id} className="card" style={{ padding: 12, marginBottom: 10, display: "flex", gap: 12 }}>
-              <AdminImage className="thumb" src={w.thumbnailUrl || getWorkImage(w)} style={{ width: 74, height: 74, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(w.id))} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{w.prompt}</div>
-                <div style={{ fontSize: 11, color: "var(--fg-muted)", margin: "6px 0 8px" }}>{getAuthorName(w)} · {w.model ? modelName(w.model) : w.style} · {w.time}</div>
-                {!useMock ? <div style={{ fontSize: 11, color: "var(--fg-muted)", marginBottom: 8 }}>微信图片审核：{moderationStatusText(imageReviewStatus(w))}</div> : null}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-danger btn-sm" onClick={() => reject(w)}>拒绝</button>
-                  <button className="btn btn-success btn-sm" style={{ flex: 1 }} disabled={imageReviewPending(w)} onClick={() => approve(w)}><i className="ri-check-line" />{imageReviewPending(w) ? "图片审核中" : approveText(w)}</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </>
-      ) : (
-        <>
-          {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载举报列表中</div></div> : null}
-          {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-          {pendReports.length === 0 ? (
-            <div className="empty"><i className="ri-flag-line" /><div className="et">暂无待处理举报</div></div>
-          ) : null}
-          {reports.map((r) => {
-            const w = WORKS.find((x) => x.id === r.workId);
-            const title = hasReportData(r) ? r.workTitle : w ? w.title || "作品" + r.workId : "作品" + r.workId;
-            const reporter = hasReportData(r) ? r.reporterName : userName(r.reporter);
-            return (
-              <div key={r.id} className="card" style={{ padding: 12, marginBottom: 10, display: "flex", gap: 12 }}>
-                <AdminImage className="thumb" src={IMG("w" + r.workId)} style={{ width: 60, height: 60, flexShrink: 0 }} alt="" onClick={() => go("reviewDetail", String(r.workId))} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>
-                    <StatusBadge s={r.status} />
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "5px 0" }}>举报原因：<Badge text={r.reason} type="danger" /></div>
-                  <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>举报人：{reporter} · {r.time}</div>
-                  {r.status === "待处理" ? (
-                    <div style={{ marginTop: 8 }}>
-                      <button className="btn btn-soft btn-sm btn-block" onClick={() => openSheet("处理举报", <HandleReportForm report={r} useMock={useMock} onDone={reload} />)}>处理举报</button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </>
-      )}
-    </>
+    <div className="lumi-admin-page">
+      <AdminMetrics
+        items={[
+          { key: "pending", title: "待审核作品", value: works.length, icon: <ClockCircleOutlined />, color: "#F59E0B" },
+          { key: "reviewed", title: "今日已审", value: useMock ? 328 : "—", icon: <CheckCircleOutlined />, color: "#22C55E" },
+          { key: "rate", title: "通过率", value: useMock ? 94 : "—", suffix: useMock ? "%" : undefined, icon: <PieChartOutlined />, color: "#5B9FE8" },
+          { key: "reports", title: "举报待处理", value: reports.length, icon: <FlagOutlined />, color: "#EF4444" }
+        ]}
+      />
+      <Card className="lumi-table-card">
+        <Tabs
+          activeKey={tab}
+          onChange={setTab}
+          className="lumi-table-tabs"
+          items={[
+            {
+              key: "work",
+              label: `作品审核 ${works.length ? `(${works.length})` : ""}`,
+              children: (
+                <Table<AdminWorkDetailData>
+                  rowKey="id"
+                  columns={reviewColumns}
+                  dataSource={works as AdminWorkDetailData[]}
+                  loading={!useMock && reviewsQuery.isFetching}
+                  scroll={{ x: 1120 }}
+                  pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+                />
+              )
+            },
+            {
+              key: "report",
+              label: `举报管理 ${reports.length ? `(${reports.length})` : ""}`,
+              children: (
+                <Table<AdminReportData>
+                  rowKey="id"
+                  columns={reportColumns}
+                  dataSource={reportRows}
+                  loading={!useMock && reportsQuery.isFetching}
+                  scroll={{ x: 960 }}
+                  pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+                />
+              )
+            }
+          ]}
+        />
+      </Card>
+    </div>
   );
 }

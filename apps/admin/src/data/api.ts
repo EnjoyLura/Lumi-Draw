@@ -109,13 +109,28 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
   };
 }
 
-export async function apiGetUsers(options: { keyword?: string; status?: "normal" | "banned"; member?: string } = {}): Promise<AdminUser[]> {
-  const params = new URLSearchParams({ page: "1", pageSize: "100" });
+export interface AdminUserQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  status?: "normal" | "banned";
+  member?: string;
+}
+
+export async function apiGetUsersPage(options: AdminUserQuery = {}): Promise<Paginated<AdminUser>> {
+  const params = new URLSearchParams({
+    page: String(options.page || 1),
+    pageSize: String(options.pageSize || 20)
+  });
   if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
   if (options.status) params.set("status", options.status);
   if (options.member) params.set("member", options.member);
   const page = await http.get<Paginated<ApiUser>>(`/admin/users?${params.toString()}`);
-  return page.items.map(mapUser);
+  return { ...page, items: page.items.map(mapUser) };
+}
+
+export async function apiGetUsers(options: AdminUserQuery = {}): Promise<AdminUser[]> {
+  return (await apiGetUsersPage({ ...options, page: 1, pageSize: 100 })).items;
 }
 
 export interface AdminUsersSummary {
@@ -164,9 +179,30 @@ export async function apiGiftUserMember(id: number, planId: number, reason: stri
   return mapUser(await http.post<ApiUser>(`/admin/users/${id}/member/gift`, { planId, reason }));
 }
 
+export interface AdminWorkQuery {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  status?: "draft" | "pending" | "published" | "rejected" | "offline";
+  featured?: boolean;
+  recommend?: boolean;
+}
+
+export async function apiGetWorksPage(options: AdminWorkQuery = {}): Promise<Paginated<AdminWork>> {
+  const params = new URLSearchParams({
+    page: String(options.page || 1),
+    pageSize: String(options.pageSize || 20)
+  });
+  if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
+  if (options.status) params.set("status", options.status);
+  if (typeof options.featured === "boolean") params.set("featured", String(options.featured));
+  if (typeof options.recommend === "boolean") params.set("recommend", String(options.recommend));
+  const page = await http.get<Paginated<ApiWork>>(`/admin/works?${params.toString()}`);
+  return { ...page, items: page.items.map(mapWork) };
+}
+
 export async function apiGetWorks(): Promise<AdminWork[]> {
-  const page = await http.get<Paginated<ApiWork>>("/admin/works?page=1&pageSize=100");
-  return page.items.map(mapWork);
+  return (await apiGetWorksPage({ page: 1, pageSize: 100 })).items;
 }
 
 export interface AdminWorksSummary {

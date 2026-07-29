@@ -4,6 +4,15 @@ const mockDataEnabled = import.meta.env.VITE_ENABLE_MOCK_DATA === "true";
 
 export function readUseMockData() {
   if (!mockDataEnabled) return false;
+  const queryMode = new URLSearchParams(window.location.search).get("mock");
+  if (queryMode === "1") {
+    window.localStorage.setItem(MOCK_STORAGE_KEY, "1");
+    return true;
+  }
+  if (queryMode === "0") {
+    window.localStorage.setItem(MOCK_STORAGE_KEY, "0");
+    return false;
+  }
   const stored = window.localStorage.getItem(MOCK_STORAGE_KEY);
   if (stored === "0" || stored === "1") {
     return stored === "1";

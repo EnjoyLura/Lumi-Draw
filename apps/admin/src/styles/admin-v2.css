@@ -1,0 +1,571 @@
+:root {
+  --lumi-primary: #5b9fe8;
+  --lumi-primary-deep: #3b7fc8;
+  --lumi-page-bg: #f4f7fb;
+  --lumi-card-bg: #ffffff;
+  --lumi-border: #e8edf4;
+  --lumi-text: #1f2733;
+  --lumi-muted: #7b8796;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: auto;
+  background: var(--lumi-page-bg);
+}
+
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--lumi-primary);
+  outline-offset: 2px;
+}
+
+.lumi-login-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+  align-items: center;
+  gap: clamp(56px, 8vw, 140px);
+  padding: clamp(36px, 7vw, 110px);
+  background:
+    radial-gradient(circle at 12% 16%, rgba(91, 159, 232, 0.18), transparent 34%),
+    radial-gradient(circle at 88% 84%, rgba(111, 212, 176, 0.14), transparent 30%),
+    linear-gradient(135deg, #edf4fc 0%, #f8faff 58%, #eef8f5 100%);
+}
+
+.lumi-login-brand {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  justify-self: end;
+}
+
+.lumi-login-brand h2.ant-typography {
+  margin: 0 0 4px;
+  font-size: clamp(30px, 3vw, 44px);
+}
+
+.lumi-login-brand .ant-typography-secondary {
+  font-size: 16px;
+}
+
+.lumi-login-logo {
+  display: grid;
+  width: 84px;
+  height: 84px;
+  place-items: center;
+  border-radius: 26px;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 800;
+  background: linear-gradient(145deg, #78b9f5, #427fc8);
+  box-shadow: 0 18px 42px rgba(68, 132, 202, 0.3);
+}
+
+.lumi-login-card {
+  width: min(440px, 100%);
+  padding: 18px 16px 12px;
+  border: 1px solid rgba(221, 228, 238, 0.8);
+  border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(47, 76, 112, 0.13);
+}
+
+.lumi-login-card h3.ant-typography {
+  margin-bottom: 6px;
+}
+
+.lumi-login-error {
+  margin-bottom: 18px;
+}
+
+.lumi-login-foot {
+  margin-top: 20px;
+  color: var(--lumi-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: rgba(91, 102, 117, 0.28);
+  background-clip: padding-box;
+}
+
+.lumi-admin-v2 {
+  min-height: 100vh;
+}
+
+.lumi-admin-v2 .ant-pro-layout .ant-layout {
+  min-height: 100vh;
+}
+
+.lumi-admin-logo {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #79b8f3, #4b8dd6);
+  box-shadow: 0 6px 14px rgba(91, 159, 232, 0.28);
+}
+
+.lumi-admin-avatar {
+  background: linear-gradient(135deg, #6aaef0, #417fca);
+}
+
+.lumi-admin-content {
+  width: 100%;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 22px 28px 36px;
+}
+
+.lumi-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.lumi-page-heading .ant-typography {
+  margin: 0;
+}
+
+.lumi-page-heading h3.ant-typography {
+  margin-bottom: 4px;
+  font-size: 24px;
+  line-height: 1.35;
+}
+
+.lumi-legacy-page {
+  width: 100%;
+}
+
+.lumi-page-loading {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+}
+
+.lumi-admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.lumi-metrics .lumi-metric-card {
+  position: relative;
+  min-height: 132px;
+  overflow: hidden;
+  border: 1px solid var(--lumi-border);
+  box-shadow: 0 2px 8px rgba(31, 39, 51, 0.035);
+}
+
+.lumi-metric-icon {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+.lumi-metric-card .ant-statistic-title {
+  margin-bottom: 8px;
+}
+
+.lumi-metric-card .ant-statistic-content {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.lumi-metric-trend {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.lumi-table-card {
+  border: 1px solid var(--lumi-border);
+  box-shadow: 0 2px 8px rgba(31, 39, 51, 0.035);
+}
+
+.lumi-table-card > .ant-card-body {
+  padding: 0;
+}
+
+.lumi-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--lumi-border);
+}
+
+.lumi-search-input {
+  width: 320px;
+}
+
+.lumi-table-card .ant-table-wrapper {
+  padding: 0 4px 4px;
+}
+
+.lumi-table-card .ant-table-cell {
+  vertical-align: middle;
+}
+
+.lumi-table-image {
+  object-fit: cover;
+  border-radius: 10px;
+  background: #eef2f7;
+}
+
+.lumi-work-cell {
+  display: flex;
+  width: 220px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.lumi-review-work {
+  display: flex;
+  width: 250px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lumi-table-tabs > .ant-tabs-nav {
+  margin: 0;
+  padding: 0 20px;
+}
+
+.lumi-report-actions {
+  width: 100%;
+}
+
+.lumi-report-actions .ant-btn {
+  height: 42px;
+}
+
+.lumi-drawer-actions {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+html[data-admin-density="compact"] .lumi-table-card .ant-table-cell {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.lumi-legacy-page .page-body {
+  padding: 0;
+}
+
+.lumi-legacy-page .card {
+  border: 1px solid var(--lumi-border);
+  border-radius: 14px;
+  background: var(--lumi-card-bg);
+  box-shadow: 0 2px 8px rgba(31, 39, 51, 0.035);
+}
+
+.lumi-legacy-page > .card {
+  margin-bottom: 16px;
+}
+
+.lumi-legacy-page > .btn.btn-soft.btn-block {
+  width: auto;
+  min-width: 132px;
+  margin: 0 0 16px auto !important;
+  padding: 0 18px;
+  color: #fff;
+  border-color: var(--lumi-primary);
+  background: var(--lumi-primary);
+}
+
+.lumi-legacy-page .lrow {
+  min-height: 62px;
+  padding: 14px 16px;
+}
+
+.lumi-legacy-page .lrow + .lrow {
+  border-top: 1px solid var(--lumi-border);
+}
+
+.lumi-legacy-page .lr-t {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lumi-legacy-page .lr-s {
+  line-height: 1.55;
+}
+
+.lumi-legacy-page .chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.lumi-legacy-page .chip {
+  min-height: 34px;
+  padding: 7px 14px;
+  border: 1px solid var(--lumi-border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.lumi-legacy-page .chip.active {
+  color: var(--lumi-primary-deep);
+  border-color: rgba(91, 159, 232, 0.4);
+  background: rgba(91, 159, 232, 0.1);
+}
+
+.lumi-legacy-page .searchbar {
+  width: min(520px, 100%);
+  min-height: 40px;
+  margin-bottom: 14px;
+  border: 1px solid #d9e0e9;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.lumi-legacy-page .kv {
+  min-height: 52px;
+  padding: 12px 16px;
+}
+
+.lumi-admin-v2 button.switch,
+.ant-drawer button.switch {
+  padding: 0;
+  border: 0;
+}
+
+.lumi-legacy-page .empty {
+  min-height: 240px;
+  border: 1px dashed #d9e0e9;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ant-drawer .card {
+  border: 1px solid var(--lumi-border);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.ant-drawer .field-label {
+  display: block;
+  margin: 16px 0 7px;
+  color: var(--lumi-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ant-drawer .lrow {
+  min-height: 52px;
+  padding: 10px 4px;
+}
+
+.ant-drawer .lrow + .lrow {
+  border-top: 1px solid var(--lumi-border);
+}
+
+.ant-drawer .btn-block {
+  width: 100%;
+}
+
+.ant-drawer .nav-btn {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+}
+
+.ant-drawer .nav-btn:hover {
+  background: #eef3f8;
+}
+
+.lumi-legacy-page .stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.lumi-legacy-page .stat-card {
+  min-height: 122px;
+  padding: 18px;
+  border: 1px solid var(--lumi-border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(31, 39, 51, 0.035);
+}
+
+.lumi-legacy-page .stat-card .sc-val {
+  font-size: 26px;
+}
+
+.lumi-legacy-page .wgrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.lumi-legacy-page .input,
+.ant-drawer .input {
+  min-height: 40px;
+  border-color: #d9e0e9;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.lumi-legacy-page .btn,
+.ant-drawer .btn {
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.lumi-legacy-page .search {
+  max-width: 520px;
+}
+
+.lumi-legacy-page .seg,
+.lumi-legacy-page .chips {
+  overflow-x: auto;
+}
+
+html[data-admin-density="compact"] .lumi-admin-content {
+  padding-top: 16px;
+}
+
+html[data-admin-density="compact"] .lumi-legacy-page .card,
+html[data-admin-density="compact"] .lumi-legacy-page .stat-card {
+  border-radius: 10px;
+}
+
+html[data-admin-density="compact"] .lumi-legacy-page .lrow {
+  min-height: 48px;
+}
+
+@media (max-width: 1199px) {
+  .lumi-admin-content {
+    padding: 20px;
+  }
+
+  .lumi-legacy-page .wgrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .lumi-header-density {
+    display: none;
+  }
+
+  .ant-pro-global-header-header-actions-avatar > div > span:last-child {
+    display: none;
+  }
+
+  .lumi-login-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 34px;
+    padding: 28px 18px;
+  }
+
+  .lumi-login-brand {
+    justify-self: auto;
+  }
+
+  .lumi-login-logo {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    font-size: 26px;
+  }
+
+  .lumi-login-card {
+    padding: 8px 4px 4px;
+  }
+
+  .lumi-admin-content {
+    padding: 14px 12px 28px;
+  }
+
+  .lumi-page-heading {
+    margin-bottom: 14px;
+  }
+
+  .lumi-page-heading h3.ant-typography {
+    font-size: 20px;
+  }
+
+  .lumi-page-heading .ant-typography-secondary {
+    display: none;
+  }
+
+  .lumi-legacy-page .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .lumi-table-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumi-search-input {
+    width: min(100%, 420px);
+  }
+
+  .lumi-legacy-page .stat-card {
+    min-height: 104px;
+    padding: 14px;
+  }
+
+  .lumi-legacy-page .wgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .lumi-legacy-page .wgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
