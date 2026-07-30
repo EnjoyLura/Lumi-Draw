@@ -186,6 +186,7 @@ export interface AdminWorkQuery {
   page?: number;
   pageSize?: number;
   keyword?: string;
+  userId?: number;
   status?: "draft" | "pending" | "published" | "rejected" | "offline";
   featured?: boolean;
   recommend?: boolean;
@@ -197,6 +198,7 @@ export async function apiGetWorksPage(options: AdminWorkQuery = {}): Promise<Pag
     pageSize: String(options.pageSize || 20)
   });
   if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
+  if (options.userId) params.set("userId", String(options.userId));
   if (options.status) params.set("status", options.status);
   if (typeof options.featured === "boolean") params.set("featured", String(options.featured));
   if (typeof options.recommend === "boolean") params.set("recommend", String(options.recommend));
@@ -311,9 +313,25 @@ function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
   };
 }
 
+export interface AdminReviewQuery {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}
+
+export async function apiGetReviewsPage(options: AdminReviewQuery = {}): Promise<Paginated<AdminWorkDetailData>> {
+  const params = new URLSearchParams({
+    page: String(options.page || 1),
+    pageSize: String(options.pageSize || 20),
+    status: options.status || "pending"
+  });
+  const page = await http.get<Paginated<ApiReviewWork>>(`/admin/reviews?${params.toString()}`);
+  return { ...page, items: page.items.map(mapReviewWork) };
+}
+
 export async function apiGetReviews(status = "pending"): Promise<AdminWorkDetailData[]> {
-  const page = await http.get<Paginated<ApiReviewWork>>(`/admin/reviews?status=${encodeURIComponent(status)}&page=1&pageSize=100`);
-  return page.items.map(mapReviewWork);
+  const page = await apiGetReviewsPage({ status, page: 1, pageSize: 100 });
+  return page.items;
 }
 
 export async function apiApproveReview(id: number) {
@@ -344,9 +362,25 @@ function mapReport(r: ApiReport): AdminReportData {
   };
 }
 
+export interface AdminReportQuery {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+}
+
+export async function apiGetReportsPage(options: AdminReportQuery = {}): Promise<Paginated<AdminReportData>> {
+  const params = new URLSearchParams({
+    page: String(options.page || 1),
+    pageSize: String(options.pageSize || 20),
+    status: options.status || "pending"
+  });
+  const page = await http.get<Paginated<ApiReport>>(`/admin/reports?${params.toString()}`);
+  return { ...page, items: page.items.map(mapReport) };
+}
+
 export async function apiGetReports(): Promise<AdminReportData[]> {
-  const page = await http.get<Paginated<ApiReport>>("/admin/reports?status=pending&page=1&pageSize=100");
-  return page.items.map(mapReport);
+  const page = await apiGetReportsPage({ status: "pending", page: 1, pageSize: 100 });
+  return page.items;
 }
 
 export async function apiResolveReport(id: number, action: "offline" | "warn" | "ignore") {

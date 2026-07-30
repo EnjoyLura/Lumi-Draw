@@ -23,9 +23,9 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminMetrics } from "../components/AdminMetrics";
 import {
   apiApproveReview,
-  apiGetReports,
+  apiGetReportsPage,
   apiGetReviewSummary,
-  apiGetReviews,
+  apiGetReviewsPage,
   apiRejectReview,
   apiResolveReport,
   type AdminReportData,
@@ -36,6 +36,8 @@ import { useAdminSession } from "../data/adminSession";
 import { IMG, REPORTS, WORKS, userName, type AdminReport, type AdminWork } from "../data/mock";
 import { getReports, getWorks } from "../data/service";
 import { useNav } from "../shell/NavContext";
+
+const PAGE_SIZE = 20;
 
 const MODERATION_STATUS_TEXT: Record<string, string> = {
   unchecked: "未提交",
@@ -152,19 +154,21 @@ export function Review({ param }: { param?: string }) {
   const { useMock } = useAdminSession();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState(param === "report" ? "report" : "work");
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reportPage, setReportPage] = useState(1);
 
   useEffect(() => {
     if (param === "report") setTab("report");
   }, [param]);
 
   const reviewsQuery = useQuery({
-    queryKey: ["admin", "reviews", "pending"],
-    queryFn: () => apiGetReviews(),
+    queryKey: ["admin", "reviews", "pending", reviewPage],
+    queryFn: () => apiGetReviewsPage({ status: "pending", page: reviewPage, pageSize: PAGE_SIZE }),
     enabled: !useMock
   });
   const reportsQuery = useQuery({
-    queryKey: ["admin", "reports", "pending"],
-    queryFn: apiGetReports,
+    queryKey: ["admin", "reports", "pending", reportPage],
+    queryFn: () => apiGetReportsPage({ status: "pending", page: reportPage, pageSize: PAGE_SIZE }),
     enabled: !useMock
   });
   const summaryQuery = useQuery({
@@ -173,8 +177,16 @@ export function Review({ param }: { param?: string }) {
     enabled: !useMock
   });
 
-  const works = useMock ? getWorks().filter((work) => work.status === "待审核") : reviewsQuery.data ?? [];
-  const reports = useMock ? getReports().filter((report) => report.status === "待处理") : reportsQuery.data ?? [];
+  const allMockWorks = useMock ? getWorks().filter((work) => work.status === "待审核") : [];
+  const allMockReports = useMock ? getReports().filter((report) => report.status === "待处理") : [];
+  const works = useMock
+    ? allMockWorks.slice((reviewPage - 1) * PAGE_SIZE, reviewPage * PAGE_SIZE)
+    : reviewsQuery.data?.items ?? [];
+  const reports = useMock
+    ? allMockReports.slice((reportPage - 1) * PAGE_SIZE, reportPage * PAGE_SIZE)
+    : reportsQuery.data?.items ?? [];
+  const workTotal = useMock ? allMockWorks.length : reviewsQuery.data?.total ?? 0;
+  const reportTotal = useMock ? allMockReports.length : reportsQuery.data?.total ?? 0;
   const summary: AdminReviewSummary | undefined = useMock ? undefined : summaryQuery.data;
   const reload = async () => {
     if (!useMock) {
@@ -296,21 +308,25 @@ export function Review({ param }: { param?: string }) {
     <div className="lumi-admin-page">
       <AdminMetrics
         items={[
-          { key: "pending", title: "待审核作品", value: useMock ? works.length : summary?.pending ?? works.length, icon: <ClockCircleOutlined />, color: "#F59E0B" },
+          { key: "pending", title: "待审核作品", value: useMock ? workTotal : summary?.pending ?? workTotal, icon: <ClockCircleOutlined />, color: "#F59E0B" },
           { key: "reviewed", title: "今日已审", value: useMock ? 328 : summary?.reviewed ?? 0, icon: <CheckCircleOutlined />, color: "#22C55E" },
           { key: "rate", title: "通过率", value: useMock ? 94 : summary?.passRate ?? 0, suffix: "%", icon: <PieChartOutlined />, color: "#5B9FE8" },
-          { key: "reports", title: "举报待处理", value: useMock ? reports.length : summary?.pendingReports ?? reports.length, icon: <FlagOutlined />, color: "#EF4444" }
+          { key: "reports", title: "举报待处理", value: useMock ? reportTotal : summary?.pendingReports ?? reportTotal, icon: <FlagOutlined />, color: "#EF4444" }
         ]}
       />
       <Card className="lumi-table-card">
         <Tabs
           activeKey={tab}
-          onChange={setTab}
+          onChange={(value) => {
+            setTab(value);
+            if (value === "work") setReviewPage(1);
+            if (value === "report") setReportPage(1);
+          }}
           className="lumi-table-tabs"
           items={[
             {
               key: "work",
-              label: `作品审核 ${works.length ? `(${works.length})` : ""}`,
+              label: `作品审核 ${workTotal ? `(${workTotal})` : ""}`,
               children: (
                 <Table<AdminWorkDetailData>
                   rowKey="id"
@@ -318,13 +334,21 @@ export function Review({ param }: { param?: string }) {
                   dataSource={works as AdminWorkDetailData[]}
                   loading={!useMock && reviewsQuery.isFetching}
                   scroll={{ x: 1120 }}
-                  pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+                  pagination={{
+                    current: reviewPage,
+                    pageSize: PAGE_SIZE,
+                    total: workTotal,
+                    showSizeChanger: false,
+                    showQuickJumper: true,
+                    showTotal: (total) => `共 ${total} 条`,
+                    onChange: setReviewPage
+                  }}
                 />
               )
             },
             {
               key: "report",
-              label: `举报管理 ${reports.length ? `(${reports.length})` : ""}`,
+              label: `举报管理 ${reportTotal ? `(${reportTotal})` : ""}`,
               children: (
                 <Table<AdminReportData>
                   rowKey="id"
@@ -332,7 +356,15 @@ export function Review({ param }: { param?: string }) {
                   dataSource={reportRows}
                   loading={!useMock && reportsQuery.isFetching}
                   scroll={{ x: 960 }}
-                  pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+                  pagination={{
+                    current: reportPage,
+                    pageSize: PAGE_SIZE,
+                    total: reportTotal,
+                    showSizeChanger: false,
+                    showQuickJumper: true,
+                    showTotal: (total) => `共 ${total} 条`,
+                    onChange: setReportPage
+                  }}
                 />
               )
             }

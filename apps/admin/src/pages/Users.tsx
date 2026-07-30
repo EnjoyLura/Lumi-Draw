@@ -56,7 +56,7 @@ export function Users() {
       pageSize: PAGE_SIZE,
       keyword: searchKeyword,
       status: status === "all" ? undefined : status,
-      member: member === "member" ? "会员" : undefined
+      member: member === "member" ? "member" : undefined
     }),
     enabled: !useMock,
     placeholderData: keepPreviousData

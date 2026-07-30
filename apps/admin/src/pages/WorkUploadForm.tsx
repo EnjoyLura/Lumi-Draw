@@ -8,7 +8,7 @@ import {
   apiGetQualities,
   apiGetRatios,
   apiGetStyles,
-  apiGetUsers,
+  apiGetUsersPage,
   apiUploadAdminWorkImage
 } from "../data/api";
 import {
@@ -64,12 +64,14 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
     let active = true;
     void (async () => {
       try {
-        const data = useMock ? [USERS, MODELS, QUALITIES, RATIOS, STYLES, CATEGORIES] as const : await Promise.all([apiGetUsers(), apiGetModels(), apiGetQualities(), apiGetRatios(), apiGetStyles(), apiGetCategories()]);
+        const data = useMock ? [USERS, MODELS, QUALITIES, RATIOS, STYLES, CATEGORIES] as const : await Promise.all([apiGetModels(), apiGetQualities(), apiGetRatios(), apiGetStyles(), apiGetCategories()]);
         if (!active) return;
-        const [nextUsers, nextModels, nextQualities, nextRatios, nextStyles, nextCategories] = data;
+        const [nextUsers, nextModels, nextQualities, nextRatios, nextStyles, nextCategories] = useMock
+          ? data as [AdminUser[], AdminModel[], AdminQuality[], AdminRatio[], AdminStyle[], AdminCategory[]]
+          : [[], ...(data as [AdminModel[], AdminQuality[], AdminRatio[], AdminStyle[], AdminCategory[]])];
         setUsers(nextUsers); setModels(nextModels); setQualities(nextQualities); setRatios(nextRatios); setStyles(nextStyles); setCategories(nextCategories);
         form.setFieldsValue({
-          userId: nextUsers[0]?.id,
+          userId: useMock ? nextUsers[0]?.id : undefined,
           modelId: nextModels.find((item) => item.on)?.id ?? nextModels[0]?.id,
           quality: nextQualities.find((item) => item.on)?.label ?? nextQualities[0]?.label,
           ratio: nextRatios.find((item) => item.on)?.label ?? nextRatios[0]?.label,
@@ -97,7 +99,9 @@ export function WorkUploadForm({ useMock, onPublished }: { useMock: boolean; onP
     setSearchingUsers(true);
     try {
       const keyword = authorQuery.trim();
-      const matches = useMock ? USERS.filter((user) => !keyword || user.name.includes(keyword) || String(user.id).includes(keyword)) : await apiGetUsers({ keyword });
+      const matches = useMock
+        ? USERS.filter((user) => !keyword || user.name.includes(keyword) || String(user.id).includes(keyword))
+        : (await apiGetUsersPage({ keyword, page: 1, pageSize: 20 })).items;
       setUsers(matches);
       form.setFieldValue("userId", matches[0]?.id);
       if (!matches.length) toast("没有找到匹配用户");

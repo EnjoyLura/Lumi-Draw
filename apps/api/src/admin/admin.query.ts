@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsIn, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsIn, IsNumberString, IsOptional, IsString } from "class-validator";
 import { PageQueryDto } from "../common/dto/pagination";
 
 const toBool = ({ value }: { value: unknown }) =>
@@ -23,6 +23,10 @@ export class AdminWorkQueryDto extends PageQueryDto {
   @IsOptional()
   @IsString()
   keyword?: string;
+
+  @IsOptional()
+  @IsNumberString()
+  userId?: string;
 
   @IsOptional()
   @IsIn(["draft", "pending", "published", "rejected", "offline"])

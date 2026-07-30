@@ -81,7 +81,8 @@ export class AdminService {
     const { keyword, status, member, page, pageSize } = query;
     const where: Prisma.UserWhereInput = {};
     if (status) where.status = status;
-    if (member) where.memberPlan = member;
+    if (member === "member") where.memberPlan = { not: "" };
+    else if (member) where.memberPlan = member;
     if (keyword?.trim()) {
       const kw = keyword.trim();
       const or: Prisma.UserWhereInput[] = [{ nickname: { contains: kw } }, { phone: { contains: kw } }];
@@ -121,8 +122,10 @@ export class AdminService {
   }
 
   async works(query: AdminWorkQueryDto) {
-    const { keyword, status, featured, recommend, page, pageSize } = query;
+    const { keyword, status, featured, recommend, page, pageSize, userId } = query;
     const where: Prisma.WorkWhereInput = {};
+    const parsedUserId = Number.parseInt(userId ?? "", 10);
+    if (Number.isInteger(parsedUserId) && parsedUserId > 0) where.userId = parsedUserId;
     if (status) where.status = status;
     if (typeof featured === "boolean") where.featured = featured;
     if (typeof recommend === "boolean") where.recommend = recommend;

@@ -1,9 +1,9 @@
 import { EditOutlined, GiftOutlined, LockOutlined, UnlockOutlined, UserOutlined, WalletOutlined } from "@ant-design/icons";
 import { Alert, Avatar, Button, Card, Descriptions, Form, Input, InputNumber, Popconfirm, Select, Space, Spin, Statistic, Table, Tabs, Tag, Typography } from "antd";
 import { useState } from "react";
-import { apiAdjustUserCredits, apiBanUser, apiGetMemberPlans, apiGetTransactionsPage, apiGetUserDetail, apiGiftUserMember, apiUnbanUser, apiUpdateUser, type AdminUserDetailData } from "../data/api";
+import { apiAdjustUserCredits, apiBanUser, apiGetMemberPlans, apiGetPaymentOrdersPage, apiGetTransactionsPage, apiGetUserDetail, apiGetWorksPage, apiGiftUserMember, apiUnbanUser, apiUpdateUser, type AdminUserDetailData } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { MEMBER_PLANS, USERS, type AdminTxn, type AdminUser } from "../data/mock";
+import { MEMBER_PLANS, USERS, type AdminTxn, type AdminUser, type AdminWork } from "../data/mock";
 import { getTransactions, getUser, getUserWorks } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
@@ -87,29 +87,59 @@ export function UserDetail({ param }: { param?: string }) {
   const { openSheet, toast, go } = useNav();
   const { useMock } = useAdminSession();
   const [tab, setTab] = useState("info");
-  const [transactionPage, setTransactionPage] = useState(1);
+  const [recordPage, setRecordPage] = useState(1);
+  const [worksPage, setWorksPage] = useState(1);
   const userId = Number(param ?? 0);
   const userState = useAsyncData(useMock ? null : () => apiGetUserDetail(userId), [useMock, userId]);
-  const transactionState = useAsyncData(useMock ? null : () => apiGetTransactionsPage({ userId, page: transactionPage, pageSize: 20 }), [useMock, userId, transactionPage]);
+  const creditState = useAsyncData(
+    useMock || tab !== "credit" ? null : () => apiGetTransactionsPage({ userId, page: recordPage, pageSize: 20 }),
+    [useMock, userId, tab, recordPage]
+  );
+  const spendState = useAsyncData(
+    useMock || tab !== "spend" ? null : () => apiGetTransactionsPage({ userId, type: "consume", page: recordPage, pageSize: 20 }),
+    [useMock, userId, tab, recordPage]
+  );
+  const rechargeState = useAsyncData(
+    useMock || tab !== "recharge" ? null : () => apiGetPaymentOrdersPage({ userId, page: recordPage, pageSize: 20 }),
+    [useMock, userId, tab, recordPage]
+  );
+  const worksState = useAsyncData(
+    useMock || tab !== "works" ? null : () => apiGetWorksPage({ userId, page: worksPage, pageSize: 20 }),
+    [useMock, userId, tab, worksPage]
+  );
   const user = useMock ? mockUserDetail(userId) : userState.data;
-  const transactions = useMock ? getTransactions().filter((item) => item.userId === userId) : transactionState.data?.items ?? [];
-  const works = useMock ? getUserWorks(user?.id ?? 0) : user?.recentWorks ?? [];
-  const afterChanged = () => { if (!useMock) { void userState.reload(); void transactionState.reload(); } };
+  const mockTransactions = useMock ? getTransactions().filter((item) => item.userId === userId) : [];
+  const creditRows = useMock ? mockTransactions : creditState.data?.items ?? [];
+  const rechargeRows = useMock ? mockTransactions.filter(isRecharge) : rechargeState.data?.items ?? [];
+  const spendRows = useMock ? mockTransactions.filter(isSpend) : spendState.data?.items ?? [];
+  const recordRows = tab === "recharge" ? rechargeRows : tab === "spend" ? spendRows : creditRows;
+  const recordState = tab === "recharge" ? rechargeState : tab === "spend" ? spendState : creditState;
+  const recordTotal = useMock ? recordRows.length : recordState.data?.total ?? 0;
+  const works = useMock ? getUserWorks(user?.id ?? 0) : worksState.data?.items ?? [];
+  const worksTotal = useMock ? works.length : worksState.data?.total ?? user?.works ?? 0;
+  const afterChanged = () => {
+    if (!useMock) {
+      void userState.reload();
+      void creditState.reload();
+      void rechargeState.reload();
+      void spendState.reload();
+      void worksState.reload();
+    }
+  };
   if (userState.loading) return <div className="lumi-page-loading"><Spin size="large" tip="正在加载用户详情" /></div>;
   if (userState.error) return <Alert showIcon type="error" message="用户详情加载失败" description={userState.error} />;
   if (!user) return <Alert showIcon type="warning" message="用户不存在或已被删除" />;
   const banned = user.status === "封禁";
-  const filteredTransactions = tab === "recharge" ? transactions.filter(isRecharge) : tab === "spend" ? transactions.filter(isSpend) : transactions;
   const unban = async () => { try { if (useMock) { const target = USERS.find((item) => item.id === user.id); if (target) { target.status = "正常"; target.active = true; } } else await apiUnbanUser(user.id); afterChanged(); toast("用户已解封"); } catch (cause) { toast(cause instanceof Error ? cause.message : "解封失败，请稍后重试"); } };
   return <div className="lumi-admin-page lumi-user-detail-page">
     <Card className="lumi-detail-hero" bordered={false}><Space align="center" size={16} wrap><Avatar size={72} style={{ background: user.color }}>{user.avatar || user.name.slice(0, 1)}</Avatar><div className="lumi-detail-hero__copy"><Space wrap><Typography.Title level={3}>{user.name}</Typography.Title><StatusBadge s={user.status} />{user.member !== "无" ? <Tag color="gold">{user.member}</Tag> : null}</Space><Typography.Paragraph type="secondary">ID {user.id} · {user.phone || "未绑定手机号"} · 注册于 {user.reg}</Typography.Paragraph><Typography.Text>{user.bio || "暂无个人简介"}</Typography.Text></div></Space></Card>
     <div className="lumi-detail-stat-grid"><Card><Statistic title="积分余额" value={user.credits} prefix={<WalletOutlined />} /></Card><Card><Statistic title="作品数量" value={user.works} /></Card><Card><Statistic title="粉丝数量" value={user.followers} /></Card><Card><Statistic title="获赞数量" value={user.likes} /></Card></div>
-    <Tabs activeKey={tab} onChange={(value) => { setTab(value); setTransactionPage(1); }} items={[
+    <Tabs activeKey={tab} onChange={(value) => { setTab(value); setRecordPage(1); if (value === "works") setWorksPage(1); }} items={[
       { key: "info", label: "资料", children: <Card className="lumi-detail-card"><Descriptions column={{ xs: 1, md: 2 }} size="small"><Descriptions.Item label="性别">{user.gender || "未知"}</Descriptions.Item><Descriptions.Item label="关注数">{user.following}</Descriptions.Item><Descriptions.Item label="会员状态">{user.member === "无" ? "未开通" : user.member}</Descriptions.Item><Descriptions.Item label="账号状态">{user.status}</Descriptions.Item><Descriptions.Item label="个人简介" span={2}>{user.bio || "暂无"}</Descriptions.Item></Descriptions></Card> },
-      { key: "credit", label: "积分流水", children: <TransactionTable rows={filteredTransactions} loading={transactionState.loading} total={useMock ? filteredTransactions.length : transactionState.data?.total ?? 0} page={transactionPage} onPage={setTransactionPage} /> },
-      { key: "recharge", label: "充值与会员", children: <TransactionTable rows={filteredTransactions} loading={transactionState.loading} total={useMock ? filteredTransactions.length : transactionState.data?.total ?? 0} page={transactionPage} onPage={setTransactionPage} /> },
-      { key: "spend", label: "消费", children: <TransactionTable rows={filteredTransactions} loading={transactionState.loading} total={useMock ? filteredTransactions.length : transactionState.data?.total ?? 0} page={transactionPage} onPage={setTransactionPage} /> },
-      { key: "works", label: `作品（${works.length}）`, children: <Card className="lumi-table-card"><Table rowKey="id" dataSource={works} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无作品" }} columns={[{ title: "作品", dataIndex: "title", render: (value, work) => <Button type="link" onClick={() => go("workDetail", String(work.id))}>{value || "未命名作品"}</Button> }, { title: "状态", dataIndex: "status", render: (value) => <StatusBadge s={value} /> }, { title: "点赞", dataIndex: "likes" }, { title: "发布时间", dataIndex: "time" }]} /></Card> }
+      { key: "credit", label: "积分流水", children: <TransactionTable rows={recordRows} loading={recordState.loading} total={recordTotal} page={recordPage} onPage={setRecordPage} /> },
+      { key: "recharge", label: "充值与会员", children: <TransactionTable rows={recordRows} loading={recordState.loading} total={recordTotal} page={recordPage} onPage={setRecordPage} /> },
+      { key: "spend", label: "消费", children: <TransactionTable rows={recordRows} loading={recordState.loading} total={recordTotal} page={recordPage} onPage={setRecordPage} /> },
+      { key: "works", label: `作品（${worksTotal}）`, children: <Card className="lumi-table-card"><Table<AdminWork> rowKey="id" loading={!useMock && worksState.loading} dataSource={works} pagination={{ current: worksPage, pageSize: 20, total: worksTotal, showSizeChanger: false, showQuickJumper: true, onChange: setWorksPage }} locale={{ emptyText: "暂无作品" }} columns={[{ title: "作品", dataIndex: "title", render: (value, work) => <Button type="link" onClick={() => go("workDetail", String(work.id))}>{value || "未命名作品"}</Button> }, { title: "状态", dataIndex: "status", render: (value) => <StatusBadge s={value} /> }, { title: "点赞", dataIndex: "likes" }, { title: "发布时间", dataIndex: "time" }]} /></Card> }
     ]} />
     <div className="lumi-detail-actions"><Button icon={<EditOutlined />} onClick={() => openSheet("编辑用户", <EditUserForm user={user} useMock={useMock} onDone={afterChanged} />)}>编辑资料</Button><Button icon={<WalletOutlined />} onClick={() => openSheet("调整积分", <CreditForm user={user} useMock={useMock} onDone={afterChanged} />)}>调整积分</Button><Button icon={<GiftOutlined />} onClick={() => openSheet("赠送会员", <GiftMemberForm user={user} useMock={useMock} onDone={afterChanged} />)}>赠送会员</Button>{banned ? <Button type="primary" icon={<UnlockOutlined />} onClick={() => void unban()}>解封用户</Button> : <Popconfirm title="确认封禁此用户？" okText="封禁" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => openSheet("封禁用户", <BanUserForm user={user} useMock={useMock} onDone={afterChanged} />)}><Button danger icon={<LockOutlined />}>封禁用户</Button></Popconfirm>}</div>
   </div>;
