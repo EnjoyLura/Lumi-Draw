@@ -1,3 +1,5 @@
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Switch as AntSwitch, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { ConfigImagePicker } from "../components/ConfigImagePicker";
 import { AdminImage } from "../components/AdminImage";
@@ -7,7 +9,7 @@ import { GAMEPLAYS, IMG, nextId, type AdminGameplay } from "../data/mock";
 import { getGameplays } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
+import { Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -111,26 +113,11 @@ export function OpsGameplay() {
     })();
   }, true);
 
-  return (
-    <>
-      <AddBtn text="新增玩法模板" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载玩法中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card">
-        {gameplays.map((g) => (
-          <div key={g.id} className="lrow" style={{ cursor: "default" }}>
-            <AdminImage className="thumb" src={g.thumbnailUrl || g.imageUrl || IMG("gp" + g.id)} style={{ width: 44, height: 44 }} alt="" />
-            <div className="lr-main">
-              <div className="lr-t">{g.name}{g.hot ? <>&nbsp;<Badge text="HOT" type="danger" /></> : null}</div>
-              <div className="lr-s">{g.desc}</div>
-              <div className="lr-s" style={{ marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.prompt}</div>
-              <div className="lr-s" style={{ marginTop: 1 }}>使用 {g.uses}</div>
-            </div>
-            <Switch on={g.on} onToggle={() => toggle(g)} />
-            <CtrlIcons onEdit={() => openForm(g.id)} onDelete={() => del(g)} />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="玩法模板" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(0)}>新增玩法模板</Button>}><Table<AdminGameplay> rowKey="id" loading={loading} dataSource={gameplays} pagination={false} scroll={{ x: 1100 }} locale={{ emptyText: error || "暂无玩法模板" }} columns={[
+    { title: "玩法", width: 300, render: (_, gameplay) => <Space align="start"><AdminImage className="lumi-table-image" src={gameplay.thumbnailUrl || gameplay.imageUrl || IMG("gp" + gameplay.id)} style={{ width: 48, height: 48 }} alt="" /><div><Space size={4}><Typography.Text strong>{gameplay.name}</Typography.Text>{gameplay.hot ? <Tag color="red">HOT</Tag> : null}</Space><Typography.Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: "3px 0 0", maxWidth: 210 }}>{gameplay.desc}</Typography.Paragraph></div></Space> },
+    { title: "预设提示词", width: 320, dataIndex: "prompt", render: (prompt) => <Typography.Paragraph ellipsis={{ rows: 2, tooltip: prompt }} type="secondary" style={{ margin: 0, maxWidth: 300 }}>{prompt}</Typography.Paragraph> },
+    { title: "使用人数", dataIndex: "uses", width: 130 },
+    { title: "启用", dataIndex: "on", width: 90, render: (_, gameplay) => <AntSwitch checked={gameplay.on} onChange={() => void toggle(gameplay)} /> },
+    { title: "操作", width: 160, render: (_, gameplay) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(gameplay.id)}>编辑</Button><Button type="link" danger onClick={() => del(gameplay)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

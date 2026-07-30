@@ -1,3 +1,5 @@
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Table, Typography } from "antd";
 import { useState } from "react";
 import { ConfigImagePicker } from "../components/ConfigImagePicker";
 import { AdminImage } from "../components/AdminImage";
@@ -7,7 +9,7 @@ import { IMG, nextId, STYLES, type AdminStyle } from "../data/mock";
 import { getStyles } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, CtrlIcons, SortCtrl } from "../ui";
+import { SortCtrl } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -97,27 +99,10 @@ export function OpsStyle() {
     }
   };
 
-  return (
-    <>
-      <AddBtn text="新增风格" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载风格中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card">
-        {styles.map((s, i) => (
-          <div key={s.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <AdminImage className="thumb" src={s.thumbnailUrl || s.imageUrl || IMG("st" + s.n)} style={{ width: 40, height: 40, marginTop: 2 }} alt="" />
-            <div className="lr-main">
-              <div className="lr-t">{s.n}</div>
-              <div className="lr-s">使用 {s.s} 次 · 排序 {i + 1}</div>
-              <div className="lr-s" style={{ whiteSpace: "normal", color: "var(--fg-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>{s.prompt || "（未设置提示词）"}</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-              <SortCtrl index={i} len={styles.length} onMove={(d) => { void move(i, d); }} />
-              <CtrlIcons onEdit={() => openForm(s.id)} onDelete={() => del(s)} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="创作风格" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(0)}>新增风格</Button>}><Table<AdminStyle> rowKey="id" loading={loading} dataSource={styles} pagination={false} scroll={{ x: 1040 }} locale={{ emptyText: error || "暂无风格" }} columns={[
+    { title: "风格", width: 260, render: (_, style) => <Space align="start"><AdminImage className="lumi-table-image" src={style.thumbnailUrl || style.imageUrl || IMG("st" + style.n)} style={{ width: 48, height: 48 }} alt="" /><div><Typography.Text strong>{style.n}</Typography.Text><Typography.Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: "3px 0 0", maxWidth: 180 }}>{style.prompt || "未设置提示词"}</Typography.Paragraph></div></Space> },
+    { title: "使用次数", dataIndex: "s", width: 150, render: (count) => `${Number(count || 0).toLocaleString("zh-CN")} 次` },
+    { title: "排序", width: 170, render: (_, __, index) => <Space><Typography.Text type="secondary">{index + 1}</Typography.Text><SortCtrl index={index} len={styles.length} onMove={(direction) => void move(index, direction)} /></Space> },
+    { title: "操作", width: 160, render: (_, style) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(style.id)}>编辑</Button><Button type="link" danger onClick={() => del(style)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

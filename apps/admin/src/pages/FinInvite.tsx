@@ -1,69 +1,15 @@
+import { GiftOutlined, TeamOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Col, Form, InputNumber, Row, Spin, Switch, Typography } from "antd";
 import { useEffect, useState } from "react";
 import { apiGetInviteConfig, apiSaveInviteConfig, type AdminInviteConfig } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Sec, Switch } from "../ui";
 
+const DEFAULT_CONFIG: AdminInviteConfig = { enabled: false, inviterReward: 10, inviteeReward: 0, cap: 10 };
 export function FinInvite() {
-  const { toast } = useNav();
-  const { useMock } = useAdminSession();
-  const { data, loading, error, reload } = useAsyncData<AdminInviteConfig>(useMock ? null : () => apiGetInviteConfig(), [useMock]);
-  const [on, setOn] = useState(false);
-  const [inviter, setInviter] = useState("10");
-  const [invitee, setInvitee] = useState("0");
-  const [cap, setCap] = useState("10");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!useMock && data) {
-      setOn(data.enabled);
-      setInviter(String(data.inviterReward));
-      setInvitee(String(data.inviteeReward));
-      setCap(String(data.cap));
-    }
-  }, [data, useMock]);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (!useMock) {
-        await apiSaveInviteConfig({
-          enabled: on,
-          inviterReward: parseInt(inviter) || 0,
-          inviteeReward: parseInt(invitee) || 0,
-          cap: parseInt(cap) || 0
-        });
-        reload();
-      }
-      toast("已保存邀请配置");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <>
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载邀请配置中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv">
-          <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开启邀请功能</span>
-          <Switch on={on} onToggle={() => setOn(!on)} />
-        </div>
-      </div>
-      <Sec title="奖励规则" />
-      <div className="card" style={{ padding: 14 }}>
-        <label className="field-label">邀请人奖励（积分）</label>
-        <input className="input" type="number" value={inviter} onChange={(e) => setInviter(e.target.value)} />
-        <label className="field-label" style={{ marginTop: 12 }}>被邀请人奖励（积分）</label>
-        <input className="input" type="number" value={invitee} onChange={(e) => setInvitee(e.target.value)} />
-        <label className="field-label" style={{ marginTop: 12 }}>单用户邀请上限</label>
-        <input className="input" type="number" value={cap} onChange={(e) => setCap(e.target.value)} />
-      </div>
-      <div className="actionbar"><button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存配置"}</button></div>
-    </>
-  );
+  const { toast } = useNav(); const { useMock } = useAdminSession(); const { data, loading, error, reload } = useAsyncData<AdminInviteConfig>(useMock ? null : apiGetInviteConfig, [useMock]); const [form] = Form.useForm<AdminInviteConfig>(); const [saving, setSaving] = useState(false); const config = useMock ? DEFAULT_CONFIG : data ?? DEFAULT_CONFIG;
+  useEffect(() => { form.setFieldsValue(config); }, [config, form]);
+  const save = async (values: AdminInviteConfig) => { setSaving(true); try { if (!useMock) { await apiSaveInviteConfig({ enabled: Boolean(values.enabled), inviterReward: Math.max(0, Number(values.inviterReward) || 0), inviteeReward: Math.max(0, Number(values.inviteeReward) || 0), cap: Math.max(0, Number(values.cap) || 0) }); await reload(); } toast("邀请配置已保存"); } catch (cause) { toast(cause instanceof Error ? cause.message : "保存失败，请稍后重试"); } finally { setSaving(false); } };
+  return <div className="lumi-admin-page lumi-config-page"><Alert showIcon type="info" message="提审版可关闭邀请入口；上线后再启用奖励活动。" />{error ? <Alert showIcon type="error" message="加载邀请配置失败" description={error} /> : null}<Spin spinning={loading}><Form form={form} layout="vertical" onFinish={save} requiredMark={false}><Card className="lumi-invite-switch-card"><div><Typography.Text strong><TeamOutlined /> 开启邀请功能</Typography.Text><Typography.Paragraph type="secondary">启用后，用户可使用邀请码邀请朋友注册。</Typography.Paragraph></div><Form.Item name="enabled" valuePropName="checked" noStyle><Switch /></Form.Item></Card><Row gutter={[16,16]}><Col xs={24} md={8}><Card className="lumi-config-card"><Form.Item label="邀请人奖励" name="inviterReward" rules={[{ required: true, message: "请输入奖励" }]}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Card></Col><Col xs={24} md={8}><Card className="lumi-config-card"><Form.Item label="被邀请人奖励" name="inviteeReward" rules={[{ required: true, message: "请输入奖励" }]}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Card></Col><Col xs={24} md={8}><Card className="lumi-config-card"><Form.Item label="单用户邀请上限" name="cap" rules={[{ required: true, message: "请输入上限" }]}><InputNumber min={0} precision={0} addonAfter="人" style={{ width: "100%" }} /></Form.Item></Card></Col></Row><Card className="lumi-form-actions-card"><span><GiftOutlined /> 奖励将在被邀请用户完成注册后发放。</span><Button type="primary" htmlType="submit" loading={saving}>保存邀请配置</Button></Card></Form></Spin></div>;
 }

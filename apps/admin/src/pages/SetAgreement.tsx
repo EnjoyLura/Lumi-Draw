@@ -1,68 +1,31 @@
+import { EditOutlined, FileTextOutlined } from "@ant-design/icons";
+import { Button, Card, Form, Input, Space, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { apiGetAgreements, apiSaveAgreement, type AdminAgreement } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 
-const AGREEMENTS: Array<[string, string]> = [
-  ["用户协议", "最近更新 2025-05-10"],
-  ["隐私政策", "最近更新 2025-05-10"],
-  ["充值协议", "最近更新 2025-03-01"],
-  ["社区规范", "最近更新 2025-04-15"]
+const AGREEMENTS = [
+  { name: "用户协议", updatedAt: "2025-05-10" },
+  { name: "隐私政策", updatedAt: "2025-05-10" },
+  { name: "充值协议", updatedAt: "2025-03-01" },
+  { name: "社区规范", updatedAt: "2025-04-15" }
 ];
 
-const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
-
-function AgreementBody({ name, agreement, useMock, onSaved }: { name: string; agreement?: AdminAgreement; useMock: boolean; onSaved: () => void }) {
-  const { closeSheet, toast } = useNav();
-  const [content, setContent] = useState(agreement?.content ?? `欢迎使用露米绘画（Lumi-Draw）。本${name}为示例内容，用于原型演示。请在此编辑协议正文……`);
-  const [saving, setSaving] = useState(false);
-  const save = async () => {
-    setSaving(true);
-    try {
-      if (!useMock) await apiSaveAgreement(name, content);
-      closeSheet();
-      onSaved();
-      toast("已保存并生效");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <>
-      <textarea className="input" rows={12} style={{ fontSize: 13, lineHeight: 1.7 }} value={content} onChange={(e) => setContent(e.target.value)} />
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存并生效"}</button>
-      </div>
-    </>
-  );
+function AgreementForm({ name, agreement, useMock, onSaved }: { name: string; agreement?: AdminAgreement; useMock: boolean; onSaved: () => void }) {
+  const { closeSheet, toast } = useNav(); const [form] = Form.useForm<{ content: string }>(); const [saving, setSaving] = useState(false);
+  const save = async ({ content }: { content: string }) => { setSaving(true); try { if (!useMock) await apiSaveAgreement(name, content); closeSheet(); onSaved(); toast("协议已保存并生效"); } catch (cause) { toast(cause instanceof Error ? cause.message : "保存失败，请稍后重试"); } finally { setSaving(false); } };
+  return <Form form={form} layout="vertical" initialValues={{ content: agreement?.content ?? `欢迎使用露米绘画AI。请在此维护《${name}》正文。` }} onFinish={save} requiredMark={false}><Form.Item label="协议正文" name="content" rules={[{ required: true, whitespace: true, message: "协议正文不能为空" }]}><Input.TextArea autoSize={{ minRows: 14, maxRows: 24 }} /></Form.Item><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button type="primary" htmlType="submit" loading={saving}>保存并生效</Button></div></Form>;
 }
 
 export function SetAgreement() {
-  const { openSheet } = useNav();
-  const { useMock } = useAdminSession();
-  const { data, loading, error, reload } = useAsyncData<AdminAgreement[]>(useMock ? null : () => apiGetAgreements(), [useMock]);
-  const agreements = data ?? [];
-  const getAgreement = (name: string) => agreements.find((a) => a.name === name || a.title === name);
-  return (
-    <>
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载协议中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card">
-        {AGREEMENTS.map(([name, sub]) => {
-          const agreement = getAgreement(name);
-          return (
-            <div key={name} className="lrow" onClick={() => openSheet(name, <AgreementBody name={name} agreement={agreement} useMock={useMock} onSaved={reload} />)}>
-              <div className="lr-ico" style={{ background: "var(--bg-soft)", color: "var(--fg-2)" }}><i className="ri-file-text-line" /></div>
-              <div className="lr-main"><div className="lr-t">{name}</div><div className="lr-s">{agreement?.updatedAt ? `最近更新 ${agreement.updatedAt}` : sub}</div></div>
-              <i className="ri-arrow-right-s-line lr-arrow" />
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
+  const { openSheet } = useNav(); const { useMock } = useAdminSession(); const { data, loading, error, reload } = useAsyncData<AdminAgreement[]>(useMock ? null : apiGetAgreements, [useMock]);
+  const getAgreement = (name: string) => (data ?? []).find((agreement) => agreement.name === name || agreement.title === name);
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="协议与规范"><Table rowKey="name" loading={loading} dataSource={AGREEMENTS} pagination={false} locale={{ emptyText: error || "暂无协议" }} columns={[
+    { title: "协议", dataIndex: "name", render: (name) => <Space><span className="lumi-table-icon"><FileTextOutlined /></span><Typography.Text strong>{name}</Typography.Text></Space> },
+    { title: "状态", width: 140, render: (_, item) => <Tag color={getAgreement(item.name) ? "green" : "default"}>{getAgreement(item.name) ? "已配置" : "待配置"}</Tag> },
+    { title: "最近更新", width: 180, render: (_, item) => getAgreement(item.name)?.updatedAt ? `最近更新 ${getAgreement(item.name)?.updatedAt}` : `最近更新 ${item.updatedAt}` },
+    { title: "操作", width: 150, render: (_, item) => <Button type="link" icon={<EditOutlined />} onClick={() => openSheet(`编辑${item.name}`, <AgreementForm name={item.name} agreement={getAgreement(item.name)} useMock={useMock} onSaved={() => void reload()} />)}>编辑</Button> }
+  ]} /></Card></div>;
 }

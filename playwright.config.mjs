@@ -2,9 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/ui",
-  timeout: 30_000,
-  expect: { timeout: 8_000 },
-  fullyParallel: true,
+  // 管理后台含多张图片和按需加载的桌面组件；限制本地并发可避免 Vite 静态服务被并发浏览器抢占。
+  timeout: 45_000,
+  expect: { timeout: 10_000 },
+  fullyParallel: false,
+  workers: 2,
   reporter: [["list"]],
   use: {
     trace: "retain-on-failure"

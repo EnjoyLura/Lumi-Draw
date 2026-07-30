@@ -1,3 +1,5 @@
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Switch as AntSwitch, Table, Typography } from "antd";
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
 import { apiDeleteAnnouncement, apiGetAnnouncements, apiSaveAnnouncement, apiSetAnnouncementPopup } from "../data/api";
@@ -6,7 +8,7 @@ import { ANNOUNCEMENTS, ANNOUNCE_ACTIONS, IMG, nextId, type AdminAnnounce } from
 import { getAnnouncements } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, CtrlIcons, Switch } from "../ui";
+import { Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -112,31 +114,11 @@ export function MsgAnnounce() {
     })();
   }, true);
 
-  return (
-    <>
-      <AddBtn text="新增公告" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载公告中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {list.map((a) => (
-        <div key={a.id} className="card" style={{ marginBottom: 10, overflow: "hidden" }}>
-          <div style={{ position: "relative" }}>
-            <AdminImage src={IMG("announce" + a.id)} style={{ width: "100%", height: 96, objectFit: "cover", display: "block" }} alt="" />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg,rgba(0,0,0,.55),transparent 60%)" }} />
-            <div style={{ position: "absolute", left: 12, bottom: 8, right: 12, color: "#fff", fontSize: 14, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,.4)" }}>{a.title}</div>
-          </div>
-          <div style={{ padding: "10px 14px" }}>
-            <div style={{ fontSize: 12, color: "var(--fg-2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.summary}</div>
-            <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 6 }}>跳转：{a.action} · 生效：{a.range}</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>首页弹出</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <Switch on={a.popup} onToggle={() => toggle(a)} />
-              <CtrlIcons onEdit={() => openForm(a.id)} onDelete={() => del(a)} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </>
-  );
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="弹窗公告" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(0)}>新增公告</Button>}><Table<AdminAnnounce> rowKey="id" loading={loading} dataSource={list} pagination={false} scroll={{ x: 1040 }} locale={{ emptyText: error || "暂无公告" }} columns={[
+    { title: "公告", width: 360, render: (_, announcement) => <Space align="start"><AdminImage className="lumi-table-image" src={IMG("announce" + announcement.id)} style={{ width: 92, height: 54 }} alt="" /><div><Typography.Text strong>{announcement.title}</Typography.Text><Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: "3px 0 0", maxWidth: 225 }}>{announcement.summary}</Typography.Paragraph></div></Space> },
+    { title: "跳转动作", dataIndex: "action", width: 200 },
+    { title: "生效范围", dataIndex: "range", width: 160 },
+    { title: "首页弹出", dataIndex: "popup", width: 120, render: (_, announcement) => <AntSwitch checked={announcement.popup} onChange={() => void toggle(announcement)} /> },
+    { title: "操作", width: 160, render: (_, announcement) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(announcement.id)}>编辑</Button><Button type="link" danger onClick={() => del(announcement)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

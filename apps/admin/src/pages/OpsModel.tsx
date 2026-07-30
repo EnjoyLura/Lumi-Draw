@@ -1,3 +1,5 @@
+import { AppstoreOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Switch as AntSwitch, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
 import { apiDeleteModel, apiGetGenerationProviders, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
@@ -6,7 +8,7 @@ import { GENERATION_PROVIDERS, IMG, MODEL_BADGES, MODELS, type AdminGenerationPr
 import { getModels } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
+import { Badge, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -218,33 +220,35 @@ export function OpsModel() {
     })();
   }, true);
 
+  const loadError = error || providersError;
   return (
-    <>
-      <AddBtn text="新增模型" onClick={() => openForm("")} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载模型中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {providersLoading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
-      {providersError ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{providersError}</div></div> : null}
-      <div className="card">
-        {models.map((model) => (
-          <div key={model.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <AdminImage className="thumb" src={IMG("model" + model.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
-            <div className="lr-main">
-              <div className="lr-t">{model.name}{model.badge ? <>&nbsp;<Badge text={model.badge} type="info" /></> : null}</div>
-              <div className="lr-s">{model.desc}</div>
-              {model.tags?.length ? <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>{model.tags.map((tag) => <Badge key={tag} text={tag} type="muted" />)}</div> : null}
-              <div className="lr-s" style={{ marginTop: 4 }}>消耗 {model.cost} 积分/次</div>
-              <div style={{ display: "grid", gap: 3, marginTop: 7 }}>
-                {QUALITY_TIERS.map((tier) => <div key={tier} className="lr-s"><b style={{ color: "var(--fg-2)" }}>{tier}</b>&nbsp; {routeFor(model, tier)}</div>)}
-              </div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
-              <Switch on={model.on} onToggle={() => toggle(model)} />
-              <CtrlIcons onEdit={() => openForm(model.id)} onDelete={() => del(model)} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
+    <div className="lumi-admin-page">
+      <Card className="lumi-table-card" title="创作模型" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm("")}>新增模型</Button>}>
+        <Table<AdminModel>
+          rowKey="id"
+          loading={loading || providersLoading}
+          dataSource={models}
+          pagination={false}
+          scroll={{ x: 1160 }}
+          locale={{ emptyText: loadError || "暂无创作模型" }}
+          columns={[
+            {
+              title: "模型",
+              width: 320,
+              render: (_, model) => <Space align="start"><AdminImage className="lumi-table-image" src={IMG("model" + model.id)} style={{ width: 46, height: 46 }} alt="" /><div><Space size={4} wrap><Typography.Text strong>{model.name}</Typography.Text>{model.badge ? <Tag color="blue">{model.badge}</Tag> : null}</Space><Typography.Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: "3px 0 0", maxWidth: 250 }}>{model.desc}</Typography.Paragraph></div></Space>
+            },
+            { title: "能力标签", width: 230, render: (_, model) => <Space size={[4, 4]} wrap>{model.tags?.length ? model.tags.map((tag) => <Tag key={tag}>{tag}</Tag>) : <Typography.Text type="secondary">—</Typography.Text>}</Space> },
+            { title: "单次成本", dataIndex: "cost", width: 130, render: (cost) => <Typography.Text strong>{cost} 积分</Typography.Text> },
+            {
+              title: "分辨率降级线路",
+              width: 320,
+              render: (_, model) => <div className="lumi-model-routes">{QUALITY_TIERS.map((tier) => <span key={tier}><Tag color={tier === "4K" ? "purple" : tier === "2K" ? "blue" : "default"}>{tier}</Tag>{routeFor(model, tier)}</span>)}</div>
+            },
+            { title: "启用", dataIndex: "on", width: 90, fixed: "right", render: (_, model) => <AntSwitch checked={model.on} onChange={() => void toggle(model)} /> },
+            { title: "操作", width: 150, fixed: "right", render: (_, model) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(model.id)}>编辑</Button><Button type="link" danger onClick={() => del(model)}>删除</Button></Space> }
+          ]}
+        />
+      </Card>
+    </div>
   );
 }

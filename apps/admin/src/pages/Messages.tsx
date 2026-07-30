@@ -1,59 +1,40 @@
+import { BellOutlined, MessageOutlined, NotificationOutlined } from "@ant-design/icons";
+import { Alert, Spin } from "antd";
+import { AdminFeatureGrid, type AdminFeatureItem } from "../components/AdminFeatureGrid";
 import { useAdminSession } from "../data/adminSession";
 import { apiGetAnnouncements, apiGetFeedbacks, apiGetPushes } from "../data/api";
 import { ANNOUNCEMENTS, FEEDBACKS, PUSHES } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
+import { StatCard } from "../ui";
 
-interface MessageSummary {
-  announcements: number;
-  pushes: number;
-  pendingFeedback: number;
-}
-
+interface MessageSummary { announcements: number; pushes: number; pendingFeedback: number; }
 async function loadMessageSummary(): Promise<MessageSummary> {
   const [announcements, pushes, feedbacks] = await Promise.all([apiGetAnnouncements(), apiGetPushes(), apiGetFeedbacks()]);
-  return {
-    announcements: announcements.length,
-    pushes: pushes.length,
-    pendingFeedback: feedbacks.filter((item) => item.status === "待处理").length
-  };
+  return { announcements: announcements.length, pushes: pushes.length, pendingFeedback: feedbacks.filter((item) => item.status === "待处理").length };
 }
 
 export function Messages() {
   const { go } = useNav();
   const { useMock } = useAdminSession();
   const summaryState = useAsyncData<MessageSummary>(useMock ? null : loadMessageSummary, [useMock]);
-  const summary = useMock
-    ? {
-        announcements: ANNOUNCEMENTS.length,
-        pushes: PUSHES.length,
-        pendingFeedback: FEEDBACKS.filter((f) => f.status === "待处理").length
-      }
-    : summaryState.data ?? { announcements: 0, pushes: 0, pendingFeedback: 0 };
-
-  const items: Array<[string, string, string, string, string]> = [
-    ["msgAnnounce", "弹窗公告", "ri-notification-3-line", "#5B9FE8", `${summary.announcements} 条公告`],
-    ["msgPush", "系统通知", "ri-send-plane-line", "#6FD4B0", `${summary.pushes} 条通知`],
-    ["msgFeedback", "用户反馈", "ri-feedback-line", "#F59E0B", `${summary.pendingFeedback} 条待处理`]
+  const summary = useMock ? { announcements: ANNOUNCEMENTS.length, pushes: PUSHES.length, pendingFeedback: FEEDBACKS.filter((item) => item.status === "待处理").length } : summaryState.data ?? { announcements: 0, pushes: 0, pendingFeedback: 0 };
+  const items: AdminFeatureItem[] = [
+    { id: "msgAnnounce", title: "弹窗公告", description: "配置小程序内的运营公告与展示频次", icon: <NotificationOutlined />, color: "#5b9fe8", badge: `${summary.announcements} 条已创建` },
+    { id: "msgPush", title: "系统通知", description: "向全体或指定用户发送站内通知", icon: <BellOutlined />, color: "#8b7fd6", badge: `${summary.pushes} 条历史通知` },
+    { id: "msgFeedback", title: "用户反馈", description: "查看问题反馈、回复用户并跟进处理状态", icon: <MessageOutlined />, color: "#d88900", badge: `${summary.pendingFeedback} 条待处理` }
   ];
-
   return (
-    <div className="card">
-      {!useMock && summaryState.loading ? <div className="empty" style={{ minHeight: 72 }}>消息管理数据加载中...</div> : null}
-      {!useMock && summaryState.error ? (
-        <div className="empty" style={{ minHeight: 96 }}>
-          <i className="ri-error-warning-line" />
-          <div className="et">消息管理数据加载失败</div>
-          <button className="btn btn-soft btn-sm" onClick={summaryState.reload}>重新加载</button>
+    <div className="lumi-admin-page">
+      {summaryState.error && !useMock ? <Alert showIcon type="error" message="消息数据加载失败" description={summaryState.error} /> : null}
+      <Spin spinning={summaryState.loading && !useMock}>
+        <div className="lumi-metrics stat-grid">
+          <StatCard label="弹窗公告" val={summary.announcements} icon="ri-notification-3-line" color="#5b9fe8" soft="#eff6ff" />
+          <StatCard label="系统通知" val={summary.pushes} icon="ri-send-plane-line" color="#8b7fd6" soft="#f5f0ff" />
+          <StatCard label="待处理反馈" val={summary.pendingFeedback} icon="ri-feedback-line" color="#d88900" soft="#fff8e8" />
         </div>
-      ) : null}
-      {items.map(([id, title, icon, color, sub]) => (
-        <div key={id} className="lrow" onClick={() => go(id)}>
-          <div className="lr-ico" style={{ background: `${color}22`, color }}><i className={icon} /></div>
-          <div className="lr-main"><div className="lr-t">{title}</div><div className="lr-s">{sub}</div></div>
-          <i className="ri-arrow-right-s-line lr-arrow" />
-        </div>
-      ))}
+      </Spin>
+      <AdminFeatureGrid items={items} onSelect={(id) => go(id, undefined, true)} />
     </div>
   );
 }

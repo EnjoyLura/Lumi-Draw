@@ -1,74 +1,94 @@
-import { useEffect, useState } from "react";
+import { CalendarOutlined, GiftOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Col, Form, InputNumber, Row, Spin, Statistic, Typography } from "antd";
+import { useEffect, useMemo, useState } from "react";
 import { apiGetCheckinConfig, apiSaveCheckinConfig, type AdminCheckinConfig } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { getCheckin } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Sec } from "../ui";
 
-const DEFAULT_TIERS = [2, 2, 2, 3, 3, 3, 5].map((c, i) => ({ day: i + 1, c }));
+const DEFAULT_TIERS = [2, 2, 2, 3, 3, 3, 5].map((c, index) => ({ day: index + 1, c }));
+const DEFAULT_CONFIG: AdminCheckinConfig = { base: 2, tiers: DEFAULT_TIERS };
+
+interface CheckinFormValues {
+  base: number;
+  tiers: Array<{ day: number; c: number }>;
+}
 
 export function FinCheckin() {
   const { toast } = useNav();
   const { useMock } = useAdminSession();
-  const { data, loading, error, reload } = useAsyncData<AdminCheckinConfig>(useMock ? null : () => apiGetCheckinConfig(), [useMock]);
-  const ck = useMock ? getCheckin() : data ?? { base: 2, tiers: DEFAULT_TIERS };
-  const [base, setBase] = useState(String(ck.base));
-  const [tiers, setTiers] = useState(ck.tiers.map((t) => String(t.c)));
+  const { data, loading, error, reload } = useAsyncData<AdminCheckinConfig>(useMock ? null : apiGetCheckinConfig, [useMock]);
+  const [form] = Form.useForm<CheckinFormValues>();
   const [saving, setSaving] = useState(false);
+  const config = useMock ? DEFAULT_CONFIG : data ?? DEFAULT_CONFIG;
 
   useEffect(() => {
-    if (!useMock && data) {
-      setBase(String(data.base));
-      setTiers(data.tiers.map((t) => String(t.c)));
-    }
-  }, [data, useMock]);
+    form.setFieldsValue({ base: config.base, tiers: config.tiers });
+  }, [config, form]);
 
-  const setTier = (i: number, v: string) => setTiers((prev) => prev.map((x, j) => (j === i ? v : x)));
+  const watchedValues = Form.useWatch([], form);
+  const totalPreview = useMemo(() => {
+    const values = (watchedValues || form.getFieldsValue(true)) as CheckinFormValues;
+    return (values.base || 0) * 7 + (values.tiers || []).reduce((total, item) => total + (item?.c || 0), 0);
+  }, [form, watchedValues]);
 
-  const save = async () => {
+  const save = async (values: CheckinFormValues) => {
+    const normalized = {
+      base: Math.max(0, Number(values.base) || 0),
+      tiers: DEFAULT_TIERS.map((tier, index) => ({ day: tier.day, c: Math.max(0, Number(values.tiers?.[index]?.c) || 0) }))
+    };
     setSaving(true);
     try {
-      if (useMock) {
-        ck.base = parseInt(base) || 0;
-        ck.tiers.forEach((t, i) => { t.c = parseInt(tiers[i]) || 0; });
-      } else {
-        await apiSaveCheckinConfig({
-          base: parseInt(base) || 0,
-          tiers: ck.tiers.map((t, i) => ({ day: t.day, c: parseInt(tiers[i]) || 0 }))
-        });
-        reload();
+      if (!useMock) {
+        await apiSaveCheckinConfig(normalized);
+        await reload();
       }
-      toast("已保存签到配置");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
+      toast("签到配置已保存");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "保存失败，请稍后重试");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <>
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载签到配置中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <Sec title="每日签到积分" />
-      <div className="card" style={{ padding: 14 }}>
-        <label className="field-label">每日基础积分</label>
-        <input className="input" type="number" value={base} onChange={(e) => setBase(e.target.value)} />
-      </div>
-      <Sec title="连续签到里程碑积分" />
-      <div className="card" style={{ padding: "6px 14px" }}>
-        {ck.tiers.map((t, i) => (
-          <div key={t.day} className="kv">
-            <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>连续第 {t.day} 天</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <input className="input" type="number" value={tiers[i]} onChange={(e) => setTier(i, e.target.value)} style={{ width: 82, textAlign: "right", padding: "6px 10px" }} />
-              <span style={{ fontSize: 13, color: "var(--fg-muted)" }}>积分</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="actionbar"><button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存配置"}</button></div>
-    </>
+    <div className="lumi-admin-page lumi-config-page">
+      <Alert showIcon type="info" message="连续签到奖励会叠加每日基础积分；调整后会立即应用到后续签到。" />
+      {error ? <Alert showIcon type="error" message="加载签到配置失败" description={error} /> : null}
+      <Spin spinning={loading}>
+        <Form form={form} layout="vertical" onFinish={save} requiredMark={false}>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={8}>
+              <Card title={<><CalendarOutlined /> 每日基础积分</>} className="lumi-config-card">
+                <Typography.Paragraph type="secondary">用户每日完成签到即可获得的固定积分。</Typography.Paragraph>
+                <Form.Item name="base" rules={[{ required: true, message: "请输入每日基础积分" }]}>
+                  <InputNumber min={0} max={100000} precision={0} addonAfter="积分 / 天" style={{ width: "100%" }} />
+                </Form.Item>
+              </Card>
+            </Col>
+            <Col xs={24} xl={16}>
+              <Card title={<><GiftOutlined /> 连续签到里程碑</>} className="lumi-config-card">
+                <Row gutter={[12, 12]}>
+                  {DEFAULT_TIERS.map((tier, index) => (
+                    <Col key={tier.day} xs={12} sm={8} md={6} xl={3}>
+                      <Card size="small" className="lumi-checkin-tier-card">
+                        <Typography.Text type="secondary">第 {tier.day} 天</Typography.Text>
+                        <Form.Item name={["tiers", index, "c"]} initialValue={tier.c} rules={[{ required: true, message: "必填" }]}>
+                          <InputNumber min={0} max={100000} precision={0} addonAfter="分" style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              </Card>
+            </Col>
+          </Row>
+          <Card className="lumi-form-actions-card">
+            <Statistic title="按当前规则，连续签到 7 天最多可得" value={totalPreview} suffix="积分" />
+            <Button type="primary" htmlType="submit" loading={saving}>保存签到配置</Button>
+          </Card>
+        </Form>
+      </Spin>
+    </div>
   );
 }

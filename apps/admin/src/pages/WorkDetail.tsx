@@ -73,7 +73,7 @@ function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock:
   };
 
   return (
-    <>
+    <div className="lumi-detail-page lumi-work-detail-page">
       <label className="field-label">作品标题</label>
       <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="作品标题" />
       <label className="field-label" style={{ marginTop: 12 }}>作品描述</label>
@@ -96,7 +96,7 @@ function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock:
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
-    </>
+    </div>
   );
 }
 

@@ -1,4 +1,25 @@
-// 通用展示组件（移植自 prototype/admin-prototype.html 的 statCard/avatar/badge/searchBar/sec 等辅助函数）
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+  SearchOutlined
+} from "@ant-design/icons";
+import {
+  Avatar as AntAvatar,
+  Button,
+  Card,
+  Input,
+  Segmented,
+  Space,
+  Statistic,
+  Switch as AntSwitch,
+  Tag,
+  Tooltip,
+  Typography
+} from "antd";
 import { useState } from "react";
 import { AdminImage } from "./components/AdminImage";
 import { IMG, statusType, userName, type AdminWork } from "./data/mock";
@@ -14,32 +35,48 @@ export interface StatCardProps {
   onClick?: () => void;
 }
 
+/** Shared dashboard metric used by legacy and v2 pages. */
 export function StatCard({ label, val, delta, icon, color, soft, onClick }: StatCardProps) {
   return (
-    <div className="stat-card" style={onClick ? { cursor: "pointer" } : undefined} onClick={onClick}>
-      <div className="sc-top">
-        <div className="sc-ico" style={{ background: soft, color }}><i className={icon} /></div>
-        <div className="sc-label">{label}</div>
-        {onClick ? <i className="ri-arrow-right-s-line" style={{ marginLeft: "auto", color: "var(--fg-muted)", fontSize: 16 }} /> : null}
-      </div>
-      <div className="sc-val">{val}</div>
+    <Card
+      className="lumi-stat-card"
+      hoverable={Boolean(onClick)}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <span className="lumi-stat-card__icon" style={{ color, background: soft }}><i className={icon} /></span>
+      <Statistic title={label} value={val} />
       {delta !== undefined ? (
-        <div className={`sc-delta ${delta >= 0 ? "up" : "down"}`}>
-          <i className={`ri-arrow-${delta >= 0 ? "up" : "down"}-line`} />{Math.abs(delta)}%
-        </div>
+        <Typography.Text className={delta >= 0 ? "lumi-stat-card__delta is-up" : "lumi-stat-card__delta is-down"}>
+          <i className={`ri-arrow-${delta >= 0 ? "up" : "down"}-line`} /> 较昨日 {Math.abs(delta)}%
+        </Typography.Text>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 export function Avatar({ a, color, size = 40 }: { a: string; color: string; size?: number }) {
-  return (
-    <span className="avatar" style={{ width: size, height: size, background: color, fontSize: size * 0.4 }}>{a}</span>
-  );
+  return <AntAvatar size={size} style={{ background: color, fontWeight: 700 }}>{a}</AntAvatar>;
 }
 
+const TAG_COLORS: Record<string, string> = {
+  success: "success",
+  warning: "warning",
+  danger: "error",
+  info: "processing",
+  muted: "default",
+  purple: "purple"
+};
+
 export function Badge({ text, type }: { text: string; type: string }) {
-  return <span className={`badge b-${type}`}>{text}</span>;
+  return <Tag className="lumi-status-tag" color={TAG_COLORS[type] || "default"}>{text}</Tag>;
 }
 
 export function StatusBadge({ s }: { s: string }) {
@@ -48,31 +85,37 @@ export function StatusBadge({ s }: { s: string }) {
 
 export function SearchBar({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <div className="searchbar">
-      <i className="ri-search-line" />
-      <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      {value ? <i className="ri-close-circle-fill" style={{ color: "var(--fg-muted)", cursor: "pointer" }} onClick={() => onChange("")} /> : null}
-    </div>
+    <Input
+      allowClear
+      className="lumi-control-search"
+      placeholder={placeholder}
+      prefix={<SearchOutlined />}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
   );
 }
 
 export function Chips({ items, active, onPick }: { items: string[]; active: string; onPick: (v: string) => void }) {
   return (
-    <div className="chips">
-      {items.map((f) => (
-        <span key={f} className={`chip${active === f ? " active" : ""}`} onClick={() => onPick(f)}>{f}</span>
-      ))}
-    </div>
+    <Segmented
+      className="lumi-filter-segmented"
+      options={items}
+      value={active}
+      onChange={(value) => onPick(String(value))}
+    />
   );
 }
 
 export function Seg({ items, active, onPick, small }: { items: Array<[string, string]>; active: string; onPick: (v: string) => void; small?: boolean }) {
   return (
-    <div className="seg">
-      {items.map(([v, label]) => (
-        <span key={v} className={`seg-i${active === v ? " active" : ""}`} style={small ? { fontSize: 12 } : undefined} onClick={() => onPick(v)}>{label}</span>
-      ))}
-    </div>
+    <Segmented
+      block
+      size={small ? "small" : "middle"}
+      options={items.map(([value, label]) => ({ label, value }))}
+      value={active}
+      onChange={(value) => onPick(String(value))}
+    />
   );
 }
 
@@ -87,83 +130,62 @@ export function WorkCard({ w, operations }: { w: AdminWork; operations?: WorkCar
   const { go } = useNav();
   const featured = Boolean(w.featured || w.status === "精选");
   return (
-    <div className="wcard" onClick={() => go("workDetail", String(w.id))}>
-      <div style={{ position: "relative" }}>
-        <AdminImage className="thumb" src={w.thumbnailUrl || w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1" }} alt="" />
-        <span style={{ position: "absolute", top: 6, left: 6, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: "calc(100% - 12px)" }}>
-          {featured ? <span className="badge" style={{ color: "#B86B00", background: "rgba(255,255,255,.94)", border: "1px solid rgba(184,107,0,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-star-fill" />精选</span> : null}
-          {w.recommend ? <span className="badge" style={{ color: "#347CC2", background: "rgba(255,255,255,.94)", border: "1px solid rgba(52,124,194,.2)", boxShadow: "0 2px 8px rgba(0,0,0,.16)" }}><i className="ri-home-heart-fill" />首页推荐</span> : null}
-          {!featured && !w.recommend && w.status !== "已发布" ? <StatusBadge s={w.status} /> : null}
-        </span>
-      </div>
-      <div style={{ padding: "8px 9px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title || w.prompt.slice(0, 10)}</div>
-        <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 3, display: "flex", justifyContent: "space-between" }}>
-          <span>{w.authorName || userName(w.userId)}</span>
-          <span><i className="ri-heart-3-line" /> {w.likes}</span>
+    <Card
+      className="lumi-work-card"
+      hoverable
+      cover={
+        <div className="lumi-work-card__cover">
+          <AdminImage src={w.thumbnailUrl || w.imageUrl || IMG("w" + w.id)} alt={w.title || w.prompt} />
+          <Space className="lumi-work-card__tags" size={4} wrap>
+            {featured ? <Tag color="gold">精选</Tag> : null}
+            {w.recommend ? <Tag color="blue">首页推荐</Tag> : null}
+            {!featured && !w.recommend && w.status !== "已发布" ? <StatusBadge s={w.status} /> : null}
+          </Space>
         </div>
+      }
+      onClick={() => go("workDetail", String(w.id))}
+    >
+      <Typography.Text className="lumi-work-card__title" ellipsis>{w.title || w.prompt.slice(0, 16)}</Typography.Text>
+      <div className="lumi-work-card__meta">
+        <Typography.Text type="secondary" ellipsis>{w.authorName || userName(w.userId)}</Typography.Text>
+        <Typography.Text type="secondary"><i className="ri-heart-3-line" /> {w.likes}</Typography.Text>
       </div>
       {operations ? (
-        <div className="work-card-operations" onClick={(event) => event.stopPropagation()}>
-          <div className="work-card-operation">
-            <span><i className="ri-star-fill" />精选</span>
-            <Switch on={Boolean(w.featured)} disabled={operations.featuredPending} onToggle={operations.onToggleFeatured} />
-          </div>
-          <div className="work-card-operation">
-            <span><i className="ri-home-heart-fill" />首页推荐</span>
-            <Switch on={Boolean(w.recommend)} disabled={operations.recommendPending} onToggle={operations.onToggleRecommend} />
-          </div>
+        <div className="lumi-work-card__operations" onClick={(event) => event.stopPropagation()}>
+          <span><i className="ri-star-fill" />精选</span>
+          <AntSwitch size="small" checked={Boolean(w.featured)} loading={operations.featuredPending} onChange={operations.onToggleFeatured} />
+          <span><i className="ri-home-heart-fill" />首页推荐</span>
+          <AntSwitch size="small" checked={Boolean(w.recommend)} loading={operations.recommendPending} onChange={operations.onToggleRecommend} />
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }
 
 export function Switch({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      className={`switch${on ? " on" : ""}`}
-      role="switch"
-      aria-checked={on}
-      aria-disabled={disabled}
-      style={disabled ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!disabled) onToggle();
-      }}
-    />
-  );
+  return <AntSwitch checked={on} disabled={disabled} onChange={onToggle} />;
 }
 
 export function AddBtn({ text, onClick }: { text: string; onClick: () => void }) {
-  return (
-    <button className="btn btn-soft btn-block" style={{ marginBottom: 12 }} onClick={onClick}>
-      <i className="ri-add-line" />{text}
-    </button>
-  );
+  return <Button className="lumi-page-primary-action" type="primary" icon={<PlusOutlined />} onClick={onClick}>{text}</Button>;
 }
 
-const CTRL_BTN: React.CSSProperties = { width: 30, height: 30, fontSize: 18 };
-
 export function SortCtrl({ index, len, onMove }: { index: number; len: number; onMove: (dir: number) => void }) {
-  const up = index > 0;
-  const down = index < len - 1;
   return (
-    <>
-      <button type="button" className="nav-btn" aria-label="提高优先级" disabled={!up} style={{ ...CTRL_BTN, color: up ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (up) onMove(-1); }}><i className="ri-arrow-up-s-line" /></button>
-      <button type="button" className="nav-btn" aria-label="降低优先级" disabled={!down} style={{ ...CTRL_BTN, color: down ? "var(--fg-2)" : "var(--border-strong)" }} onClick={(e) => { e.stopPropagation(); if (down) onMove(1); }}><i className="ri-arrow-down-s-line" /></button>
-    </>
+    <Space.Compact>
+      <Tooltip title="提高优先级"><Button type="text" icon={<ArrowUpOutlined />} disabled={index === 0} onClick={() => onMove(-1)} /></Tooltip>
+      <Tooltip title="降低优先级"><Button type="text" icon={<ArrowDownOutlined />} disabled={index === len - 1} onClick={() => onMove(1)} /></Tooltip>
+    </Space.Compact>
   );
 }
 
 export function CtrlIcons({ onCopy, onEdit, onDelete }: { onCopy?: () => void; onEdit: () => void; onDelete: () => void }) {
   return (
-    <>
-      {onCopy ? <button type="button" className="nav-btn" title="复制配置" aria-label="复制配置" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onCopy(); }}><i className="ri-file-copy-line" /></button> : null}
-      <button type="button" className="nav-btn" aria-label="编辑" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={(e) => { e.stopPropagation(); onEdit(); }}><i className="ri-edit-line" /></button>
-      <button type="button" className="nav-btn" aria-label="删除" style={{ width: 32, height: 32, fontSize: 17, color: "var(--danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(); }}><i className="ri-delete-bin-line" /></button>
-    </>
+    <Space size={0} onClick={(event) => event.stopPropagation()}>
+      {onCopy ? <Tooltip title="复制配置"><Button type="text" icon={<CopyOutlined />} aria-label="复制配置" onClick={onCopy} /></Tooltip> : null}
+      <Tooltip title="编辑"><Button type="text" icon={<EditOutlined />} aria-label="编辑" onClick={onEdit} /></Tooltip>
+      <Tooltip title="删除"><Button danger type="text" icon={<DeleteOutlined />} aria-label="删除" onClick={onDelete} /></Tooltip>
+    </Space>
   );
 }
 
@@ -173,11 +195,11 @@ export function BarChart({ data, labels, grad, valueFormatter = String }: { data
   return (
     <div className="bars">
       {data.map((v, i) => (
-        <div key={i} className={`bar-col${selected === i ? " selected" : ""}`} onClick={() => setSelected(i)}>
-          {selected === i ? <div className="bar-tip">{valueFormatter(v)}</div> : null}
-          <div className="bar" style={{ height: v > 0 ? `${Math.max(5, (v / max) * 100)}%` : 0, background: grad }} />
-          <div className="bar-x">{labels[i]}</div>
-        </div>
+        <button type="button" key={labels[i] || i} className={`bar-col${selected === i ? " selected" : ""}`} onClick={() => setSelected(i)}>
+          {selected === i ? <span className="bar-tip">{valueFormatter(v)}</span> : null}
+          <span className="bar" style={{ height: v > 0 ? `${Math.max(5, (v / max) * 100)}%` : 0, background: grad }} />
+          <span className="bar-x">{labels[i]}</span>
+        </button>
       ))}
     </div>
   );
@@ -186,17 +208,17 @@ export function BarChart({ data, labels, grad, valueFormatter = String }: { data
 export function RankBar({ name, val, max, color }: { name: string; val: number; max: number; color: string }) {
   return (
     <div className="rankbar">
-      <div className="rb-top"><span>{name}</span><span style={{ color: "var(--fg-muted)" }}>{val}</span></div>
-      <div className="rb-track"><div className="rb-fill" style={{ width: `${(val / max) * 100}%`, background: color }} /></div>
+      <div className="rb-top"><span>{name}</span><span>{val}</span></div>
+      <div className="rb-track"><div className="rb-fill" style={{ width: `${max ? (val / max) * 100 : 0}%`, background: color }} /></div>
     </div>
   );
 }
 
 export function Sec({ title, more, onMore }: { title: string; more?: string; onMore?: () => void }) {
   return (
-    <div className="sec-title">
-      <span>{title}</span>
-      {more ? <span className="more" onClick={onMore}>{more}<i className="ri-arrow-right-s-line" /></span> : null}
+    <div className="lumi-section-heading">
+      <Typography.Title level={5}>{title}</Typography.Title>
+      {more ? <Button type="link" size="small" onClick={onMore}>{more}</Button> : null}
     </div>
   );
 }

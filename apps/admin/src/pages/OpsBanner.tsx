@@ -1,3 +1,5 @@
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Switch as AntSwitch, Table, Typography } from "antd";
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
 import { apiDeleteBanner, apiGetBanners, apiSaveBanner, apiSetBannerEnabled, apiUploadBannerImage } from "../data/api";
@@ -6,7 +8,7 @@ import { BANNERS, IMG, nextId, type AdminBanner } from "../data/mock";
 import { getBanners } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, CtrlIcons, SortCtrl, Switch } from "../ui";
+import { SortCtrl, Switch } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
 const ACTIONS = [
@@ -180,32 +182,11 @@ export function OpsBanner() {
     })();
   }, true);
 
-  return (
-    <>
-      <AddBtn text="新增轮播图" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载走马灯中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {banners.map((b, i) => (
-        <div key={b.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
-          <div style={{ display: "flex", gap: 12 }}>
-            <AdminImage className="thumb" src={b.thumbnailUrl || b.imageUrl || IMG("banner" + b.id)} style={{ width: 80, height: 54, flexShrink: 0 }} alt="" />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>{b.title}</span>
-                <Switch on={b.on} onToggle={() => toggle(b)} />
-              </div>
-              <div style={{ fontSize: 12, color: "var(--fg-muted)", lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.desc || "（暂无描述）"}</div>
-            </div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>跳转：{b.action} · 排序 {b.sort}</span>
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <SortCtrl index={i} len={banners.length} onMove={(d) => move(i, d)} />
-              <CtrlIcons onEdit={() => openForm(b.id)} onDelete={() => del(b)} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </>
-  );
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="首页走马灯" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(0)}>新增轮播图</Button>}><Table<AdminBanner> rowKey="id" loading={loading} dataSource={banners} pagination={false} scroll={{ x: 1100 }} locale={{ emptyText: error || "暂无走马灯" }} columns={[
+    { title: "内容", width: 340, render: (_, banner) => <Space align="start"><AdminImage className="lumi-table-image" src={banner.thumbnailUrl || banner.imageUrl || IMG("banner" + banner.id)} style={{ width: 94, height: 58 }} alt="" /><div><Typography.Text strong>{banner.title}</Typography.Text><Typography.Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ margin: "4px 0 0", maxWidth: 210 }}>{banner.desc || "暂无描述"}</Typography.Paragraph></div></Space> },
+    { title: "跳转页面", dataIndex: "action", width: 220, render: (action) => ACTIONS.find((item) => item.value === action)?.label || action },
+    { title: "启用", dataIndex: "on", width: 100, render: (_, banner) => <AntSwitch checked={banner.on} onChange={() => void toggle(banner)} /> },
+    { title: "排序", width: 170, render: (_, __, index) => <Space><Typography.Text type="secondary">{index + 1}</Typography.Text><SortCtrl index={index} len={banners.length} onMove={(direction) => void move(index, direction)} /></Space> },
+    { title: "操作", width: 160, render: (_, banner) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(banner.id)}>编辑</Button><Button type="link" danger onClick={() => del(banner)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

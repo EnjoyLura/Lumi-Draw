@@ -1,3 +1,5 @@
+import { EditOutlined, GiftOutlined, PlusOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { Button, Card, Col, Form, Input, InputNumber, Row, Space, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { apiDeleteMemberPlan, apiGetMemberPlans, apiSaveMemberPlan } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
@@ -5,117 +7,28 @@ import { MEMBER_PLANS, nextId, type MemberPlan } from "../data/mock";
 import { getMemberPlans } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge } from "../ui";
 import { useRefresh } from "./opsShared";
 
-const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
-
-function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberPlan; useMock: boolean; onSaved: () => void }) {
-  const { closeSheet, toast } = useNav();
-  const p = item ?? (id ? MEMBER_PLANS.find((x) => x.id === id) : undefined);
-  const [name, setName] = useState(p?.name ?? "");
-  const [price, setPrice] = useState(String(p?.price ?? ""));
-  const [gift, setGift] = useState(String(p?.gift ?? 0));
-  const [ckBonus, setCkBonus] = useState(String(p?.ckBonus ?? 0));
-  const [milestoneBonus, setMilestoneBonus] = useState(String(p?.milestoneBonus ?? 0));
-  const [publishBonus, setPublishBonus] = useState(String(p?.publishBonus ?? 0));
-  const [rights, setRights] = useState(p?.rights ?? "");
-  const [saving, setSaving] = useState(false);
-
-  const save = async () => {
-    if (!name.trim()) { toast("请输入名称"); return; }
-    const data = { name: name.trim(), price: parseInt(price) || 0, gift: parseInt(gift) || 0, ckBonus: parseInt(ckBonus) || 0, milestoneBonus: parseInt(milestoneBonus) || 0, publishBonus: parseInt(publishBonus) || 0, rights };
-    setSaving(true);
-    try {
-      if (useMock) {
-        if (p) Object.assign(p, data);
-        else MEMBER_PLANS.push({ id: nextId(MEMBER_PLANS), ...data });
-      } else {
-        await apiSaveMemberPlan(id, { id, ...data });
-      }
-      closeSheet();
-      onSaved();
-      toast(id ? "已保存" : "已新增");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <>
-      <label className="field-label">名称</label>
-      <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="如：月卡" />
-      <label className="field-label" style={{ marginTop: 12 }}>价格（元）</label>
-      <input className="input" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-      <label className="field-label" style={{ marginTop: 12 }}>开通赠送积分</label>
-      <input className="input" type="number" value={gift} onChange={(e) => setGift(e.target.value)} placeholder="购买会员即送的积分" />
-      <label className="field-label" style={{ marginTop: 12 }}>签到额外赠送积分</label>
-      <input className="input" type="number" value={ckBonus} onChange={(e) => setCkBonus(e.target.value)} placeholder="会员每日签到额外多得的积分" />
-      <label className="field-label" style={{ marginTop: 12 }}>权益说明</label>
-      <textarea className="input" rows={3} value={rights} onChange={(e) => setRights(e.target.value)} placeholder="如：赠送100积分·签到额外+1·发布额外+1" />
-      <label className="field-label" style={{ marginTop: 12 }}>签到里程碑额外积分</label>
-      <input className="input" type="number" value={milestoneBonus} onChange={(e) => setMilestoneBonus(e.target.value)} placeholder="会员达成签到里程碑额外获得的积分" />
-      <label className="field-label" style={{ marginTop: 12 }}>发布作品额外积分</label>
-      <input className="input" type="number" value={publishBonus} onChange={(e) => setPublishBonus(e.target.value)} placeholder="会员每次发布作品额外获得的积分" />
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
-      </div>
-    </>
-  );
+type PlanValues = Omit<MemberPlan, "id">;
+function MemberForm({ item, useMock, onSaved }: { item?: MemberPlan; useMock: boolean; onSaved: () => void }) {
+  const { closeSheet, toast } = useNav(); const [form] = Form.useForm<PlanValues>(); const [saving, setSaving] = useState(false);
+  const save = async (values: PlanValues) => { setSaving(true); try { const payload: PlanValues = { name: values.name.trim(), price: Math.max(0, Number(values.price) || 0), rights: values.rights.trim(), gift: Math.max(0, Number(values.gift) || 0), ckBonus: Math.max(0, Number(values.ckBonus) || 0), milestoneBonus: Math.max(0, Number(values.milestoneBonus) || 0), publishBonus: Math.max(0, Number(values.publishBonus) || 0) }; if (useMock) { if (item) Object.assign(item, payload); else MEMBER_PLANS.push({ id: nextId(MEMBER_PLANS), ...payload }); } else await apiSaveMemberPlan(item?.id || 0, { id: item?.id || 0, ...payload }); closeSheet(); onSaved(); toast(item ? "会员方案已保存" : "会员方案已新增"); } catch (cause) { toast(cause instanceof Error ? cause.message : "保存失败，请稍后重试"); } finally { setSaving(false); } };
+  return <Form form={form} layout="vertical" initialValues={item} onFinish={save} requiredMark={false}>
+    <Row gutter={12}><Col span={14}><Form.Item label="方案名称" name="name" rules={[{ required: true, whitespace: true, message: "请输入方案名称" }]}><Input placeholder="例如：月卡、年卡" /></Form.Item></Col><Col span={10}><Form.Item label="价格" name="price" rules={[{ required: true, message: "请输入价格" }]}><InputNumber min={0} precision={0} addonBefore="¥" style={{ width: "100%" }} /></Form.Item></Col></Row>
+    <Form.Item label="权益说明" name="rights" rules={[{ required: true, whitespace: true, message: "请填写权益说明" }]}><Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} placeholder="例如：赠送积分、每日签到加成、发布奖励加成" /></Form.Item>
+    <Row gutter={12}><Col span={12}><Form.Item label="开通赠送积分" name="gift" initialValue={0}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Col><Col span={12}><Form.Item label="每日签到额外积分" name="ckBonus" initialValue={0}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Col><Col span={12}><Form.Item label="签到里程碑额外积分" name="milestoneBonus" initialValue={0}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Col><Col span={12}><Form.Item label="发布作品额外积分" name="publishBonus" initialValue={0}><InputNumber min={0} precision={0} addonAfter="积分" style={{ width: "100%" }} /></Form.Item></Col></Row>
+    <div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button type="primary" htmlType="submit" loading={saving}>保存</Button></div>
+  </Form>;
 }
 
 export function FinMember() {
-  const { openSheet, toast, confirmDlg } = useNav();
-  const { useMock } = useAdminSession();
-  const refresh = useRefresh();
-  const { data, loading, error, reload } = useAsyncData<MemberPlan[]>(useMock ? null : () => apiGetMemberPlans(), [useMock]);
-  const plans = useMock ? getMemberPlans() : data ?? [];
-  const afterSaved = () => useMock ? refresh() : reload();
-
-  const openForm = (id: number) => openSheet(id ? "编辑会员方案" : "新增会员方案", <MemberForm id={id} item={plans.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
-  const del = (p: MemberPlan) => confirmDlg("删除会员方案", "确定删除该会员方案吗？", () => {
-    void (async () => {
-      try {
-        if (useMock) {
-          const i = plans.findIndex((x) => x.id === p.id);
-          if (i > -1) plans.splice(i, 1);
-          refresh();
-        } else {
-          await apiDeleteMemberPlan(p.id);
-          reload();
-        }
-        toast("已删除");
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "删除失败");
-      }
-    })();
-  }, true);
-
-  return (
-    <>
-      <AddBtn text="新增会员方案" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载会员方案中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {plans.map((p) => (
-        <div key={p.id} className="card" style={{ padding: 14, marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 800 }}><i className="ri-vip-crown-fill" style={{ color: "#F59E0B" }} /> {p.name}</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: "var(--danger)" }}>¥{p.price}</div>
-          </div>
-          <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 6 }}>{p.rights}</div>
-          <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-            <Badge text={`送 ${p.gift || 0} 积分`} type="success" />
-            <Badge text={`签到多赠 ${p.ckBonus || 0}`} type="info" />
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            <button className="btn btn-ghost btn-sm" style={{ flex: 1 }} onClick={() => openForm(p.id)}><i className="ri-edit-line" />编辑</button>
-            <button className="btn btn-danger btn-sm" onClick={() => del(p)}><i className="ri-delete-bin-line" /></button>
-          </div>
-        </div>
-      ))}
-    </>
-  );
+  const { openSheet, toast, confirmDlg } = useNav(); const { useMock } = useAdminSession(); const refresh = useRefresh(); const { data, loading, error, reload } = useAsyncData<MemberPlan[]>(useMock ? null : apiGetMemberPlans, [useMock]); const plans = useMock ? getMemberPlans() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : void reload(); const openForm = (item?: MemberPlan) => openSheet(item ? "编辑会员方案" : "新增会员方案", <MemberForm item={item} useMock={useMock} onSaved={afterSaved} />);
+  const remove = (item: MemberPlan) => confirmDlg("删除会员方案", `确认删除「${item.name}」吗？`, () => void (async () => { try { if (useMock) { const index = plans.findIndex((plan) => plan.id === item.id); if (index >= 0) plans.splice(index, 1); refresh(); } else { await apiDeleteMemberPlan(item.id); await reload(); } toast("会员方案已删除"); } catch (cause) { toast(cause instanceof Error ? cause.message : "删除失败，请稍后重试"); } })(), true);
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="露米会员方案" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>新增方案</Button>}><Table<MemberPlan> rowKey="id" loading={loading} dataSource={plans} pagination={false} locale={{ emptyText: error || "暂无会员方案" }} columns={[
+    { title: "会员方案", render: (_, item) => <Space align="start"><span className="lumi-table-icon"><SafetyCertificateOutlined /></span><div><Typography.Text strong>{item.name}</Typography.Text><Typography.Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: "3px 0 0", maxWidth: 360 }}>{item.rights}</Typography.Paragraph></div></Space> },
+    { title: "价格", dataIndex: "price", width: 100, render: (price) => <Typography.Text strong style={{ color: "#d85c7f" }}>¥{price}</Typography.Text> },
+    { title: "积分权益", width: 300, render: (_, item) => <Space size={[4, 4]} wrap><Tag color="green"><GiftOutlined /> 送 {item.gift || 0}</Tag><Tag color="blue">签到 +{item.ckBonus || 0}</Tag><Tag color="purple">里程碑 +{item.milestoneBonus || 0}</Tag><Tag color="gold">发布 +{item.publishBonus || 0}</Tag></Space> },
+    { title: "操作", width: 160, render: (_, item) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(item)}>编辑</Button><Button type="link" danger onClick={() => remove(item)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

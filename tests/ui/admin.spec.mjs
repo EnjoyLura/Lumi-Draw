@@ -19,7 +19,7 @@ test("新版后台渲染桌面工作台和响应式导航", async ({ page }) => 
   await page.goto("/workbench");
   await expect(page.locator(".lumi-admin-v2")).toBeVisible();
   await expect(page.getByRole("heading", { name: "工作台", exact: true })).toBeVisible();
-  await expect(page.getByText("今日核心指标", { exact: true })).toBeVisible();
+  await expect(page.getByText("运营工作台", { exact: true })).toBeVisible();
   await expect(page.getByText("待办事项", { exact: true })).toBeVisible();
   await expect(page.locator(".ant-pro-sider")).toBeVisible();
   expect(runtimeErrors).toEqual([]);
@@ -71,7 +71,7 @@ test("玩法、风格和 API 平台编辑交互使用统一抽屉", async ({ pag
   await page.getByRole("button", { name: "关闭" }).click();
 
   await page.goto("/operations/providers");
-  await expect(page.locator(".lumi-page-opsApiProvider .lr-t").filter({ hasText: "Ainb" }).first()).toBeVisible();
+  await expect(page.locator(".lumi-provider-name-cell").filter({ hasText: "Ainb" })).toBeVisible();
   await page.getByRole("button", { name: "新增 API 平台" }).click();
   const drawer = page.locator(".ant-drawer");
   await expect(drawer.getByText("接口类型", { exact: true })).toBeVisible();
@@ -111,7 +111,7 @@ test("窄屏下保持可用且不会产生页面级横向溢出", async ({ page 
   await page.goto("/workbench");
 
   await expect(page.getByRole("heading", { name: "工作台", exact: true })).toBeVisible();
-  await expect(page.getByText("今日核心指标", { exact: true })).toBeVisible();
+  await expect(page.getByText("运营工作台", { exact: true })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });

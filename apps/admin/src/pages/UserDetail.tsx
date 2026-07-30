@@ -78,7 +78,7 @@ function EditUserForm({ user, useMock, onDone }: { user: AdminUser; useMock: boo
   };
 
   return (
-    <>
+    <div className="lumi-detail-page lumi-user-detail-page">
       <label className="field-label">昵称</label>
       <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
       <label className="field-label" style={{ marginTop: 12 }}>个人简介</label>
@@ -96,7 +96,7 @@ function EditUserForm({ user, useMock, onDone }: { user: AdminUser; useMock: boo
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
         <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
       </div>
-    </>
+    </div>
   );
 }
 

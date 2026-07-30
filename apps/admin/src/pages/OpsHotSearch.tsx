@@ -1,3 +1,5 @@
+import { EditOutlined, FireOutlined, PlusOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { apiDeleteHotSearch, apiGetHotSearches, apiSaveHotSearch } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
@@ -5,7 +7,7 @@ import { HOT_SEARCHES, nextId, type AdminHotSearch } from "../data/mock";
 import { getHotSearches } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge, CtrlIcons, SortCtrl, Switch } from "../ui";
+import { SortCtrl, Switch } from "../ui";
 import { moveItem, useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -105,23 +107,11 @@ export function OpsHotSearch() {
     })();
   }, true);
 
-  return (
-    <>
-      <AddBtn text="新增热搜词" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载热搜中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card">
-        {hots.map((s, i) => (
-          <div key={s.id} className="lrow" style={{ cursor: "default" }}>
-            <div className="lr-ico" style={{ background: "var(--warning-soft)", color: "#F59E0B", fontWeight: 800 }}>{i + 1}</div>
-            <div className="lr-main">
-              <div className="lr-t">{s.k}{s.top ? <>&nbsp;<Badge text="置顶" type="danger" /></> : null}</div>
-            </div>
-            <SortCtrl index={i} len={hots.length} onMove={(d) => { void moveHotSearch(i, d); }} />
-            <CtrlIcons onEdit={() => openForm(s.id)} onDelete={() => del(s)} />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+  return <div className="lumi-admin-page"><Card className="lumi-table-card" title="热门搜索词" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(0)}>新增热搜词</Button>}><Table<AdminHotSearch> rowKey="id" loading={loading || sorting} dataSource={hots} pagination={false} locale={{ emptyText: error || "暂无热搜词" }} columns={[
+    { title: "排序", width: 100, render: (_, __, index) => <Typography.Text strong>#{index + 1}</Typography.Text> },
+    { title: "关键词", dataIndex: "k", render: (keyword, item) => <Space><span className="lumi-table-icon"><FireOutlined /></span><Typography.Text strong>{keyword}</Typography.Text>{item.top ? <Tag color="red">置顶</Tag> : null}</Space> },
+    { title: "热度", dataIndex: "hot", width: 160, render: (hot) => hot ? hot.toLocaleString("zh-CN") : "—" },
+    { title: "优先级", width: 170, render: (_, __, index) => <SortCtrl index={index} len={hots.length} onMove={(direction) => void moveHotSearch(index, direction)} /> },
+    { title: "操作", width: 160, render: (_, item) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(item.id)}>编辑</Button><Button type="link" danger onClick={() => del(item)}>删除</Button></Space> }
+  ]} /></Card></div>;
 }

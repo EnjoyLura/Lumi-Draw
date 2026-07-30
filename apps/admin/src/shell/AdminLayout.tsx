@@ -123,7 +123,7 @@ export function AdminLayout() {
             </div>
             <Space />
           </div>
-          <div className={`lumi-legacy-page lumi-page-${current.id}`}>
+          <div className={`lumi-page-body lumi-page-${current.id}`}>
             <PageBoundary resetKey={`${current.id}:${current.param || ""}`}>
               {renderPage(current.id, current.param)}
             </PageBoundary>
