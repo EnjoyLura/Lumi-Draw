@@ -1,168 +1,124 @@
+import { EyeOutlined, MessageOutlined, PictureOutlined, SendOutlined } from "@ant-design/icons";
+import { Alert, Avatar, Button, Card, Descriptions, Form, Image, Input, Segmented, Select, Space, Table, Tag, Typography } from "antd";
 import { useState } from "react";
-import { AdminImage } from "../components/AdminImage";
-import {
-  apiGetFeedbacks,
-  apiReplyFeedback,
-  apiUpdateFeedbackStatus,
-  type AdminFeedbackData
-} from "../data/api";
+import { apiGetFeedbacks, apiReplyFeedback, apiUpdateFeedbackStatus, type AdminFeedbackData } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { FB_STATUS, FB_TYPE_COLOR, FEEDBACKS, IMG, USERS, type AdminFeedback } from "../data/mock";
 import { getFeedbacks } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Avatar, Badge, Chips, StatusBadge } from "../ui";
 import { useRefresh } from "./opsShared";
 
-const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
+type FeedbackRow = AdminFeedback | AdminFeedbackData;
 
-function user(id: number) {
-  return USERS.find((x) => x.id === id) ?? USERS[0];
+function userFallback(id: number) {
+  return USERS.find((item) => item.id === id) ?? USERS[0];
+}
+function feedbackImages(row: FeedbackRow) {
+  return "imageUrls" in row && row.imageUrls.length
+    ? row.imageUrls
+    : Array.from({ length: row.imgs }).map((_, index) => IMG(`fb${row.id}_${index}`));
+}
+function statusColor(status: string) {
+  return status === "已解决" ? "success" : status === "处理中" ? "processing" : status === "不采纳" ? "default" : "warning";
+}
+function displayUser(row: FeedbackRow) {
+  const fallback = userFallback(row.userId);
+  const live = row as AdminFeedbackData;
+  return { name: live.userName || fallback.name, avatar: live.userAvatar || fallback.avatar || fallback.name.slice(0, 1), color: live.userAvatarColor || fallback.color };
 }
 
-function feedbackImages(f: AdminFeedback | AdminFeedbackData) {
-  return "imageUrls" in f && f.imageUrls.length
-    ? f.imageUrls
-    : Array.from({ length: f.imgs }).map((_, k) => IMG("fb" + f.id + "_" + k));
-}
-
-export function MsgFeedback() {
-  const { openSheet, closeSheet, toast } = useNav();
-  const { useMock } = useAdminSession();
-  const refresh = useRefresh();
-  const { data, loading, error, reload } = useAsyncData<AdminFeedbackData[]>(useMock ? null : () => apiGetFeedbacks(), [useMock]);
-  const all = useMock ? getFeedbacks() : data ?? [];
-  const [filter, setFilter] = useState("全部");
-
-  const list = all.filter((f) => filter === "全部" || f.status === filter);
-  const afterSaved = () => {
-    if (useMock) refresh();
-    else reload();
-  };
-
-  const openStatus = (f: AdminFeedback) => openSheet("修改处理状态", (
-    <div style={{ fontSize: 12, color: "var(--fg-muted)", marginBottom: 8 }}>当前状态：{f.status}
-      <div className="card" style={{ padding: "2px 14px", marginTop: 8, color: "var(--fg)" }}>
-        {FB_STATUS.map((s) => (
-          <div key={s} className="kv" style={{ cursor: "pointer" }} onClick={async () => {
-            try {
-              if (useMock) f.status = s;
-              else await apiUpdateFeedbackStatus(f.id, s);
-              closeSheet();
-              afterSaved();
-              toast(`状态已更新为「${s}」`);
-            } catch (e) {
-              toast(e instanceof Error ? e.message : "状态更新失败");
-            }
-          }}>
-            <span className="k" style={{ color: "var(--fg)", fontWeight: s === f.status ? 700 : 400 }}>{s}</span>
-            {s === f.status ? <i className="ri-check-line" style={{ color: "var(--accent)" }} /> : <i className="ri-arrow-right-s-line lr-arrow" />}
-          </div>
-        ))}
-      </div>
-    </div>
-  ));
-
-  const openReply = (f: AdminFeedback) => openSheet("回复反馈", <ReplyForm f={f} useMock={useMock} onSaved={afterSaved} />);
-
-  const openDetail = (f: AdminFeedback) => {
-    const u = user(f.userId);
-    const images = feedbackImages(f);
-    openSheet("反馈详情", (
-      <>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <Avatar a={u.avatar} color={u.color} />
-          <div className="lr-main"><div className="lr-t">{u.name}</div><div className="lr-s"><Badge text={f.type} type={FB_TYPE_COLOR[f.type] || "info"} /> · {f.time}</div></div>
-          <StatusBadge s={f.status} />
-        </div>
-        <div className="card" style={{ padding: "12px 14px", fontSize: 14, color: "var(--fg)", lineHeight: 1.7 }}>{f.content}</div>
-        {f.imgs ? (
-          <>
-            <div style={{ fontSize: 12, color: "var(--fg-muted)", margin: "14px 2px 6px" }}>附件图片</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {images.map((src, k) => <AdminImage key={src + k} className="thumb" src={src} style={{ width: 72, height: 72 }} alt="" />)}
-            </div>
-          </>
-        ) : null}
-        <div className="card" style={{ padding: "2px 14px", marginTop: 14 }}>
-          <div className="kv"><span className="k">联系方式</span><span className="v">{f.wechat ? <><i className="ri-wechat-line" style={{ color: "#22C55E" }} /> {f.wechat}</> : "未提供"}</span></div>
-          <div className="kv"><span className="k">当前状态</span><span className="v">{f.status}</span></div>
-        </div>
-        {f.reply ? (
-          <div className="card" style={{ padding: "12px 14px", marginTop: 14, background: "var(--accent-soft)", borderColor: "transparent" }}>
-            <div style={{ fontSize: 12, color: "var(--accent-deep)", fontWeight: 700, marginBottom: 4 }}>官方回复</div>
-            <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{f.reply}</div>
-          </div>
-        ) : null}
-        <div style={FOOT_STYLE}>
-          <button className="btn btn-ghost btn-block" onClick={() => openStatus(f)}><i className="ri-flag-line" />处理状态</button>
-          <button className="btn btn-primary btn-block" onClick={() => openReply(f)}><i className="ri-reply-line" />回复</button>
-        </div>
-      </>
-    ));
-  };
-
-  return (
-    <>
-      <Chips items={["全部", ...FB_STATUS]} active={filter} onPick={setFilter} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载反馈中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {!list.length ? <div className="empty"><i className="ri-feedback-line" /><div className="et">暂无反馈</div></div> : null}
-      {list.map((f) => {
-        const u = user(f.userId);
-        return (
-          <div key={f.id} className="card" style={{ padding: "12px 14px", marginBottom: 10, cursor: "pointer" }} onClick={() => openDetail(f)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Avatar a={u.avatar} color={u.color} size={32} />
-              <div className="lr-main"><div className="lr-t">{u.name}</div><div className="lr-s"><Badge text={f.type} type={FB_TYPE_COLOR[f.type] || "info"} /> · {f.time}</div></div>
-              <StatusBadge s={f.status} />
-            </div>
-            <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6, margin: "10px 0 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{f.content}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, fontSize: 11, color: "var(--fg-muted)" }}>
-              {f.imgs ? <span><i className="ri-image-line" /> {f.imgs} 图</span> : null}
-              {f.wechat ? <span><i className="ri-wechat-line" /> 有联系方式</span> : null}
-              {f.reply ? <span><i className="ri-reply-line" style={{ color: "var(--success)" }} /> 已回复</span> : null}
-              <span style={{ marginLeft: "auto", color: "var(--accent)" }}>查看详情 ›</span>
-            </div>
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
-function ReplyForm({ f, useMock, onSaved }: { f: AdminFeedback; useMock: boolean; onSaved: () => void }) {
+function ReplyForm({ row, useMock, onSaved }: { row: FeedbackRow; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const [reply, setReply] = useState(f.reply ?? "");
+  const [form] = Form.useForm<{ reply: string }>();
   const [saving, setSaving] = useState(false);
-  const send = async () => {
-    if (!reply.trim()) { toast("请输入回复内容"); return; }
-    setSaving(true);
+  const save = async () => {
     try {
+      const { reply } = await form.validateFields();
+      setSaving(true);
       if (useMock) {
-        f.reply = reply.trim();
-        f.status = "已解决";
-      } else {
-        await apiReplyFeedback(f.id, reply.trim());
-      }
+        row.reply = reply.trim();
+        row.status = "已解决";
+      } else await apiReplyFeedback(row.id, reply.trim());
       closeSheet();
       onSaved();
       toast("回复已发送");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "回复失败");
+    } catch (cause) {
+      if (cause instanceof Error) toast(cause.message);
     } finally {
       setSaving(false);
     }
   };
-  return (
-    <>
-      <label className="field-label">回复内容</label>
-      <textarea className="input" rows={4} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="请输入回复内容" />
-      <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 8 }}>回复后状态将自动置为「已解决」</div>
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={send} disabled={saving}>{saving ? "发送中" : "发送回复"}</button>
-      </div>
-    </>
-  );
+  return <Form form={form} layout="vertical" initialValues={{ reply: row.reply ?? "" }}><Form.Item label="回复内容" name="reply" rules={[{ required: true, whitespace: true, message: "请输入回复内容" }]}><Input.TextArea autoSize={{ minRows: 5, maxRows: 10 }} placeholder="回复会作为服务消息发送给用户，并将反馈标记为已解决。" /></Form.Item><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button type="primary" loading={saving} onClick={() => void save()}>发送回复</Button></div></Form>;
+}
+
+function StatusForm({ row, useMock, onSaved }: { row: FeedbackRow; useMock: boolean; onSaved: () => void }) {
+  const { closeSheet, toast } = useNav();
+  const [status, setStatus] = useState(row.status);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    try {
+      setSaving(true);
+      if (useMock) row.status = status;
+      else await apiUpdateFeedbackStatus(row.id, status);
+      closeSheet();
+      onSaved();
+      toast("处理状态已更新");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "状态更新失败，请稍后重试");
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <Form layout="vertical"><Form.Item label="处理状态"><Select value={status} onChange={setStatus} options={FB_STATUS.map((value) => ({ value, label: value }))} /></Form.Item><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button type="primary" loading={saving} onClick={() => void save()}>保存状态</Button></div></Form>;
+}
+
+function FeedbackDetail({ row, useMock, onSaved }: { row: FeedbackRow; useMock: boolean; onSaved: () => void }) {
+  const { openSheet } = useNav();
+  const user = displayUser(row);
+  const images = feedbackImages(row);
+  return <Space direction="vertical" size={16} style={{ width: "100%" }}>
+    <Descriptions column={1} size="small" bordered>
+      <Descriptions.Item label="提交用户"><Space><Avatar style={{ background: user.color }}>{user.avatar}</Avatar>{user.name}</Space></Descriptions.Item>
+      <Descriptions.Item label="反馈类型"><Tag color={FB_TYPE_COLOR[row.type] || "blue"}>{row.type}</Tag></Descriptions.Item>
+      <Descriptions.Item label="处理状态"><Tag color={statusColor(row.status)}>{row.status}</Tag></Descriptions.Item>
+      <Descriptions.Item label="提交时间">{row.time}</Descriptions.Item>
+      <Descriptions.Item label="联系方式">{row.wechat || "未提供"}</Descriptions.Item>
+      <Descriptions.Item label="反馈内容"><Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>{row.content}</Typography.Paragraph></Descriptions.Item>
+      {row.reply ? <Descriptions.Item label="官方回复"><Typography.Text type="success">{row.reply}</Typography.Text></Descriptions.Item> : null}
+    </Descriptions>
+    {images.length ? <Image.PreviewGroup><Space wrap>{images.map((src) => <Image key={src} width={88} height={88} style={{ objectFit: "cover" }} src={src} />)}</Space></Image.PreviewGroup> : null}
+    <div className="lumi-drawer-form-actions"><Button onClick={() => openSheet("修改处理状态", <StatusForm row={row} useMock={useMock} onSaved={onSaved} />)}>更新状态</Button><Button type="primary" icon={<SendOutlined />} onClick={() => openSheet("回复反馈", <ReplyForm row={row} useMock={useMock} onSaved={onSaved} />)}>回复用户</Button></div>
+  </Space>;
+}
+
+export function MsgFeedback() {
+  const { openSheet } = useNav();
+  const { useMock } = useAdminSession();
+  const refresh = useRefresh();
+  const { data, loading, error, reload } = useAsyncData<AdminFeedbackData[]>(useMock ? null : apiGetFeedbacks, [useMock]);
+  const all = useMock ? getFeedbacks() : data ?? [];
+  const [filter, setFilter] = useState("全部");
+  const rows = all.filter((row) => filter === "全部" || row.status === filter);
+  const afterSaved = () => useMock ? refresh() : void reload();
+  return <div className="lumi-admin-page">
+    {error ? <Alert showIcon type="error" message="用户反馈加载失败" description={error} /> : null}
+    <Card className="lumi-table-card" title={<Space><MessageOutlined />用户反馈</Space>} extra={<Segmented options={["全部", ...FB_STATUS]} value={filter} onChange={(value) => setFilter(String(value))} />}>
+      <Table<FeedbackRow>
+        rowKey="id"
+        loading={loading}
+        dataSource={rows}
+        pagination={{ pageSize: 20, showSizeChanger: false, showTotal: (total) => `共 ${total} 条` }}
+        columns={[
+          { title: "用户", width: 190, render: (_, row) => { const user = displayUser(row); return <Space><Avatar style={{ background: user.color }}>{user.avatar}</Avatar><div><Typography.Text strong>{user.name}</Typography.Text><br /><Typography.Text type="secondary">ID {row.userId}</Typography.Text></div></Space>; } },
+          { title: "类型", dataIndex: "type", width: 120, render: (value) => <Tag color={FB_TYPE_COLOR[value] || "blue"}>{value}</Tag> },
+          { title: "反馈内容", dataIndex: "content", ellipsis: true },
+          { title: "附件", width: 90, render: (_, row) => row.imgs ? <Tag icon={<PictureOutlined />}>{row.imgs}</Tag> : "—" },
+          { title: "状态", dataIndex: "status", width: 120, render: (value) => <Tag color={statusColor(value)}>{value}</Tag> },
+          { title: "提交时间", dataIndex: "time", width: 130 },
+          { title: "操作", width: 190, render: (_, row) => <Space><Button type="link" icon={<EyeOutlined />} onClick={() => openSheet("反馈详情", <FeedbackDetail row={row} useMock={useMock} onSaved={afterSaved} />)}>详情</Button><Button type="link" icon={<SendOutlined />} onClick={() => openSheet("回复反馈", <ReplyForm row={row} useMock={useMock} onSaved={afterSaved} />)}>回复</Button></Space> }
+        ]}
+      />
+    </Card>
+  </div>;
 }

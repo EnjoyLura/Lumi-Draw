@@ -1,3 +1,5 @@
+import { DeleteOutlined, EditOutlined, PlusOutlined, SendOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Form, Input, Popconfirm, Select, Space, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { apiDeleteVersion, apiGetVersions, apiSaveVersion } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
@@ -5,120 +7,122 @@ import { nextId, VER_TYPE_COLOR, VER_TYPES, VERSIONS, type AdminVersion, type Ve
 import { getVersions } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge, CtrlIcons } from "../ui";
 import { useRefresh } from "./opsShared";
 
-const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
+type VersionFormValues = { ver: string; items: VersionItem[] };
 
-function VerForm({ id, item, useMock, onSaved }: { id: number; item?: AdminVersion; useMock: boolean; onSaved: () => void }) {
+function VersionForm({ item, useMock, onSaved }: { item?: AdminVersion; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
-  const v = item ?? (id ? VERSIONS.find((x) => x.id === id) : undefined);
-  const [ver, setVer] = useState(v?.ver ?? "");
-  const [items, setItems] = useState<VersionItem[]>(
-    v?.items?.length ? v.items.map((it) => ({ ...it })) : [{ type: "新增", text: "" }]
-  );
+  const [form] = Form.useForm<VersionFormValues>();
   const [saving, setSaving] = useState(false);
-
-  const setItem = (i: number, patch: Partial<VersionItem>) => setItems(items.map((it, k) => (k === i ? { ...it, ...patch } : it)));
-  const addItem = () => setItems([...items, { type: "新增", text: "" }]);
-  const delItem = (i: number) => { const next = items.filter((_, k) => k !== i); setItems(next.length ? next : [{ type: "新增", text: "" }]); };
-
+  const initialValues: VersionFormValues = {
+    ver: item?.ver ?? "",
+    items: item?.items?.length ? item.items.map((row) => ({ ...row })) : [{ type: "新增", text: "" }]
+  };
   const save = async () => {
-    if (!ver.trim()) { toast("请输入版本号"); return; }
-    const kept = items.filter((it) => it.text.trim());
-    if (!kept.length) { toast("请至少填写一条更新内容"); return; }
-    setSaving(true);
     try {
+      const values = await form.validateFields();
+      const items = values.items.map((row) => ({ type: row.type, text: row.text.trim() })).filter((row) => row.text);
+      if (!items.length) {
+        toast("请至少填写一条更新内容");
+        return;
+      }
+      setSaving(true);
       if (useMock) {
-        if (v) { v.ver = ver.trim(); v.items = kept; }
-        else VERSIONS.unshift({ id: nextId(VERSIONS), ver: ver.trim(), time: new Date().toISOString().slice(0, 10), items: kept });
+        if (item) {
+          item.ver = values.ver.trim();
+          item.items = items;
+        } else {
+          VERSIONS.unshift({ id: nextId(VERSIONS), ver: values.ver.trim(), time: new Date().toISOString().slice(0, 10), items });
+        }
       } else {
-        await apiSaveVersion(id, { ver: ver.trim(), items: kept });
+        await apiSaveVersion(item?.id ?? 0, { ver: values.ver.trim(), items });
       }
       closeSheet();
       onSaved();
-      toast(id ? "已保存" : "新版本已发布");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
+      toast(item ? "版本已保存" : "新版本已发布");
+    } catch (cause) {
+      if (cause instanceof Error) toast(cause.message);
     } finally {
       setSaving(false);
     }
   };
-
   return (
-    <>
-      <label className="field-label">版本号</label>
-      <input className="input" value={ver} onChange={(e) => setVer(e.target.value)} placeholder="如：v1.3.0" />
-      <label className="field-label" style={{ marginTop: 12 }}>更新条目</label>
-      <div>
-        {items.map((it, i) => (
-          <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
-            <select className="input" value={it.type} onChange={(e) => setItem(i, { type: e.target.value })} style={{ width: 78, flexShrink: 0, padding: "8px 6px" }}>
-              {VER_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-            <input className="input" value={it.text} onChange={(e) => setItem(i, { text: e.target.value })} placeholder="更新内容" />
-            <span className="nav-btn" style={{ width: 30, height: 30, flexShrink: 0, color: "var(--danger)" }} onClick={() => delItem(i)}><i className="ri-close-circle-line" /></span>
-          </div>
-        ))}
+    <Form form={form} initialValues={initialValues} layout="vertical">
+      <Form.Item label="版本号" name="ver" rules={[{ required: true, whitespace: true, message: "请输入版本号" }]}>
+        <Input placeholder="例如：v1.3.0" />
+      </Form.Item>
+      <Form.List name="items">
+        {(fields, { add, remove }) => (
+          <>
+            <Typography.Text strong>更新条目</Typography.Text>
+            {fields.map((field) => (
+              <Space key={field.key} align="start" style={{ display: "flex", marginTop: 10 }}>
+                <Form.Item name={[field.name, "type"]} rules={[{ required: true }]} style={{ width: 104 }}>
+                  <Select options={VER_TYPES.map((type) => ({ value: type, label: type }))} />
+                </Form.Item>
+                <Form.Item name={[field.name, "text"]} rules={[{ required: true, whitespace: true, message: "请输入更新内容" }]} style={{ flex: 1 }}>
+                  <Input placeholder="更新内容" />
+                </Form.Item>
+                <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
+              </Space>
+            ))}
+            <Button block type="dashed" icon={<PlusOutlined />} onClick={() => add({ type: "新增", text: "" })}>添加一条</Button>
+          </>
+        )}
+      </Form.List>
+      <div className="lumi-drawer-form-actions">
+        <Button onClick={closeSheet} disabled={saving}>取消</Button>
+        <Button type="primary" loading={saving} onClick={() => void save()}>{item ? "保存" : "发布版本"}</Button>
       </div>
-      <button className="btn btn-soft btn-sm btn-block" onClick={addItem}><i className="ri-add-line" />添加一条</button>
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : id ? "保存" : "发布"}</button>
-      </div>
-    </>
+    </Form>
   );
 }
 
 export function SetVersion() {
-  const { openSheet, confirmDlg, toast } = useNav();
+  const { openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const { data, loading, error, reload } = useAsyncData<AdminVersion[]>(useMock ? null : () => apiGetVersions(), [useMock]);
-  const list = useMock ? getVersions() : data ?? [];
-  const afterSaved = () => useMock ? refresh() : reload();
-
-  const openForm = (id: number) => openSheet(id ? "编辑版本" : "发布新版本", <VerForm id={id} item={list.find((x) => x.id === id)} useMock={useMock} onSaved={afterSaved} />);
-  const del = (v: AdminVersion) => confirmDlg("删除版本", "确定删除该版本吗？", () => {
-    void (async () => {
-      try {
-        if (useMock) {
-          const i = list.findIndex((x) => x.id === v.id);
-          if (i > -1) list.splice(i, 1);
-          refresh();
-        } else {
-          await apiDeleteVersion(v.id);
-          reload();
-        }
-        toast("已删除");
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "删除失败");
+  const { data, loading, error, reload } = useAsyncData<AdminVersion[]>(useMock ? null : apiGetVersions, [useMock]);
+  const rows = useMock ? getVersions() : data ?? [];
+  const afterSaved = () => useMock ? refresh() : void reload();
+  const remove = async (row: AdminVersion) => {
+    try {
+      if (useMock) {
+        const index = VERSIONS.findIndex((item) => item.id === row.id);
+        if (index >= 0) VERSIONS.splice(index, 1);
+        refresh();
+      } else {
+        await apiDeleteVersion(row.id);
+        await reload();
       }
-    })();
-  }, true);
-
+      toast("版本已删除");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "删除失败，请稍后重试");
+    }
+  };
   return (
-    <>
-      <AddBtn text="发布新版本" onClick={() => openForm(0)} />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载版本中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      {list.map((v, vi) => (
-        <div key={v.id} className="card" style={{ padding: 14, marginBottom: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>{v.ver}{vi === 0 ? <> <Badge text="最新版本" type="info" /></> : null}</div>
-            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{v.time}</span>
-          </div>
-          {v.items.map((it, k) => (
-            <div key={k} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 5 }}>
-              <Badge text={it.type} type={VER_TYPE_COLOR[it.type] || "muted"} />
-              <span style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.5, flex: 1 }}>{it.text}</span>
-            </div>
-          ))}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-            <CtrlIcons onEdit={() => openForm(v.id)} onDelete={() => del(v)} />
-          </div>
-        </div>
-      ))}
-    </>
+    <div className="lumi-admin-page">
+      {error ? <Alert showIcon type="error" message="版本列表加载失败" description={error} /> : null}
+      <Card
+        className="lumi-table-card"
+        title="版本管理"
+        extra={<Button type="primary" icon={<SendOutlined />} onClick={() => openSheet("发布新版本", <VersionForm useMock={useMock} onSaved={afterSaved} />)}>发布新版本</Button>}
+      >
+        <Table<AdminVersion>
+          rowKey="id"
+          loading={loading}
+          dataSource={rows}
+          expandable={{ expandedRowRender: (row) => <Space direction="vertical" size={8}>{row.items.map((item, index) => <Space key={`${row.id}-${index}`} align="start"><Tag color={VER_TYPE_COLOR[item.type] === "danger" ? "red" : VER_TYPE_COLOR[item.type] === "success" ? "green" : "blue"}>{item.type}</Tag><Typography.Text>{item.text}</Typography.Text></Space>)}</Space> }}
+          pagination={{ pageSize: 15, showSizeChanger: false }}
+          columns={[
+            { title: "版本", dataIndex: "ver", render: (value, row, index) => <Space><Typography.Text strong>{value}</Typography.Text>{index === 0 ? <Tag color="blue">最新</Tag> : null}</Space> },
+            { title: "发布日期", dataIndex: "time", width: 150 },
+            { title: "更新条目", dataIndex: "items", width: 120, render: (items: VersionItem[]) => `${items.length} 条` },
+            { title: "操作", width: 170, render: (_, row) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openSheet("编辑版本", <VersionForm item={row} useMock={useMock} onSaved={afterSaved} />)}>编辑</Button><Popconfirm title="确认删除该版本？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void remove(row)}><Button type="link" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm></Space> }
+          ]}
+        />
+      </Card>
+    </div>
   );
 }

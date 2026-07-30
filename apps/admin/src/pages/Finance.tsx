@@ -35,7 +35,7 @@ export function Finance() {
           <StatCard label="今日收入" val={money(summary.todayIncomeFen)} icon="ri-money-cny-circle-line" color="#d85c7f" soft="#fff0f3" />
           <StatCard label="本月收入" val={money(summary.monthIncomeFen)} icon="ri-line-chart-line" color="#22a06b" soft="#effbf5" />
           <StatCard label="累计收入" val={money(summary.totalIncomeFen)} icon="ri-bank-line" color="#5b9fe8" soft="#eff6ff" />
-          <StatCard label="本月退款" val={money(summary.monthRefundFen)} icon="ri-refund-2-line" color="#d88900" soft="#fff8e8" />
+          <StatCard label="待支付订单" val={summary.pendingOrders.toLocaleString("zh-CN")} icon="ri-time-line" color="#d88900" soft="#fff8e8" />
         </div>
       </Spin>
       <AdminFeatureGrid items={items} onSelect={(id) => go(id, undefined, true)} />

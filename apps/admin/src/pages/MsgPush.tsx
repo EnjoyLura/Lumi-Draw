@@ -1,175 +1,120 @@
-import { useEffect, useMemo, useState } from "react";
-import { apiCreateAndSendPush, apiGetPushes, apiGetUsers, apiRevokePush } from "../data/api";
+import { DeleteOutlined, EyeOutlined, NotificationOutlined, SendOutlined, UserOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
+import { Alert, Avatar, Badge, Button, Card, Checkbox, Descriptions, Form, Input, Popconfirm, Select, Space, Spin, Table, Tag, Typography } from "antd";
+import { useDeferredValue, useMemo, useState } from "react";
+import { apiCreateAndSendPush, apiGetPushes, apiGetUsersPage, apiRevokePush } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { nextId, PUSH_TARGETS, PUSHES, USERS, type AdminPush, type AdminUser } from "../data/mock";
 import { getPushes } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Sec, StatusBadge } from "../ui";
 import { useRefresh } from "./opsShared";
 
-const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
+type PushValues = { title: string; content: string; target: string };
 
-function PushDetail({ p, useMock, onChanged }: { p: AdminPush; useMock: boolean; onChanged: () => void }) {
-  const { closeSheet, toast, confirmDlg } = useNav();
-  const recall = () => confirmDlg("撤回通知", "撤回后用户将不再看到该通知，确定撤回吗？", () => {
-    void (async () => {
-      try {
-        if (useMock) p.status = "已撤回";
-        else await apiRevokePush(p.id);
-        closeSheet();
-        onChanged();
-        toast("已撤回");
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "撤回失败");
-      }
-    })();
-  }, true);
-  return (
-    <>
-      <div className="card" style={{ padding: "12px 14px", marginBottom: 12 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{p.title}</div>
-        <div style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{p.content}</div>
-      </div>
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">目标人群</span><span className="v">{p.target}</span></div>
-        <div className="kv"><span className="k">发送时间</span><span className="v">{p.time}</span></div>
-        <div className="kv"><span className="k">状态</span><span className="v">{p.status}</span></div>
-      </div>
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet}>关闭</button>
-        {p.status === "已发送" ? <button className="btn btn-danger btn-block" onClick={recall}>撤回通知</button> : null}
-      </div>
-    </>
-  );
+function PushDetail({ row, useMock, onChanged }: { row: AdminPush; useMock: boolean; onChanged: () => void }) {
+  const { closeSheet, toast } = useNav();
+  const [revoking, setRevoking] = useState(false);
+  const revoke = async () => {
+    try {
+      setRevoking(true);
+      if (useMock) row.status = "已撤回";
+      else await apiRevokePush(row.id);
+      closeSheet();
+      onChanged();
+      toast("通知已撤回");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "撤回失败，请稍后重试");
+    } finally {
+      setRevoking(false);
+    }
+  };
+  return <Space direction="vertical" size={16} style={{ width: "100%" }}><Descriptions column={1} bordered size="small"><Descriptions.Item label="标题">{row.title}</Descriptions.Item><Descriptions.Item label="通知内容"><Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>{row.content}</Typography.Paragraph></Descriptions.Item><Descriptions.Item label="目标人群">{row.target}</Descriptions.Item><Descriptions.Item label="发送时间">{row.time}</Descriptions.Item><Descriptions.Item label="状态"><Tag color={row.status === "已发送" ? "success" : row.status === "已撤回" ? "default" : "warning"}>{row.status}</Tag></Descriptions.Item></Descriptions><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>关闭</Button>{row.status === "已发送" ? <Popconfirm title="撤回后用户将不再看到此通知，确认继续？" okText="撤回" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void revoke()}><Button danger loading={revoking}>撤回通知</Button></Popconfirm> : null}</div></Space>;
 }
 
 export function MsgPush() {
-  const { openSheet, toast, confirmDlg } = useNav();
+  const { openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
   const refresh = useRefresh();
-  const { data, loading, error, reload } = useAsyncData<AdminPush[]>(useMock ? null : () => apiGetPushes(), [useMock]);
-  const pushes = useMock ? getPushes() : data ?? [];
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
+  const [form] = Form.useForm<PushValues>();
   const [target, setTarget] = useState(PUSH_TARGETS[0]);
   const [userQuery, setUserQuery] = useState("");
-  const [targetUsers, setTargetUsers] = useState<AdminUser[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(new Set());
-  const [loadingUsers, setLoadingUsers] = useState(false);
   const [sending, setSending] = useState(false);
-  const afterChanged = () => useMock ? refresh() : reload();
-  const isSpecifiedTarget = target === "指定用户";
-  const visibleTargetUsers = useMemo(() => {
-    const keyword = userQuery.trim().toLowerCase();
-    if (!keyword) return targetUsers;
-    return targetUsers.filter((user) => user.name.toLowerCase().includes(keyword) || String(user.id).includes(keyword));
-  }, [targetUsers, userQuery]);
-
-  useEffect(() => {
-    if (!isSpecifiedTarget || targetUsers.length) return;
-    let active = true;
-    setLoadingUsers(true);
-    void (useMock ? Promise.resolve(USERS) : apiGetUsers({ status: "normal" }))
-      .then((users) => {
-        if (active) setTargetUsers(users);
-      })
-      .catch((error) => {
-        if (active) toast(error instanceof Error ? error.message : "用户列表加载失败");
-      })
-      .finally(() => {
-        if (active) setLoadingUsers(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isSpecifiedTarget, targetUsers.length, toast, useMock]);
-
-  const toggleTargetUser = (userId: number) => {
-    setSelectedUserIds((current) => {
-      const next = new Set(current);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
-      return next;
-    });
+  const deferredUserQuery = useDeferredValue(userQuery.trim());
+  const specified = target === "指定用户";
+  const pushesState = useAsyncData<AdminPush[]>(useMock ? null : apiGetPushes, [useMock]);
+  const usersQuery = useQuery({
+    queryKey: ["admin", "push-target-users", deferredUserQuery],
+    queryFn: () => apiGetUsersPage({ status: "normal", keyword: deferredUserQuery, page: 1, pageSize: 50 }),
+    enabled: specified && !useMock,
+    staleTime: 30_000
+  });
+  const targetUsers = useMemo<AdminUser[]>(() => {
+    if (!specified) return [];
+    if (useMock) {
+      const keyword = deferredUserQuery.toLowerCase();
+      return USERS.filter((user) => !keyword || user.name.toLowerCase().includes(keyword) || String(user.id).includes(keyword));
+    }
+    return usersQuery.data?.items ?? [];
+  }, [deferredUserQuery, specified, useMock, usersQuery.data?.items]);
+  const pushes = useMock ? getPushes() : pushesState.data ?? [];
+  const afterChanged = () => useMock ? refresh() : void pushesState.reload();
+  const toggleUser = (id: number) => setSelectedUserIds((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const send = async (values: PushValues) => {
+    if (specified && !selectedUserIds.size) {
+      toast("请至少选择一位指定用户");
+      return;
+    }
+    try {
+      setSending(true);
+      if (useMock) {
+        const targetLabel = specified ? `指定用户 · ${selectedUserIds.size} 人` : values.target;
+        PUSHES.unshift({ id: nextId(PUSHES), title: values.title.trim(), content: values.content.trim(), target: targetLabel, time: "刚刚", status: "已发送" });
+      } else {
+        await apiCreateAndSendPush({ title: values.title.trim(), content: values.content.trim(), target: values.target, targetUserIds: [...selectedUserIds] });
+      }
+      form.resetFields(["title", "content"]);
+      setSelectedUserIds(new Set());
+      afterChanged();
+      toast("系统通知已发送");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "发送失败，请稍后重试");
+    } finally {
+      setSending(false);
+    }
   };
-
-  const send = () => {
-    if (!title.trim()) { toast("请输入通知标题"); return; }
-    if (isSpecifiedTarget && !selectedUserIds.size) { toast("请至少选择一位用户"); return; }
-    const targetLabel = isSpecifiedTarget ? `指定用户 · ${selectedUserIds.size}人` : target;
-    confirmDlg("发送通知", `确定向「${targetLabel}」推送该通知吗？`, () => {
-      void (async () => {
-        setSending(true);
-        try {
-          if (useMock) {
-            PUSHES.unshift({ id: nextId(PUSHES), title: title.trim(), content, target: targetLabel, time: "刚刚", status: "已发送" });
-          } else {
-            await apiCreateAndSendPush({ title: title.trim(), content, target, targetUserIds: [...selectedUserIds] });
-          }
-          setTitle("");
-          setContent("");
-          setSelectedUserIds(new Set());
-          afterChanged();
-          toast("通知已发送");
-        } catch (e) {
-          toast(e instanceof Error ? e.message : "发送失败");
-        } finally {
-          setSending(false);
-        }
-      })();
-    });
-  };
-
-  return (
-    <>
-      <div className="card" style={{ padding: 14 }}>
-        <label className="field-label">通知标题</label>
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="如：新功能上线" />
-        <label className="field-label" style={{ marginTop: 12 }}>通知内容</label>
-        <textarea className="input" rows={4} value={content} onChange={(e) => setContent(e.target.value)} placeholder="请输入推送内容" />
-        <label className="field-label" style={{ marginTop: 12 }}>目标人群</label>
-        <select className="input" value={target} onChange={(e) => setTarget(e.target.value)}>
-          {PUSH_TARGETS.map((o) => <option key={o}>{o}</option>)}
-        </select>
-        {isSpecifiedTarget ? (
-          <div style={{ marginTop: 10 }}>
-            <input className="input" value={userQuery} onChange={(event) => setUserQuery(event.target.value)} placeholder="搜索昵称或用户ID" />
-            <div style={{ marginTop: 8, maxHeight: 220, overflowY: "auto", borderTop: "1px solid var(--border)" }}>
-              {loadingUsers ? <div className="empty" style={{ padding: 18 }}>用户加载中...</div> : null}
-              {!loadingUsers && !visibleTargetUsers.length ? <div className="empty" style={{ padding: 18 }}>没有匹配用户</div> : null}
-              {visibleTargetUsers.map((user) => (
-                <label key={user.id} className="lrow" style={{ cursor: "pointer" }}>
-                  <input type="checkbox" checked={selectedUserIds.has(user.id)} onChange={() => toggleTargetUser(user.id)} />
-                  <div className="mini-avatar" style={{ background: user.color }}>{user.avatar || user.name.slice(0, 1)}</div>
-                  <div className="lr-main">
-                    <div className="lr-t">{user.name}</div>
-                    <div className="lr-s">用户ID {user.id}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: "var(--fg-muted)" }}>已选择 {selectedUserIds.size} 位用户</div>
+  return <div className="lumi-admin-page">
+    {pushesState.error ? <Alert showIcon type="error" message="系统通知加载失败" description={pushesState.error} /> : null}
+    <Card className="lumi-form-card" title={<Space><NotificationOutlined />发送系统通知</Space>}>
+      <Form form={form} layout="vertical" initialValues={{ target }} onFinish={(values) => void send(values)}>
+        <Form.Item label="通知标题" name="title" rules={[{ required: true, whitespace: true, message: "请输入通知标题" }]}><Input maxLength={60} showCount placeholder="例如：新功能上线通知" /></Form.Item>
+        <Form.Item label="通知内容" name="content" rules={[{ required: true, whitespace: true, message: "请输入通知内容" }]}><Input.TextArea autoSize={{ minRows: 4, maxRows: 8 }} maxLength={500} showCount placeholder="请输入要发送给用户的通知内容" /></Form.Item>
+        <Form.Item label="目标人群" name="target"><Select options={PUSH_TARGETS.map((value) => ({ value, label: value }))} onChange={(value) => { setTarget(value); if (value !== "指定用户") setSelectedUserIds(new Set()); }} /></Form.Item>
+        {specified ? <Card size="small" title={<Space><UserOutlined />选择用户<Badge count={selectedUserIds.size} showZero color="#5B9FE8" /></Space>} className="lumi-select-users-card">
+          <Input.Search allowClear value={userQuery} onChange={(event) => setUserQuery(event.target.value)} placeholder="搜索昵称或用户 ID" />
+          <div className="lumi-user-picker-list">
+            {usersQuery.isFetching && !useMock ? <div className="lumi-inline-loading"><Spin size="small" />正在搜索用户</div> : null}
+            {targetUsers.map((user) => <Checkbox key={user.id} checked={selectedUserIds.has(user.id)} onChange={() => toggleUser(user.id)} className="lumi-user-picker-row"><Space><Avatar style={{ background: user.color }}>{user.avatar || user.name.slice(0, 1)}</Avatar><span>{user.name}</span><Typography.Text type="secondary">ID {user.id}</Typography.Text></Space></Checkbox>)}
+            {!usersQuery.isFetching && !targetUsers.length ? <Typography.Text type="secondary">没有匹配用户</Typography.Text> : null}
           </div>
-        ) : null}
-      </div>
-      <div style={{ margin: "12px 0" }}>
-        <button className="btn btn-primary btn-block" onClick={send} disabled={sending}><i className="ri-send-plane-line" />{sending ? "发送中" : "立即发送"}</button>
-      </div>
-      <Sec title="历史推送" />
-      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载推送记录中</div></div> : null}
-      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
-      <div className="card">
-        {!pushes.length ? <div className="empty"><i className="ri-send-plane-line" /><div className="et">暂无推送记录</div></div> : null}
-        {pushes.map((p) => (
-          <div key={p.id} className="lrow" onClick={() => openSheet("推送详情", <PushDetail p={p} useMock={useMock} onChanged={afterChanged} />)}>
-            <div className="lr-ico" style={p.status === "已撤回" ? { background: "var(--bg-soft)", color: "var(--fg-muted)" } : { background: "var(--success-soft)", color: "#22C55E" }}><i className="ri-notification-3-line" /></div>
-            <div className="lr-main"><div className="lr-t">{p.title}</div><div className="lr-s">{p.target} · {p.time}</div></div>
-            <StatusBadge s={p.status} />
-            <i className="ri-arrow-right-s-line lr-arrow" />
-          </div>
-        ))}
-      </div>
-    </>
-  );
+        </Card> : null}
+        <div className="lumi-form-actions"><Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={sending}>发送通知</Button></div>
+      </Form>
+    </Card>
+    <Card className="lumi-table-card" title="发送记录">
+      <Table<AdminPush> rowKey="id" loading={pushesState.loading} dataSource={pushes} pagination={{ pageSize: 20, showSizeChanger: false }} columns={[
+        { title: "标题", dataIndex: "title", width: 230, ellipsis: true },
+        { title: "内容", dataIndex: "content", ellipsis: true },
+        { title: "目标人群", dataIndex: "target", width: 160 },
+        { title: "状态", dataIndex: "status", width: 110, render: (value) => <Tag color={value === "已发送" ? "success" : value === "已撤回" ? "default" : "warning"}>{value}</Tag> },
+        { title: "时间", dataIndex: "time", width: 160 },
+        { title: "操作", width: 110, render: (_, row) => <Button type="link" icon={<EyeOutlined />} onClick={() => openSheet("通知详情", <PushDetail row={row} useMock={useMock} onChanged={afterChanged} />)}>详情</Button> }
+      ]} />
+    </Card>
+  </div>;
 }

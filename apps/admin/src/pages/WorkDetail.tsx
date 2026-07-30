@@ -1,267 +1,133 @@
+import { DeleteOutlined, EditOutlined, EyeInvisibleOutlined, EyeOutlined, PushpinOutlined, StarOutlined, UserOutlined } from "@ant-design/icons";
+import { Alert, Avatar, Button, Card, Descriptions, Form, Input, InputNumber, Popconfirm, Select, Space, Spin, Switch, Tag, Typography } from "antd";
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
-import {
-  apiDeleteWork,
-  apiFeatureWork,
-  apiGetWorkDetail,
-  apiOfflineWork,
-  apiRecommendWork,
-  apiRestoreWork,
-  apiUpdateWork,
-  type AdminWorkDetailData
-} from "../data/api";
+import { apiDeleteWork, apiFeatureWork, apiGetWorkDetail, apiOfflineWork, apiRecommendWork, apiRestoreWork, apiUpdateWork, type AdminWorkDetailData } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { IMG, USERS, WORKS, modelName, type AdminWork } from "../data/mock";
 import { getWork } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Avatar, Badge, Sec, StatusBadge } from "../ui";
+import { StatusBadge } from "../ui";
 
-const FOOT_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: 10,
-  margin: "12px -18px 0",
-  padding: "12px 18px 0",
-  borderTop: "1px solid var(--border)"
-};
+type WorkFormValues = { title: string; desc: string; tags: string; likes: number };
 
 function mockWorkDetail(id: number): AdminWorkDetailData {
   const work = getWork(id);
-  const user = USERS.find((x) => x.id === work.userId) ?? USERS[0];
-  return {
-    ...work,
-    author: { id: user.id, name: user.name, avatar: user.avatar, color: user.color }
-  };
+  const user = USERS.find((item) => item.id === work.userId) ?? USERS[0];
+  return { ...work, author: { id: user.id, name: user.name, avatar: user.avatar, color: user.color } };
 }
 
-function EditWorkInfoForm({ work, useMock, onDone }: { work: AdminWork; useMock: boolean; onDone: () => void }) {
+function EditWorkForm({ work, useMock, onDone }: { work: AdminWork; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
-  const [title, setTitle] = useState(work.title);
-  const [desc, setDesc] = useState(work.desc);
-  const [tags, setTags] = useState((work.tags && work.tags.length ? work.tags : [work.style]).join("、"));
-  const [likes, setLikes] = useState(String(work.likes));
+  const [form] = Form.useForm<WorkFormValues>();
   const [saving, setSaving] = useState(false);
-
   const save = async () => {
-    const likeCount = Number(likes);
-    if (!likes.trim() || !Number.isSafeInteger(likeCount) || likeCount < 0 || likeCount > 2_000_000_000) {
-      toast("点赞数量请输入 0 到 20 亿之间的整数");
-      return;
-    }
-    setSaving(true);
     try {
-      const tagList = tags.split(/[、,，]/).map((s) => s.trim()).filter(Boolean);
+      const values = await form.validateFields();
+      const tags = values.tags.split(/[，,\n]/).map((item) => item.trim()).filter(Boolean).slice(0, 5);
+      setSaving(true);
       if (useMock) {
         const previousLikes = work.likes;
-        work.title = title;
-        work.desc = desc;
-        work.tags = tagList;
-        work.likes = likeCount;
-        const author = USERS.find((user) => user.id === work.userId);
-        if (author) author.likes = Math.max(0, author.likes + likeCount - previousLikes);
+        work.title = values.title.trim();
+        work.desc = values.desc.trim();
+        work.tags = tags;
+        work.style = tags[0] ?? work.style;
+        work.likes = values.likes;
+        const author = USERS.find((item) => item.id === work.userId);
+        if (author) author.likes = Math.max(0, author.likes + values.likes - previousLikes);
       } else {
-        await apiUpdateWork(work.id, { title, desc, style: tagList[0] ?? work.style, likes: likeCount });
+        await apiUpdateWork(work.id, { title: values.title.trim(), desc: values.desc.trim(), style: tags[0] ?? work.style, tags, likes: values.likes });
       }
       closeSheet();
       onDone();
-      toast("已保存作品信息");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "保存失败");
+      toast("作品信息已保存");
+    } catch (cause) {
+      if (cause instanceof Error) toast(cause.message);
     } finally {
       setSaving(false);
     }
   };
-
-  return (
-    <div className="lumi-detail-page lumi-work-detail-page">
-      <label className="field-label">作品标题</label>
-      <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="作品标题" />
-      <label className="field-label" style={{ marginTop: 12 }}>作品描述</label>
-      <textarea className="input" rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="作品描述" />
-      <label className="field-label" style={{ marginTop: 12 }}>标签</label>
-      <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder="多个用、分隔" />
-      <label className="field-label" style={{ marginTop: 12 }}>点赞数量</label>
-      <input
-        className="input"
-        type="number"
-        min={0}
-        max={2_000_000_000}
-        step={1}
-        inputMode="numeric"
-        value={likes}
-        onChange={(event) => setLikes(event.target.value)}
-        placeholder="请输入作品点赞数量"
-      />
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存"}</button>
-      </div>
-    </div>
-  );
+  return <Form form={form} layout="vertical" initialValues={{ title: work.title, desc: work.desc, tags: (work.tags?.length ? work.tags : [work.style]).filter(Boolean).join("，"), likes: work.likes }}><Form.Item label="作品标题" name="title" rules={[{ required: true, whitespace: true, message: "请输入作品标题" }]}><Input maxLength={60} showCount /></Form.Item><Form.Item label="作品描述" name="desc"><Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} maxLength={500} showCount /></Form.Item><Form.Item label="标签" name="tags"><Input placeholder="多个标签用逗号分隔，最多 5 个" /></Form.Item><Form.Item label="点赞数量" name="likes" rules={[{ required: true, message: "请输入点赞数量" }]}><InputNumber min={0} max={2_000_000_000} precision={0} style={{ width: "100%" }} /></Form.Item><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button type="primary" loading={saving} onClick={() => void save()}>保存</Button></div></Form>;
 }
 
-function TakedownForm({ work, useMock, onDone }: { work: AdminWork; useMock: boolean; onDone: () => void }) {
+function OfflineWorkForm({ work, useMock, onDone }: { work: AdminWork; useMock: boolean; onDone: () => void }) {
   const { closeSheet, toast } = useNav();
+  const [form] = Form.useForm<{ reason: string; note?: string }>();
   const [saving, setSaving] = useState(false);
-  const [reason, setReason] = useState("违规内容");
-  const [note, setNote] = useState("");
-
-  const doTakedown = async () => {
-    setSaving(true);
+  const save = async () => {
     try {
-      if (useMock) {
-        work.status = "已下架";
-        work.featured = false;
-      } else {
-        const detail = note.trim() ? `${reason}：${note.trim()}` : reason;
-        await apiOfflineWork(work.id, detail);
-      }
+      const values = await form.validateFields();
+      setSaving(true);
+      const detail = values.note?.trim() ? `${values.reason}：${values.note.trim()}` : values.reason;
+      if (useMock) { work.status = "已下架"; work.featured = false; work.recommend = false; }
+      else await apiOfflineWork(work.id, detail);
       closeSheet();
       onDone();
-      toast("作品已下架");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "下架失败");
+      toast("作品已下架，作者会收到系统通知");
+    } catch (cause) {
+      if (cause instanceof Error) toast(cause.message);
     } finally {
       setSaving(false);
     }
   };
-
-  return (
-    <>
-      <label className="field-label">下架原因</label>
-      <select className="input" value={reason} onChange={(event) => setReason(event.target.value)}>
-        <option>违规内容</option>
-        <option>侵权投诉</option>
-        <option>低质量</option>
-        <option>其他</option>
-      </select>
-      <label className="field-label" style={{ marginTop: 12 }}>备注</label>
-      <textarea className="input" rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="补充说明（可选）" />
-      <div style={FOOT_STYLE}>
-        <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
-        <button className="btn btn-danger btn-block" onClick={doTakedown} disabled={saving}>确认下架</button>
-      </div>
-    </>
-  );
+  return <Form form={form} layout="vertical" initialValues={{ reason: "违规内容" }}><Form.Item label="下架原因" name="reason" rules={[{ required: true }]}><Select options={["违规内容", "侵权投诉", "低质量内容", "其他"].map((value) => ({ value, label: value }))} /></Form.Item><Form.Item label="补充说明" name="note"><Input.TextArea autoSize={{ minRows: 3, maxRows: 5 }} placeholder="可选，会一并发送给作者" /></Form.Item><div className="lumi-drawer-form-actions"><Button onClick={closeSheet}>取消</Button><Button danger loading={saving} onClick={() => void save()}>确认下架</Button></div></Form>;
 }
 
 export function WorkDetail({ param }: { param?: string }) {
-  const { go, back, openSheet, confirmDlg, toast } = useNav();
+  const { go, back, openSheet, toast } = useNav();
   const { useMock } = useAdminSession();
   const workId = Number(param ?? 0);
   const { data, loading, error, reload } = useAsyncData(useMock ? null : () => apiGetWorkDetail(workId), [useMock, workId]);
-  const w = useMock ? mockWorkDetail(workId) : data;
-  const u = w?.author ?? USERS.find((x) => x.id === w?.userId);
-  const tagList = w?.tags && w.tags.length ? w.tags : w ? [w.style] : [];
-  const onDone = () => {
-    if (!useMock) reload();
-  };
-
-  if (loading) return <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载作品中</div></div>;
-  if (error) return <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div>;
-  if (!w) return <div className="empty"><i className="ri-image-line" /><div className="et">作品不存在</div></div>;
-
-  const toggle = async (key: "featured" | "recommend") => {
-    const next = !w[key];
+  const work = useMock ? mockWorkDetail(workId) : data;
+  const done = () => useMock ? undefined : void reload();
+  if (loading) return <div className="lumi-page-loading"><Spin size="large" tip="正在加载作品详情" /></div>;
+  if (error) return <Alert showIcon type="error" message="作品详情加载失败" description={error} />;
+  if (!work) return <Alert showIcon type="warning" message="作品不存在或已被删除" />;
+  const author = work.author ?? USERS.find((item) => item.id === work.userId);
+  const tags = (work.tags?.length ? work.tags : [work.style]).filter(Boolean);
+  const toggle = async (key: "featured" | "recommend", enabled: boolean) => {
     try {
-      if (useMock) {
-        w[key] = next;
-      } else if (key === "featured") {
-        await apiFeatureWork(w.id, next);
-        reload();
-      } else {
-        await apiRecommendWork(w.id, next);
-        reload();
-      }
-      toast(next ? "已开启" : "已关闭");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "操作失败");
+      if (useMock) work[key] = enabled;
+      else if (key === "featured") await apiFeatureWork(work.id, enabled);
+      else await apiRecommendWork(work.id, enabled);
+      done();
+      toast(enabled ? "已启用" : "已关闭");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "操作失败，请稍后重试");
     }
   };
-
   const restore = async () => {
     try {
-      if (useMock) {
-        w.status = "已发布";
-      } else {
-        await apiRestoreWork(w.id);
-        reload();
-      }
-      toast("已恢复上架");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "恢复失败");
+      if (useMock) work.status = "已发布";
+      else await apiRestoreWork(work.id);
+      done();
+      toast("作品已恢复上架");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "恢复失败，请稍后重试");
     }
   };
-
-  const del = () => confirmDlg("删除作品", "删除后不可恢复，确定要删除这个作品吗？", async () => {
-    if (useMock) {
-      const i = WORKS.findIndex((x) => x.id === w.id);
-      if (i > -1) WORKS.splice(i, 1);
-      back();
-      toast("已删除");
-      return;
-    }
+  const remove = async () => {
     try {
-      await apiDeleteWork(w.id);
+      if (useMock) {
+        const index = WORKS.findIndex((item) => item.id === work.id);
+        if (index >= 0) WORKS.splice(index, 1);
+      } else await apiDeleteWork(work.id);
+      toast("作品已删除");
       back();
-      toast("已删除");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "删除失败");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "删除失败，请稍后重试");
     }
-  }, true);
-
-  return (
-    <>
-      <AdminImage eager className="thumb" src={w.imageUrl || IMG("w" + w.id)} style={{ width: "100%", aspectRatio: "1", borderRadius: 14 }} alt="" />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 2px 0" }}>
-        <div style={{ fontSize: 17, fontWeight: 800 }}>{w.title || "未命名作品"}</div>
-        <StatusBadge s={w.status} />
-      </div>
-
-      {u ? (
-        <div className="card" style={{ padding: "10px 14px", marginTop: 10, display: "flex", alignItems: "center", gap: 10 }} onClick={() => go("userDetail", String(u.id))}>
-          <Avatar a={u.avatar} color={u.color} size={36} />
-          <div className="lr-main">
-            <div className="lr-t">{u.name}</div>
-            <div className="lr-s">作者 · ID {u.id}</div>
-          </div>
-          <i className="ri-arrow-right-s-line lr-arrow" />
-        </div>
-      ) : null}
-
-      <Sec title="标题与描述" more="编辑" onMore={() => openSheet("编辑作品信息", <EditWorkInfoForm work={w} useMock={useMock} onDone={onDone} />)} />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">作品标题</span><span className="v">{w.title || "未命名作品"}</span></div>
-        <div style={{ padding: "11px 0", fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{w.desc || "（暂无作品描述）"}</div>
-      </div>
-
-      <Sec title="提示词" />
-      <div className="card" style={{ padding: "12px 14px", fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{w.prompt}</div>
-
-      <Sec title="作品信息" />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">模型</span><span className="v">{modelName(w.model)}</span></div>
-        <div className="kv"><span className="k">分辨率 / 比例</span><span className="v">{w.quality} · {w.ratio}</span></div>
-        <div className="kv"><span className="k">风格</span><span className="v">{w.style}</span></div>
-        <div className="kv"><span className="k">标签</span><span className="v">{tagList.map((t, i) => <Badge key={i} text={t} type="info" />)}</span></div>
-        <div className="kv"><span className="k">点赞 / 收藏 / 同款</span><span className="v">{w.likes} / {w.favorites} / {w.remakes}</span></div>
-        <div className="kv"><span className="k">发布时间</span><span className="v">{w.time}</span></div>
-      </div>
-
-      <Sec title="运营操作" />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">设为精选</span><span className={`switch${w.featured ? " on" : ""}`} onClick={() => toggle("featured")} /></div>
-        <div className="kv"><span className="k">首页推荐</span><span className={`switch${w.recommend ? " on" : ""}`} onClick={() => toggle("recommend")} /></div>
-      </div>
-
-      <div className="actionbar">
-        {w.status === "已下架" ? (
-          <button className="btn btn-success btn-block" onClick={restore}><i className="ri-eye-line" />恢复上架</button>
-        ) : (
-          <button className="btn btn-danger btn-block" onClick={() => openSheet("下架作品", <TakedownForm work={w} useMock={useMock} onDone={onDone} />)}><i className="ri-eye-off-line" />下架</button>
-        )}
-        <button className="btn btn-ghost btn-block" onClick={del}><i className="ri-delete-bin-line" />删除</button>
-      </div>
-    </>
-  );
+  };
+  return <div className="lumi-admin-page lumi-work-detail-page">
+    <Card className="lumi-detail-hero" bordered={false}>
+      <Space align="start" size={16} wrap><AdminImage eager className="lumi-detail-cover" src={work.imageUrl || IMG(`w${work.id}`)} alt={work.title} /><div className="lumi-detail-hero__copy"><Space wrap><Typography.Title level={3}>{work.title || "未命名作品"}</Typography.Title><StatusBadge s={work.status} /></Space><Typography.Paragraph type="secondary">发布于 {work.time}</Typography.Paragraph><Space wrap>{tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space></div></Space>
+    </Card>
+    {author ? <Card size="small" className="lumi-detail-card lumi-clickable-card" onClick={() => go("userDetail", String(author.id))}><Space><Avatar style={{ background: author.color }}>{author.avatar || author.name.slice(0, 1)}</Avatar><div><Typography.Text strong>{author.name}</Typography.Text><br /><Typography.Text type="secondary">作者 · ID {author.id}</Typography.Text></div><UserOutlined /></Space></Card> : null}
+    <Card title="标题与描述" className="lumi-detail-card" extra={<Button type="link" icon={<EditOutlined />} onClick={() => openSheet("编辑作品信息", <EditWorkForm work={work} useMock={useMock} onDone={done} />)}>编辑</Button>}><Typography.Paragraph style={{ whiteSpace: "pre-wrap", margin: 0 }}>{work.desc || "暂无作品描述"}</Typography.Paragraph></Card>
+    <Card title="提示词" className="lumi-detail-card"><Typography.Paragraph copyable={{ text: work.prompt }} style={{ whiteSpace: "pre-wrap", margin: 0 }}>{work.prompt || "暂无提示词"}</Typography.Paragraph></Card>
+    <Card title="作品信息" className="lumi-detail-card"><Descriptions column={{ xs: 1, md: 2 }} size="small"><Descriptions.Item label="模型">{modelName(work.model)}</Descriptions.Item><Descriptions.Item label="分辨率">{work.quality}</Descriptions.Item><Descriptions.Item label="尺寸比例">{work.ratio}</Descriptions.Item><Descriptions.Item label="风格">{work.style || "—"}</Descriptions.Item><Descriptions.Item label="互动数据" span={2}>点赞 {work.likes} · 收藏 {work.favorites} · 同款 {work.remakes}</Descriptions.Item></Descriptions></Card>
+    <Card title="运营设置" className="lumi-detail-card"><Descriptions column={1} size="small"><Descriptions.Item label="设为精选"><Switch checked={work.featured} onChange={(value) => void toggle("featured", value)} /></Descriptions.Item><Descriptions.Item label="首页推荐"><Switch checked={work.recommend} onChange={(value) => void toggle("recommend", value)} /></Descriptions.Item></Descriptions></Card>
+    <div className="lumi-detail-actions">{work.status === "已下架" ? <Button type="primary" icon={<EyeOutlined />} onClick={() => void restore()}>恢复上架</Button> : <Button danger icon={<EyeInvisibleOutlined />} onClick={() => openSheet("下架作品", <OfflineWorkForm work={work} useMock={useMock} onDone={done} />)}>下架作品</Button>}<Popconfirm title="删除后不可恢复，确认继续？" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => void remove()}><Button icon={<DeleteOutlined />} danger>删除作品</Button></Popconfirm></div>
+  </div>;
 }

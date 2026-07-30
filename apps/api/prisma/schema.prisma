@@ -486,11 +486,13 @@ model Work {
   likes       Int      @default(0)
   favorites   Int      @default(0)
   remakes     Int      @default(0)
+  reviewedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([status])
   @@index([userId])
+  @@index([reviewedAt])
   @@map("works")
 }
 

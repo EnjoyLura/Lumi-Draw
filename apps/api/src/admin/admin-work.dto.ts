@@ -17,6 +17,13 @@ export class AdminUpdateWorkDto {
   style?: string;
 
   @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  @MaxLength(20, { each: true })
+  tags?: string[];
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   @Max(2_000_000_000)

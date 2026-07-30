@@ -43,11 +43,11 @@ export function DataDetail({ param }: { param?: string }) {
   const d = DRILL[param ?? ""] || DRILL.users;
   const { useMock } = useAdminSession();
   const isIncome = d.key === "income";
-  const shouldLoad = !useMock && !isIncome;
+  const shouldLoad = !useMock;
   const { data: detail, loading, error } = useAsyncData<AdminDashboardDetail>(shouldLoad ? () => apiGetDashboardDetail(d.key) : null, [shouldLoad, d.key]);
-  const data = useMock || isIncome ? mockSeries(d) : detail?.series ?? [];
-  const labels = useMock || isIncome ? WEEK : detail?.labels ?? [];
-  const sum = useMock || isIncome ? mockTotal(d, data) : detail?.total ?? 0;
+  const data = useMock ? mockSeries(d) : detail?.series ?? [];
+  const labels = useMock ? WEEK : detail?.labels ?? [];
+  const sum = useMock ? mockTotal(d, data) : detail?.total ?? 0;
 
   return (
     <>
@@ -55,7 +55,7 @@ export function DataDetail({ param }: { param?: string }) {
         {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载数据中</div></div> : null}
         {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
         <div style={{ fontSize: 13, color: "var(--fg-muted)" }}>{d.name} · 近7日趋势</div>
-        <div style={{ fontSize: 28, fontWeight: 800, margin: "4px 0" }}>{isIncome ? "¥" : ""}{sum.toLocaleString()}</div>
+        <div style={{ fontSize: 28, fontWeight: 800, margin: "4px 0" }}>{isIncome ? "¥" : ""}{(isIncome ? sum / 100 : sum).toLocaleString("zh-CN", { maximumFractionDigits: isIncome ? 2 : 0 })}</div>
         <BarChart data={data} labels={labels} grad={d.grad} />
       </div>
 
@@ -64,7 +64,7 @@ export function DataDetail({ param }: { param?: string }) {
         {labels.map((w, i) => (
           <div key={w} className="lrow" style={{ cursor: "default" }}>
             <div className="lr-main"><div className="lr-t">{w}</div></div>
-            <span style={{ fontWeight: 700 }}>{isIncome ? "¥" : ""}{data[i].toLocaleString()}{isIncome ? "" : ` ${d.unit}`}</span>
+            <span style={{ fontWeight: 700 }}>{isIncome ? "¥" : ""}{(isIncome ? (data[i] ?? 0) / 100 : data[i] ?? 0).toLocaleString("zh-CN", { maximumFractionDigits: isIncome ? 2 : 0 })}{isIncome ? "" : ` ${d.unit}`}</span>
           </div>
         ))}
       </div>

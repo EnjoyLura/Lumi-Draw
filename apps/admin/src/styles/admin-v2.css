@@ -1021,3 +1021,154 @@ html[data-admin-density="compact"] .lumi-page-body .lrow {
     transition-duration: 0.01ms !important;
   }
 }
+
+.lumi-detail-hero {
+  margin-bottom: 16px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffffff 0%, #f2f7ff 100%);
+}
+
+.lumi-detail-hero .ant-card-body {
+  padding: 22px;
+}
+
+.lumi-detail-hero__copy {
+  min-width: 220px;
+  flex: 1;
+}
+
+.lumi-detail-hero__copy .ant-typography {
+  margin-bottom: 4px;
+}
+
+.lumi-detail-cover {
+  display: block;
+  width: 220px;
+  height: 220px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #edf2f8;
+}
+
+.lumi-detail-card {
+  margin-bottom: 16px;
+}
+
+.lumi-clickable-card {
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.lumi-clickable-card:hover {
+  border-color: #91caff;
+  box-shadow: 0 6px 18px rgba(27, 91, 171, .08);
+}
+
+.lumi-detail-actions,
+.lumi-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lumi-detail-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.lumi-detail-stat-grid .ant-card-body {
+  padding: 16px 18px;
+}
+
+.lumi-select-users-card {
+  margin-bottom: 18px;
+}
+
+.lumi-user-picker-list {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.lumi-user-picker-row {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+
+.lumi-user-picker-row:hover {
+  background: #f5f8fc;
+}
+
+.lumi-inline-loading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 0;
+  color: #7b8798;
+}
+
+.lumi-upload-preview,
+.lumi-upload-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 180px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-style: dashed;
+}
+
+.lumi-upload-preview .ant-image,
+.lumi-upload-preview .ant-image-img {
+  max-width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+.lumi-upload-placeholder {
+  flex-direction: column;
+  gap: 10px;
+  font-size: 26px;
+}
+
+.lumi-switch-card {
+  margin-top: 6px;
+}
+
+@media (max-width: 767px) {
+  .lumi-detail-hero .ant-card-body {
+    padding: 16px;
+  }
+
+  .lumi-detail-cover {
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    aspect-ratio: 1 / 1;
+  }
+
+  .lumi-detail-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .lumi-detail-actions,
+  .lumi-form-actions {
+    justify-content: stretch;
+  }
+
+  .lumi-detail-actions .ant-btn,
+  .lumi-form-actions .ant-btn {
+    flex: 1;
+  }
+}

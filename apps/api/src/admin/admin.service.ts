@@ -351,6 +351,7 @@ export class AdminService {
     if (typeof body.title === "string") data.title = body.title;
     if (typeof body.description === "string") data.description = body.description;
     if (typeof body.style === "string") data.style = body.style;
+    if (Array.isArray(body.tags)) data.tags = body.tags;
     if (typeof body.status === "string") data.status = body.status;
     if (typeof body.likes === "number") data.likes = body.likes;
 

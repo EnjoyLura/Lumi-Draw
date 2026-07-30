@@ -34,4 +34,9 @@ export class DashboardController {
   detail(@Query("metric") metric?: string, @Query("range") range?: string) {
     return this.dashboard.detail(metric, range);
   }
+
+  @Get("review-summary")
+  reviewSummary() {
+    return this.dashboard.reviewSummary();
+  }
 }

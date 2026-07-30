@@ -104,6 +104,8 @@ export class DashboardService {
       todayIncomeFen: sumFen(todayIncome),
       monthIncomeFen: sumFen(monthIncome),
       totalIncomeFen: sumFen(totalIncome),
+      // 当前支付订单模型尚未记录商户侧退款金额与退款时间，不能伪造退款统计。
+      // 前端改为展示真实的待支付订单数，退款能力接入后再恢复退款汇总卡片。
       monthRefundFen: 0,
       paidOrders,
       pendingOrders
@@ -166,11 +168,45 @@ export class DashboardService {
       return { metric: m, range: `${this.daysOf(range)}d`, labels: keys, series, total: series[series.length - 1] ?? 0 };
     }
 
+    if (m === "income") {
+      const paidOrders = await this.prisma.paymentOrder.findMany({
+        where: { status: "paid", paidAt: { gte: start } },
+        select: { paidAt: true, amountFen: true }
+      });
+      const series = bucketFenByDay(paidOrders, keys);
+      return {
+        metric: "income",
+        range: `${this.daysOf(range)}d`,
+        labels: keys,
+        series,
+        total: series.reduce((sum, value) => sum + value, 0)
+      };
+    }
+
     const isWorks = m === "newWorks" || m === "works";
     const dates = isWorks
       ? (await this.prisma.work.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })).map((w) => w.createdAt)
       : (await this.prisma.user.findMany({ where: { createdAt: { gte: start } }, select: { createdAt: true } })).map((u) => u.createdAt);
     const series = bucketByDay(dates, keys);
     return { metric: isWorks ? "newWorks" : "newUsers", range: `${this.daysOf(range)}d`, labels: keys, series, total: series[series.length - 1] ?? 0 };
+  }
+
+  async reviewSummary() {
+    const startToday = dayStart(dayKey(new Date()));
+    const [approved, rejected, pending, pendingReports] = await Promise.all([
+      this.prisma.work.count({ where: { reviewedAt: { gte: startToday }, status: "published" } }),
+      this.prisma.work.count({ where: { reviewedAt: { gte: startToday }, status: "rejected" } }),
+      this.prisma.work.count({ where: { status: "pending" } }),
+      this.prisma.report.count({ where: { status: { in: ["pending", "processing"] } } })
+    ]);
+    const reviewed = approved + rejected;
+    return {
+      reviewed,
+      approved,
+      rejected,
+      passRate: reviewed ? Math.round((approved / reviewed) * 1000) / 10 : 0,
+      pending,
+      pendingReports
+    };
   }
 }

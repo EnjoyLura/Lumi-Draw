@@ -121,9 +121,9 @@ export class ModerationController {
   }
 
   @Get("payment-orders")
-  paymentOrders(@Query("type") type?: string, @Query("userId") userId?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
+  paymentOrders(@Query("type") type?: string, @Query("status") status?: string, @Query("userId") userId?: string, @Query("page") page?: string, @Query("pageSize") pageSize?: string) {
     const uid = Number(userId);
-    return this.mod.paymentOrders(type, Number.isFinite(uid) ? uid : undefined, toInt(page, 1), toInt(pageSize, 20));
+    return this.mod.paymentOrders(type, status, Number.isFinite(uid) ? uid : undefined, toInt(page, 1), toInt(pageSize, 20));
   }
 
   // 财务/积分配置

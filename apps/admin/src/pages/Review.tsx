@@ -24,10 +24,12 @@ import { AdminMetrics } from "../components/AdminMetrics";
 import {
   apiApproveReview,
   apiGetReports,
+  apiGetReviewSummary,
   apiGetReviews,
   apiRejectReview,
   apiResolveReport,
   type AdminReportData,
+  type AdminReviewSummary,
   type AdminWorkDetailData
 } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
@@ -165,14 +167,21 @@ export function Review({ param }: { param?: string }) {
     queryFn: apiGetReports,
     enabled: !useMock
   });
+  const summaryQuery = useQuery({
+    queryKey: ["admin", "review-summary"],
+    queryFn: apiGetReviewSummary,
+    enabled: !useMock
+  });
 
   const works = useMock ? getWorks().filter((work) => work.status === "待审核") : reviewsQuery.data ?? [];
   const reports = useMock ? getReports().filter((report) => report.status === "待处理") : reportsQuery.data ?? [];
+  const summary: AdminReviewSummary | undefined = useMock ? undefined : summaryQuery.data;
   const reload = async () => {
     if (!useMock) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] }),
-        queryClient.invalidateQueries({ queryKey: ["admin", "reports"] })
+        queryClient.invalidateQueries({ queryKey: ["admin", "reports"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "review-summary"] })
       ]);
     }
   };
@@ -287,10 +296,10 @@ export function Review({ param }: { param?: string }) {
     <div className="lumi-admin-page">
       <AdminMetrics
         items={[
-          { key: "pending", title: "待审核作品", value: works.length, icon: <ClockCircleOutlined />, color: "#F59E0B" },
-          { key: "reviewed", title: "今日已审", value: useMock ? 328 : "—", icon: <CheckCircleOutlined />, color: "#22C55E" },
-          { key: "rate", title: "通过率", value: useMock ? 94 : "—", suffix: useMock ? "%" : undefined, icon: <PieChartOutlined />, color: "#5B9FE8" },
-          { key: "reports", title: "举报待处理", value: reports.length, icon: <FlagOutlined />, color: "#EF4444" }
+          { key: "pending", title: "待审核作品", value: useMock ? works.length : summary?.pending ?? works.length, icon: <ClockCircleOutlined />, color: "#F59E0B" },
+          { key: "reviewed", title: "今日已审", value: useMock ? 328 : summary?.reviewed ?? 0, icon: <CheckCircleOutlined />, color: "#22C55E" },
+          { key: "rate", title: "通过率", value: useMock ? 94 : summary?.passRate ?? 0, suffix: "%", icon: <PieChartOutlined />, color: "#5B9FE8" },
+          { key: "reports", title: "举报待处理", value: useMock ? reports.length : summary?.pendingReports ?? reports.length, icon: <FlagOutlined />, color: "#EF4444" }
         ]}
       />
       <Card className="lumi-table-card">

@@ -1,20 +1,19 @@
-import { apiApproveReview, apiGetWorkDetail, type AdminWorkDetailData } from "../data/api";
+import { CheckOutlined, CloseOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Descriptions, Space, Spin, Tag, Typography } from "antd";
 import { AdminImage } from "../components/AdminImage";
+import { apiApproveReview, apiGetWorkDetail, type AdminWorkDetailData } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { IMG, USERS, modelName, userName } from "../data/mock";
 import { getWork } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Sec, StatusBadge } from "../ui";
+import { StatusBadge } from "../ui";
 import { moderationStatusText, RejectForm } from "./Review";
 
 function mockWorkDetail(id: number): AdminWorkDetailData {
   const work = getWork(id);
-  const user = USERS.find((x) => x.id === work.userId) ?? USERS[0];
-  return {
-    ...work,
-    author: { id: user.id, name: user.name, avatar: user.avatar, color: user.color }
-  };
+  const user = USERS.find((item) => item.id === work.userId) ?? USERS[0];
+  return { ...work, author: { id: user.id, name: user.name, avatar: user.avatar, color: user.color } };
 }
 
 export function ReviewDetail({ param }: { param?: string }) {
@@ -22,67 +21,52 @@ export function ReviewDetail({ param }: { param?: string }) {
   const { useMock } = useAdminSession();
   const workId = Number(param ?? 0);
   const { data, loading, error } = useAsyncData(useMock ? null : () => apiGetWorkDetail(workId), [useMock, workId]);
-  const w = useMock ? mockWorkDetail(workId) : data;
-
-  if (loading) return <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载审核详情中</div></div>;
-  if (error) return <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div>;
-  if (!w) return <div className="empty"><i className="ri-image-line" /><div className="et">作品不存在</div></div>;
-
-  const authorName = w.author?.name ?? userName(w.userId);
-  const imageUrl = w.imageUrl || IMG("w" + w.id);
+  const work = useMock ? mockWorkDetail(workId) : data;
   const approve = async () => {
+    if (!work) return;
     try {
-      if (useMock) {
-        w.status = "已发布";
-      } else {
-        await apiApproveReview(w.id);
-      }
+      if (useMock) work.status = "已发布";
+      else await apiApproveReview(work.id);
+      toast("作品已通过审核");
       back();
-      toast("已通过审核");
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "审核失败");
+    } catch (cause) {
+      toast(cause instanceof Error ? cause.message : "审核失败，请稍后重试");
     }
   };
-  const reject = () => openSheet("拒绝原因", <RejectForm work={w} useMock={useMock} onAfter={back} />);
-
+  if (loading) return <div className="lumi-page-loading"><Spin size="large" tip="正在加载审核详情" /></div>;
+  if (error) return <Alert showIcon type="error" message="审核详情加载失败" description={error} />;
+  if (!work) return <Alert showIcon type="warning" message="作品不存在或已被删除" />;
+  const imageReviewing = ["submitting", "pending"].includes(work.imageModerationStatus || "");
   return (
-    <>
-      <AdminImage eager className="thumb" src={imageUrl} style={{ width: "100%", aspectRatio: "1", borderRadius: 14 }} alt="" />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "12px 2px 8px" }}>
-        <div style={{ fontSize: 17, fontWeight: 800 }}>{w.title || "未命名作品"}</div>
-        <StatusBadge s={w.status} />
-      </div>
-
-      <Sec title="标题与描述" />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">作品标题</span><span className="v">{w.title || "未命名作品"}</span></div>
-        <div style={{ padding: "11px 0", fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{w.desc || "（暂无作品描述）"}</div>
-      </div>
-
-      <Sec title="作品信息" />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">作者</span><span className="v">{authorName}</span></div>
-        <div className="kv"><span className="k">模型 / 分辨率</span><span className="v">{modelName(w.model)} · {w.quality}</span></div>
-        <div className="kv"><span className="k">风格 / 比例</span><span className="v">{w.style} · {w.ratio}</span></div>
-        <div className="kv"><span className="k">提交时间</span><span className="v">{w.time}</span></div>
-      </div>
-
-      <Sec title="提示词" />
-      <div className="card" style={{ padding: "12px 14px", fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>{w.prompt}</div>
-
-      <Sec title="微信内容安全" />
-      <div className="card" style={{ padding: "2px 14px" }}>
-        <div className="kv"><span className="k">文本审核</span><span className="v">{moderationStatusText(w.textModerationStatus)}</span></div>
-        <div className="kv"><span className="k">图片审核</span><span className="v">{moderationStatusText(w.imageModerationStatus)}</span></div>
-        {w.moderationReason ? <div style={{ padding: "11px 0", fontSize: 13, color: "var(--danger)", lineHeight: 1.6 }}>{w.moderationReason}</div> : null}
-      </div>
-
-      {w.status === "待审核" ? (
-        <div className="actionbar">
-          <button className="btn btn-danger btn-block" onClick={reject}>拒绝</button>
-          <button className="btn btn-success btn-block" disabled={["submitting", "pending"].includes(w.imageModerationStatus || "")} onClick={approve}><i className="ri-check-line" />{["submitting", "pending"].includes(w.imageModerationStatus || "") ? "图片审核中" : w.imageModerationStatus === "failed" ? "重新提交审核" : w.imageModerationStatus === "unchecked" || !w.imageModerationStatus ? "提交微信审核" : "通过"}</button>
-        </div>
-      ) : null}
-    </>
+    <div className="lumi-admin-page lumi-review-detail-page">
+      <Card className="lumi-detail-hero" bordered={false}>
+        <Space align="start" size={16} wrap>
+          <AdminImage eager className="lumi-detail-cover" src={work.imageUrl || IMG(`w${work.id}`)} alt={work.title} />
+          <div className="lumi-detail-hero__copy">
+            <Space align="center" wrap><Typography.Title level={3}>{work.title || "未命名作品"}</Typography.Title><StatusBadge s={work.status} /></Space>
+            <Typography.Paragraph type="secondary">作者：{work.author?.name || userName(work.userId)} · 提交于 {work.time}</Typography.Paragraph>
+            <Space wrap>{(work.tags?.length ? work.tags : [work.style]).filter(Boolean).map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space>
+          </div>
+        </Space>
+      </Card>
+      <Card title="作品信息" className="lumi-detail-card">
+        <Descriptions column={{ xs: 1, md: 2 }} size="small">
+          <Descriptions.Item label="模型">{modelName(work.model)}</Descriptions.Item>
+          <Descriptions.Item label="分辨率">{work.quality}</Descriptions.Item>
+          <Descriptions.Item label="尺寸比例">{work.ratio}</Descriptions.Item>
+          <Descriptions.Item label="风格">{work.style || "—"}</Descriptions.Item>
+          <Descriptions.Item label="作品描述" span={2}>{work.desc || "暂无作品描述"}</Descriptions.Item>
+          <Descriptions.Item label="提示词" span={2}><Typography.Paragraph copyable={{ text: work.prompt }} style={{ margin: 0, whiteSpace: "pre-wrap" }}>{work.prompt || "暂无提示词"}</Typography.Paragraph></Descriptions.Item>
+        </Descriptions>
+      </Card>
+      <Card title={<Space><SafetyCertificateOutlined />内容安全审核</Space>} className="lumi-detail-card">
+        <Descriptions column={{ xs: 1, md: 2 }} size="small">
+          <Descriptions.Item label="文本审核"><Tag>{moderationStatusText(work.textModerationStatus)}</Tag></Descriptions.Item>
+          <Descriptions.Item label="图片审核"><Tag color={work.imageModerationStatus === "pass" ? "success" : work.imageModerationStatus === "risky" ? "error" : work.imageModerationStatus === "pending" ? "processing" : "default"}>{moderationStatusText(work.imageModerationStatus)}</Tag></Descriptions.Item>
+          {work.moderationReason ? <Descriptions.Item label="审核说明" span={2}><Typography.Text type="danger">{work.moderationReason}</Typography.Text></Descriptions.Item> : null}
+        </Descriptions>
+      </Card>
+      {work.status === "待审核" ? <div className="lumi-detail-actions"><Button danger icon={<CloseOutlined />} onClick={() => openSheet("拒绝作品", <RejectForm work={work} useMock={useMock} onAfter={back} />)}>拒绝</Button><Button type="primary" icon={<CheckOutlined />} disabled={imageReviewing} onClick={() => void approve()}>{imageReviewing ? "图片审核中" : "通过审核"}</Button></div> : null}
+    </div>
   );
 }

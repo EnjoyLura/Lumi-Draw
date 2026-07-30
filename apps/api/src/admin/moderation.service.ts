@@ -59,7 +59,7 @@ export class ModerationService {
     if (!work) throw new NotFoundException("作品不存在");
     if (work.status !== "pending") throw new BadRequestException("只有待审核作品可以执行通过操作");
     await this.safety.prepareWorkForManualApproval(work, this.uploads.readUrl(work.imageUrl, "private"));
-    await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true } });
+    await this.prisma.work.update({ where: { id }, data: { status: "published", isPublic: true, reviewedAt: new Date() } });
     try {
       await this.publishRewards.awardPublishedWork(work.userId, work.id);
       return { ok: true, id, status: "published", rewardPending: false };
@@ -77,7 +77,7 @@ export class ModerationService {
     const detail = typeof reason === "string" ? reason.trim() : "";
     await this.prisma.work.update({
       where: { id },
-      data: { status: "rejected", isPublic: false, moderationReason: detail || "人工审核未通过" }
+      data: { status: "rejected", isPublic: false, moderationReason: detail || "人工审核未通过", reviewedAt: new Date() }
     });
     await this.notifications.createSystemNotifications(
       [work.userId],
@@ -143,9 +143,17 @@ export class ModerationService {
       this.prisma.feedback.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.feedback.count({ where })
     ]);
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(rows.map((row) => row.userId))] } },
+      select: { id: true, nickname: true, avatarText: true, avatarColor: true }
+    });
+    const userMap = new Map(users.map((user) => [user.id, user]));
     return buildPage(
       rows.map((f) => ({
         ...f,
+        userName: userMap.get(f.userId)?.nickname ?? `用户${f.userId}`,
+        userAvatar: userMap.get(f.userId)?.avatarText ?? "",
+        userAvatarColor: userMap.get(f.userId)?.avatarColor ?? "#5B9FE8",
         imageUrls: f.imageUrls
           ? f.imageUrls.split(",").filter(Boolean).map((url) => this.uploads.readAdminThumbnailImageUrl(url, "private"))
           : [],
@@ -160,8 +168,15 @@ export class ModerationService {
   async feedbackDetail(id: number) {
     const f = await this.prisma.feedback.findUnique({ where: { id } });
     if (!f) throw new NotFoundException("反馈不存在");
+    const user = await this.prisma.user.findUnique({
+      where: { id: f.userId },
+      select: { nickname: true, avatarText: true, avatarColor: true }
+    });
     return {
       ...f,
+      userName: user?.nickname ?? `用户${f.userId}`,
+      userAvatar: user?.avatarText ?? "",
+      userAvatarColor: user?.avatarColor ?? "#5B9FE8",
       imageUrls: f.imageUrls
         ? f.imageUrls.split(",").filter(Boolean).map((url) => this.uploads.readAdminThumbnailImageUrl(url, "private"))
         : [],
@@ -279,9 +294,10 @@ export class ModerationService {
     return buildPage(items, total, page, pageSize);
   }
 
-  async paymentOrders(type: string | undefined, userId: number | undefined, page: number, pageSize: number) {
+  async paymentOrders(type: string | undefined, status: string | undefined, userId: number | undefined, page: number, pageSize: number) {
     const where: Prisma.PaymentOrderWhereInput = {};
     if (type) where.type = type;
+    if (status) where.status = status;
     if (userId) where.userId = userId;
     const [rows, total] = await Promise.all([
       this.prisma.paymentOrder.findMany({
