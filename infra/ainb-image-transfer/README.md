@@ -34,6 +34,11 @@ Environment variables:
 
 - `OSS_REGION`
 - `OSS_BUCKET`
+- `OSS_INTERNAL=true`, use the same-region OSS internal endpoint from FC
+- `CDN_BASE_URL`, authenticated CDN domain used while the public domain is unavailable
+- `CDN_PUBLIC_BASE_URL`, optional unauthenticated domain for stable published-work URLs
+- `CDN_AUTH_KEY`, Type A authentication key for `CDN_BASE_URL`
+- `CDN_AUTH_URL_WINDOW_SECONDS=1800`, stable signed-URL window
 - `TRANSFER_CALLBACK_TOKEN`
 - `API_CALLBACK_URL`, used to finish URL-to-OSS transfers
 - `GENERATION_CALLBACK_URL`, used by Base64 generation and progress callbacks
@@ -59,6 +64,7 @@ The handler writes one-line JSON events to the FC invocation log. Filter by `job
 - `generation.outputs.ready`: result count and whether each result arrived as URL or Base64.
 - `oss.upload.start` and `oss.upload.complete`: OSS payload size and upload duration.
 - `callback.complete` and `callback.failed`: delivery of the final result to the business API.
+- `cdn.prewarm.start`, `cdn.prewarm.complete`, and `cdn.prewarm.failed`: post-callback warming of the 640px card and 2048px preview variants. Warming never changes the completed task result.
 - `invocation.failed`: final phase-aware error, including available socket byte counters and `UND_ERR_*` codes.
 
 Use Alibaba Cloud Function Compute logs and search for the generation job ID shown by the business API log. A successful task ends with `generation.complete`; a failed task ends with `invocation.failed`.

@@ -6,9 +6,8 @@ const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_TRANSFER_BYTES = 30 * 1024 * 1024;
 const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
-// A short, stable URL bucket lets WeChat reuse the same image cache entry while
-// leaving ample headroom for the CDN's Type A authentication validity window.
-const CDN_AUTH_URL_WINDOW_SECONDS = 5 * 60;
+const DEFAULT_CDN_AUTH_URL_WINDOW_SECONDS = 30 * 60;
+const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,Q_95/format,webp";
 const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
@@ -43,7 +42,9 @@ type OssConfig = {
   bucket: string;
   endpoint: string;
   cdnBaseUrl?: string;
+  publicCdnBaseUrl?: string;
   cdnAuthKey?: string;
+  cdnAuthWindowSeconds?: number;
 };
 
 function encodeKeyPath(key: string) {
@@ -77,9 +78,7 @@ export class UploadsService {
       await this.deleteObject(ossKey).catch(() => undefined);
       throw error;
     }
-    const publicUrl = this.objectUrl(ossKey);
-    if (this.isWorkImageKey(ossKey)) void this.prewarmWorkImageVariants(publicUrl);
-    return { ok: true, ossKey, publicUrl };
+    return { ok: true, ossKey, publicUrl: this.objectUrl(ossKey) };
   }
 
   async uploadBuffer(scene: string, filename: string, contentType: string, buffer: Buffer) {
@@ -90,7 +89,6 @@ export class UploadsService {
     const policy = this.createPutPolicy(this.createSystemKey(scene, contentType), contentType);
     const uploaded = await fetch(policy.uploadUrl, { method: "PUT", headers: policy.headers, body: buffer });
     if (!uploaded.ok) throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
-    if (this.isWorkImageScene(scene)) void this.prewarmWorkImageVariants(policy.publicUrl);
     return { imageUrl: policy.publicUrl, ossKey: policy.ossKey, sizeBytes: buffer.byteLength, contentType };
   }
 
@@ -99,7 +97,8 @@ export class UploadsService {
     if (!url) return url;
     const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
-    if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) return this.cdnObjectUrl(oss, ossKey);
+    const cdnBaseUrl = this.cdnBaseUrlForVisibility(oss, visibility);
+    if (cdnBaseUrl) return this.cdnObjectUrl(oss, ossKey, undefined, cdnBaseUrl, visibility !== "public" || !oss.publicCdnBaseUrl);
     // Keep a private URL stable inside its existing 30-minute validity window.
     // A freshly calculated expiry on every API response changes the image src and
     // prevents WeChat's native disk cache from reusing an unchanged image.
@@ -113,10 +112,12 @@ export class UploadsService {
 
   readStyledPublicUrl(url: string, styleName: string) {
     const oss = this.ossConfig();
-    if (!url || !styleName || !oss.cdnBaseUrl) return this.readUrl(url, "public");
+    if (!url || !styleName || (!oss.publicCdnBaseUrl && !oss.cdnBaseUrl)) return this.readUrl(url, "public");
     const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return this.readUrl(url, "public");
-    return this.cdnObjectUrl(oss, ossKey, `style/${encodeURIComponent(styleName)}`);
+    const cdnBaseUrl = this.cdnBaseUrlForVisibility(oss, "public");
+    if (!cdnBaseUrl) return this.readUrl(url, "public");
+    return this.cdnObjectUrl(oss, ossKey, `style/${encodeURIComponent(styleName)}`, cdnBaseUrl, !oss.publicCdnBaseUrl);
   }
 
   readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
@@ -125,14 +126,6 @@ export class UploadsService {
 
   readDetailPreviewImageUrl(url: string, visibility: "private" | "public" = "private") {
     return this.readProcessedImageUrl(url, visibility, DETAIL_IMAGE_PROCESS);
-  }
-
-  async prewarmWorkImageVariants(url: string) {
-    const variants = [
-      this.readResponsiveImageUrl(url, "public"),
-      this.readDetailPreviewImageUrl(url, "public")
-    ];
-    await Promise.allSettled(variants.map((variant) => this.downloadWarmVariant(variant)));
   }
 
   readAdminThumbnailImageUrl(url: string, visibility: "private" | "public" = "private") {
@@ -148,8 +141,9 @@ export class UploadsService {
     if (!url) return url;
     const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
-    if ((visibility === "public" || oss.cdnAuthKey) && oss.cdnBaseUrl) {
-      return this.cdnObjectUrl(oss, ossKey, imageProcess);
+    const cdnBaseUrl = this.cdnBaseUrlForVisibility(oss, visibility);
+    if (cdnBaseUrl) {
+      return this.cdnObjectUrl(oss, ossKey, imageProcess, cdnBaseUrl, visibility !== "public" || !oss.publicCdnBaseUrl);
     }
     return this.signedObjectUrl("GET", ossKey, PRIVATE_READ_EXPIRES_SECONDS, "", this.privateReadExpiry(), imageProcess);
   }
@@ -159,7 +153,6 @@ export class UploadsService {
     const policy = this.createPutPolicy(this.createSystemKey(scene, downloaded.contentType), downloaded.contentType);
     const uploaded = await fetch(policy.uploadUrl, { method: "PUT", headers: policy.headers, body: downloaded.buffer });
     if (!uploaded.ok) throw new BadRequestException(`OSS upload failed with HTTP ${uploaded.status}`);
-    if (this.isWorkImageScene(scene)) void this.prewarmWorkImageVariants(policy.publicUrl);
     return { imageUrl: policy.publicUrl, ossKey: policy.ossKey, sizeBytes: downloaded.buffer.byteLength, contentType: downloaded.contentType };
   }
 
@@ -190,25 +183,6 @@ export class UploadsService {
     }
   }
 
-  private isWorkImageScene(scene: string) {
-    return scene === "work" || scene === "generate";
-  }
-
-  private isWorkImageKey(ossKey: string) {
-    return /\/(?:work|generate)\//.test(ossKey);
-  }
-
-  private async downloadWarmVariant(url: string) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2 * 60_000);
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      if (response.ok) await response.arrayBuffer();
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
   private assertImageType(contentType: string) {
     if (!EXT_BY_TYPE[contentType]) throw new BadRequestException("仅支持 PNG、JPG、WEBP 或 GIF 图片");
   }
@@ -219,7 +193,10 @@ export class UploadsService {
     return {
       uploadUrl: this.signedObjectUrl("PUT", ossKey, UPLOAD_EXPIRES_SECONDS, contentType, expiresAt),
       method: "PUT" as const,
-      headers: { "Content-Type": contentType },
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": IMMUTABLE_CACHE_CONTROL
+      },
       publicUrl: this.objectUrl(ossKey),
       ossKey
     };
@@ -262,18 +239,19 @@ export class UploadsService {
     return `${this.objectHost(this.ossConfig())}/${encodeKeyPath(ossKey)}`;
   }
 
-  private cdnObjectUrl(oss: OssConfig, ossKey: string, imageProcess?: string) {
+  private cdnObjectUrl(oss: OssConfig, ossKey: string, imageProcess?: string, baseUrl = oss.cdnBaseUrl, authenticated = true) {
     const pathname = `/${encodeKeyPath(ossKey)}`;
     const processQuery = imageProcess ? `x-oss-process=${encodeURIComponent(imageProcess)}` : "";
-    if (!oss.cdnAuthKey) return `${oss.cdnBaseUrl}${pathname}${processQuery ? `?${processQuery}` : ""}`;
+    if (!authenticated || !oss.cdnAuthKey) return `${baseUrl}${pathname}${processQuery ? `?${processQuery}` : ""}`;
 
     // Alibaba Cloud CDN Type A: md5(path-timestamp-rand-uid-key).
     // The CDN strips auth_key before producing its cache key, so different users
     // still share the same cached object and image-processing variant.
-    const timestamp = Math.floor(Math.floor(Date.now() / 1000) / CDN_AUTH_URL_WINDOW_SECONDS) * CDN_AUTH_URL_WINDOW_SECONDS;
+    const windowSeconds = Math.max(60, oss.cdnAuthWindowSeconds || DEFAULT_CDN_AUTH_URL_WINDOW_SECONDS);
+    const timestamp = Math.floor(Math.floor(Date.now() / 1000) / windowSeconds) * windowSeconds;
     const authKey = createHash("md5").update(`${pathname}-${timestamp}-0-0-${oss.cdnAuthKey}`).digest("hex");
     const authQuery = `auth_key=${timestamp}-0-0-${authKey}`;
-    return `${oss.cdnBaseUrl}${pathname}?${processQuery ? `${processQuery}&` : ""}${authQuery}`;
+    return `${baseUrl}${pathname}?${processQuery ? `${processQuery}&` : ""}${authQuery}`;
   }
 
   private signedObjectUrl(
@@ -303,8 +281,12 @@ export class UploadsService {
     return `https://${oss.bucket}.${oss.endpoint}`;
   }
 
+  private cdnBaseUrlForVisibility(oss: OssConfig, visibility: "private" | "public") {
+    return visibility === "public" ? oss.publicCdnBaseUrl || oss.cdnBaseUrl : oss.cdnBaseUrl;
+  }
+
   private objectKeyFromUrl(url: string, oss: OssConfig) {
-    const sources = [this.objectHost(oss), oss.cdnBaseUrl].filter((value): value is string => Boolean(value));
+    const sources = [this.objectHost(oss), oss.cdnBaseUrl, oss.publicCdnBaseUrl].filter((value): value is string => Boolean(value));
     for (const source of sources) {
       try {
         const base = new URL(`${source.replace(/\/+$/, "")}/`);

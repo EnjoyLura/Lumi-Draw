@@ -1,5 +1,5 @@
 import OSS from "ali-oss";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { setDefaultResultOrder } from "node:dns";
 
 // Some API gateways publish AAAA records without a usable IPv6 route from FC.
@@ -9,6 +9,11 @@ const MAX_IMAGE_BYTES = 40 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 60 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
 const ALLOWED_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const CDN_VARIANTS = [
+  { name: "card", process: "image/resize,w_640/quality,Q_95/format,webp" },
+  { name: "preview", process: "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp" }
+];
 
 function safeEndpoint(value) {
   try {
@@ -257,6 +262,66 @@ function extension(contentType) {
   return contentType === "image/jpeg" ? "jpg" : contentType === "image/webp" ? "webp" : "png";
 }
 
+function encodeKeyPath(key) {
+  return String(key).split("/").map(encodeURIComponent).join("/");
+}
+
+function cdnObjectUrl(objectKey, imageProcess) {
+  const publicBaseUrl = String(process.env.CDN_PUBLIC_BASE_URL || "").replace(/\/+$/, "");
+  const privateBaseUrl = String(process.env.CDN_BASE_URL || "").replace(/\/+$/, "");
+  const baseUrl = publicBaseUrl || privateBaseUrl;
+  if (!baseUrl) return "";
+  const pathname = `/${encodeKeyPath(objectKey)}`;
+  const processQuery = imageProcess ? `x-oss-process=${encodeURIComponent(imageProcess)}` : "";
+  const authKey = String(process.env.CDN_AUTH_KEY || "");
+  if (publicBaseUrl || !authKey) return `${baseUrl}${pathname}${processQuery ? `?${processQuery}` : ""}`;
+  const configuredWindow = Number.parseInt(process.env.CDN_AUTH_URL_WINDOW_SECONDS || "", 10);
+  const windowSeconds = Number.isFinite(configuredWindow) ? Math.max(60, configuredWindow) : 30 * 60;
+  const timestamp = Math.floor(Math.floor(Date.now() / 1000) / windowSeconds) * windowSeconds;
+  const signature = createHash("md5").update(`${pathname}-${timestamp}-0-0-${authKey}`).digest("hex");
+  const authQuery = `auth_key=${timestamp}-0-0-${signature}`;
+  return `${baseUrl}${pathname}?${processQuery ? `${processQuery}&` : ""}${authQuery}`;
+}
+
+async function prewarmCdnVariants(objectKeys, trace = {}) {
+  const targets = objectKeys.flatMap((objectKey) =>
+    CDN_VARIANTS.flatMap((variant) => {
+      const url = cdnObjectUrl(objectKey, variant.process);
+      return url ? [{ objectKey, variant: variant.name, url }] : [];
+    })
+  );
+  if (!targets.length) return;
+  const startedAt = Date.now();
+  logEvent("info", "cdn.prewarm.start", { ...trace, objectCount: objectKeys.length, variantCount: targets.length });
+  const settled = await Promise.allSettled(targets.map(async (target) => {
+    const response = await fetch(target.url, { signal: AbortSignal.timeout(120_000) });
+    if (!response.ok) throw new Error(`CDN prewarm failed with HTTP ${response.status}`);
+    const bytes = (await response.arrayBuffer()).byteLength;
+    return { ...target, bytes };
+  }));
+  const failures = settled.flatMap((result, index) =>
+    result.status === "rejected"
+      ? [{ objectKey: targets[index].objectKey, variant: targets[index].variant, error: errorDetails(result.reason) }]
+      : []
+  );
+  if (failures.length) {
+    logEvent("warn", "cdn.prewarm.failed", {
+      ...trace,
+      elapsedMs: Date.now() - startedAt,
+      succeeded: settled.length - failures.length,
+      failed: failures.length,
+      failures
+    });
+    return;
+  }
+  logEvent("info", "cdn.prewarm.complete", {
+    ...trace,
+    elapsedMs: Date.now() - startedAt,
+    succeeded: settled.length,
+    totalBytes: settled.reduce((sum, result) => sum + (result.status === "fulfilled" ? result.value.bytes : 0), 0)
+  });
+}
+
 function validateImageBuffer(buffer, contentType) {
   const png = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   const jpeg = buffer.subarray(0, 2).equals(Buffer.from([255, 216]));
@@ -496,7 +561,12 @@ async function putImage(client, objectKey, output, trace = {}, rewriteRules = []
   }
   validateImageBuffer(image.buffer, image.contentType);
   logEvent("info", "oss.upload.start", { ...trace, objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
-  await client.put(objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });
+  await client.put(objectKey, image.buffer, {
+    headers: {
+      "Content-Type": image.contentType,
+      "Cache-Control": IMMUTABLE_CACHE_CONTROL
+    }
+  });
   logEvent("info", "oss.upload.complete", { ...trace, objectKey, bytes: image.buffer.byteLength, elapsedMs: Date.now() - startedAt });
   return { objectKey, sizeBytes: image.buffer.byteLength };
 }
@@ -526,7 +596,15 @@ async function notify(payload, url = callbackUrl()) {
 }
 
 function ossClient(context) {
-  return new OSS({ region: process.env.OSS_REGION, bucket: process.env.OSS_BUCKET, accessKeyId: context.credentials.accessKeyId, accessKeySecret: context.credentials.accessKeySecret, stsToken: context.credentials.securityToken, authorizationV4: true });
+  return new OSS({
+    region: process.env.OSS_REGION,
+    bucket: process.env.OSS_BUCKET,
+    accessKeyId: context.credentials.accessKeyId,
+    accessKeySecret: context.credentials.accessKeySecret,
+    stsToken: context.credentials.securityToken,
+    authorizationV4: true,
+    internal: process.env.OSS_INTERNAL !== "false"
+  });
 }
 
 async function runGeneration(payload, context) {
@@ -578,6 +656,7 @@ async function runGeneration(payload, context) {
     }
     if (!stored.length) throw new Error("provider returned no usable images");
     await notify({ jobId: payload.jobId, outputs: stored });
+    await prewarmCdnVariants(stored.map((item) => item.objectKey), { jobId: payload.jobId, operation: "generate" });
     logEvent("info", "generation.complete", { jobId: payload.jobId, elapsedMs: Date.now() - startedAt, outputCount: stored.length, totalBytes: stored.reduce((sum, item) => sum + item.sizeBytes, 0) });
     return { ok: true, outputs: stored };
   } finally {
@@ -595,9 +674,15 @@ async function runTransfer(payload, context) {
   );
   const startedAt = Date.now();
   logEvent("info", "oss.upload.start", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
-  await ossClient(context).put(payload.objectKey, image.buffer, { headers: { "Content-Type": image.contentType } });
+  await ossClient(context).put(payload.objectKey, image.buffer, {
+    headers: {
+      "Content-Type": image.contentType,
+      "Cache-Control": IMMUTABLE_CACHE_CONTROL
+    }
+  });
   logEvent("info", "oss.upload.complete", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, elapsedMs: Date.now() - startedAt });
   await notify({ jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, sizeBytes: image.buffer.byteLength }, process.env.API_CALLBACK_URL);
+  await prewarmCdnVariants([payload.objectKey], { jobId: payload.jobId, resultId: payload.resultId, operation: "transfer" });
   return { ok: true };
 }
 

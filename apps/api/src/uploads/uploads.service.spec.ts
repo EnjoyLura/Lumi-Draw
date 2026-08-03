@@ -3,7 +3,7 @@ import test from "node:test";
 import { ConfigService } from "@nestjs/config";
 import { UploadsService } from "./uploads.service";
 
-function service() {
+function service(ossOverrides: Record<string, unknown> = {}) {
   const config = {
     get(name: string) {
       if (name === "app.oss") {
@@ -12,7 +12,9 @@ function service() {
           accessKeySecret: "test-secret",
           bucket: "bucket",
           endpoint: "oss.example.com",
-          cdnBaseUrl: "https://cdn.example.com"
+          cdnBaseUrl: "https://cdn.example.com",
+          cdnAuthWindowSeconds: 1800,
+          ...ossOverrides
         };
       }
       return undefined;
@@ -61,9 +63,40 @@ test("reprocesses historical CDN URLs instead of leaving the original image", ()
 });
 
 test("accepts generation references only from the configured OSS or CDN", () => {
-  const uploads = service();
+  const uploads = service({ publicCdnBaseUrl: "https://public-cdn.example.com" });
 
   assert.doesNotThrow(() => uploads.assertManagedImageUrl("https://bucket.oss.example.com/uploads/prompt/reference.png?signature=test"));
   assert.doesNotThrow(() => uploads.assertManagedImageUrl("https://cdn.example.com/uploads/prompt/reference.png"));
+  assert.doesNotThrow(() => uploads.assertManagedImageUrl("https://public-cdn.example.com/uploads/prompt/reference.png"));
   assert.throws(() => uploads.assertManagedImageUrl("https://untrusted.example.com/reference.png"), /参考图地址无效/);
+});
+
+test("uses a stable unauthenticated public CDN URL for published works", () => {
+  const uploads = service({
+    publicCdnBaseUrl: "https://public-cdn.example.com",
+    cdnAuthKey: "private-key"
+  });
+
+  const url = uploads.readResponsiveImageUrl(
+    "https://bucket.oss.example.com/uploads/work/image.png",
+    "public"
+  );
+
+  assert.match(url, /^https:\/\/public-cdn\.example\.com\/uploads\/work\/image\.png\?/);
+  assert.doesNotMatch(url, /auth_key=/);
+});
+
+test("keeps private images on the authenticated CDN domain", () => {
+  const uploads = service({
+    publicCdnBaseUrl: "https://public-cdn.example.com",
+    cdnAuthKey: "private-key"
+  });
+
+  const url = uploads.readDetailPreviewImageUrl(
+    "https://bucket.oss.example.com/uploads/work/image.png",
+    "private"
+  );
+
+  assert.match(url, /^https:\/\/cdn\.example\.com\/uploads\/work\/image\.png\?/);
+  assert.match(url, /auth_key=/);
 });

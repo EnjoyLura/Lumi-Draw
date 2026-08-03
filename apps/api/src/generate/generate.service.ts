@@ -973,7 +973,6 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!outputs.length) throw new BadRequestException("image generation callback has no valid outputs");
     await this.markProviderAttemptSucceeded(job.id);
     await this.finishJobWithDrafts(job, outputs, "Generation completed", ["queued", "running", "finalizing"]);
-    for (const output of outputs) void this.uploads.prewarmWorkImageVariants(output.imageUrl);
     return { ok: true };
   }
 
@@ -1297,7 +1296,6 @@ export class GenerateService implements OnApplicationBootstrap {
         include: { results: true }
       });
     });
-    for (const result of successful) void this.uploads.prewarmWorkImageVariants(result.imageUrl);
     return finalized;
   }
 

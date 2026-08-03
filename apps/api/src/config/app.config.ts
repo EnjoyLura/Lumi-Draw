@@ -91,6 +91,8 @@ export const appConfig = registerAs("app", () => ({
     bucket: process.env.OSS_BUCKET ?? "",
     endpoint: process.env.OSS_ENDPOINT ?? "",
     cdnBaseUrl: (process.env.CDN_BASE_URL ?? "").replace(/\/+$/, ""),
+    publicCdnBaseUrl: (process.env.CDN_PUBLIC_BASE_URL ?? "").replace(/\/+$/, ""),
+    cdnAuthWindowSeconds: Math.max(60, parseIntOr(process.env.CDN_AUTH_URL_WINDOW_SECONDS, 30 * 60)),
     // Must match the Type A URL authentication key configured for the CDN domain.
     // Keep it empty until CDN URL authentication is enabled, so existing deployments
     // retain their current access behaviour.
