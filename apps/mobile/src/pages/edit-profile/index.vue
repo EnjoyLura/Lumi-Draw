@@ -295,6 +295,8 @@ async function save() {
   flex: 1;
   min-height: 0;
   height: auto;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .page-first-frame {
@@ -303,7 +305,16 @@ async function save() {
 }
 
 .edit-content {
+  box-sizing: border-box;
+  width: 100%;
   padding: 24px 16px 32px;
+  padding-right: calc(16px + constant(safe-area-inset-right));
+  padding-right: calc(16px + env(safe-area-inset-right));
+  padding-bottom: calc(32px + constant(safe-area-inset-bottom));
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  padding-left: calc(16px + constant(safe-area-inset-left));
+  padding-left: calc(16px + env(safe-area-inset-left));
+  overflow: visible;
 }
 
 .edit-empty {
@@ -367,19 +378,25 @@ async function save() {
 .avatar-wrap {
   position: relative;
   display: inline-flex;
+  box-sizing: border-box;
   align-items: center;
   justify-content: center;
+  width: 88px;
+  height: 88px;
   padding: 0;
   margin: 0;
   line-height: normal;
   background: transparent;
   border: none;
+  border-radius: 50%;
+  overflow: visible;
 }
 
 .avatar-wrap::after { border: none; }
 
 .avatar {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   width: 80px;
@@ -397,8 +414,8 @@ async function save() {
 
 .avatar-cam {
   position: absolute;
-  right: -5px;
-  bottom: -3px;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -419,6 +436,8 @@ async function save() {
 }
 
 .field {
+  box-sizing: border-box;
+  width: 100%;
   margin-bottom: 20px;
 }
 
@@ -465,6 +484,8 @@ async function save() {
 
 .gender-row {
   display: flex;
+  box-sizing: border-box;
+  width: 100%;
   gap: 10px;
 }
 
@@ -498,6 +519,7 @@ async function save() {
 
 .lock-row .input {
   flex: 1;
+  min-width: 0;
 }
 
 .input.locked {
@@ -524,8 +546,12 @@ async function save() {
 }
 
 .save-btn {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   height: 48px;
+  padding: 0;
+  margin: 0;
   font-size: 16px;
   font-weight: 700;
   line-height: 48px;
