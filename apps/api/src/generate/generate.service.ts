@@ -1559,13 +1559,17 @@ export class GenerateService implements OnApplicationBootstrap {
         : undefined,
       retryOfJobId: job.retryOfJobId || undefined,
       results: job.results.map((result) => {
-        const imageUrl = result.imageUrl ? this.uploads.readUrl(result.imageUrl, "private") : undefined;
+        const displaySource = result.status === "transferring" && result.imageUrl
+          ? rewriteProviderResultUrl(result.imageUrl, job.providerResultUrlRewriteRules).url
+          : result.imageUrl;
+        const imageUrl = displaySource ? this.uploads.readUrl(displaySource, "private") : undefined;
         return {
           id: result.id,
           status: result.status,
+          temporary: result.status === "transferring",
           imageUrl,
-          cardUrl: result.imageUrl ? this.uploads.readResponsiveImageUrl(result.imageUrl, "private") : undefined,
-          previewUrl: result.imageUrl ? this.uploads.readDetailPreviewImageUrl(result.imageUrl, "private") : undefined,
+          cardUrl: displaySource ? this.uploads.readResponsiveImageUrl(displaySource, "private") : undefined,
+          previewUrl: displaySource ? this.uploads.readDetailPreviewImageUrl(displaySource, "private") : undefined,
           originalUrl: imageUrl,
           width: result.width ?? undefined,
           height: result.height ?? undefined,

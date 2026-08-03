@@ -82,6 +82,7 @@ export interface CreatedDraftWork {
 export interface BackendGenerateResult {
   id: string;
   status: "transferring" | "succeeded" | "failed";
+  temporary?: boolean;
   imageUrl?: string;
   cardUrl?: string;
   previewUrl?: string;

@@ -226,7 +226,8 @@ export async function saveImageToDevice(url: string, filename = `lumi-${Date.now
     throw new ImageSaveError("permission", "未同意隐私保护授权", error);
   }
   await ensurePhotoAlbumPermission();
-  const downloadedPath = await downloadImage(url);
+  const isRemoteUrl = /^https?:\/\//i.test(url) && !/^https?:\/\/(?:tmp|usr)\//i.test(url);
+  const downloadedPath = isRemoteUrl ? await downloadImage(url) : url;
   const inspected = await inspectLocalImage(downloadedPath);
   const prepared = await copyImageWithExtension(inspected.path, imageExtension(inspected.type, url));
   try {

@@ -93,6 +93,7 @@ const generationElapsedSeconds = ref(0);
 interface GenResult {
   id: string;
   failed: boolean;
+  temporary?: boolean;
   seed: string;
   imageUrl?: string;
   cardUrl?: string;
@@ -114,6 +115,7 @@ const previewData = ref<{
   resolution: string;
   size: string;
   ratio: string;
+  temporary?: boolean;
   resultId?: string;
   savedWorkId?: number;
 } | null>(null);
@@ -131,6 +133,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let previewWarmRequest = 0;
 const syncedTerminalJobIds = new Set<string>();
 const warmedPreviewUrls = new Set<string>();
+const warmedPreviewLocalPaths = new Map<string, string>();
 const MAX_WARMED_PREVIEWS = 12;
 const pendingRouteOptions = ref({ model: "", ratio: "", quality: "", style: "" });
 
@@ -704,6 +707,7 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
     id: item.id,
     resultId: item.id,
     failed: item.status === "failed" || !item.imageUrl,
+    temporary: item.temporary ?? item.status === "transferring",
     seed: item.id || `${job.id}-${index}`,
     imageUrl: item.imageUrl,
     cardUrl: item.cardUrl,
@@ -1035,10 +1039,6 @@ async function startGenerate() {
 }
 
 function openPreview(item: GenResult) {
-  if (isSavingOriginal.value) {
-    showToast("高清原图正在安全保存，请稍后查看");
-    return;
-  }
   if (item.failed || !genMeta.value) return;
   const key = item.resultId || item.id;
   const cardSrc = resultCardImageSrc(item);
@@ -1051,6 +1051,7 @@ function openPreview(item: GenResult) {
     resolution: genMeta.value.resolution,
     size: genMeta.value.size,
     ratio: selectedRatio.value.label,
+    temporary: item.temporary,
     resultId: item.resultId,
     savedWorkId: item.savedWorkId
   };
@@ -1059,17 +1060,22 @@ function openPreview(item: GenResult) {
 }
 
 function preloadImage(src: string) {
-  if (warmedPreviewUrls.has(src)) return Promise.resolve();
-  return new Promise<void>((resolve, reject) => {
+  if (warmedPreviewUrls.has(src)) return Promise.resolve(warmedPreviewLocalPaths.get(src) || src);
+  return new Promise<string>((resolve, reject) => {
     uni.getImageInfo({
       src,
-      success: () => {
+      success: (result) => {
+        const localPath = result.path || src;
         warmedPreviewUrls.add(src);
+        warmedPreviewLocalPaths.set(src, localPath);
         if (warmedPreviewUrls.size > MAX_WARMED_PREVIEWS) {
           const oldest = warmedPreviewUrls.values().next().value;
-          if (typeof oldest === "string") warmedPreviewUrls.delete(oldest);
+          if (typeof oldest === "string") {
+            warmedPreviewUrls.delete(oldest);
+            warmedPreviewLocalPaths.delete(oldest);
+          }
         }
-        resolve();
+        resolve(localPath);
       },
       fail: reject
     });
@@ -1079,9 +1085,9 @@ function preloadImage(src: string) {
 async function warmOpenPreview(key: string, src: string) {
   const request = ++previewWarmRequest;
   try {
-    await preloadImage(src);
+    const localPath = await preloadImage(src);
     if (request === previewWarmRequest && previewData.value?.key === key) {
-      previewData.value = { ...previewData.value, src };
+      previewData.value = { ...previewData.value, src: localPath };
     }
   } catch {
     // Keep the already-rendered card image when the quality preview is unavailable.
@@ -1097,6 +1103,7 @@ function syncOpenPreviewResult(results: GenResult[]) {
     ...previewData.value,
     fullscreenSrc,
     originalSrc: resultOriginalImageSrc(item),
+    temporary: item.temporary,
     savedWorkId: item.savedWorkId
   };
   void warmOpenPreview(previewData.value.key, fullscreenSrc);
@@ -1109,15 +1116,16 @@ function closePreview() {
 async function zoomPreview() {
   if (!previewData.value) return;
   const { fullscreenSrc } = previewData.value;
-  await preloadImage(fullscreenSrc).catch(() => undefined);
-  uni.previewImage({ urls: [fullscreenSrc], current: fullscreenSrc });
+  const localPath = await preloadImage(fullscreenSrc).catch(() => fullscreenSrc);
+  uni.previewImage({ urls: [localPath], current: localPath });
 }
 
 async function savePreview() {
   if (!previewData.value || isSavingDrafts.value) return;
   isSavingDrafts.value = true;
   try {
-    await saveImageToDevice(previewData.value.originalSrc, `lumi-generation-${Date.now()}.png`);
+    const localPath = await preloadImage(previewData.value.originalSrc).catch(() => previewData.value?.originalSrc || "");
+    await saveImageToDevice(localPath, `lumi-generation-${Date.now()}.png`);
     showToast("已保存到手机相册");
     closePreview();
   } catch (error) {
@@ -1564,6 +1572,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <text class="meta-item">{{ previewData.size }}</text>
         <text class="meta-item">{{ selectedModel.name }}</text>
         <text class="meta-item">{{ previewData.ratio }}</text>
+      </view>
+      <view v-if="previewData?.temporary" class="preview-transfer-note">
+        <LumiIcon name="download" :size="15" />
+        <text>原图正在后台保存到画廊，当前图片可以正常预览和下载，完成后会自动切换为永久地址。</text>
       </view>
     </view>
     <view class="tab-bar">
@@ -2878,6 +2890,24 @@ function goMine() { goRootTab("/pages/mine/index"); }
   gap: 12px;
   font-size: 14px;
   color: var(--fg-muted);
+}
+
+.preview-transfer-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border-radius: 10px;
+}
+
+.preview-transfer-note .lumi-icon {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 /* Lumi custom page header layout */
