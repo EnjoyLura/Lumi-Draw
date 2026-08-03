@@ -70,7 +70,6 @@ const selectedQualityIndex = ref(0);
 const selectedRatioLabel = ref("1:1");
 const selectedCountIndex = ref(0);
 const promptText = ref("");
-const appliedStylePrompt = ref("");
 const lastAppliedGameplayName = ref("");
 const promptImage = ref("");
 const promptLocalImage = ref<ChosenImage | null>(null);
@@ -282,7 +281,6 @@ onShow(() => {
   const promptDraft = uni.getStorageSync("lumiCreatePromptDraft");
   if (typeof promptDraft === "string" && promptDraft.trim()) {
     promptText.value = promptDraft.slice(0, 1200);
-    appliedStylePrompt.value = "";
     lastAppliedGameplayName.value = selectedGameplayName.value;
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
@@ -407,7 +405,6 @@ function applyRouteQuery(query?: Record<string, unknown>, force = false) {
 
   if (routeQuery.prompt) {
     promptText.value = routeQuery.prompt.slice(0, 1200);
-    appliedStylePrompt.value = "";
   }
 
   if (routeQuery.style) {
@@ -446,19 +443,17 @@ function selectedStylePrompt() {
   return styleOptions.value.find((style) => style.name === selectedStyleName.value)?.prompt || "";
 }
 
-function applyStylePrompt(prompt: string) {
-  const base = removeManagedPromptSuffix(promptText.value, appliedStylePrompt.value);
-  const nextPrompt = normalizePromptPart(prompt);
-  promptText.value = appendVisiblePrompt(base, nextPrompt);
-  appliedStylePrompt.value = nextPrompt;
+function appendGenerationPrompt(value: string, prompt: string) {
+  const text = value.trim();
+  const part = normalizePromptPart(prompt);
+  if (!part || text === part || text.endsWith(`\n${part}`)) return text.slice(0, 2000);
+  return [text, part].filter(Boolean).join("\n").slice(0, 2000);
 }
 
 function applySelectedGameplayPrompt(force = false) {
   const template = selectedGameplay.value;
   if (!template?.prompt || (!force && lastAppliedGameplayName.value === template.name)) return;
-  appliedStylePrompt.value = "";
-  promptText.value = appendVisiblePrompt(template.prompt, selectedStylePrompt());
-  appliedStylePrompt.value = normalizePromptPart(selectedStylePrompt());
+  promptText.value = appendVisiblePrompt("", template.prompt);
   lastAppliedGameplayName.value = template.name;
 }
 
@@ -572,7 +567,6 @@ function applySelectedStyle(name: string) {
   const style = styleOptions.value.find((item) => item.name === name);
   if (!style) return;
   selectedStyleName.value = name;
-  applyStylePrompt(style.prompt);
 }
 
 function applyPendingRouteOptions() {
@@ -606,6 +600,10 @@ function goReversePrompt() {
 
 function selectStyle(name: string) {
   if (!ensureLogin()) return;
+  if (selectedStyleName.value === name) {
+    selectedStyleName.value = "";
+    return;
+  }
   applySelectedStyle(name);
 }
 
@@ -619,6 +617,10 @@ function closeStyleSheet() {
 }
 
 function selectStyleFromSheet(name: string) {
+  if (selectedStyleName.value === name) {
+    selectedStyleName.value = "";
+    return;
+  }
   applySelectedStyle(name);
 }
 
@@ -663,7 +665,6 @@ function previewPromptImage() {
 
 function clearPrompt() {
   promptText.value = "";
-  appliedStylePrompt.value = "";
 }
 
 function ratioShapeStyle(width: number, height: number) {
@@ -864,7 +865,8 @@ async function resumeBackendJob(jobId: string) {
 
   try {
     const job = await fetchGenerateJob(jobId);
-    promptText.value = job.prompt || promptText.value;
+    const jobStylePrompt = styleOptions.value.find((style) => style.name === job.style)?.prompt || "";
+    promptText.value = removeManagedPromptSuffix(job.prompt || promptText.value, jobStylePrompt).slice(0, 1200);
     promptImage.value = job.inputImageUrl || "";
     promptLocalImage.value = null;
     promptUploadedImageUrl.value = job.inputImageUrl || "";
@@ -964,11 +966,13 @@ async function startGenerate() {
   }
   if (!ensureLogin()) return;
 
-  const prompt = promptText.value.trim();
-  if (!prompt) {
+  const userPrompt = promptText.value.trim();
+  if (!userPrompt) {
     showToast("请输入提示词");
     return;
   }
+
+  const prompt = appendGenerationPrompt(userPrompt, selectedStylePrompt());
 
   if (createConfigUnavailable.value) {
     showToast("创作配置未同步，请刷新后重试");
