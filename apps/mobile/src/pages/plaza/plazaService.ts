@@ -1,5 +1,6 @@
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
+import { toPublicModelName } from "../../services/modelDisplay";
 import type { HomeUser, HomeWork } from "../home/homeData";
 
 export interface PlazaCategoryOption {
@@ -110,7 +111,7 @@ function toWork(item: BackendWork): HomeWork {
     description: item.description || "",
     quality: item.quality || "",
     modelId: item.modelId || "",
-    modelName: item.modelName || item.modelId || "AI 绘画",
+    modelName: toPublicModelName(item.modelName || item.modelId),
     styleName: item.style || "默认",
     tags: item.tags || [],
     favorites: item.favorites,
@@ -137,7 +138,7 @@ export async function fetchPlazaConfig(): Promise<PlazaConfig> {
   const data = await api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true });
   return {
     categories: [{ name: "全部" }, ...data.categories.map((category) => ({ id: category.id, name: category.name }))],
-    models: enabled(data.models).map((model) => ({ label: model.name, value: model.id })),
+    models: enabled(data.models).map((model) => ({ label: toPublicModelName(model.name), value: model.id })),
     ratios: enabled(data.ratios).map((ratio) => ({ label: ratio.label, value: ratio.label })),
     qualities: enabled(data.qualities).map((quality) => ({ label: quality.label, value: quality.label }))
   };

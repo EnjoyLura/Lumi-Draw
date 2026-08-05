@@ -24,8 +24,6 @@ const ROUTE_FALLBACKS: Record<string, string> = {
   "pages/settings/index": "/pages/mine/index",
   "pages/edit-profile/index": "/pages/mine/index",
   "pages/checkin/index": "/pages/mine/index",
-  "pages/recharge/index": "/pages/mine/index",
-  "pages/membership/index": "/pages/mine/index",
   "pages/invite/index": "/pages/mine/index",
   "pages/feedback/index": "/pages/mine/index",
   "pages/drafts/index": "/pages/mine/index",

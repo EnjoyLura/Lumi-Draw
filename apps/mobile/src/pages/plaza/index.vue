@@ -72,7 +72,7 @@ const EMPTY_DRAWER_PROFILE: MineUser = {
   credits: 0
 };
 const fallbackModelFilters: PlazaFilterOption[] = [
-  { label: "GPT Image 2", value: "gpt-image-2" },
+  { label: "图像生成模型 V3.0", value: "gpt-image-2" },
   { label: "Nano Banana 2", value: "nano-banana-2" },
   { label: "Nano Banana Pro", value: "nano-banana-pro" },
   { label: "Seedream 4.5", value: "seedream-4-5" }
@@ -160,9 +160,7 @@ const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((
 const filterSizes = computed(() => ["全部", ...sizeFilterOptions.value.map((item) => item.label)]);
 const filterQualities = computed(() => ["全部", ...qualityFilterOptions.value.map((item) => item.label)]);
 const sideQuickActions: SideQuick[] = [
-  { icon: "gem", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
   ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : [])
 ];
 const sideRows = ref<SideRow[]>([

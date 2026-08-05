@@ -88,7 +88,7 @@ export const galleryWorks: HomeWork[] = [
     ratio: "2:3",
     likes: 680,
     published: true,
-    modelName: "GPT Image 2"
+    modelName: "图像生成模型 V3.0"
   },
   {
     id: 5,
@@ -99,7 +99,7 @@ export const galleryWorks: HomeWork[] = [
     ratio: "9:16",
     likes: 892,
     published: true,
-    modelName: "GPT Image 2"
+    modelName: "图像生成模型 V3.0"
   },
   {
     id: 11,

@@ -41,7 +41,7 @@ export interface GameplayTemplate {
 export const createModels: CreateModel[] = [
   {
     id: "gpt2",
-    name: "GPT Image 2",
+    name: "图像生成模型 V3.0",
     description: "画质细腻·理解力强",
     tags: ["写实", "高清"],
     cost: 15,

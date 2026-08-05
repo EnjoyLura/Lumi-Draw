@@ -102,8 +102,7 @@ function handleAbout(item: SettingsLink) {
   }
   const agreementTypes: Record<string, string> = {
     agreement: "user",
-    privacy: "privacy",
-    "recharge-agreement": "recharge"
+    privacy: "privacy"
   };
   if (agreementTypes[item.key]) {
     uni.navigateTo({ url: `/pages/agreement/index?type=${agreementTypes[item.key]}` });
@@ -133,7 +132,7 @@ async function handleCancelAccount() {
   if (!isLoggedIn.value) return;
   const firstConfirmed = await confirmModal(
     "注销账号",
-    "注销后，作品、个人资料和创作记录将永久清除，剩余积分与会员权益失效。依法需保留的交易记录会继续安全保存。",
+    "注销后，作品、个人资料和创作记录将永久清除，剩余积分失效。依法需保留的交易记录会继续安全保存。",
     "继续"
   );
   if (!firstConfirmed) return;

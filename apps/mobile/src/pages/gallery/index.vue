@@ -28,7 +28,6 @@ import {
   type GalleryGenerateTaskStartedEvent
 } from "../../services/galleryWorkEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
-import { refreshRechargePageSnapshot } from "../recharge/rechargeCache";
 import {
   addNotifiedGenerateJobIds,
   readActiveGenerateJobIds,
@@ -148,9 +147,7 @@ const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
-  { icon: "gem", label: "充值", url: "/pages/recharge/index", gradient: "linear-gradient(135deg,#a8d8f8,#b0e6d0)" },
   { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
   ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : [])
 ];
 const sideRows = ref<SideRow[]>([
@@ -169,7 +166,6 @@ let genTaskAnimationTimer: ReturnType<typeof setInterval> | undefined;
 let waterfallAnimationTimer: ReturnType<typeof setTimeout> | undefined;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let drawerOpenTimer: ReturnType<typeof setTimeout> | undefined;
-let rechargePreloadTimer: ReturnType<typeof setTimeout> | undefined;
 let activeGenerateTaskIds = readActiveGenerateJobIds();
 let prefetchedGalleryPage: { key: string; page: number; request: Promise<GalleryWorkPage> } | undefined;
 let unsubscribeWorkVisibility: (() => void) | undefined;
@@ -284,17 +280,7 @@ onShow(() => {
     void refreshGalleryPage().catch(() => undefined);
   }
   void loadGenerateTasks(true);
-  scheduleRechargePreload();
 });
-
-function scheduleRechargePreload() {
-  if (!isMineMode.value || useMockData.value || !isLoggedIn.value || !currentUser.value?.id) return;
-  if (rechargePreloadTimer) clearTimeout(rechargePreloadTimer);
-  rechargePreloadTimer = setTimeout(() => {
-    rechargePreloadTimer = undefined;
-    void refreshRechargePageSnapshot(Number(currentUser.value?.id), false).catch(() => undefined);
-  }, 800);
-}
 
 function upsertStartedGenerateTask(event: GalleryGenerateTaskStartedEvent) {
   const createdAt = new Date(event.createdAt).getTime();
@@ -358,9 +344,6 @@ onMounted(() => {
     });
   }, 1000);
 });
-const hasMembership = computed(() => Boolean(profile.value.memberPlan));
-const membershipTitle = computed(() => (hasMembership.value ? profile.value.memberPlan : "未开通会员"));
-const membershipSubtitle = computed(() => (hasMembership.value ? "会员权益已生效" : "开通会员解锁权益"));
 
 async function loadModelOptions() {
   if (useMockData.value) {
@@ -379,7 +362,6 @@ watch(activeEmbeddedPrimaryTab, (tab) => {
   if (tab === props.pageMode) {
     void refreshGalleryPage().catch(() => undefined);
     void loadGenerateTasks(true);
-    scheduleRechargePreload();
   }
 });
 
@@ -397,7 +379,6 @@ onBeforeUnmount(() => {
   if (genTaskTimer) clearTimeout(genTaskTimer);
   if (genTaskAnimationTimer) clearInterval(genTaskAnimationTimer);
   if (initialContentTimer) clearTimeout(initialContentTimer);
-  if (rechargePreloadTimer) clearTimeout(rechargePreloadTimer);
   if (drawerOpenTimer) clearTimeout(drawerOpenTimer);
   clearWaterfallAnimation();
 });
@@ -740,11 +721,6 @@ function getWorkAuthor(work: HomeWork) {
 function goEditProfile() {
   if (!ensureLogin()) return;
   uni.navigateTo({ url: "/pages/edit-profile/index" });
-}
-
-function goRecharge() {
-  if (!ensureLogin()) return;
-  uni.navigateTo({ url: "/pages/recharge/index" });
 }
 
 function goPublish() {
@@ -1097,7 +1073,7 @@ function openWork(work: HomeWork) {
               </view>
               <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ profile.role }}</view>
             </view>
-            <view class="points-pill" @click="goRecharge"><LumiIcon class="points-gem" name="sparkles-filled" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
+            <view class="points-pill"><LumiIcon class="points-gem" name="sparkles-filled" :size="17" /><text class="points-value">{{ profile.points }}</text></view>
           </view>
 
           <view class="bio">{{ profile.bio }}</view>
@@ -1122,14 +1098,6 @@ function openWork(work: HomeWork) {
               </view>
             </view>
             <view class="edit-home-btn" @click="goEditProfile"><LumiIcon class="edit-home-icon" name="pencil" :size="16" /><text>编辑资料</text></view>
-          </view>
-          <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
-            <view class="membership-mark"><LumiIcon class="membership-glyph" name="crown" :size="24" /></view>
-            <view class="membership-copy">
-              <view class="membership-title">{{ membershipTitle }}</view>
-              <view class="membership-subtitle">{{ membershipSubtitle }}</view>
-            </view>
-            <button class="membership-action">{{ hasMembership ? "查看权益" : "升级会员" }}</button>
           </view>
         </view>
 
@@ -1874,77 +1842,6 @@ function openWork(work: HomeWork) {
 .filter-chip.active { color: var(--accent-deep); background: var(--accent-soft); border-color: var(--accent); }
 .filter-confirm { width: 100%; height: 42px; margin-top: 20px; font-size: 14px; font-weight: 700; color: #fff; background: var(--gradient-dream); border: 0; border-radius: 12px; }
 .filter-confirm::after { border: 0; }
-
-.membership-banner {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-height: 72px;
-  padding: 10px 12px;
-  margin: 2px 16px 8px;
-  box-sizing: border-box;
-  background: var(--bg-card);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-}
-
-.membership-mark {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  font-size: 20px;
-  color: #fff3d4;
-  background: #c88332;
-  border-radius: 50%;
-}
-
-.membership-glyph {
-  display: block;
-  margin: auto;
-  line-height: 1;
-}
-
-.membership-copy {
-  flex: 1;
-  min-width: 0;
-}
-
-.membership-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--fg-primary);
-}
-
-.membership-subtitle {
-  margin-top: 4px;
-  overflow: hidden;
-  font-size: 11px;
-  color: var(--fg-muted);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.membership-action {
-  flex: 0 0 auto;
-  min-width: 76px;
-  height: 36px;
-  padding: 0 10px;
-  margin: 0;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 36px;
-  color: #fff;
-  background: var(--accent);
-  border: 0;
-  border-radius: 8px;
-}
-
-.membership-action::after {
-  border: 0;
-}
 
 .manage-btn::after {
   border: 0;

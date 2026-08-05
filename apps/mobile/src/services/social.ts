@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { normalizeAspectRatio } from "./aspectRatio";
+import { toPublicModelName } from "./modelDisplay";
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
 
 export interface PageResult<T> {
@@ -131,7 +132,7 @@ export function toHomeWork(item: BackendWorkCard): HomeWork {
     description: item.description || "",
     quality: item.quality || "",
     modelId: item.modelId || "",
-    modelName: item.modelName || item.modelId || "AI 绘画",
+    modelName: toPublicModelName(item.modelName || item.modelId),
     styleName: item.style || "默认",
     tags: item.tags || [],
     favorites: item.favorites,

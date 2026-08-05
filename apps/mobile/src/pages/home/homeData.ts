@@ -68,7 +68,7 @@ export const homeBanners: HomeBanner[] = [
   },
   {
     image: mockImage("gptimg2", 700, 300),
-    title: "GPT Image 2 全新上线",
+    title: "图像生成模型 V3.0 全新上线",
     description: "画质更细腻，理解力更强，创作效果飞跃提升",
     action: "create"
   },
@@ -77,12 +77,6 @@ export const homeBanners: HomeBanner[] = [
     title: "发布作品送积分",
     description: "作品审核通过后可获得发布积分",
     action: "publish"
-  },
-  {
-    image: mockImage("vip", 700, 300),
-    title: "会员限时5折",
-    description: "年度会员立减50%，每日生成次数翻倍不限量",
-    action: "membership"
   }
 ];
 

@@ -12,7 +12,7 @@ import { invalidateWorkDetailPreload } from "../../services/workDetailListPreloa
 import { patchWorkDetailSnapshot } from "../../services/workDetailPreviewCache";
 import { draftWorks, workTags, type DraftWork } from "./publishData";
 import { fetchPublishDrafts, publishWork } from "./publishService";
-import { fetchMemberPlans, fetchMemberStatus, fetchPublishRewardConfig } from "../points/pointsService";
+import { fetchPublishRewardConfig } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 
 const { themeClass } = useTheme();
@@ -32,7 +32,6 @@ const pendingDraftId = ref<number | null>(null);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
 const basePublishReward = ref(50);
-const memberPublishBonus = ref(0);
 const isInitialContentReady = ref(false);
 let lastMockMode: boolean | null = null;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
@@ -40,11 +39,7 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 const titleCount = computed(() => `${title.value.length}/30`);
 const descCount = computed(() => `${desc.value.length}/200`);
 const draftOptions = computed(() => (useMockData.value ? draftWorks : backendDrafts.value));
-const publishReward = computed(() => basePublishReward.value + memberPublishBonus.value);
-const publishButtonText = computed(() => {
-  const suffix = memberPublishBonus.value ? `送${publishReward.value}积分（含会员加成）` : `送${publishReward.value}积分`;
-  return `发布作品 · ${suffix}`;
-});
+const publishButtonText = computed(() => `发布作品 · 送${basePublishReward.value}积分`);
 
 function leavePublishPage() {
   navigateBackOrRedirect("/pages/gallery/index");
@@ -169,18 +164,12 @@ async function loadDrafts() {
 async function loadPublishReward() {
   if (useMockData.value) {
     basePublishReward.value = 50;
-    memberPublishBonus.value = 0;
     return;
   }
   try {
     basePublishReward.value = await fetchPublishRewardConfig();
-    memberPublishBonus.value = 0;
-    if (!isLoggedIn.value) return;
-    const [status, plans] = await Promise.all([fetchMemberStatus(), fetchMemberPlans()]);
-    if (!status.isMember) return;
-    memberPublishBonus.value = plans.find((plan) => plan.name === status.memberPlan)?.publishBonus ?? 0;
   } catch {
-    memberPublishBonus.value = 0;
+    basePublishReward.value = 0;
   }
 }
 

@@ -2,6 +2,7 @@ import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mockImage } from "../../services/mockImages";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
+import { sanitizePublicAiText, toPublicModelName } from "../../services/modelDisplay";
 import {
   gameplays as mockGameplays,
   homeAnnouncements as mockAnnouncements,
@@ -105,12 +106,12 @@ export interface HomeFeedView {
 }
 
 type CachedHomeBootstrap = {
-  version: 1;
+  version: 2;
   savedAt: number;
   data: HomeBootstrapView;
 };
 
-const HOME_BOOTSTRAP_CACHE_KEY = "lumi-home-bootstrap-v1";
+const HOME_BOOTSTRAP_CACHE_KEY = "lumi-home-bootstrap-v2";
 const HOME_BOOTSTRAP_CACHE_TTL = 5 * 60_000;
 const HOME_BOOTSTRAP_MAX_STALE = 24 * 60 * 60_000;
 const warmedBootstrapImages = new Set<string>();
@@ -151,7 +152,7 @@ function readStoredBootstrap() {
   try {
     const raw = uni.getStorageSync(HOME_BOOTSTRAP_CACHE_KEY);
     const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!parsed || parsed.version !== 1 || !Number.isFinite(parsed.savedAt) || !validBootstrap(parsed.data)) return undefined;
+    if (!parsed || parsed.version !== 2 || !Number.isFinite(parsed.savedAt) || !validBootstrap(parsed.data)) return undefined;
     if (Date.now() - parsed.savedAt > HOME_BOOTSTRAP_MAX_STALE) {
       uni.removeStorageSync(HOME_BOOTSTRAP_CACHE_KEY);
       return undefined;
@@ -164,7 +165,7 @@ function readStoredBootstrap() {
 }
 
 function storeBootstrap(data: HomeBootstrapView) {
-  const entry: CachedHomeBootstrap = { version: 1, savedAt: Date.now(), data };
+  const entry: CachedHomeBootstrap = { version: 2, savedAt: Date.now(), data };
   memoryBootstrapCache = entry;
   try {
     uni.setStorageSync(HOME_BOOTSTRAP_CACHE_KEY, JSON.stringify(entry));
@@ -199,6 +200,7 @@ export function prewarmHomeBootstrapImages(data: Pick<HomeBootstrapView, "banner
 
 function normalizeBannerAction(action: string, title = "") {
   const value = action.trim();
+  if (/(?:\u4f1a\u5458|\u5145\u503c)/.test(value)) return "hidden-paid-entry";
   if (["创作页", "create"].includes(value)) {
     if (/签到/.test(title)) return "checkin";
     if (/发布作品/.test(title)) return "publish";
@@ -208,9 +210,7 @@ function normalizeBannerAction(action: string, title = "") {
     "\u53d1\u5e03\u4f5c\u54c1\u9875": "publish",
     签到页: "checkin",
     创作页: "create",
-    会员页: "membership",
     发布页: "publish",
-    充值页: "recharge",
     邀请页: "invite",
     广场页: "plaza",
     画廊页: "gallery",
@@ -254,7 +254,7 @@ function toHomeWork(item: BackendWork): HomeWork {
     description: item.description || "",
     quality: item.quality || "",
     modelId: item.modelId || "",
-    modelName: item.modelName || item.modelId || "AI 绘画",
+    modelName: toPublicModelName(item.modelName || item.modelId),
     styleName: item.style || "默认",
     tags: item.tags || [],
     favorites: item.favorites,
@@ -270,11 +270,15 @@ function normalizeHomeBootstrap(data: BackendBootstrap): HomeBootstrapView {
       const fallback = mockBanners.find((banner) => banner.action === action) ?? fallbackByIndex(mockBanners, index);
       return {
         image: item.imageUrl || fallback.image,
-        title: item.title || fallback.title,
-        description: item.description || fallback.description,
+        title: sanitizePublicAiText(item.title || fallback.title),
+        description: sanitizePublicAiText(item.description || fallback.description),
         action: action || fallback.action
       };
-    }).filter((item) => inviteRewardsEnabled || item.action !== "invite"),
+    }).filter((item) =>
+      !["membership", "recharge", "hidden-paid-entry"].includes(item.action)
+      && !/(?:\u4f1a\u5458|\u5145\u503c)/.test(item.title)
+      && (inviteRewardsEnabled || item.action !== "invite")
+    ),
     gameplays: data.gameplays.map((item, index) => {
       const fallback = mockGameplays.find((gameplay) => gameplay.name === item.name) ?? fallbackByIndex(mockGameplays, index);
       return {
@@ -289,13 +293,17 @@ function normalizeHomeBootstrap(data: BackendBootstrap): HomeBootstrapView {
       return {
         id: item.id,
         image: mockImage(`announce${item.id}`, 600, 280),
-        title: item.title || fallback.title,
-        summary: item.summary || fallback.summary,
+        title: sanitizePublicAiText(item.title || fallback.title),
+        summary: sanitizePublicAiText(item.summary || fallback.summary),
         action: normalizeBannerAction(item.action || fallback.action, item.title || fallback.title),
         rangeText: item.rangeText || fallback.rangeText,
         popup: item.popup
       };
-    }).filter((item) => inviteRewardsEnabled || item.action !== "invite"),
+    }).filter((item) =>
+      !["membership", "recharge", "hidden-paid-entry"].includes(item.action)
+      && !/(?:\u4f1a\u5458|\u5145\u503c)/.test(item.title)
+      && (inviteRewardsEnabled || item.action !== "invite")
+    ),
     publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 2))
   };
 }

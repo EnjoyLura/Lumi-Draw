@@ -71,7 +71,7 @@ export const earnRecords: PointRecord[] = [
 ];
 
 export const spendRecords: PointRecord[] = [
-  { title: "生成「霓虹都市」", model: "GPT Image 2", time: "06-18 16:20", amount: "-15" },
+  { title: "生成「霓虹都市」", model: "图像生成模型 V3.0", time: "06-18 16:20", amount: "-15" },
   { title: "生成「山水之间」", model: "Nano Banana 2", time: "06-17 20:15", amount: "-8" },
   { title: "生成「少女与猫」", model: "Flux Pro", time: "06-16 14:30", amount: "-12" },
   { title: "生成「抽象梦境」", model: "SDXL", time: "06-15 11:20", amount: "-6" },

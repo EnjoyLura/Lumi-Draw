@@ -17,14 +17,6 @@ const mockAgreements: Record<string, { title: string; content: string }> = {
   privacy: {
     title: "隐私政策",
     content: "我们仅在提供登录、创作、支付、审核和客服所必需的范围内处理你的信息，并按法律法规要求保护数据安全。"
-  },
-  recharge: {
-    title: "充值协议",
-    content: "积分属于平台虚拟权益，仅用于露米绘画内的 AI 生成等服务。充值前请确认方案内容，支付成功后积分实时入账。"
-  },
-  membership: {
-    title: "会员服务协议",
-    content: "会员权益包括积分赠送、签到加成和优先体验等，以页面展示和后台配置为准。"
   }
 };
 

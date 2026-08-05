@@ -1,6 +1,7 @@
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mergeGenerationProgress } from "../../services/generationProgress";
+import { toPublicModelName } from "../../services/modelDisplay";
 import type { HomeWork } from "../home/homeData";
 import type { GalleryGenTask, GalleryUser } from "./galleryData";
 
@@ -110,7 +111,7 @@ function toHomeWork(item: BackendWork, ownerId = 0): HomeWork {
     likes: item.likes,
     published: item.status === "published" && item.isPublic,
     status: item.status,
-    modelName: item.modelName || item.modelId,
+    modelName: toPublicModelName(item.modelName || item.modelId),
     createdAt: item.createdAt,
     description: item.description || "",
     quality: item.quality || "",

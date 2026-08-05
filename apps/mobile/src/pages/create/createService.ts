@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { toPublicModelName } from "../../services/modelDisplay";
 import {
   createModels as mockModels,
   createStyles as mockStyles,
@@ -182,7 +183,7 @@ export async function fetchCreateConfig(): Promise<CreateConfigView> {
       const fallback = mockModels.find((model) => model.name === item.name) ?? fallbackByIndex(mockModels, index);
       return {
         id: item.id,
-        name: item.name || fallback.name,
+        name: toPublicModelName(item.name || fallback.name),
         description: item.description || fallback.description,
         tags: item.tags?.length ? item.tags : fallback.tags,
         cost: item.costCredits || fallback.cost,

@@ -24,10 +24,8 @@ const STATIC_PAGE_TITLES: Record<string, string> = {
   "pages/work-detail/index": "作品详情",
   "pages/report/index": "举报",
   "pages/user-profile/index": "用户主页",
-  "pages/recharge/index": "积分充值",
   "pages/checkin/index": "每日签到",
   "pages/invite/index": "邀请好友",
-  "pages/membership/index": "会员中心",
   "pages/messages/index": "消息",
   "pages/settings/index": "设置",
   "pages/edit-profile/index": "编辑资料",
@@ -50,9 +48,7 @@ const MESSAGE_TITLES: Record<string, string> = {
 
 const AGREEMENT_TITLES: Record<string, string> = {
   user: "用户协议",
-  privacy: "隐私政策",
-  recharge: "充值协议",
-  membership: "会员服务协议"
+  privacy: "隐私政策"
 };
 
 function readCurrentRoute() {

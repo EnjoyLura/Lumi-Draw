@@ -142,20 +142,12 @@ const pageContracts = [
     tokens: ["useDataMode", "fetchUserProfile", "fetchUserWorks", "followUser", "unfollowUser", "toggleWorkLike", "resolveRouteId"]
   },
   {
-    route: "pages/recharge/index",
-    tokens: ["useDataMode", "refreshRechargePageSnapshot", "fetchCreditRecordPage", "createRechargeOrder", "requestOrderPayment"]
-  },
-  {
     route: "pages/checkin/index",
     tokens: ["useDataMode", "fetchCheckinStatus", "submitCheckin", "updateCurrentUser"]
   },
   {
     route: "pages/invite/index",
     tokens: ["useDataMode", "fetchInviteSummary", "copyInviteCode", "shareInvite"]
-  },
-  {
-    route: "pages/membership/index",
-    tokens: ["useDataMode", "fetchMemberPlans", "fetchMemberStatus", "createMembershipOrder", "requestOrderPayment"]
   },
   {
     route: "pages/messages/index",

@@ -1,5 +1,6 @@
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
+import { toPublicModelName } from "../../services/modelDisplay";
 import { formatCompactNumber, formatRelativeTime, toHomeUser, type BackendAuthor } from "../../services/social";
 import type { HomeUser } from "../home/homeData";
 import type { DetailWork } from "./workDetailData";
@@ -73,7 +74,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       status: item.status,
       description: item.description || `${title}，由露米绘画 AI 生成，适合继续同款创作。`,
       modelId: item.modelId || "",
-      modelName: item.modelName || item.quality || "AI 模型",
+      modelName: toPublicModelName(item.modelName, item.quality || "AI 模型"),
       quality: item.quality || "",
       styleName,
       tags: displayTags,
