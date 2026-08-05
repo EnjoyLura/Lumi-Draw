@@ -248,6 +248,16 @@ function galleryOwnerId() {
   return Number(currentUser.value?.id || profile.value.id || 0);
 }
 
+function syncProfilePointsFromAuth() {
+  if (useMockData.value) return;
+  const credits = Number(currentUser.value?.credits);
+  if (!Number.isFinite(credits)) return;
+
+  const points = String(credits);
+  if (profile.value.points === points) return;
+  profile.value = { ...profile.value, points };
+}
+
 function assignGalleryOwner(worksToAssign: HomeWork[]) {
   if (renderedTab.value === "favorite") return worksToAssign;
   const ownerId = galleryOwnerId();
@@ -274,12 +284,19 @@ function markInitialContentReady() {
 }
 
 onShow(() => {
+  // The check-in page updates the shared auth user immediately. Keep the
+  // cached gallery profile in sync without reloading the waterfall feed.
+  syncProfilePointsFromAuth();
   if (skipNextShowRefresh) {
     skipNextShowRefresh = false;
   } else {
     void refreshGalleryPage().catch(() => undefined);
   }
   void loadGenerateTasks(true);
+});
+
+watch(() => currentUser.value?.credits, () => {
+  syncProfilePointsFromAuth();
 });
 
 function upsertStartedGenerateTask(event: GalleryGenerateTaskStartedEvent) {
