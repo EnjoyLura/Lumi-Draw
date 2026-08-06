@@ -6,21 +6,18 @@ import { useDataMode } from "../../services/dataMode";
 import { refreshNavigationTitle } from "../../services/navigationTitle";
 import { fetchAgreement } from "../settings/settingsService";
 import { useTheme } from "../../services/theme";
+import { mobileAgreementFallback } from "./agreementContent";
 
 const { themeClass } = useTheme();
 
-const mockAgreements: Record<string, { title: string; content: string }> = {
-  user: {
-    title: "用户协议",
-    content: "欢迎使用露米绘画。使用本服务即表示你同意遵守平台规则，不生成违法违规、侵权或伤害他人的内容。"
-  },
-  privacy: {
-    title: "隐私政策",
-    content: "我们仅在提供登录、创作、支付、审核和客服所必需的范围内处理你的信息，并按法律法规要求保护数据安全。"
-  }
-};
-
+const mockAgreements = mobileAgreementFallback;
 const { useMockData } = useDataMode();
+type AgreementType = keyof typeof mockAgreements;
+
+function fallbackAgreement(type: string) {
+  return mockAgreements[type as AgreementType] || mockAgreements.user;
+}
+
 const agreementType = ref("user");
 const title = ref("协议");
 const content = ref("");
@@ -82,7 +79,7 @@ function resolveRouteType(query?: Record<string, unknown>) {
 
 async function loadAgreement() {
   lastLoadKey = `${agreementType.value}-${useMockData.value}`;
-  const mock = mockAgreements[agreementType.value] || mockAgreements.user;
+  const mock = fallbackAgreement(agreementType.value);
   title.value = mock.title;
   refreshNavigationTitle(mock.title);
   content.value = "";
@@ -95,14 +92,18 @@ async function loadAgreement() {
       return;
     }
     const data = await fetchAgreement(agreementType.value);
+    if (!data.content?.trim()) throw new Error("agreement content is empty");
     title.value = data.title;
     refreshNavigationTitle(data.title);
     content.value = data.content;
     updatedAt.value = data.updatedAt;
   } catch {
-    content.value = "";
-    loadFailed.value = true;
-    uni.showToast({ title: "协议加载失败，请稍后重试", icon: "none" });
+    const fallback = fallbackAgreement(agreementType.value);
+    title.value = fallback.title;
+    refreshNavigationTitle(fallback.title);
+    content.value = fallback.content;
+    updatedAt.value = "";
+    loadFailed.value = false;
   } finally {
     isLoading.value = false;
   }

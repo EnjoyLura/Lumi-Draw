@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/common/crypto/password";
+import { compliantAgreementContent } from "../src/config-center/agreement-content";
 
 const prisma = new PrismaClient();
 
@@ -137,6 +138,9 @@ const agreements = [
   { type: "recharge", title: "充值协议", content: "积分属于露米绘画平台虚拟权益，仅可用于 AI 生成、反推提示词等平台服务。充值前请确认档位内容，支付成功后积分实时入账。" },
   { type: "membership", title: "会员服务协议", content: "会员权益包含每日生成次数、分辨率上限与专属模型等。会员为虚拟服务，开通后除法律规定外不支持退款。" }
 ];
+
+agreements[0] = { type: "user", ...compliantAgreementContent.user };
+agreements[1] = { type: "privacy", ...compliantAgreementContent.privacy };
 
 const settings = [
   { key: "reviewMode", value: "manual" },

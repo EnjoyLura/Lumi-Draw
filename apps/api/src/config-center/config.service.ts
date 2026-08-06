@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
+import { compliantAgreementContent } from "./agreement-content";
 
 const enabledOrder = { where: { enabled: true }, orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
 
@@ -216,7 +217,7 @@ export class ConfigService {
   async getAgreement(type: string) {
     const row = await this.prisma.agreement.findUnique({ where: { type } });
     if (!row) {
-      const fallback = defaultAgreements[type];
+      const fallback = compliantAgreementContent[type] || defaultAgreements[type];
       if (!fallback) throw new NotFoundException(`协议不存在: ${type}`);
       return {
         type,
