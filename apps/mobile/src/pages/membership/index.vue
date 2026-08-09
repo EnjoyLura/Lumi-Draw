@@ -204,7 +204,7 @@ function showAgreement() {
           <view class="member-head">
             <view class="crown"><LumiIcon name="crown" :size="26" /></view>
             <view>
-              <view class="member-title">Lumi 会员</view>
+              <view class="member-title">露米会员</view>
               <view class="member-sub">{{ isLoading ? "同步会员状态中" : memberStatusText }}</view>
             </view>
           </view>
