@@ -933,6 +933,10 @@ html[data-admin-density="compact"] .lumi-page-body .lrow {
 }
 
 @media (max-width: 767px) {
+  .lumi-admin-v2 .ant-pro-layout-content {
+    padding: 0 !important;
+  }
+
   .lumi-header-density {
     display: none;
   }
@@ -965,11 +969,12 @@ html[data-admin-density="compact"] .lumi-page-body .lrow {
   }
 
   .lumi-admin-content {
-    padding: 14px 12px 28px;
+    max-width: none;
+    padding: 12px 10px 24px;
   }
 
   .lumi-page-heading {
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
 
   .lumi-page-heading h3.ant-typography {
@@ -985,13 +990,141 @@ html[data-admin-density="compact"] .lumi-page-body .lrow {
     gap: 10px;
   }
 
+  .lumi-admin-page {
+    gap: 12px;
+  }
+
+  .lumi-metrics {
+    row-gap: 10px !important;
+  }
+
+  .lumi-metrics .lumi-metric-card {
+    min-height: 104px;
+  }
+
+  .lumi-metric-card > .ant-card-body {
+    padding: 14px;
+  }
+
+  .lumi-metric-icon {
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    font-size: 18px;
+  }
+
+  .lumi-metric-card .ant-statistic-title {
+    max-width: calc(100% - 38px);
+    margin-bottom: 5px;
+    font-size: 13px;
+  }
+
+  .lumi-metric-card .ant-statistic-content {
+    font-size: 24px;
+  }
+
   .lumi-table-toolbar {
     align-items: stretch;
     flex-direction: column;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .lumi-table-toolbar > .ant-space {
+    width: 100%;
+  }
+
+  .lumi-table-toolbar > .ant-space > .ant-space-item:first-child {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .lumi-table-toolbar .ant-select {
+    min-width: 132px;
   }
 
   .lumi-search-input {
-    width: min(100%, 420px);
+    width: 100%;
+  }
+
+  .lumi-table-card {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .lumi-table-card > .ant-card-head {
+    min-height: 52px;
+    padding: 0 14px;
+  }
+
+  .lumi-table-card > .ant-card-head .ant-card-head-wrapper {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .lumi-table-card > .ant-card-head .ant-card-extra {
+    margin-inline-start: auto;
+  }
+
+  .lumi-table-card .ant-table-wrapper {
+    width: 100%;
+    padding: 0;
+  }
+
+  .lumi-table-card .ant-table-container,
+  .lumi-table-card .ant-table-content {
+    width: 100%;
+  }
+
+  .lumi-table-card .ant-table-content {
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lumi-table-card .ant-table-content::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .lumi-table-card .ant-table-content > table {
+    min-width: max-content;
+  }
+
+  .lumi-table-card .ant-table-cell-fix-left,
+  .lumi-table-card .ant-table-cell-fix-left-first,
+  .lumi-table-card .ant-table-cell-fix-left-last,
+  .lumi-table-card .ant-table-cell-fix-right,
+  .lumi-table-card .ant-table-cell-fix-right-first,
+  .lumi-table-card .ant-table-cell-fix-right-last {
+    position: static !important;
+  }
+
+  .lumi-table-card .ant-table-cell-fix-left-first::after,
+  .lumi-table-card .ant-table-cell-fix-left-last::after,
+  .lumi-table-card .ant-table-cell-fix-right-first::after,
+  .lumi-table-card .ant-table-cell-fix-right-last::after {
+    display: none;
+  }
+
+  .lumi-table-card .ant-table-sticky-scroll {
+    display: none;
+  }
+
+  .lumi-table-card .ant-pagination {
+    gap: 4px;
+    padding: 0 10px;
+  }
+
+  .lumi-table-card .ant-table-cell {
+    padding: 11px 12px;
+    white-space: nowrap;
   }
 
   .lumi-page-body .stat-card {
