@@ -16,6 +16,12 @@ import type { AdminUser } from "../data/mock";
 import { useNav } from "../shell/NavContext";
 
 const PAGE_SIZE = 20;
+const EMPTY_USERS_SUMMARY: AdminUsersSummary = {
+  total: 0,
+  todayNew: 0,
+  members: 0,
+  banned: 0
+};
 
 function isToday(dateText: string) {
   const date = new Date(dateText);
@@ -69,6 +75,7 @@ export function Users() {
   });
 
   const mockRows = useMemo(() => {
+    if (!useMock) return [];
     const query = searchKeyword.trim().toLowerCase();
     return getUsers().filter((user) => {
       if (status === "banned" && user.status !== "封禁") return false;
@@ -79,15 +86,19 @@ export function Users() {
         || String(user.id).includes(query)
         || user.phone.includes(query);
     });
-  }, [member, searchKeyword, status]);
+  }, [member, searchKeyword, status, useMock]);
 
-  const localSummary: AdminUsersSummary = {
-    total: getUsers().length,
-    todayNew: getUsers().filter((user) => isToday(user.reg)).length,
-    members: getUsers().filter((user) => user.member !== "无").length,
-    banned: getUsers().filter((user) => user.status === "封禁").length
-  };
-  const summary = useMock ? localSummary : summaryQuery.data ?? localSummary;
+  const localSummary = useMemo<AdminUsersSummary>(() => {
+    if (!useMock) return EMPTY_USERS_SUMMARY;
+    const users = getUsers();
+    return {
+      total: users.length,
+      todayNew: users.filter((user) => isToday(user.reg)).length,
+      members: users.filter((user) => user.member !== "无").length,
+      banned: users.filter((user) => user.status === "封禁").length
+    };
+  }, [useMock]);
+  const summary = useMock ? localSummary : summaryQuery.data ?? EMPTY_USERS_SUMMARY;
   const rows = useMock
     ? mockRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
     : usersQuery.data?.items ?? [];

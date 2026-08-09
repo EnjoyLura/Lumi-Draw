@@ -37,6 +37,12 @@ import { useNav } from "../shell/NavContext";
 import { WorkUploadForm } from "./WorkUploadForm";
 
 const PAGE_SIZE = 20;
+const EMPTY_WORKS_SUMMARY: AdminWorksSummary = {
+  total: 0,
+  todayNew: 0,
+  featured: 0,
+  offline: 0
+};
 const STATUS_OPTIONS: Array<{ label: string; value: "all" | NonNullable<AdminWorkQuery["status"]> }> = [
   { label: "全部状态", value: "all" },
   { label: "已发布", value: "published" },
@@ -111,6 +117,7 @@ export function Works() {
   });
 
   const mockRows = useMemo(() => {
+    if (!useMock) return [];
     const query = searchKeyword.trim().toLowerCase();
     return getWorks().filter((work) => {
       if (status !== "all" && work.status !== STATUS_TO_CN[status]) return false;
@@ -121,16 +128,19 @@ export function Works() {
         || work.prompt.toLowerCase().includes(query)
         || (work.authorName || userName(work.userId)).toLowerCase().includes(query);
     });
-  }, [searchKeyword, special, status]);
+  }, [searchKeyword, special, status, useMock]);
 
-  const allMockWorks = getWorks();
-  const localSummary: AdminWorksSummary = {
-    total: allMockWorks.length,
-    todayNew: 0,
-    featured: allMockWorks.filter((work) => work.featured).length,
-    offline: allMockWorks.filter((work) => work.status === "已下架").length
-  };
-  const summary = useMock ? localSummary : summaryQuery.data ?? localSummary;
+  const localSummary = useMemo<AdminWorksSummary>(() => {
+    if (!useMock) return EMPTY_WORKS_SUMMARY;
+    const works = getWorks();
+    return {
+      total: works.length,
+      todayNew: 0,
+      featured: works.filter((work) => work.featured).length,
+      offline: works.filter((work) => work.status === "已下架").length
+    };
+  }, [useMock]);
+  const summary = useMock ? localSummary : summaryQuery.data ?? EMPTY_WORKS_SUMMARY;
   const rows = useMock
     ? mockRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
     : worksQuery.data?.items ?? [];

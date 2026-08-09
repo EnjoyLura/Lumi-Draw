@@ -84,7 +84,7 @@ export function WorkDetail({ param }: { param?: string }) {
   if (loading) return <div className="lumi-page-loading"><Spin size="large" tip="正在加载作品详情" /></div>;
   if (error) return <Alert showIcon type="error" message="作品详情加载失败" description={error} />;
   if (!work) return <Alert showIcon type="warning" message="作品不存在或已被删除" />;
-  const author = work.author ?? USERS.find((item) => item.id === work.userId);
+  const author = work.author ?? (useMock ? USERS.find((item) => item.id === work.userId) : undefined);
   const tags = (work.tags?.length ? work.tags : [work.style]).filter(Boolean);
   const toggle = async (key: "featured" | "recommend", enabled: boolean) => {
     try {
