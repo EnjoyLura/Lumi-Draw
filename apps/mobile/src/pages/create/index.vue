@@ -234,7 +234,7 @@ function resetCreateConfig() {
   applySelectedGameplayPrompt();
 }
 
-async function loadCreateConfig() {
+async function loadCreateConfig(force = false) {
   if (useMockData.value) {
     resetCreateConfig();
     return;
@@ -242,14 +242,22 @@ async function loadCreateConfig() {
 
   configLoadFailed.value = false;
   try {
-    const config = await fetchCreateConfig();
+    const selectedModelId = modelOptions.value[selectedModelIndex.value]?.id;
+    const selectedQualityLabel = qualityList.value[selectedQualityIndex.value]?.label;
+    const config = await fetchCreateConfig({ force });
     modelOptions.value = config.models;
     styleOptions.value = config.styles;
     qualityList.value = config.qualities;
     ratioList.value = config.ratios;
     gameplayOptions.value = config.gameplays;
-    selectedModelIndex.value = Math.max(0, Math.min(selectedModelIndex.value, modelOptions.value.length - 1));
-    selectedQualityIndex.value = Math.max(0, Math.min(selectedQualityIndex.value, qualityList.value.length - 1));
+    const refreshedModelIndex = modelOptions.value.findIndex((model) => model.id === selectedModelId);
+    const refreshedQualityIndex = qualityList.value.findIndex((quality) => quality.label === selectedQualityLabel);
+    selectedModelIndex.value = refreshedModelIndex >= 0
+      ? refreshedModelIndex
+      : Math.max(0, Math.min(selectedModelIndex.value, modelOptions.value.length - 1));
+    selectedQualityIndex.value = refreshedQualityIndex >= 0
+      ? refreshedQualityIndex
+      : Math.max(0, Math.min(selectedQualityIndex.value, qualityList.value.length - 1));
     if (!ratioList.value.some((ratio) => ratio.label === selectedRatioLabel.value)) {
       selectedRatioLabel.value = ratioList.value[0]?.label || "1:1";
     }
@@ -279,6 +287,8 @@ onShow(() => {
   if (lastConfigMode !== useMockData.value) {
     lastConfigMode = useMockData.value;
     void loadCreateConfig();
+  } else if (!useMockData.value) {
+    void loadCreateConfig(true);
   }
 
   const promptDraft = uni.getStorageSync("lumiCreatePromptDraft");
@@ -1197,7 +1207,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <view v-if="createConfigUnavailable" class="config-alert">
           <view class="config-alert-title">创作配置未同步</view>
           <view class="config-alert-sub">请重新加载模型、分辨率和尺寸配置，当前不会使用本地模拟配置提交生成。</view>
-          <button class="config-alert-btn" @click="loadCreateConfig">重新加载</button>
+          <button class="config-alert-btn" @click="() => loadCreateConfig(true)">重新加载</button>
         </view>
 
         <view class="gameplay-wrap">

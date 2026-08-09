@@ -174,8 +174,8 @@ function parseRatio(label: string, fallback: RatioOption): RatioOption {
   return { label, width, height };
 }
 
-export async function fetchCreateConfig(): Promise<CreateConfigView> {
-  if (cachedCreateConfig && Date.now() - cachedCreateConfigAt < CREATE_CONFIG_TTL) return cachedCreateConfig;
+export async function fetchCreateConfig(options?: { force?: boolean }): Promise<CreateConfigView> {
+  if (!options?.force && cachedCreateConfig && Date.now() - cachedCreateConfigAt < CREATE_CONFIG_TTL) return cachedCreateConfig;
   if (pendingCreateConfig) return pendingCreateConfig;
 
   pendingCreateConfig = api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true }).then((data) => ({

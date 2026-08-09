@@ -142,10 +142,13 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
         {id ? <AdminImage eager className="thumb" src={IMG("model" + id)} style={{ width: 56, height: 56 }} alt="" /> : null}
         <div style={{ textAlign: "center" }}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} /><div style={{ fontSize: 12 }}>点击上传</div></div>
       </div>
-      <label className="field-label" style={{ marginTop: 12 }}>模型名称</label>
-      <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="如：GPT Image 2" />
-      <label className="field-label" style={{ marginTop: 12 }}>上游模型名称</label>
-      <input className="input" value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="未在 API 参数中配置 model 时使用" />
+      <label className="field-label" style={{ marginTop: 12 }}>小程序显示名称</label>
+      <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="用户在创作页、作品详情等位置看到的名称" />
+      <div className="lr-s" style={{ marginTop: 5, lineHeight: 1.55 }}>
+        保存后由小程序动态读取，可随时调整；只改变用户看到的名称，不影响实际 API 请求。
+      </div>
+      <label className="field-label" style={{ marginTop: 12 }}>上游请求模型名</label>
+      <input className="input" value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="发送给上游 API 的 model 参数，通常无需随展示名称修改" />
       <label className="field-label" style={{ marginTop: 12 }}>模型描述</label>
       <input className="input" value={desc} onChange={(event) => setDesc(event.target.value)} placeholder="如：画质细腻·理解力强" />
       <label className="field-label" style={{ marginTop: 12 }}>优势标签</label>
