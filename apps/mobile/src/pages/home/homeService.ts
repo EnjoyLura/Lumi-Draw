@@ -200,9 +200,11 @@ export function prewarmHomeBootstrapImages(data: Pick<HomeBootstrapView, "banner
 
 function normalizeBannerAction(action: string, title = "") {
   const value = action.trim();
-  if (/(?:\u4f1a\u5458|\u5145\u503c)/.test(value)) return "hidden-paid-entry";
+  if (/\u5145\u503c/.test(value)) return "hidden-paid-entry";
+  if (/\u4f1a\u5458/.test(value)) return "membership";
   if (["创作页", "create"].includes(value)) {
     if (/签到/.test(title)) return "checkin";
+    if (/会员/.test(title)) return "membership";
     if (/发布作品/.test(title)) return "publish";
     if (/gpt\s*image\s*2/i.test(title)) return "create-gpt-image-2";
   }
@@ -210,6 +212,7 @@ function normalizeBannerAction(action: string, title = "") {
     "\u53d1\u5e03\u4f5c\u54c1\u9875": "publish",
     签到页: "checkin",
     创作页: "create",
+    会员页: "membership",
     发布页: "publish",
     邀请页: "invite",
     广场页: "plaza",
@@ -275,8 +278,8 @@ function normalizeHomeBootstrap(data: BackendBootstrap): HomeBootstrapView {
         action: action || fallback.action
       };
     }).filter((item) =>
-      !["membership", "recharge", "hidden-paid-entry"].includes(item.action)
-      && !/(?:\u4f1a\u5458|\u5145\u503c)/.test(item.title)
+      !["recharge", "hidden-paid-entry"].includes(item.action)
+      && !/\u5145\u503c/.test(item.title)
       && (inviteRewardsEnabled || item.action !== "invite")
     ),
     gameplays: data.gameplays.map((item, index) => {
@@ -300,8 +303,8 @@ function normalizeHomeBootstrap(data: BackendBootstrap): HomeBootstrapView {
         popup: item.popup
       };
     }).filter((item) =>
-      !["membership", "recharge", "hidden-paid-entry"].includes(item.action)
-      && !/(?:\u4f1a\u5458|\u5145\u503c)/.test(item.title)
+      !["recharge", "hidden-paid-entry"].includes(item.action)
+      && !/\u5145\u503c/.test(item.title)
       && (inviteRewardsEnabled || item.action !== "invite")
     ),
     publishReward: Math.max(0, Number(data.creditsConfig?.publishReward ?? 2))

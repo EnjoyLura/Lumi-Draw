@@ -10,6 +10,7 @@ const AGREEMENTS = [
   { name: "用户协议", updatedAt: "2025-05-10" },
   { name: "隐私政策", updatedAt: "2025-05-10" },
   { name: "充值协议", updatedAt: "2025-03-01" },
+  { name: "会员服务协议", updatedAt: "2026-08-09" },
   { name: "社区规范", updatedAt: "2025-04-15" }
 ];
 

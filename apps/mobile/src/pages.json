@@ -132,6 +132,16 @@
       }
     },
     {
+      "path": "pages/membership/index",
+      "style": {
+        "navigationBarTitleText": "会员中心",
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
+      }
+    },
+    {
       "path": "pages/messages/index",
       "style": {
         "navigationBarTitleText": "消息",

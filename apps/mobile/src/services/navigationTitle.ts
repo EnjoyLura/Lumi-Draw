@@ -26,6 +26,7 @@ const STATIC_PAGE_TITLES: Record<string, string> = {
   "pages/user-profile/index": "用户主页",
   "pages/checkin/index": "每日签到",
   "pages/invite/index": "邀请好友",
+  "pages/membership/index": "会员中心",
   "pages/messages/index": "消息",
   "pages/settings/index": "设置",
   "pages/edit-profile/index": "编辑资料",
@@ -48,7 +49,8 @@ const MESSAGE_TITLES: Record<string, string> = {
 
 const AGREEMENT_TITLES: Record<string, string> = {
   user: "用户协议",
-  privacy: "隐私政策"
+  privacy: "隐私政策",
+  membership: "会员服务协议"
 };
 
 function readCurrentRoute() {

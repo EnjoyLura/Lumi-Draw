@@ -141,6 +141,7 @@ const agreements = [
 
 agreements[0] = { type: "user", ...compliantAgreementContent.user };
 agreements[1] = { type: "privacy", ...compliantAgreementContent.privacy };
+agreements[3] = { type: "membership", ...compliantAgreementContent.membership };
 
 const settings = [
   { key: "reviewMode", value: "manual" },

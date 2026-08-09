@@ -34,6 +34,7 @@ export const mineUser: MineUser = {
 
 const allQuickActions: QuickAction[] = [
   { key: "checkin", label: "签到", icon: "calendar-check", gradient: "linear-gradient(135deg, #ffd4c8, #ffc8d6)" },
+  { key: "membership", label: "会员", icon: "crown", gradient: "linear-gradient(135deg, #d4c8f0, #b8a8e0)" },
   { key: "invite", label: "邀请", icon: "gift", gradient: "linear-gradient(135deg, #a3e4cc, #8bd8b8)" }
 ];
 export const quickActions = allQuickActions.filter((item) => inviteRewardsEnabled || item.key !== "invite");

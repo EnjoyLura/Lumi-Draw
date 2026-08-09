@@ -1125,6 +1125,7 @@ const AGREEMENT_TYPE_BY_NAME: Record<string, string> = {
   用户协议: "user",
   隐私政策: "privacy",
   充值协议: "recharge",
+  会员服务协议: "membership",
   社区规范: "community"
 };
 

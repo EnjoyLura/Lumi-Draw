@@ -147,7 +147,11 @@ const pageContracts = [
   },
   {
     route: "pages/invite/index",
-    tokens: ["useDataMode", "fetchInviteSummary", "copyInviteCode", "shareInvite"]
+    tokens: ["useDataMode", "fetchInviteSummary", "copyInviteCode", "onShareAppMessage"]
+  },
+  {
+    route: "pages/membership/index",
+    tokens: ["useDataMode", "fetchMemberPlans", "fetchMemberStatus", "createMembershipOrder", "requestOrderPayment"]
   },
   {
     route: "pages/messages/index",

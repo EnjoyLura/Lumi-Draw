@@ -85,11 +85,8 @@ for (const token of ["注销账号", "cancelAccount", "openWechatPrivacyContract
 }
 
 const featureFlags = fs.readFileSync(path.join(SOURCE_DIR, "services", "featureFlags.ts"), "utf8");
-if (!featureFlags.includes('VITE_INVITE_REWARDS_ENABLED === "true"')) {
-  fail("提审版邀请奖励入口未使用默认关闭的显式功能开关。");
-}
-if (process.env.VITE_INVITE_REWARDS_ENABLED === "true") {
-  fail("提审构建禁止开启邀请奖励。");
+if (!featureFlags.includes('VITE_INVITE_REWARDS_ENABLED !== "false"')) {
+  fail("邀请奖励入口缺少可由 VITE_INVITE_REWARDS_ENABLED=false 触发的紧急关闭开关。");
 }
 
 const pointsService = fs.readFileSync(path.join(SOURCE_DIR, "pages", "points", "pointsService.ts"), "utf8");
@@ -98,6 +95,21 @@ if (/\buni\.requestPayment\s*\(/.test(pointsService)) {
 }
 if (!/\brequestVirtualPayment\s*\(/.test(pointsService)) {
   fail("未发现微信虚拟支付 requestVirtualPayment 接入。");
+}
+
+const pagesConfig = fs.readFileSync(path.join(SOURCE_DIR, "pages.json"), "utf8");
+for (const route of ["pages/invite/index", "pages/membership/index"]) {
+  if (!pagesConfig.includes(`"path": "${route}"`)) fail(`正式版缺少页面注册：${route}`);
+}
+
+const invitePage = fs.readFileSync(path.join(SOURCE_DIR, "pages", "invite", "index.vue"), "utf8");
+for (const token of ["onShareAppMessage", 'open-type="share"', "fetchInviteSummary"]) {
+  if (!invitePage.includes(token)) fail(`邀请页缺少正式能力：${token}`);
+}
+
+const membershipPage = fs.readFileSync(path.join(SOURCE_DIR, "pages", "membership", "index.vue"), "utf8");
+for (const token of ["createMembershipOrder", "requestOrderPayment", "fetchMemberStatus"]) {
+  if (!membershipPage.includes(token)) fail(`会员页缺少正式支付能力：${token}`);
 }
 
 if (failures.length) {

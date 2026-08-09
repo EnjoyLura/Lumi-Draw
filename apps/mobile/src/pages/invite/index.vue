@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
 import { ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onShareAppMessage, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
@@ -99,17 +99,10 @@ async function copyInviteCode() {
   }
 }
 
-async function shareInvite() {
-  if (!ensureLogin()) return;
-  const path = `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`;
-  const link = typeof window !== "undefined" && window.location?.origin ? `${window.location.origin}/#${path}` : path;
-  try {
-    await copyToClipboard(`我在露米绘画AI创作图片，邀请码 ${inviteCode.value}，一起领积分：${link}`);
-    uni.showToast({ title: "邀请文案已复制", icon: "none" });
-  } catch (error) {
-    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
-  }
-}
+onShareAppMessage(() => ({
+  title: "来露米绘画AI一起创作，注册可领取新人积分",
+  path: `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`
+}));
 </script>
 
 <template>
@@ -135,7 +128,7 @@ async function shareInvite() {
           <view class="invite-code">{{ inviteCode }}</view>
           <view class="code-actions">
             <button class="btn secondary" @click="copyInviteCode">复制邀请码</button>
-            <button class="btn gradient" @click="shareInvite">分享邀请</button>
+            <button class="btn gradient" open-type="share">分享邀请</button>
           </view>
         </view>
 
