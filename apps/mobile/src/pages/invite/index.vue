@@ -118,8 +118,11 @@ onShareAppMessage(() => ({
 
       <view v-else class="page-content">
         <view class="hero-card">
-          <view class="hero-icon"><LumiIcon name="gift" :size="40" /></view>
-          <view class="hero-title">邀请好友，双方得积分</view>
+          <view class="hero-top">
+            <view class="hero-icon"><LumiIcon name="gift" :size="22" /></view>
+            <view class="hero-tag"><LumiIcon name="sparkles-filled" :size="12" /><text>邀请有礼</text></view>
+          </view>
+          <view class="hero-title">与好友一起开启灵感</view>
           <view class="hero-desc">好友填写你的邀请码注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
         </view>
 
@@ -197,29 +200,78 @@ onShareAppMessage(() => ({
 }
 
 .hero-card {
-  padding: 24px;
+  position: relative;
+  padding: 18px;
   margin-bottom: 16px;
-  text-align: center;
-  background: var(--gradient-aurora);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 5% 5%, rgba(111, 212, 176, 0.2), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(184, 168, 224, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(247, 252, 255, 0.98), rgba(255, 255, 255, 0.94));
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(63, 99, 139, 0.07);
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
 .hero-icon {
-  margin-bottom: 8px;
-  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   color: var(--accent);
+  background: rgba(91, 159, 232, 0.12);
+  border: 1px solid rgba(91, 159, 232, 0.12);
+  border-radius: 14px;
+}
+
+.hero-tag {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(91, 159, 232, 0.1);
+  border: 1px solid rgba(91, 159, 232, 0.1);
+  border-radius: 999px;
 }
 
 .hero-title {
-  margin-bottom: 6px;
-  font-size: 20px;
+  margin-bottom: 7px;
+  font-size: 21px;
   font-weight: 700;
-  color: #fff;
+  color: var(--fg-primary);
 }
 
 .hero-desc {
   font-size: 13px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.65;
+  color: var(--fg-muted);
+}
+
+.invite-page.theme-dark .hero-card,
+:root[data-theme="dark"] .hero-card {
+  background:
+    radial-gradient(circle at 5% 5%, rgba(111, 212, 176, 0.12), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(184, 168, 224, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(38, 38, 42, 0.98), rgba(28, 28, 31, 0.96));
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.invite-page.theme-dark .hero-icon,
+:root[data-theme="dark"] .hero-icon {
+  background: rgba(91, 159, 232, 0.16);
+  border-color: rgba(91, 159, 232, 0.18);
 }
 
 .code-card {

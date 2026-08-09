@@ -226,15 +226,24 @@ function claimMilestone(item: Milestone) {
       <view v-else class="page-content">
         <view class="streak-card">
           <view class="streak-head">
-            <view class="streak-label">{{ isLoading ? "同步签到状态中" : "已连续签到" }}</view>
+            <view class="streak-brand">
+              <view class="streak-icon"><LumiIcon name="calendar-check" :size="19" /></view>
+              <view>
+                <view class="streak-label">{{ isLoading ? "同步签到状态中" : "每日签到" }}</view>
+                <view class="streak-caption">坚持创作，积累每一天</view>
+              </view>
+            </view>
             <view class="today-reward">
               <LumiIcon name="sparkles-filled" :size="13" />
               <text>今日 +{{ nextCredits }}</text>
             </view>
           </view>
-          <view class="streak-num" :class="{ pulse: streakPulse }">
-            <text>{{ checkinStreak }}</text>
-            <text class="streak-unit">天</text>
+          <view class="streak-main">
+            <view class="streak-num" :class="{ pulse: streakPulse }">
+              <text>{{ checkinStreak }}</text>
+              <text class="streak-unit">天</text>
+            </view>
+            <view class="streak-state">{{ checkinDone ? "今日签到已完成" : "已连续签到" }}</view>
           </view>
           <button class="checkin-btn" :class="{ done: checkinDone }" :disabled="checkinDone || isSubmitting" @click="doCheckin">
             <LumiIcon v-if="checkinDone" class="check-icon" name="check" :size="16" />
@@ -343,13 +352,15 @@ function claimMilestone(item: Milestone) {
 
 .streak-card {
   position: relative;
-  padding: 20px 20px 22px;
+  padding: 18px;
   margin-bottom: 18px;
   overflow: hidden;
-  text-align: center;
   background:
-    radial-gradient(circle at 18% 10%, rgba(111, 212, 176, 0.22), transparent 34%),
-    linear-gradient(135deg, rgba(232, 244, 255, 0.98), rgba(255, 255, 255, 0.88));
+    radial-gradient(circle at 10% 0%, rgba(111, 212, 176, 0.18), transparent 34%),
+    radial-gradient(circle at 96% 12%, rgba(184, 168, 224, 0.16), transparent 30%),
+    linear-gradient(145deg, rgba(247, 252, 255, 0.98), rgba(255, 255, 255, 0.94));
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(63, 99, 139, 0.07);
 }
 
 .streak-head {
@@ -360,28 +371,49 @@ function claimMilestone(item: Milestone) {
   justify-content: space-between;
 }
 
+.streak-brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.streak-icon {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+  background: rgba(91, 159, 232, 0.12);
+  border: 1px solid rgba(91, 159, 232, 0.12);
+  border-radius: 13px;
+}
+
 .checkin-page.theme-dark .streak-card,
 :root[data-theme="dark"] .streak-card {
   background:
-    radial-gradient(circle at 18% 10%, rgba(111, 212, 176, 0.16), transparent 34%),
-    linear-gradient(135deg, rgba(38, 38, 40, 0.98), rgba(28, 28, 30, 0.92));
+    radial-gradient(circle at 10% 0%, rgba(111, 212, 176, 0.12), transparent 34%),
+    radial-gradient(circle at 96% 12%, rgba(184, 168, 224, 0.12), transparent 30%),
+    linear-gradient(145deg, rgba(38, 38, 42, 0.98), rgba(28, 28, 31, 0.96));
   border-color: var(--border);
+  box-shadow: none;
 }
 
 .streak-label {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 12px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.streak-caption {
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 11px;
   color: var(--fg-muted);
-  background: rgba(255, 255, 255, 0.58);
-  border: 1px solid rgba(91, 159, 232, 0.12);
-  border-radius: 999px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .today-reward {
@@ -393,23 +425,30 @@ function claimMilestone(item: Milestone) {
   font-size: 12px;
   font-weight: 700;
   color: var(--accent);
-  background: var(--accent-soft);
+  background: rgba(91, 159, 232, 0.1);
+  border: 1px solid rgba(91, 159, 232, 0.1);
   border-radius: 999px;
 }
 
-.checkin-page.theme-dark .streak-label {
-  color: rgba(255, 255, 255, 0.78);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.14);
+.checkin-page.theme-dark .streak-icon,
+:root[data-theme="dark"] .streak-icon {
+  background: rgba(91, 159, 232, 0.16);
+  border-color: rgba(91, 159, 232, 0.18);
+}
+
+.streak-main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin: 14px 0 4px;
 }
 
 .streak-num {
   position: relative;
   z-index: 1;
-  margin-top: 2px;
-  font-size: 58px;
+  font-size: 50px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1;
   color: var(--accent);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -419,8 +458,15 @@ function claimMilestone(item: Milestone) {
 }
 
 .streak-unit {
-  margin-left: 2px;
-  font-size: 22px;
+  margin-left: 3px;
+  font-size: 19px;
+  color: var(--fg-muted);
+}
+
+.streak-state {
+  padding-bottom: 5px;
+  margin-left: 8px;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 
@@ -433,13 +479,14 @@ function claimMilestone(item: Milestone) {
   justify-content: center;
   width: 100%;
   height: 46px;
-  margin-top: 12px;
-  font-size: 16px;
+  margin-top: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
-  background: var(--gradient-dream);
+  background: linear-gradient(110deg, #7e91e8, #5b9fe8 54%, #62c9b1);
   border: 0;
-  border-radius: 12px;
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(91, 159, 232, 0.18);
 }
 
 .checkin-btn::after {

@@ -203,10 +203,11 @@ function showAgreement() {
         <view class="member-card">
           <view class="member-head">
             <view class="crown"><LumiIcon name="crown" :size="26" /></view>
-            <view>
+            <view class="member-copy">
               <view class="member-title">露米会员</view>
               <view class="member-sub">{{ isLoading ? "同步会员状态中" : memberStatusText }}</view>
             </view>
+            <view class="member-badge"><LumiIcon name="sparkles-filled" :size="12" /><text>会员权益</text></view>
           </view>
           <view class="member-stats">
             <view v-for="stat in memberStats" :key="stat.label" class="stat-item">
@@ -311,16 +312,23 @@ function showAgreement() {
 }
 
 .member-card {
-  padding: 28px 20px;
+  position: relative;
+  padding: 18px;
   margin-bottom: 16px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 6% 0%, rgba(255, 212, 200, 0.2), transparent 32%),
+    radial-gradient(circle at 100% 8%, rgba(184, 168, 224, 0.2), transparent 34%),
+    linear-gradient(145deg, rgba(250, 251, 255, 0.98), rgba(255, 255, 255, 0.94));
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(63, 99, 139, 0.07);
 }
 
 .member-head {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .crown {
@@ -330,44 +338,68 @@ function showAgreement() {
   justify-content: center;
   width: 44px;
   height: 44px;
-  font-size: 22px;
-  color: #1a1a2e;
-  background: linear-gradient(135deg, #b8a5e3, #ffd700);
-  border-radius: 50%;
+  color: #8a6f24;
+  background: linear-gradient(145deg, rgba(255, 234, 174, 0.78), rgba(255, 247, 219, 0.96));
+  border: 1px solid rgba(218, 177, 71, 0.2);
+  border-radius: 14px;
+}
+
+.member-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .member-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
-  color: #fff;
+  color: var(--fg-primary);
 }
 
 .member-sub {
-  margin-top: 2px;
+  margin-top: 3px;
+  overflow: hidden;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a6f24;
+  background: rgba(255, 232, 166, 0.32);
+  border: 1px solid rgba(218, 177, 71, 0.14);
+  border-radius: 999px;
 }
 
 .member-stats {
   display: flex;
-  gap: 16px;
+  gap: 8px;
 }
 
 .stat-item {
   flex: 1;
-  padding: 10px 0;
+  padding: 11px 4px;
   text-align: center;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(91, 159, 232, 0.08);
+  border-radius: 13px;
 }
 
 .stat-value {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
 }
 
 .stat-value.gold {
-  color: #ffd700;
+  color: #b88b20;
 }
 
 .stat-value.lavender {
@@ -379,9 +411,25 @@ function showAgreement() {
 }
 
 .stat-label {
-  margin-top: 2px;
+  margin-top: 3px;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--fg-muted);
+}
+
+.membership-page.theme-dark .member-card,
+:root[data-theme="dark"] .member-card {
+  background:
+    radial-gradient(circle at 6% 0%, rgba(255, 212, 200, 0.1), transparent 32%),
+    radial-gradient(circle at 100% 8%, rgba(184, 168, 224, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(38, 38, 42, 0.98), rgba(28, 28, 31, 0.96));
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.membership-page.theme-dark .stat-item,
+:root[data-theme="dark"] .stat-item {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .section-title {
