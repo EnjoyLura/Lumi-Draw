@@ -120,6 +120,43 @@ test("stores JSON URL reference-image transport configuration", () => {
   assert.equal(result.provider.imageInputField, "image_urls");
 });
 
+test("stores a generic HTTP provider with custom auth, request template, and numeric status mapping", () => {
+  const result = normalize({
+    id: "wuyin-generic",
+    name: "速创",
+    adapter: "generic",
+    requestMode: "async",
+    apiKey: "raw-provider-key",
+    authMode: "raw",
+    authHeaderName: "Authorization",
+    baseUrl: "https://api.example.com/api/async/image_gpt",
+    imageEndpoint: "https://api.example.com/api/async/image_gpt",
+    imageToImageEnabled: true,
+    imageInputMode: "url-array",
+    imageInputField: "urls",
+    queryEndpoint: "https://api.example.com/api/async/detail?id={task_id}",
+    requestTemplate: { prompt: "{{prompt}}", size: "{{ratio}}" },
+    imageRequestTemplate: { prompt: "{{prompt}}", urls: "{{image_urls}}" },
+    injectModel: false,
+    injectCount: false,
+    responseMapping: {
+      taskIdPath: "data.id",
+      statusPath: "data.status",
+      resultUrlPath: "data.result.images[].url",
+      errorPath: "data.message",
+      successValue: "2",
+      failureValue: "3",
+      pendingValue: "0,1"
+    }
+  }, true);
+
+  assert.equal(result.provider.authMode, "raw");
+  assert.equal(result.provider.injectModel, false);
+  assert.equal(result.provider.injectCount, false);
+  assert.deepEqual(result.provider.requestTemplate, { prompt: "{{prompt}}", size: "{{ratio}}" });
+  assert.equal(result.provider.imageInputField, "urls");
+});
+
 test("stores validated result image host acceleration rules", () => {
   const result = normalize({
     id: "accelerated-provider",
@@ -208,6 +245,15 @@ test("never exposes encrypted or environment key fields in administrator respons
     imageToImageEnabled: false,
     apiKeyEnv: "GENERATION_PROVIDER_SAFE_VIEW_API_KEY",
     apiKeyEncrypted: encrypted,
+    authMode: "bearer",
+    authHeaderName: "Authorization",
+    authQueryName: "api_key",
+    requestHeaders: {},
+    queryHeaders: {},
+    requestTemplate: {},
+    imageRequestTemplate: {},
+    injectModel: true,
+    injectCount: true,
     requestParams: {},
     imageRequestParams: {},
     imageInputMode: "multipart",

@@ -16,7 +16,7 @@ import { Change2ProClient, normalizeImage2Size, type Change2ProOutput } from "./
 import { AinbClient } from "./ainb.client";
 import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
-import { normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
+import { normalizeProviderJsonObject, normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 import { resolveProviderIds } from "./provider-routing";
 import { decryptProviderApiKey } from "./provider-secret";
 import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "./provider-result-url";
@@ -74,7 +74,7 @@ export function resolveProviderResultMode(
   const responseFormat = String(params.response_format || params.responseFormat || "").toLowerCase();
   if (responseFormat === "url") return "url";
   if (["b64_json", "base64"].includes(responseFormat)) return "base64";
-  if (requestMode === "async" || adapter === "ainb" || adapter === "kie") return "url";
+  if (requestMode === "async" || adapter === "ainb" || adapter === "generic" || adapter === "kie") return "url";
   return "base64";
 }
 
@@ -168,7 +168,7 @@ export class GenerateService implements OnApplicationBootstrap {
 
   private async resumeAinbJobsAfterRestart() {
     const jobs = await this.prisma.generateJob.findMany({
-      where: { OR: [{ providerAdapter: "ainb" }, { providerAdapter: "", provider: "ainb" }], status: { in: ["queued", "running", "finalizing"] } },
+      where: { OR: [{ providerAdapter: { in: ["ainb", "generic"] } }, { providerAdapter: "", provider: { in: ["ainb", "generic"] } }], status: { in: ["queued", "running", "finalizing"] } },
       include: { results: true }
     });
     for (const job of jobs) {
@@ -206,8 +206,11 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private providerRuntime(job: GenerateJob): ProviderRuntimeConfig | undefined {
-    if (!job.providerBaseUrl || (!job.providerApiKeyEncrypted && !job.providerApiKeyEnv)) return undefined;
+    if (!job.providerBaseUrl || (job.providerAuthMode !== "none" && !job.providerApiKeyEncrypted && !job.providerApiKeyEnv)) return undefined;
     return {
+      adapter: ["ainb", "generic", "change2pro", "kie"].includes(job.providerAdapter || job.provider)
+        ? (job.providerAdapter || job.provider) as ProviderRuntimeConfig["adapter"]
+        : undefined,
       apiBase: job.providerBaseUrl,
       apiKey: this.resolveProviderApiKey(job.providerApiKeyEncrypted, job.providerApiKeyEnv),
       params: normalizeProviderParams(job.providerParams),
@@ -217,14 +220,26 @@ export class GenerateService implements OnApplicationBootstrap {
       statusEnabled: job.providerStatusEnabled,
       responseMapping: normalizeProviderParams(job.providerResponseMapping),
       resultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(job.providerResultUrlRewriteRules),
-      imageInputMode: job.providerImageInputMode === "url-array" ? "url-array" : "multipart",
+      imageInputMode: ["multipart", "url", "url-array"].includes(job.providerImageInputMode)
+        ? job.providerImageInputMode as ProviderRuntimeConfig["imageInputMode"]
+        : "multipart",
       imageInputField: job.providerImageInputField,
       sizeConfig: {
         mode: job.providerSizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels",
         pixelSizeField: job.providerPixelSizeField,
         ratioField: job.providerRatioField,
         resolutionField: job.providerResolutionField
-      }
+      },
+      authMode: ["bearer", "raw", "query", "none"].includes(job.providerAuthMode)
+        ? job.providerAuthMode as NonNullable<ProviderRuntimeConfig["authMode"]>
+        : "bearer",
+      authHeaderName: job.providerAuthHeaderName,
+      authQueryName: job.providerAuthQueryName,
+      requestHeaders: normalizeProviderParams(job.providerRequestHeaders),
+      queryHeaders: normalizeProviderParams(job.providerQueryHeaders),
+      requestTemplate: normalizeProviderJsonObject(job.providerRequestTemplate),
+      injectModel: job.providerInjectModel,
+      injectCount: job.providerInjectCount
     };
   }
 
@@ -246,12 +261,22 @@ export class GenerateService implements OnApplicationBootstrap {
       providerResultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(provider.resultUrlRewriteRules),
       providerParams,
       providerModel: providerParams.model || model.providerModel,
-      providerImageInputMode: provider.imageInputMode === "url-array" ? "url-array" : "multipart",
+      providerImageInputMode: ["multipart", "url", "url-array"].includes(provider.imageInputMode)
+        ? provider.imageInputMode
+        : "multipart",
       providerImageInputField: provider.imageInputField,
       providerSizeMode: provider.sizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels",
       providerPixelSizeField: provider.pixelSizeField,
       providerRatioField: provider.ratioField,
-      providerResolutionField: provider.resolutionField
+      providerResolutionField: provider.resolutionField,
+      providerAuthMode: provider.authMode,
+      providerAuthHeaderName: provider.authHeaderName,
+      providerAuthQueryName: provider.authQueryName,
+      providerRequestHeaders: normalizeProviderParams(provider.requestHeaders),
+      providerQueryHeaders: normalizeProviderParams(provider.queryHeaders),
+      providerRequestTemplate: normalizeProviderJsonObject(isImageToImage ? provider.imageRequestTemplate : provider.requestTemplate),
+      providerInjectModel: provider.injectModel,
+      providerInjectCount: provider.injectCount
     };
   }
 
@@ -283,7 +308,7 @@ export class GenerateService implements OnApplicationBootstrap {
       .filter((provider): provider is GenerationProvider => Boolean(
         provider
         && (isImageToImage ? provider.imageToImageEnabled && provider.imageEndpoint : provider.textToImageEnabled && provider.baseUrl)
-        && this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv)
+        && (provider.authMode === "none" || this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))
       ));
     const provider = providers[0];
     if (!provider) throw new BadRequestException("当前模型和分辨率没有可用的 API 平台，请联系管理员");
@@ -322,6 +347,14 @@ export class GenerateService implements OnApplicationBootstrap {
           providerResultUrlRewriteRules: providerSnapshot.providerResultUrlRewriteRules,
           providerApiKeyEnv: provider.apiKeyEnv,
           providerApiKeyEncrypted: provider.apiKeyEncrypted,
+          providerAuthMode: providerSnapshot.providerAuthMode,
+          providerAuthHeaderName: providerSnapshot.providerAuthHeaderName,
+          providerAuthQueryName: providerSnapshot.providerAuthQueryName,
+          providerRequestHeaders: providerSnapshot.providerRequestHeaders,
+          providerQueryHeaders: providerSnapshot.providerQueryHeaders,
+          providerRequestTemplate: providerSnapshot.providerRequestTemplate as Prisma.InputJsonValue,
+          providerInjectModel: providerSnapshot.providerInjectModel,
+          providerInjectCount: providerSnapshot.providerInjectCount,
           providerParams: providerSnapshot.providerParams,
           providerModel: providerSnapshot.providerModel,
           providerImageInputMode: providerSnapshot.providerImageInputMode,
@@ -743,7 +776,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
     const adapter = this.providerAdapter(job);
     const runtime = this.providerRuntime(job);
-    if (adapter === "ainb") {
+    if (adapter === "ainb" || adapter === "generic") {
       const resultMode = resolveProviderResultMode(job.providerResultMode, adapter, job.providerRequestMode, normalizeProviderParams(job.providerParams));
       if (resultMode === "base64") {
         const updated = await this.prisma.generateJob.update({
@@ -770,7 +803,7 @@ export class GenerateService implements OnApplicationBootstrap {
           where: { id: job.id },
           data: {
             provider: job.provider,
-            providerAdapter: "ainb",
+            providerAdapter: adapter,
             providerModel: job.providerModel,
             kieTaskId: submitted.taskId,
             status: "running",
@@ -1154,7 +1187,7 @@ export class GenerateService implements OnApplicationBootstrap {
         ? provider?.imageToImageEnabled && provider.imageEndpoint
         : provider?.textToImageEnabled && provider.baseUrl;
       const keyConfigured = provider
-        ? Boolean(this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))
+        ? provider.authMode === "none" || Boolean(this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))
         : false;
       if (provider && modeEnabled && keyConfigured) {
         selected = provider;
@@ -1185,6 +1218,14 @@ export class GenerateService implements OnApplicationBootstrap {
           providerResultUrlRewriteRules: snapshot.providerResultUrlRewriteRules,
           providerApiKeyEnv: selected.apiKeyEnv,
           providerApiKeyEncrypted: selected.apiKeyEncrypted,
+          providerAuthMode: snapshot.providerAuthMode,
+          providerAuthHeaderName: snapshot.providerAuthHeaderName,
+          providerAuthQueryName: snapshot.providerAuthQueryName,
+          providerRequestHeaders: snapshot.providerRequestHeaders,
+          providerQueryHeaders: snapshot.providerQueryHeaders,
+          providerRequestTemplate: snapshot.providerRequestTemplate as Prisma.InputJsonValue,
+          providerInjectModel: snapshot.providerInjectModel,
+          providerInjectCount: snapshot.providerInjectCount,
           providerParams: snapshot.providerParams,
           providerModel: snapshot.providerModel,
           providerImageInputMode: snapshot.providerImageInputMode,

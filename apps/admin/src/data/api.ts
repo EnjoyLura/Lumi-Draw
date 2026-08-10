@@ -600,7 +600,7 @@ interface ApiGenerationProvider {
   id: string;
   name: string;
   groupName: string;
-  adapter: "ainb" | "change2pro" | "kie";
+  adapter: "ainb" | "generic" | "change2pro" | "kie";
   requestMode: "sync" | "async";
   textResultMode: "auto" | "url" | "base64";
   imageResultMode: "auto" | "url" | "base64";
@@ -617,8 +617,17 @@ interface ApiGenerationProvider {
   apiKeySource: "admin" | "environment" | "none";
   requestParams: Record<string, string>;
   imageRequestParams: Record<string, string>;
-  imageInputMode: "multipart" | "url-array";
+  imageInputMode: "multipart" | "url" | "url-array";
   imageInputField: string;
+  authMode: "bearer" | "raw" | "query" | "none";
+  authHeaderName: string;
+  authQueryName: string;
+  requestHeaders: Record<string, string>;
+  queryHeaders: Record<string, string>;
+  requestTemplate: Record<string, unknown>;
+  imageRequestTemplate: Record<string, unknown>;
+  injectModel: boolean;
+  injectCount: boolean;
   sizeMode: "pixels" | "ratio-resolution";
   pixelSizeField: string;
   ratioField: string;
@@ -642,6 +651,15 @@ function mapGenerationProvider(provider: ApiGenerationProvider): AdminGeneration
     pixelSizeField: provider.pixelSizeField || "size",
     ratioField: provider.ratioField || "size",
     resolutionField: provider.resolutionField || "resolution",
+    authMode: provider.authMode || "bearer",
+    authHeaderName: provider.authHeaderName || "Authorization",
+    authQueryName: provider.authQueryName || "api_key",
+    requestHeaders: provider.requestHeaders || {},
+    queryHeaders: provider.queryHeaders || {},
+    requestTemplate: provider.requestTemplate || {},
+    imageRequestTemplate: provider.imageRequestTemplate || {},
+    injectModel: provider.injectModel !== false,
+    injectCount: provider.injectCount !== false,
     modelIds: provider.modelIds || [],
     metrics: provider.metrics || { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     on: provider.enabled
@@ -670,6 +688,15 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     textToImageEnabled: values.textToImageEnabled,
     imageToImageEnabled: values.imageToImageEnabled,
     apiKey: values.apiKey || undefined,
+    authMode: values.authMode,
+    authHeaderName: values.authHeaderName,
+    authQueryName: values.authQueryName,
+    requestHeaders: values.requestHeaders,
+    queryHeaders: values.queryHeaders,
+    requestTemplate: values.requestTemplate,
+    imageRequestTemplate: values.imageRequestTemplate,
+    injectModel: values.injectModel,
+    injectCount: values.injectCount,
     requestParams: values.requestParams,
     imageRequestParams: values.imageRequestParams,
     imageInputMode: values.imageInputMode,

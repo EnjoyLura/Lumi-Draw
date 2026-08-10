@@ -9,7 +9,7 @@ import { UploadsService } from "../uploads/uploads.service";
 type UploadedImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 
 const bySort = { orderBy: [{ sort: "asc" as const }, { id: "asc" as const }] };
-const GENERATION_PROVIDER_ADAPTERS = new Set(["ainb", "change2pro", "kie"]);
+const GENERATION_PROVIDER_ADAPTERS = new Set(["ainb", "generic", "change2pro", "kie"]);
 
 function pick(body: Record<string, unknown>, keys: string[]) {
   const out: Record<string, unknown> = {};
@@ -430,7 +430,9 @@ export class AdminConfigService {
     const statusEnabled = requestMode === "async" && Boolean(body.statusEnabled);
     const textToImageEnabled = body.textToImageEnabled === undefined ? true : Boolean(body.textToImageEnabled);
     const imageToImageEnabled = body.imageToImageEnabled === undefined ? false : Boolean(body.imageToImageEnabled);
-    const imageInputMode = body.imageInputMode === "url-array" ? "url-array" : "multipart";
+    const imageInputMode = ["multipart", "url", "url-array"].includes(String(body.imageInputMode))
+      ? String(body.imageInputMode)
+      : "multipart";
     const imageInputField = this.normalizeProviderImageFieldName(
       body.imageInputField,
       imageInputMode === "url-array" ? "image_urls" : adapter === "ainb" ? "image[]" : "image"
@@ -442,10 +444,20 @@ export class AdminConfigService {
     const ratioField = this.normalizeProviderFieldName(body.ratioField, "size", "图片比例");
     const resolutionField = this.normalizeProviderFieldName(body.resolutionField, "resolution", "图片精度");
     const resultUrlRewriteRules = this.normalizeResultUrlRewriteRules(body.resultUrlRewriteRules);
+    const authMode = String(body.authMode || "bearer").trim();
+    const authHeaderName = this.normalizeHeaderName(body.authHeaderName, "Authorization");
+    const authQueryName = this.normalizeProviderFieldName(body.authQueryName, "api_key", "鉴权查询参数");
+    const requestHeaders = this.normalizeHeaders(body.requestHeaders);
+    const queryHeaders = this.normalizeHeaders(body.queryHeaders);
+    const requestTemplate = this.normalizeRequestTemplate(body.requestTemplate);
+    const imageRequestTemplate = this.normalizeRequestTemplate(body.imageRequestTemplate);
+    const injectModel = body.injectModel === undefined ? true : Boolean(body.injectModel);
+    const injectCount = body.injectCount === undefined ? true : Boolean(body.injectCount);
     if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(id)) throw new BadRequestException("平台标识只能使用小写字母、数字和短横线");
     if (groupName.length > 30) throw new BadRequestException("分组名称不能超过 30 个字符");
     if (!GENERATION_PROVIDER_ADAPTERS.has(adapter)) throw new BadRequestException("不支持的接口类型");
     if (!new Set(["sync", "async"]).has(requestMode)) throw new BadRequestException("调用方式只能是普通或异步");
+    if (!new Set(["bearer", "raw", "query", "none"]).has(authMode)) throw new BadRequestException("不支持的鉴权方式");
     if (![textResultMode, imageResultMode].every((value) => new Set(["auto", "url", "base64"]).has(value))) {
       throw new BadRequestException("结果类型只能是自动、URL 或 Base64");
     }
@@ -454,6 +466,12 @@ export class AdminConfigService {
     }
     if ((adapter === "change2pro") !== (requestMode === "sync")) {
       throw new BadRequestException("请求协议与接口类型不匹配");
+    }
+    if (adapter === "generic" && [textResultMode, imageResultMode].includes("base64")) {
+      throw new BadRequestException("通用 HTTP 适配器当前请配置 URL 结果；非标准 Base64 平台需要专用适配器处理");
+    }
+    if (adapter === "generic" && imageToImageEnabled && imageInputMode === "multipart") {
+      throw new BadRequestException("通用 HTTP 图生图请使用 JSON 单个 URL 或 JSON URL 数组");
     }
     if (sizeMode === "ratio-resolution" && ratioField === resolutionField) {
       throw new BadRequestException("图片比例和图片精度不能使用相同字段名");
@@ -470,9 +488,12 @@ export class AdminConfigService {
       : rawApiKey
         ? encryptProviderApiKey(rawApiKey, this.providerEncryptionKey())
         : String(body.apiKeyEncrypted || "");
-    if (enabled && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("启用 API 平台前请填写 API Key");
+    if (enabled && authMode !== "none" && !apiKeyEncrypted && !process.env[apiKeyEnv]) throw new BadRequestException("启用 API 平台前请填写 API Key");
     const requestParams = this.normalizeGenerationParams(body.requestParams);
     const imageRequestParams = this.normalizeGenerationParams(body.imageRequestParams);
+    if (adapter === "generic" && [requestParams.response_format, imageRequestParams.response_format].some((value) => ["b64_json", "base64"].includes(String(value || "").toLowerCase()))) {
+      throw new BadRequestException("通用 HTTP 适配器暂不支持非标准 Base64 结果，请先配置 URL 结果");
+    }
     const responseMapping = this.normalizeResponseMapping(body.responseMapping, adapter, requestMode);
     const modelIds = Array.isArray(body.modelIds) ? [...new Set(body.modelIds.map(String).filter(Boolean))] : [];
     return {
@@ -494,6 +515,15 @@ export class AdminConfigService {
         imageToImageEnabled,
         apiKeyEnv,
         apiKeyEncrypted,
+        authMode,
+        authHeaderName,
+        authQueryName,
+        requestHeaders,
+        queryHeaders,
+        requestTemplate,
+        imageRequestTemplate,
+        injectModel,
+        injectCount,
         requestParams,
         imageRequestParams,
         imageInputMode,
@@ -520,6 +550,54 @@ export class AdminConfigService {
       if (item.length > 500) throw new BadRequestException(`请求参数值过长: ${key}`);
     }
     return Object.fromEntries(entries);
+  }
+
+  private normalizeHeaders(value: unknown) {
+    const headers = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+    const entries = Object.entries(headers)
+      .filter(([, item]) => item !== undefined && item !== null && String(item).trim())
+      .map(([key, item]) => [key.trim(), String(item).trim()] as const);
+    if (entries.length > 20) throw new BadRequestException("单个接口最多配置 20 个自定义请求头");
+    for (const [key, item] of entries) {
+      if (!/^[A-Za-z][A-Za-z0-9-]{0,63}$/.test(key)) throw new BadRequestException(`请求头名称格式不正确: ${key}`);
+      if (item.length > 1000) throw new BadRequestException(`请求头值过长: ${key}`);
+    }
+    return Object.fromEntries(entries);
+  }
+
+  private normalizeHeaderName(value: unknown, fallback: string) {
+    const header = String(value || fallback).trim();
+    if (!/^[A-Za-z][A-Za-z0-9-]{0,63}$/.test(header)) {
+      throw new BadRequestException("鉴权请求头名称格式不正确");
+    }
+    return header;
+  }
+
+  private normalizeRequestTemplate(value: unknown) {
+    if (value === undefined || value === null || value === "") return {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new BadRequestException("请求体模板必须是 JSON 对象");
+    }
+    const walk = (input: unknown, depth: number): unknown => {
+      if (depth > 8) throw new BadRequestException("请求体模板嵌套层级不能超过 8 层");
+      if (input === null || typeof input === "boolean" || typeof input === "number") return input;
+      if (typeof input === "string") {
+        if (input.length > 4000) throw new BadRequestException("请求体模板字段值过长");
+        return input;
+      }
+      if (Array.isArray(input)) {
+        if (input.length > 100) throw new BadRequestException("请求体模板数组元素过多");
+        return input.map((item) => walk(item, depth + 1));
+      }
+      if (!input || typeof input !== "object") throw new BadRequestException("请求体模板包含不支持的值");
+      const entries = Object.entries(input as Record<string, unknown>);
+      if (entries.length > 100) throw new BadRequestException("请求体模板字段过多");
+      return Object.fromEntries(entries.map(([key, item]) => {
+        if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(key)) throw new BadRequestException(`请求体模板字段名格式不正确: ${key}`);
+        return [key, walk(item, depth + 1)];
+      }));
+    };
+    return walk(value, 0) as Prisma.InputJsonValue;
   }
 
   private normalizeProviderFieldName(value: unknown, fallback: string, label: string) {
@@ -595,7 +673,7 @@ export class AdminConfigService {
       pendingValue: "IN_PROGRESS"
     } : {};
     const mapping = { ...defaults, ...supplied };
-    if (adapter === "ainb" && (!mapping.taskIdPath || !mapping.statusPath || (!mapping.resultUrlPath && !mapping.resultBase64Path))) {
+    if (["ainb", "generic"].includes(adapter) && (!mapping.taskIdPath || !mapping.statusPath || (!mapping.resultUrlPath && !mapping.resultBase64Path))) {
       throw new BadRequestException("异步接口必须配置任务 ID、状态和结果图片的数据路径");
     }
     return mapping;
@@ -631,8 +709,8 @@ export class AdminConfigService {
         lastUsedAt: null,
         lastError: ""
       },
-      apiKeyConfigured: Boolean(apiKey),
-      apiKeyHint: providerApiKeyHint(apiKey),
+      apiKeyConfigured: provider.authMode === "none" || Boolean(apiKey),
+      apiKeyHint: provider.authMode === "none" ? "无需鉴权" : providerApiKeyHint(apiKey),
       apiKeySource: storedKey ? "admin" : apiKey ? "environment" : "none"
     };
   }

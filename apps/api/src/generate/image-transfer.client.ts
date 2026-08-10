@@ -31,7 +31,7 @@ export type ImageGenerationRequest = {
     queryEndpoint?: string;
     responseMapping?: Record<string, string>;
     sizeConfig?: ProviderSizeConfig;
-    imageInputMode?: "multipart" | "url-array";
+    imageInputMode?: "multipart" | "url" | "url-array";
     imageInputField?: string;
     resultUrlRewriteRules?: ProviderResultUrlRewriteRule[];
   };

@@ -1,6 +1,6 @@
 import { CloudServerOutlined, CopyOutlined, EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import { Button, Card, Input, Segmented, Space, Statistic, Switch as AntSwitch, Table, Tag, Tooltip, Typography } from "antd";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   apiDeleteGenerationProvider,
   apiDuplicateGenerationProvider,
@@ -18,8 +18,15 @@ import { useRefresh } from "./opsShared";
 
 const ADAPTERS = [
   { value: "ainb", label: "OpenAI Images 异步协议" },
+  { value: "generic", label: "通用 HTTP 图像接口" },
   { value: "change2pro", label: "OpenAI Images / Gemini 普通协议" },
   { value: "kie", label: "KIE 任务协议" }
+] as const;
+const AUTH_MODES = [
+  { value: "bearer", label: "Bearer Token" },
+  { value: "raw", label: "原始请求头密钥" },
+  { value: "query", label: "URL 查询参数密钥" },
+  { value: "none", label: "不附加鉴权" }
 ] as const;
 const REQUEST_MODES = [
   { value: "sync", label: "普通接口" },
@@ -77,6 +84,28 @@ function MappingField({ label, value, placeholder, onChange }: { label: string; 
       <input className="input" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </label>
   );
+}
+
+function JsonTemplateEditor({ value, onChange, label }: { value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void; label: string }) {
+  const [draft, setDraft] = useState(() => JSON.stringify(value || {}, null, 2));
+  const [error, setError] = useState("");
+  useEffect(() => setDraft(JSON.stringify(value || {}, null, 2)), [value]);
+  const commit = () => {
+    try {
+      const parsed = JSON.parse(draft || "{}");
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error();
+      onChange(parsed as Record<string, unknown>);
+      setError("");
+    } catch {
+      setError("请输入合法的 JSON 对象，保存前必须修正");
+    }
+  };
+  return <label style={{ display: "block" }}>
+    <span className="field-label">{label}</span>
+    <textarea className="input" value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={commit} rows={7} spellCheck={false} style={{ resize: "vertical", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", lineHeight: 1.45 }} />
+    <div className="lr-s" style={{ marginTop: 5 }}>可用变量：<code>{"{{prompt}}"}</code>、<code>{"{{model}}"}</code>、<code>{"{{count}}"}</code>、<code>{"{{ratio}}"}</code>、<code>{"{{resolution}}"}</code>、<code>{"{{size}}"}</code>、<code>{"{{image_url}}"}</code>、<code>{"{{image_urls}}"}</code></div>
+    {error ? <div style={{ color: "var(--danger)", marginTop: 4, fontSize: 12 }}>{error}</div> : null}
+  </label>;
 }
 
 function ResultUrlRewriteEditor({
@@ -144,6 +173,15 @@ function emptyProvider(): AdminGenerationProvider {
     pixelSizeField: "size",
     ratioField: "size",
     resolutionField: "resolution",
+    authMode: "bearer",
+    authHeaderName: "Authorization",
+    authQueryName: "api_key",
+    requestHeaders: {},
+    queryHeaders: {},
+    requestTemplate: {},
+    imageRequestTemplate: {},
+    injectModel: true,
+    injectCount: true,
     modelIds: [],
     metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     sort: GENERATION_PROVIDERS.length + 1,
@@ -264,12 +302,21 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     imageInputField: item.imageInputField || (item.adapter === "ainb" ? "image[]" : "image"),
     resultUrlRewriteRules: (item.resultUrlRewriteRules || []).map((rule) => ({ ...rule })),
     responseMapping: { ...(item.requestMode === "async" ? DEFAULT_ASYNC_MAPPING : {}), ...item.responseMapping },
+    authMode: item.authMode || "bearer",
+    authHeaderName: item.authHeaderName || "Authorization",
+    authQueryName: item.authQueryName || "api_key",
+    requestHeaders: { ...(item.requestHeaders || {}) },
+    queryHeaders: { ...(item.queryHeaders || {}) },
+    requestTemplate: { ...(item.requestTemplate || {}) },
+    imageRequestTemplate: { ...(item.imageRequestTemplate || {}) },
+    injectModel: item.injectModel !== false,
+    injectCount: item.injectCount !== false,
     modelIds: [...item.modelIds]
   } : emptyProvider());
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof AdminGenerationProvider>(key: K, next: AdminGenerationProvider[K]) => setValue((current) => ({ ...current, [key]: next }));
   const save = async () => {
-    if (!value.id.trim() || !value.name.trim() || (!value.apiKeyConfigured && !value.apiKey.trim())) {
+    if (!value.id.trim() || !value.name.trim() || (value.authMode !== "none" && !value.apiKeyConfigured && !value.apiKey.trim())) {
       toast("请填写平台标识、名称和 API Key");
       return;
     }
@@ -317,7 +364,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         const nextValue = {
           ...value,
           apiKey: "",
-          apiKeyConfigured: value.apiKeyConfigured || Boolean(value.apiKey),
+          apiKeyConfigured: value.authMode === "none" || value.apiKeyConfigured || Boolean(value.apiKey),
           apiKeyHint: value.apiKey ? `••••${value.apiKey.slice(-4)}` : value.apiKeyHint,
           apiKeySource: value.apiKey ? "admin" as const : value.apiKeySource
         };
@@ -361,7 +408,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         setValue((current) => ({
           ...current,
           requestMode,
-          adapter: requestMode === "sync" ? "change2pro" : current.adapter === "change2pro" ? "ainb" : current.adapter,
+          adapter: current.adapter === "change2pro" && requestMode === "async" ? "ainb" : current.adapter,
           statusEnabled: requestMode === "async" && current.statusEnabled,
           responseMapping: requestMode === "async" ? { ...DEFAULT_ASYNC_MAPPING, ...current.responseMapping } : current.responseMapping
         }));
@@ -380,9 +427,28 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>请求协议</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
-        {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
-          .map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
+        {ADAPTERS.map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
       </select>
+      {value.adapter === "generic" ? <div className="card" style={{ padding: 12, marginTop: 12 }}>
+        <div className="lr-t">通用 HTTP 传输配置</div>
+        <div className="lr-s" style={{ margin: "4px 0 10px" }}>用于兼容非标准 OpenAI 接口；旧的标准平台不需要修改。模型和数量可关闭自动注入，改由请求体模板自行定义。</div>
+        <label className="field-label">鉴权方式</label>
+        <select className="input" value={value.authMode} onChange={(event) => update("authMode", event.target.value as AdminGenerationProvider["authMode"])}>
+          {AUTH_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
+        </select>
+        {value.authMode === "raw" || value.authMode === "bearer" ? <MappingField label="鉴权请求头名称" value={value.authHeaderName} placeholder="Authorization" onChange={(next) => update("authHeaderName", next)} /> : null}
+        {value.authMode === "query" ? <MappingField label="鉴权查询参数名称" value={value.authQueryName} placeholder="api_key" onChange={(next) => update("authQueryName", next)} /> : null}
+        <div style={{ marginTop: 10 }}><ParamEditor value={value.requestHeaders} onChange={(headers) => update("requestHeaders", headers)} /></div>
+        {value.requestMode === "async" ? <div style={{ marginTop: 10 }}><ParamEditor value={value.queryHeaders} onChange={(headers) => update("queryHeaders", headers)} /></div> : null}
+        <label className="lrow" style={{ cursor: "pointer", marginTop: 8, padding: "8px 0" }}>
+          <input type="checkbox" checked={value.injectModel} onChange={(event) => update("injectModel", event.target.checked)} />
+          <div className="lr-main"><div className="lr-t">自动注入 model</div><div className="lr-s">关闭后由请求体模板或自定义参数提供模型字段</div></div>
+        </label>
+        <label className="lrow" style={{ cursor: "pointer", padding: "8px 0" }}>
+          <input type="checkbox" checked={value.injectCount} onChange={(event) => update("injectCount", event.target.checked)} />
+          <div className="lr-main"><div className="lr-t">自动注入 n</div><div className="lr-s">关闭后可兼容不支持数量参数的平台</div></div>
+        </label>
+      </div> : null}
       {value.adapter !== "kie" ? <div className="card" style={{ padding: 12, marginTop: 12 }}>
         <div className="lrow" style={{ padding: 0 }}>
           <div className="lr-main">
@@ -487,6 +553,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         <input className="input" value={value.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} placeholder="https://api.example.com/v1/images/generations" />
         <label className="field-label" style={{ marginTop: 10 }}>文生图请求参数</label>
         <ParamEditor value={value.requestParams} onChange={(params) => update("requestParams", params)} />
+        {value.adapter === "generic" ? <div style={{ marginTop: 10 }}><JsonTemplateEditor label="文生图 JSON 请求体模板（可选）" value={value.requestTemplate} onChange={(template) => update("requestTemplate", template)} /></div> : null}
       </> : null}
 
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
@@ -509,6 +576,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
             }));
           }}>
             <option value="multipart">Multipart 文件上传</option>
+            <option value="url">JSON 单个 URL</option>
             <option value="url-array">JSON URL 数组</option>
           </select>
           <div style={{ marginTop: 10 }}>
@@ -521,12 +589,13 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
           </div>
           <div className="lr-s" style={{ marginTop: 5 }}>
             {value.imageInputMode === "url-array"
-              ? `发送 JSON：${value.imageInputField || "image_urls"}=["https://..."]，不会先下载参考图。`
+              ? `发送 JSON：${value.imageInputField || "image_urls"}=${value.imageInputMode === "url-array" ? "[\"https://...\"]" : "\"https://...\""}，不会先下载参考图。`
               : `发送 multipart/form-data，并把参考图写入 ${value.imageInputField || "image"} 字段。`}
           </div>
         </> : null}
         <label className="field-label" style={{ marginTop: 10 }}>图生图请求参数</label>
         <ParamEditor value={value.imageRequestParams} onChange={(params) => update("imageRequestParams", params)} />
+        {value.adapter === "generic" ? <div style={{ marginTop: 10 }}><JsonTemplateEditor label="图生图 JSON 请求体模板（可选）" value={value.imageRequestTemplate} onChange={(template) => update("imageRequestTemplate", template)} /></div> : null}
       </> : null}
 
       <label className="field-label" style={{ marginTop: 12 }}>当前使用模型</label>

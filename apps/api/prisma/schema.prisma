@@ -124,6 +124,15 @@ model GenerationProvider {
   imageToImageEnabled Boolean @default(false)
   apiKeyEnv     String
   apiKeyEncrypted String @default("")
+  authMode      String   @default("bearer") // bearer | raw | query | none
+  authHeaderName String  @default("Authorization")
+  authQueryName String   @default("api_key")
+  requestHeaders Json    @default("{}")
+  queryHeaders Json      @default("{}")
+  requestTemplate Json   @default("{}")
+  imageRequestTemplate Json @default("{}")
+  injectModel   Boolean  @default(true)
+  injectCount   Boolean  @default(true)
   requestParams Json
   imageRequestParams Json @default("{}")
   imageInputMode String   @default("multipart")
@@ -538,6 +547,14 @@ model GenerateJob {
   providerResultUrlRewriteRules Json @default("[]")
   providerApiKeyEnv String @default("")
   providerApiKeyEncrypted String @default("")
+  providerAuthMode String @default("bearer")
+  providerAuthHeaderName String @default("Authorization")
+  providerAuthQueryName String @default("api_key")
+  providerRequestHeaders Json @default("{}")
+  providerQueryHeaders Json @default("{}")
+  providerRequestTemplate Json @default("{}")
+  providerInjectModel Boolean @default(true)
+  providerInjectCount Boolean @default(true)
   providerParams Json?
   providerModel String   @default("")
   providerImageInputMode String @default("multipart")

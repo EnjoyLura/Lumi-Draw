@@ -265,3 +265,72 @@ test("uses custom task paths, query endpoint, and provider progress", async () =
     globalThis.fetch = originalFetch;
   }
 });
+
+test("supports a generic HTTP provider with raw auth, custom body fields, and numeric statuses", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  let queryCount = 0;
+  globalThis.fetch = async (input, init) => {
+    const url = String(input);
+    calls.push({ url, init });
+    if (url.includes("/api/async/detail")) {
+      queryCount += 1;
+      return queryCount === 1
+        ? jsonResponse({ data: { status: 1, progress: 35 } })
+        : jsonResponse({ data: { status: 2, result: { images: [{ url: "https://files.example.com/result.png" }] } } });
+    }
+    return jsonResponse({ data: { id: "wuyin-task" } });
+  };
+
+  try {
+    const runtime = {
+      adapter: "generic" as const,
+      apiBase: "https://api.example.com/api/async/image_gpt",
+      apiKey: "raw-secret",
+      params: {},
+      requestMode: "async" as const,
+      authMode: "raw" as const,
+      authHeaderName: "Authorization",
+      queryEndpoint: "https://api.example.com/api/async/detail?id={task_id}",
+      responseMapping: {
+        taskIdPath: "data.id",
+        statusPath: "data.status",
+        progressPath: "data.progress",
+        resultUrlPath: "data.result.images[].url",
+        errorPath: "data.message",
+        successValue: "2",
+        failureValue: "3",
+        pendingValue: "0,1"
+      },
+      requestTemplate: {
+        prompt: "{{prompt}}",
+        size: "{{ratio}}",
+        urls: "{{image_urls}}"
+      },
+      injectModel: false,
+      injectCount: false,
+      imageInputMode: "url-array" as const,
+      imageInputField: "urls"
+    };
+    const provider = client();
+    const submitted = await provider.submit({
+      mode: "image-to-image",
+      prompt: "建筑拆解图",
+      inputImageUrl: "https://cdn.example.com/ref.png",
+      ratio: "3:4",
+      quality: "1K",
+      count: 1
+    }, runtime);
+    assert.equal(submitted.taskId, "wuyin-task");
+    assert.equal((calls[0].init?.headers as Record<string, string>).Authorization, "raw-secret");
+    assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {
+      prompt: "建筑拆解图",
+      size: "3:4",
+      urls: ["https://cdn.example.com/ref.png"]
+    });
+    const outputs = await provider.waitForOutputs(submitted.taskId, undefined, runtime);
+    assert.deepEqual(outputs, [{ url: "https://files.example.com/result.png" }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

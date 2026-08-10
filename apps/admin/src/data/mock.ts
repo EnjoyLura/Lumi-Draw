@@ -96,7 +96,7 @@ export interface AdminGenerationProvider {
   id: string;
   name: string;
   groupName: string;
-  adapter: "ainb" | "change2pro" | "kie";
+  adapter: "ainb" | "generic" | "change2pro" | "kie";
   requestMode: "sync" | "async";
   textResultMode?: "auto" | "url" | "base64";
   imageResultMode?: "auto" | "url" | "base64";
@@ -114,8 +114,17 @@ export interface AdminGenerationProvider {
   apiKeySource: "admin" | "environment" | "none";
   requestParams: Record<string, string>;
   imageRequestParams: Record<string, string>;
-  imageInputMode: "multipart" | "url-array";
+  imageInputMode: "multipart" | "url" | "url-array";
   imageInputField: string;
+  authMode: "bearer" | "raw" | "query" | "none";
+  authHeaderName: string;
+  authQueryName: string;
+  requestHeaders: Record<string, string>;
+  queryHeaders: Record<string, string>;
+  requestTemplate: Record<string, unknown>;
+  imageRequestTemplate: Record<string, unknown>;
+  injectModel: boolean;
+  injectCount: boolean;
   sizeMode: "pixels" | "ratio-resolution";
   pixelSizeField: string;
   ratioField: string;
@@ -256,10 +265,22 @@ export const BANNERS: AdminBanner[] = [
   { id: 4, title: "会员限时5折", desc: "年度会员立减50%，每日生成次数翻倍不限量", imageUrl: membershipOfferBanner, action: "会员页", sort: 4, on: false }
 ];
 
+const DEFAULT_PROVIDER_TRANSPORT = {
+  authMode: "bearer" as const,
+  authHeaderName: "Authorization",
+  authQueryName: "api_key",
+  requestHeaders: {},
+  queryHeaders: {},
+  requestTemplate: {},
+  imageRequestTemplate: {},
+  injectModel: true,
+  injectCount: true
+};
+
 export const GENERATION_PROVIDERS: AdminGenerationProvider[] = [
-  { id: "ainb", name: "Ainb", groupName: "Image2", adapter: "ainb", requestMode: "async", baseUrl: "https://ainb.plus/v1/images/generations?async=true", imageEndpoint: "https://ainb.plus/v1/images/edits?async=true", queryEndpoint: "https://ainb.plus/v1/images/tasks/{task_id}", statusEnabled: true, responseMapping: { taskIdPath: "task_id", statusPath: "data.status", progressPath: "data.progress", resultUrlPath: "data.data.data[].url", errorPath: "data.fail_reason", successValue: "SUCCESS", failureValue: "FAILURE", pendingValue: "IN_PROGRESS" }, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••drug", apiKeySource: "environment", requestParams: { quality: "high", response_format: "url", output_format: "png" }, imageRequestParams: { quality: "high", input_fidelity: "high", response_format: "url" }, imageInputMode: "multipart", imageInputField: "image[]", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["gpt2"], metrics: { windowDays: 30, attempts: 28, successes: 27, failures: 1, successRate: 96.4, avgDurationMs: 78200, lastUsedAt: new Date().toISOString(), lastError: "" }, sort: 1, on: true },
-  { id: "change2pro", name: "Change2Pro Banana", groupName: "Banana", adapter: "change2pro", requestMode: "sync", baseUrl: "https://api.change2pro.com/v1beta/models/{model}:generateContent", imageEndpoint: "https://api.change2pro.com/v1beta/models/{model}:generateContent", queryEndpoint: "", statusEnabled: false, responseMapping: {}, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••f10d", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["nano"], metrics: { windowDays: 30, attempts: 41, successes: 39, failures: 2, successRate: 95.1, avgDurationMs: 56900, lastUsedAt: new Date().toISOString(), lastError: "上游连接超时" }, sort: 2, on: true },
-  { id: "kie", name: "KIE", groupName: "其他", adapter: "kie", requestMode: "async", baseUrl: "https://api.kie.ai/api/v1/jobs/createTask", imageEndpoint: "https://api.kie.ai/api/v1/jobs/createTask", queryEndpoint: "https://api.kie.ai/api/v1/jobs/recordInfo?taskId={task_id}", statusEnabled: true, responseMapping: {}, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••已配置", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["flux", "sdxl", "dalle3", "mj"], metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" }, sort: 3, on: true }
+  { id: "ainb", name: "Ainb", groupName: "Image2", adapter: "ainb", requestMode: "async", baseUrl: "https://ainb.plus/v1/images/generations?async=true", imageEndpoint: "https://ainb.plus/v1/images/edits?async=true", queryEndpoint: "https://ainb.plus/v1/images/tasks/{task_id}", statusEnabled: true, responseMapping: { taskIdPath: "task_id", statusPath: "data.status", progressPath: "data.progress", resultUrlPath: "data.data.data[].url", errorPath: "data.fail_reason", successValue: "SUCCESS", failureValue: "FAILURE", pendingValue: "IN_PROGRESS" }, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••drug", apiKeySource: "environment", requestParams: { quality: "high", response_format: "url", output_format: "png" }, imageRequestParams: { quality: "high", input_fidelity: "high", response_format: "url" }, imageInputMode: "multipart", imageInputField: "image[]", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["gpt2"], metrics: { windowDays: 30, attempts: 28, successes: 27, failures: 1, successRate: 96.4, avgDurationMs: 78200, lastUsedAt: new Date().toISOString(), lastError: "" }, sort: 1, on: true, ...DEFAULT_PROVIDER_TRANSPORT },
+  { id: "change2pro", name: "Change2Pro Banana", groupName: "Banana", adapter: "change2pro", requestMode: "sync", baseUrl: "https://api.change2pro.com/v1beta/models/{model}:generateContent", imageEndpoint: "https://api.change2pro.com/v1beta/models/{model}:generateContent", queryEndpoint: "", statusEnabled: false, responseMapping: {}, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••f10d", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["nano"], metrics: { windowDays: 30, attempts: 41, successes: 39, failures: 2, successRate: 95.1, avgDurationMs: 56900, lastUsedAt: new Date().toISOString(), lastError: "上游连接超时" }, sort: 2, on: true, ...DEFAULT_PROVIDER_TRANSPORT },
+  { id: "kie", name: "KIE", groupName: "其他", adapter: "kie", requestMode: "async", baseUrl: "https://api.kie.ai/api/v1/jobs/createTask", imageEndpoint: "https://api.kie.ai/api/v1/jobs/createTask", queryEndpoint: "https://api.kie.ai/api/v1/jobs/recordInfo?taskId={task_id}", statusEnabled: true, responseMapping: {}, resultUrlRewriteRules: [], textToImageEnabled: true, imageToImageEnabled: true, apiKey: "", apiKeyConfigured: true, apiKeyHint: "••••已配置", apiKeySource: "environment", requestParams: {}, imageRequestParams: {}, imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size", ratioField: "size", resolutionField: "resolution", modelIds: ["flux", "sdxl", "dalle3", "mj"], metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" }, sort: 3, on: true, ...DEFAULT_PROVIDER_TRANSPORT }
 ];
 
 export const GAMEPLAYS: AdminGameplay[] = [
