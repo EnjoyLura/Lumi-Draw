@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculatePartialRefund, resolveProviderResultMode, userFacingGenerateError, userFacingGenerateStageText } from "./generate.service";
+import { calculatePartialRefund, resolveProviderResultMode, transferRetryDelayMs, userFacingGenerateError, userFacingGenerateStageText } from "./generate.service";
 
 test("refunds the missing share when a provider returns fewer images", () => {
   assert.deepEqual(calculatePartialRefund(45, 0, 2, 1), { missingCount: 1, refundCredits: 22 });
@@ -12,17 +12,24 @@ test("does not refund complete output and never exceeds the remaining charge", (
   assert.deepEqual(calculatePartialRefund(45, 40, 2, 0), { missingCount: 2, refundCredits: 5 });
 });
 
-test("routes URL results through the API server and Base64 results through FC", () => {
+test("keeps explicit URL and Base64 routes while auto inspects the single provider response", () => {
   assert.equal(resolveProviderResultMode("url", "change2pro", "sync", {}), "url");
   assert.equal(resolveProviderResultMode("base64", "change2pro", "sync", {}), "base64");
-  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", { response_format: "url" }), "url");
-  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", { response_format: "b64_json" }), "base64");
+  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", { response_format: "url" }), "auto");
+  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", { response_format: "b64_json" }), "auto");
 });
 
-test("defaults asynchronous providers to URL and synchronous image providers to Base64", () => {
+test("defaults asynchronous providers to URL and synchronous image providers to auto", () => {
   assert.equal(resolveProviderResultMode("auto", "ainb", "async", {}), "url");
   assert.equal(resolveProviderResultMode("auto", "kie", "async", {}), "url");
-  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", {}), "base64");
+  assert.equal(resolveProviderResultMode("auto", "change2pro", "sync", {}), "auto");
+});
+
+test("uses bounded persistent retry backoff for image transfers", () => {
+  assert.equal(transferRetryDelayMs(1), 60_000);
+  assert.equal(transferRetryDelayMs(2), 3 * 60_000);
+  assert.equal(transferRetryDelayMs(4), 30 * 60_000);
+  assert.equal(transferRetryDelayMs(99), 30 * 60_000);
 });
 
 test("converts provider errors and progress stages to user-facing Chinese", () => {

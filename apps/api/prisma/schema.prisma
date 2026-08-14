@@ -603,11 +603,15 @@ model GenerateResult {
   job          GenerateJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
   status       String   @default("succeeded") // succeeded | failed
   imageUrl     String   @default("")
+  sourceUrl    String   @default("")
   width        Int?
   height       Int?
   sizeBytes    Int?
   ossKey       String   @default("")
   errorMessage String   @default("")
+  transferAttempts Int  @default(0)
+  transferLastAttemptAt DateTime?
+  transferNextAttemptAt DateTime?
   workId       Int?
   createdAt    DateTime @default(now())
 

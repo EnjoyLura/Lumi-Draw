@@ -61,8 +61,16 @@ const RETRYABLE_STATUSES = new Set(["failed", "partial_failed", "cancelled"]);
 const JOB_STATUSES = new Set(["queued", "running", "finalizing", "succeeded", "partial_failed", "failed", "cancelled"]);
 const QUICK_PROVIDER_FAILURE_MS = 8_000;
 const MAX_ATTEMPTS_PER_PROVIDER = 2;
+const TRANSFER_RETRY_SCAN_INTERVAL_MS = 60_000;
+const TRANSFER_RETRY_BATCH_SIZE = 30;
+const TRANSFER_DISPATCH_LEASE_MS = 12 * 60_000;
 
-type ProviderResultMode = "url" | "base64";
+type ProviderResultMode = "url" | "base64" | "auto";
+
+export function transferRetryDelayMs(attempt: number) {
+  const delays = [60_000, 3 * 60_000, 10 * 60_000, 30 * 60_000];
+  return delays[Math.max(0, Math.min(delays.length - 1, attempt - 1))] ?? 60 * 60_000;
+}
 
 export function resolveProviderResultMode(
   configured: string | undefined,
@@ -71,11 +79,12 @@ export function resolveProviderResultMode(
   params: Record<string, string>
 ): ProviderResultMode {
   if (configured === "url" || configured === "base64") return configured;
-  const responseFormat = String(params.response_format || params.responseFormat || "").toLowerCase();
-  if (responseFormat === "url") return "url";
-  if (["b64_json", "base64"].includes(responseFormat)) return "base64";
   if (requestMode === "async" || adapter === "ainb" || adapter === "generic" || adapter === "kie") return "url";
-  return "base64";
+  // Auto means that the provider's actual response decides the route. Do not
+  // infer it from request parameters: some proxy platforms ignore or change
+  // response_format dynamically.
+  if (configured === "auto") return "auto";
+  return "auto";
 }
 
 export function calculatePartialRefund(costCredits: number, refundCredits: number, requestedCount: number, resultCount: number) {
@@ -135,6 +144,7 @@ function mockGeneratedImageUrl(seed: string) {
 @Injectable()
 export class GenerateService implements OnApplicationBootstrap {
   private readonly logger = new Logger(GenerateService.name);
+  private transferRetryWorkerRunning = false;
   constructor(
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
@@ -156,7 +166,7 @@ export class GenerateService implements OnApplicationBootstrap {
     });
     for (const job of interrupted) {
       const resultMode = resolveProviderResultMode(job.providerResultMode, job.providerAdapter || "change2pro", job.providerRequestMode, normalizeProviderParams(job.providerParams));
-      if (job.status === "finalizing" && resultMode === "url") {
+      if (job.status === "finalizing") {
         await this.resumeUrlTransfers(job);
         continue;
       }
@@ -164,6 +174,9 @@ export class GenerateService implements OnApplicationBootstrap {
       await this.failoverOrRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
     }
     await this.resumeAinbJobsAfterRestart();
+    void this.runUrlTransferRetryWorker();
+    const retryTimer = setInterval(() => void this.runUrlTransferRetryWorker(), TRANSFER_RETRY_SCAN_INTERVAL_MS);
+    retryTimer.unref?.();
   }
 
   private async resumeAinbJobsAfterRestart() {
@@ -187,17 +200,44 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private async resumeUrlTransfers(job: JobWithResults) {
-    const pending = job.results.filter((item) => item.status === "transferring" && item.imageUrl && item.ossKey);
+    const pending = job.results.filter((item) => item.status === "transferring" && (item.sourceUrl || item.imageUrl) && item.ossKey);
     if (!pending.length) {
       await this.finalizeTransferredUrlJob(job);
       return;
     }
     if (!this.imageTransfer.isConfigured()) {
-      await this.failAndRefund(job.id, "图片永久保存服务未配置");
+      await this.deferUrlTransferRetry(job.id, pending[0], "图片永久保存服务未配置");
       return;
     }
     for (const result of pending) {
       this.dispatchUrlTransfer(job.id, result, job.providerResultUrlRewriteRules);
+    }
+  }
+
+  private async runUrlTransferRetryWorker() {
+    if (this.transferRetryWorkerRunning || !this.imageTransfer.isConfigured()) return;
+    this.transferRetryWorkerRunning = true;
+    try {
+      const now = new Date();
+      const pending = await this.prisma.generateResult.findMany({
+        where: {
+          status: "transferring",
+          ossKey: { not: "" },
+          OR: [{ sourceUrl: { not: "" } }, { imageUrl: { not: "" } }],
+          AND: [{ OR: [{ transferNextAttemptAt: null }, { transferNextAttemptAt: { lte: now } }] }],
+          job: { status: "finalizing" }
+        },
+        include: { job: { select: { providerResultUrlRewriteRules: true } } },
+        orderBy: { transferNextAttemptAt: "asc" },
+        take: TRANSFER_RETRY_BATCH_SIZE
+      });
+      for (const result of pending) {
+        this.dispatchUrlTransfer(result.jobId, result, result.job.providerResultUrlRewriteRules);
+      }
+    } catch (error) {
+      this.logger.error(`Image transfer retry scan failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      this.transferRetryWorkerRunning = false;
     }
   }
 
@@ -942,25 +982,19 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!result || result.ossKey !== input.objectKey) throw new BadRequestException("image transfer result does not match job");
 
     if (input.error) {
-      const failed = await this.prisma.generateResult.updateMany({
-        where: { id: result.id, status: "transferring" },
-        data: { status: "failed", imageUrl: "", errorMessage: input.error.slice(0, 500) }
-      });
-      if (!failed.count) return { ok: true };
-      const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
-      if (current.results.some((item) => item.status === "transferring")) return { ok: true };
-      await this.finalizeTransferredUrlJob(current, input.error);
+      await this.deferUrlTransferRetry(job.id, result, input.error);
       return { ok: true };
     }
 
     await this.prisma.generateResult.updateMany({
-      where: { id: result.id, status: { in: ["transferring", "failed"] } },
+      where: { id: result.id, status: "transferring" },
       data: {
         status: "succeeded",
         imageUrl: this.uploads.objectUrlForKey(result.ossKey),
         sizeBytes: Math.max(0, Math.floor(input.sizeBytes || 0)),
         ...resolveGeneratedImageSize(job.ratio, job.quality),
-        errorMessage: ""
+        errorMessage: "",
+        transferNextAttemptAt: null
       }
     });
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
@@ -1071,8 +1105,10 @@ export class GenerateService implements OnApplicationBootstrap {
             jobId: job.id,
             status: target.status,
             imageUrl: target.imageUrl,
+            sourceUrl: target.sourceUrl,
             ossKey: target.ossKey,
             sizeBytes: target.sizeBytes,
+            ...(target.status === "transferring" ? { transferNextAttemptAt: new Date() } : {}),
             ...(target.status === "succeeded" ? resolveGeneratedImageSize(job.ratio, job.quality) : {})
           }
         });
@@ -1089,30 +1125,71 @@ export class GenerateService implements OnApplicationBootstrap {
   }
 
   private dispatchUrlTransfer(jobId: string, result: GenerateResult, rulesValue: unknown) {
-    if (!result.imageUrl || !result.ossKey) return;
-    const source = rewriteProviderResultUrl(result.imageUrl, rulesValue);
+    void this.dispatchUrlTransferSafely(jobId, result, rulesValue);
+  }
+
+  private async dispatchUrlTransferSafely(jobId: string, result: GenerateResult, rulesValue: unknown) {
+    const sourceUrl = result.sourceUrl || result.imageUrl;
+    if (!sourceUrl || !result.ossKey || !this.imageTransfer.isConfigured()) return;
+    const now = new Date();
+    const leased = await this.prisma.generateResult.updateMany({
+      where: {
+        id: result.id,
+        jobId,
+        status: "transferring",
+        OR: [{ transferNextAttemptAt: null }, { transferNextAttemptAt: { lte: now } }]
+      },
+      data: {
+        transferAttempts: { increment: 1 },
+        transferLastAttemptAt: now,
+        transferNextAttemptAt: new Date(now.getTime() + TRANSFER_DISPATCH_LEASE_MS),
+        errorMessage: ""
+      }
+    });
+    if (!leased.count) return;
+    const source = rewriteProviderResultUrl(sourceUrl, rulesValue);
     if (source.fallbackUrl) {
       this.logger.log(`Image result host rewritten for ${result.id}: ${new URL(source.fallbackUrl).hostname} -> ${new URL(source.url).hostname}`);
     }
-    void this.imageTransfer.dispatchInBackground({
-      jobId,
-      resultId: result.id,
-      sourceUrl: source.url,
-      fallbackSourceUrl: source.fallbackUrl,
-      objectKey: result.ossKey
-    })
-      .catch(async (error) => {
-        const message = error instanceof Error ? error.message : "图片保存服务连接失败";
-        const failed = await this.prisma.generateResult.updateMany({
-          where: { id: result.id, jobId, status: "transferring" },
-          data: { status: "failed", imageUrl: "", errorMessage: message.slice(0, 500) }
-        });
-        if (!failed.count) return;
-        const current = await this.prisma.generateJob.findUnique({ where: { id: jobId }, include: { results: true } });
-        if (current && current.status === "finalizing" && !current.results.some((item) => item.status === "transferring")) {
-          await this.finalizeTransferredUrlJob(current, message);
+    try {
+      await this.imageTransfer.dispatchInBackground({
+        jobId,
+        resultId: result.id,
+        sourceUrl: source.url,
+        fallbackSourceUrl: source.fallbackUrl,
+        objectKey: result.ossKey
+      });
+    } catch (error) {
+      await this.deferUrlTransferRetry(jobId, result, error instanceof Error ? error.message : "图片保存服务连接失败");
+    }
+  }
+
+  private async deferUrlTransferRetry(jobId: string, result: GenerateResult, errorMessage: string) {
+    const current = await this.prisma.generateResult.findUnique({
+      where: { id: result.id },
+      select: { transferAttempts: true, status: true }
+    });
+    if (!current || current.status !== "transferring") return;
+    const delayMs = transferRetryDelayMs(Math.max(1, current.transferAttempts));
+    const retryAt = new Date(Date.now() + delayMs);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.generateResult.updateMany({
+        where: { id: result.id, jobId, status: "transferring" },
+        data: {
+          errorMessage: errorMessage.slice(0, 500),
+          transferNextAttemptAt: retryAt
         }
       });
+      await tx.generateJob.updateMany({
+        where: { id: jobId, status: "finalizing" },
+        data: {
+          progress: 96,
+          stageText: "图片已生成，正在重试安全保存原图",
+          errorMessage: ""
+        }
+      });
+    });
+    this.logger.warn(`Image transfer deferred for retry result=${result.id} job=${jobId} retryAt=${retryAt.toISOString()}: ${errorMessage}`);
   }
 
   private providerOutputContentType(job: GenerateJob) {
