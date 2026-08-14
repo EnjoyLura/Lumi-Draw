@@ -170,7 +170,7 @@ export class GenerateService implements OnApplicationBootstrap {
         await this.resumeUrlTransfers(job);
         continue;
       }
-      if (resultMode === "base64" && job.startedAt && Date.now() - job.startedAt.getTime() < 35 * 60_000) continue;
+      if (["base64", "auto"].includes(resultMode) && job.startedAt && Date.now() - job.startedAt.getTime() < 35 * 60_000) continue;
       await this.failoverOrRefund(job.id, "生成服务重启，任务已自动退款").catch(() => undefined);
     }
     await this.resumeAinbJobsAfterRestart();
@@ -700,8 +700,8 @@ export class GenerateService implements OnApplicationBootstrap {
 
   private async syncProviderJob(job: JobWithResults) {
     const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
-    if (resultMode === "base64" && !TERMINAL_STATUSES.has(job.status) && job.startedAt && Date.now() - job.startedAt.getTime() >= 35 * 60_000) {
-      return (await this.failoverOrRefund(job.id, "Base64 image generation timeout")).job;
+    if (["base64", "auto"].includes(resultMode) && !TERMINAL_STATUSES.has(job.status) && job.startedAt && Date.now() - job.startedAt.getTime() >= 35 * 60_000) {
+      return (await this.failoverOrRefund(job.id, "图片生成等待超时")).job;
     }
     const runtime = this.providerRuntime(job);
     if (this.providerAdapter(job) !== "kie" || TERMINAL_STATUSES.has(job.status) || !job.kieTaskId || !this.kie.isConfigured(runtime)) return job;
@@ -921,7 +921,9 @@ export class GenerateService implements OnApplicationBootstrap {
   private async completeChange2ProJob(job: JobWithResults, modelId: string) {
     const runtime = this.providerRuntime(job);
     const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, runtime?.params || {});
-    if (resultMode === "base64") return this.completeFcGeneration(job, runtime);
+    // FC reads the same response once and can branch on URL/Base64 locally.
+    // This keeps large Base64 payloads off the application server in auto mode.
+    if (resultMode === "base64" || resultMode === "auto") return this.completeFcGeneration(job, runtime);
     const outputs = await this.change2pro.generate({
       jobId: job.id,
       modelId,
@@ -1022,7 +1024,7 @@ export class GenerateService implements OnApplicationBootstrap {
       return { ok: true };
     }
     const resultMode = resolveProviderResultMode(job.providerResultMode, this.providerAdapter(job), job.providerRequestMode, normalizeProviderParams(job.providerParams));
-    if (resultMode !== "base64") throw new BadRequestException("image generation callback does not match job");
+    if (resultMode !== "base64" && resultMode !== "auto") throw new BadRequestException("image generation callback does not match job");
     if (input.error) {
       await this.failoverOrRefund(job.id, input.error);
       return { ok: true };
