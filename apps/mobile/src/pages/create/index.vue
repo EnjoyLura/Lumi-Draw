@@ -6,7 +6,7 @@ import { refreshWechatSession, useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { addActiveGenerateJobId, removeActiveGenerateJobIds } from "../../services/generateTaskState";
 import { mockImage } from "../../services/mockImages";
-import { chooseLocalImage, uploadSelectedImage, type ChosenImage } from "../../services/upload";
+import { chooseLocalImages, uploadSelectedImages, type ChosenImage } from "../../services/upload";
 import {
   countOptions,
   createModels,
@@ -71,9 +71,9 @@ const selectedRatioLabel = ref("1:1");
 const selectedCountIndex = ref(0);
 const promptText = ref("");
 const lastAppliedGameplayName = ref("");
-const promptImage = ref("");
-const promptLocalImage = ref<ChosenImage | null>(null);
-const promptUploadedImageUrl = ref("");
+const promptImages = ref<ChosenImage[]>([]);
+const promptUploadedImageUrls = ref<string[]>([]);
+const MAX_PROMPT_IMAGES = 5;
 const isGenerating = ref(false);
 const isSubmittingGenerate = ref(false);
 const modelDrawerOpen = ref(false);
@@ -642,18 +642,25 @@ async function uploadPromptImage() {
   if (isUploadingPromptImage.value) return;
 
   if (useMockData.value) {
-    promptImage.value = mockImage(`upload${Date.now()}`, 200, 200);
-    promptLocalImage.value = null;
-    promptUploadedImageUrl.value = promptImage.value;
+    if (promptImages.value.length >= MAX_PROMPT_IMAGES) {
+      showToast("最多支持上传5张图片");
+      return;
+    }
+    const mock = mockImage(`upload${Date.now()}`, 200, 200);
+    promptImages.value = [...promptImages.value, { path: mock, name: `mock-${Date.now()}.jpg`, contentType: "image/jpeg" }];
+    promptUploadedImageUrls.value = [...promptUploadedImageUrls.value, mock];
     return;
   }
 
   isUploadingPromptImage.value = true;
   try {
-    const image = await chooseLocalImage({ optimizeForGeneration: true });
-    promptImage.value = image.path;
-    promptLocalImage.value = image;
-    promptUploadedImageUrl.value = "";
+    const remaining = MAX_PROMPT_IMAGES - promptImages.value.length;
+    if (remaining <= 0) {
+      showToast("最多支持上传5张图片");
+      return;
+    }
+    const images = await chooseLocalImages({ optimizeForGeneration: true, count: remaining });
+    promptImages.value = [...promptImages.value, ...images].slice(0, MAX_PROMPT_IMAGES);
   } catch {
     // User cancelled image selection.
   } finally {
@@ -661,18 +668,18 @@ async function uploadPromptImage() {
   }
 }
 
-function removePromptImage(event?: Event) {
+function removePromptImage(index: number, event?: Event) {
   event?.stopPropagation();
-  promptImage.value = "";
-  promptLocalImage.value = null;
-  promptUploadedImageUrl.value = "";
+  promptImages.value.splice(index, 1);
+  promptUploadedImageUrls.value.splice(index, 1);
 }
 
-function previewPromptImage() {
-  if (!promptImage.value) return;
+function previewPromptImage(index = 0) {
+  if (!promptImages.value.length) return;
+  const urls = promptImages.value.map((item) => item.path);
   uni.previewImage({
-    urls: [promptImage.value],
-    current: promptImage.value
+    urls,
+    current: urls[index] || urls[0]
   });
 }
 
@@ -881,9 +888,9 @@ async function resumeBackendJob(jobId: string) {
     const job = await fetchGenerateJob(jobId);
     const jobStylePrompt = styleOptions.value.find((style) => style.name === job.style)?.prompt || "";
     promptText.value = removeManagedPromptSuffix(job.prompt || promptText.value, jobStylePrompt).slice(0, 1200);
-    promptImage.value = job.inputImageUrl || "";
-    promptLocalImage.value = null;
-    promptUploadedImageUrl.value = job.inputImageUrl || "";
+    const restoredInputUrls = (job.inputImageUrls?.length ? job.inputImageUrls : job.inputImageUrl ? [job.inputImageUrl] : []).slice(0, MAX_PROMPT_IMAGES);
+    promptImages.value = restoredInputUrls.map((path, index) => ({ path, name: `reference-${index + 1}.jpg`, contentType: "image/jpeg" }));
+    promptUploadedImageUrls.value = restoredInputUrls;
     pendingRouteOptions.value = {
       model: job.modelId,
       ratio: job.ratio,
@@ -906,15 +913,19 @@ async function resumeBackendJob(jobId: string) {
   }
 }
 
-async function resolvePromptImageUrl() {
-  if (!promptImage.value) return "";
-  if (promptUploadedImageUrl.value) return promptUploadedImageUrl.value;
-  if (!promptLocalImage.value) return promptImage.value;
-  const uploaded = await uploadSelectedImage("prompt-image", promptLocalImage.value);
-  promptUploadedImageUrl.value = uploaded.publicUrl;
-  promptImage.value = uploaded.publicUrl;
-  promptLocalImage.value = null;
-  return uploaded.publicUrl;
+async function resolvePromptImageUrls() {
+  if (!promptImages.value.length) return [];
+  const uploadedUrls = [...promptUploadedImageUrls.value];
+  const pending = promptImages.value
+    .map((image, index) => ({ image, index }))
+    .filter(({ index }) => !uploadedUrls[index]);
+  if (pending.length) {
+    const uploaded = await uploadSelectedImages("prompt-image", pending.map((item) => item.image));
+    uploaded.forEach((item, offset) => { uploadedUrls[pending[offset].index] = item.publicUrl; });
+  }
+  promptUploadedImageUrls.value = uploadedUrls.filter(Boolean);
+  promptImages.value = promptImages.value.map((image, index) => ({ ...image, path: uploadedUrls[index] || image.path }));
+  return promptUploadedImageUrls.value;
 }
 
 async function startBackendGenerate(prompt: string) {
@@ -934,12 +945,13 @@ async function startBackendGenerate(prompt: string) {
     // Refreshing it immediately before submission prevents stale local JWTs
     // from producing a failed generation job before the provider is called.
     await refreshWechatSession();
-    const inputImageUrl = await resolvePromptImageUrl();
+    const inputImageUrls = await resolvePromptImageUrls();
     const created = await createGenerateJob({
-      mode: inputImageUrl ? "image-to-image" : "text-to-image",
+      mode: inputImageUrls.length ? "image-to-image" : "text-to-image",
       modelId: selectedModel.value.id,
       prompt,
-      inputImageUrl: inputImageUrl || undefined,
+      inputImageUrl: inputImageUrls[0] || undefined,
+      inputImageUrls: inputImageUrls.length ? inputImageUrls : undefined,
       gameplayId: selectedGameplay.value?.id,
       style: selectedStyleName.value,
       ratio: selectedRatio.value.label,
@@ -1269,7 +1281,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
           <view class="prompt-actions">
             <view v-if="reversePromptEnabled" class="prompt-action lavender" @click="goReversePrompt">反推提示词</view>
             <view class="prompt-action accent" :class="{ disabled: isUploadingPromptImage }" @click="uploadPromptImage">
-              {{ isUploadingPromptImage ? "选择中..." : "上传图片" }}
+              {{ isUploadingPromptImage ? "选择中..." : promptImages.length ? `继续上传（${promptImages.length}/5）` : "上传图片" }}
             </view>
             <view class="action-spacer" />
             <view v-if="promptText" class="prompt-action neutral has-icon" @click="clearPrompt">
@@ -1277,9 +1289,12 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text>清除</text>
             </view>
           </view>
-          <view v-if="promptImage" class="prompt-preview" @click="previewPromptImage">
-            <image class="prompt-preview-img" :src="promptImage" mode="aspectFill" />
-            <view class="prompt-remove" @click="removePromptImage"><LumiIcon name="x" :size="14" /></view>
+          <view v-if="promptImages.length" class="prompt-preview-list">
+            <view v-for="(image, index) in promptImages" :key="`${image.path}-${index}`" class="prompt-preview" @click="previewPromptImage(index)">
+              <image class="prompt-preview-img" :src="image.path" mode="aspectFill" />
+              <view class="prompt-remove" @click="removePromptImage(index, $event)"><LumiIcon name="x" :size="14" /></view>
+            </view>
+            <text class="prompt-upload-hint">最多上传5张参考图，还可上传{{ 5 - promptImages.length }}张</text>
           </view>
         </view>
 
@@ -2144,6 +2159,24 @@ function goMine() { goRootTab("/pages/mine/index"); }
   color: var(--accent-deep);
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+.prompt-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.prompt-preview-list .prompt-preview {
+  margin-top: 0;
+}
+
+.prompt-upload-hint {
+  width: 100%;
+  font-size: 11px;
+  color: var(--fg-muted);
 }
 
 :global(.prompt-placeholder),

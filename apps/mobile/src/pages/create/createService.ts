@@ -100,6 +100,7 @@ export interface BackendGenerateJob {
   providerModel?: string;
   prompt: string;
   inputImageUrl?: string;
+  inputImageUrls?: string[];
   gameplayId?: number;
   style?: string;
   ratio: string;
@@ -121,6 +122,7 @@ export interface CreateGenerateJobPayload {
   modelId: string;
   prompt: string;
   inputImageUrl?: string;
+  inputImageUrls?: string[];
   gameplayId?: number;
   style?: string;
   ratio: string;

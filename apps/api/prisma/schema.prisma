@@ -569,6 +569,7 @@ model GenerateJob {
   providerAttempts Json @default("[]")
   prompt        String
   inputImageUrl String   @default("")
+  inputImageUrls Json    @default("[]")
   gameplayId    Int?
   style         String   @default("")
   ratio         String

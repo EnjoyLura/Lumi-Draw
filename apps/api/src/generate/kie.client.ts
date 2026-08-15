@@ -17,6 +17,7 @@ type SubmitGenerateJobInput = {
   model: ModelConfig;
   prompt: string;
   inputImageUrl: string;
+  inputImageUrls?: string[];
   ratio: string;
   quality: string;
   count: number;
@@ -128,7 +129,7 @@ export class KieClient {
   }
 
   private buildInput(input: SubmitGenerateJobInput, model: string) {
-    const imageUrls = input.inputImageUrl ? [input.inputImageUrl] : [];
+    const imageUrls = input.inputImageUrls?.length ? input.inputImageUrls : (input.inputImageUrl ? [input.inputImageUrl] : []);
     const payload: Record<string, unknown> = {
       prompt: input.prompt,
       aspect_ratio: input.ratio,

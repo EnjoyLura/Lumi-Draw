@@ -88,34 +88,38 @@ function completeUpload(ossKey: string, uploadToken: string) {
   return api.post<UploadedImage>("/uploads/complete", { ossKey, uploadToken });
 }
 
-function chooseSingleImage(useOriginal = false): Promise<ChosenImage> {
+function chooseImages(count = 1, useOriginal = false): Promise<ChosenImage[]> {
   return requireWechatPrivacyAuthorization().then(() => new Promise((resolve, reject) => {
     uni.chooseImage({
-      count: 1,
+      count: Math.max(1, Math.min(5, count)),
       sizeType: useOriginal ? ["original"] : ["compressed"],
       sourceType: ["album", "camera"],
       success(result) {
         const rawTempFiles = result.tempFiles;
         const tempFiles = Array.isArray(rawTempFiles) ? rawTempFiles : rawTempFiles ? [rawTempFiles] : [];
-        const tempFile = tempFiles[0] as ({ path?: string; name?: string; type?: string; file?: Blob; size?: number } | string | undefined);
-        const path = result.tempFilePaths?.[0] || (typeof tempFile === "object" ? tempFile.path : "") || "";
-        if (!path) {
+        const paths = Array.isArray(result.tempFilePaths) ? result.tempFilePaths : [];
+        const images: ChosenImage[] = [];
+        tempFiles.forEach((raw, index) => {
+          const tempFile = raw as ({ path?: string; name?: string; type?: string; file?: Blob; size?: number; width?: number; height?: number } | string | undefined);
+          const path = paths[index] || (typeof tempFile === "object" ? tempFile?.path : "") || "";
+          if (!path) return;
+          const name = typeof tempFile === "object" && tempFile.name ? tempFile.name : fileNameFromPath(path);
+          const contentType = typeof tempFile === "object" && tempFile.type ? tempFile.type : contentTypeFromName(name);
+          images.push({
+            path,
+            name,
+            contentType,
+            file: typeof tempFile === "object" ? tempFile.file : undefined,
+            sizeBytes: typeof tempFile === "object" && typeof tempFile.size === "number" ? tempFile.size : undefined,
+            width: typeof tempFile === "object" && typeof tempFile.width === "number" ? tempFile.width : undefined,
+            height: typeof tempFile === "object" && typeof tempFile.height === "number" ? tempFile.height : undefined
+          });
+        });
+        if (!images.length) {
           reject(new Error("未选择图片"));
           return;
         }
-        const name = typeof tempFile === "object" && tempFile.name ? tempFile.name : fileNameFromPath(path);
-        const contentType = typeof tempFile === "object" && tempFile.type ? tempFile.type : contentTypeFromName(name);
-        const width = typeof tempFile === "object" && "width" in tempFile && typeof tempFile.width === "number" ? tempFile.width : undefined;
-        const height = typeof tempFile === "object" && "height" in tempFile && typeof tempFile.height === "number" ? tempFile.height : undefined;
-        resolve({
-          path,
-          name,
-          contentType,
-          file: typeof tempFile === "object" ? tempFile.file : undefined,
-          sizeBytes: typeof tempFile === "object" && typeof tempFile.size === "number" ? tempFile.size : undefined,
-          width,
-          height
-        });
+        resolve(images);
       },
       fail(error) {
         reject(new Error(localizeApiErrorMessage(error.errMsg || "图片选择失败，请稍后重试")));
@@ -286,9 +290,14 @@ async function putObject(policy: UploadPolicy, image: Pick<ChosenImage, "path" |
   await putWithUniRequest(policy, image.path);
 }
 
+export async function chooseLocalImages(options?: { optimizeForGeneration?: boolean; count?: number }) {
+  const images = await chooseImages(options?.count ?? 1, Boolean(options?.optimizeForGeneration));
+  return options?.optimizeForGeneration ? Promise.all(images.map((image) => optimizeGenerationReference(image))) : images;
+}
+
 export async function chooseLocalImage(options?: { optimizeForGeneration?: boolean }) {
-  const image = await chooseSingleImage(Boolean(options?.optimizeForGeneration));
-  return options?.optimizeForGeneration ? optimizeGenerationReference(image) : image;
+  const images = await chooseLocalImages({ ...options, count: 1 });
+  return images[0];
 }
 
 export async function uploadSelectedImage(scene: string, image: ChosenImage): Promise<UploadedImage> {
@@ -303,6 +312,19 @@ export async function uploadSelectedImage(scene: string, image: ChosenImage): Pr
 export async function uploadChosenImage(scene: string): Promise<UploadedImage> {
   const image = await chooseLocalImage();
   return uploadSelectedImage(scene, image);
+}
+
+export async function uploadSelectedImages(scene: string, images: ChosenImage[], concurrency = 2): Promise<UploadedImage[]> {
+  const results: UploadedImage[] = [];
+  let cursor = 0;
+  async function worker() {
+    while (cursor < images.length) {
+      const index = cursor++;
+      results[index] = await uploadSelectedImage(scene, images[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, concurrency), images.length) }, () => worker()));
+  return results;
 }
 
 export async function uploadLocalImagePath(scene: string, path: string): Promise<UploadedImage> {

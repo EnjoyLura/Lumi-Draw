@@ -548,7 +548,10 @@ async function pollAsyncProvider(provider, initialPayload, input, contentType, o
 }
 
 async function runOpenAi(provider, input, onProgress) {
-  const imageInputMode = provider.imageInputMode === "url-array" ? "url-array" : "multipart";
+  const imageInputMode = provider.imageInputMode === "url-array" ? "url-array" : provider.imageInputMode === "url" ? "url" : "multipart";
+  const inputImageUrls = Array.isArray(input.inputImageUrls) && input.inputImageUrls.length
+    ? input.inputImageUrls.filter((url) => typeof url === "string" && url)
+    : input.inputImageUrl ? [input.inputImageUrl] : [];
   const imageField = String(
     provider.imageInputField
       || provider.params?.image_field
@@ -576,10 +579,10 @@ async function runOpenAi(provider, input, onProgress) {
         prompt: input.prompt,
         n: count,
         ...sizeParams,
-        [imageField]: [input.inputImageUrl]
+        [imageField]: imageInputMode === "url-array" ? inputImageUrls : inputImageUrls[0]
       })
     }, { ...trace, outputIndex: index });
-    if (imageInputMode === "url-array") {
+    if (imageInputMode === "url-array" || imageInputMode === "url") {
       if (provider.requestMode === "async") {
         const payload = await requestEditJson(0, input.count);
         return pollAsyncProvider(provider, payload, input, responseImageFormat(provider.params), onProgress);
@@ -593,7 +596,8 @@ async function runOpenAi(provider, input, onProgress) {
         .slice(0, input.count);
     }
 
-    const reference = await downloadImage(input.inputImageUrl, { jobId: input.jobId, phase: "reference-image" });
+    if (!inputImageUrls.length) throw new Error("image-to-image requires a reference image");
+    const references = await Promise.all(inputImageUrls.map((url) => downloadImage(url, { jobId: input.jobId, phase: "reference-image" })));
     const requestEdit = async (index, count) => {
       const form = new FormData();
       form.append("model", model);
@@ -601,7 +605,9 @@ async function runOpenAi(provider, input, onProgress) {
       form.append("n", String(count));
       for (const [key, value] of Object.entries(sizeParams)) form.append(key, String(value));
       for (const [key, value] of Object.entries(params)) form.append(key, String(value));
-      form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference.${extension(reference.contentType)}`);
+      for (const [referenceIndex, reference] of references.entries()) {
+        form.append(imageField, new Blob([reference.buffer], { type: reference.contentType }), `reference-${referenceIndex + 1}.${extension(reference.contentType)}`);
+      }
       return requestJson(provider.endpoint, {
         method: "POST",
         headers: { Authorization: `Bearer ${provider.apiKey}`, Accept: "application/json", "X-Request-Id": `${input.jobId}-${index + 1}` },
@@ -653,12 +659,17 @@ function parseOpenAiResponse(payload, defaultContentType, mapping = {}) {
 
 async function runGemini(provider, input) {
   const endpoint = provider.endpoint.replace("{model}", encodeURIComponent(provider.model));
-  const reference = input.mode === "image-to-image" ? await downloadImage(input.inputImageUrl, { jobId: input.jobId, phase: "reference-image" }) : undefined;
+  const inputImageUrls = Array.isArray(input.inputImageUrls) && input.inputImageUrls.length
+    ? input.inputImageUrls.filter((url) => typeof url === "string" && url)
+    : input.inputImageUrl ? [input.inputImageUrl] : [];
+  const references = input.mode === "image-to-image"
+    ? await Promise.all(inputImageUrls.map((url) => downloadImage(url, { jobId: input.jobId, phase: "reference-image" })))
+    : [];
   const outputs = [];
   const count = Math.max(1, input.count);
   for (let index = 0; index < count; index += 1) {
     const parts = [{ text: input.prompt }];
-    if (reference) parts.push({ inlineData: { mimeType: reference.contentType, data: reference.buffer.toString("base64") } });
+    references.forEach((reference) => parts.push({ inlineData: { mimeType: reference.contentType, data: reference.buffer.toString("base64") } }));
     const imageConfig = { ...typedParams(provider.params, ["model"]), imageSize: String(input.quality).match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() || "1K", aspectRatio: input.ratio };
     const payload = await requestJson(endpoint, {
       method: "POST",

@@ -34,6 +34,7 @@ type AinbGenerateInput = {
   providerModel?: string;
   prompt: string;
   inputImageUrl: string;
+  inputImageUrls?: string[];
   ratio: string;
   quality: string;
   count: number;
@@ -72,6 +73,7 @@ export class AinbClient {
 
   async submit(input: AinbGenerateInput, runtime?: ProviderRuntimeConfig) {
     const config = this.getConfig(runtime);
+    const imageUrls = input.inputImageUrls?.length ? input.inputImageUrls : (input.inputImageUrl ? [input.inputImageUrl] : []);
     if (config.adapter === "generic") return this.submitGeneric(input, config);
     const providerModel = input.providerModel || ("model" in config.params ? String(config.params.model) : "") || IMAGE_2_MODEL_ID;
     const sizeParams = buildProviderSizeParams(
@@ -81,9 +83,9 @@ export class AinbClient {
       config.sizeConfig
     );
     if (!config.imageApiKey && config.authMode !== "none") throw new Error("Ainb image provider is not configured");
-    if (input.mode === "image-to-image" && config.imageInputMode === "multipart" && input.count > 1) {
-      if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-      const reference = await this.downloadReferenceImage(input.inputImageUrl);
+    if (input.mode === "image-to-image" && config.imageInputMode === "multipart" && input.count > 1 && imageUrls.length === 1) {
+      if (!imageUrls.length) throw new BadRequestException("图生图需要参考图");
+      const reference = await this.downloadReferenceImage(imageUrls[0]);
       const submitted = await Promise.allSettled(
         Array.from({ length: input.count }, () => this.submitEdit(config, { ...input, count: 1 }, reference))
       );
@@ -97,7 +99,7 @@ export class AinbClient {
     }
     const payload =
       input.mode === "image-to-image"
-        ? await this.submitEdit(config, input, undefined, providerModel)
+        ? await this.submitEdit(config, { ...input, inputImageUrls: imageUrls, inputImageUrl: imageUrls[0] || "" }, undefined, providerModel)
         : await this.requestJson(config.endpoint || `${config.apiBase}/v1/images/generations?async=true`, {
             method: "POST",
             headers: this.jsonHeaders(config),
@@ -161,7 +163,8 @@ export class AinbClient {
   }
 
   private async submitEdit(config: AinbConfig, input: AinbGenerateInput, suppliedReference?: ReferenceImage, providerModel?: string) {
-    if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
+    const imageUrls = input.inputImageUrls?.length ? input.inputImageUrls : (input.inputImageUrl ? [input.inputImageUrl] : []);
+    if (!imageUrls.length) throw new BadRequestException("图生图需要参考图");
     const configuredModel = "model" in config.params ? String(config.params.model) : "";
     const resolvedModel = providerModel || input.providerModel || configuredModel || IMAGE_2_MODEL_ID;
     const sizeParams = buildProviderSizeParams(
@@ -189,12 +192,12 @@ export class AinbClient {
           prompt: input.prompt,
           n: input.count,
           ...sizeParams,
-          [config.imageInputField || "image_urls"]: [input.inputImageUrl]
+          [config.imageInputField || "image_urls"]: imageUrls
         })
       });
     }
 
-    const reference = suppliedReference ?? await this.downloadReferenceImage(input.inputImageUrl);
+    const references = suppliedReference ? [suppliedReference] : await Promise.all(imageUrls.map((url) => this.downloadReferenceImage(url)));
     const form = new FormData();
     form.append("model", resolvedModel);
     form.append("prompt", input.prompt);
@@ -202,7 +205,7 @@ export class AinbClient {
     Object.entries(sizeParams).forEach(([key, value]) => form.append(key, value));
     Object.entries(dynamicParams)
       .forEach(([key, value]) => form.append(key, String(value)));
-    form.append(config.imageInputField || "image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
+    for (const reference of references) form.append(config.imageInputField || "image[]", new Blob([reference.buffer], { type: reference.contentType }), `reference.${this.extension(reference.contentType)}`);
     return this.requestJson(endpoint, {
       method: "POST",
       headers: this.authHeaders(config),
@@ -226,6 +229,7 @@ export class AinbClient {
   }
 
   private genericPayload(config: AinbConfig, input: AinbGenerateInput, providerModel: string) {
+    const imageUrls = input.inputImageUrls?.length ? input.inputImageUrls : (input.inputImageUrl ? [input.inputImageUrl] : []);
     const sizeParams = buildProviderSizeParams(
       input.ratio,
       input.quality,
@@ -240,8 +244,8 @@ export class AinbClient {
       ratio: input.ratio,
       resolution: sizeParams[config.sizeConfig.resolutionField] || "",
       size: sizeParams[config.sizeConfig.pixelSizeField] || input.ratio,
-      image_url: input.inputImageUrl,
-      image_urls: input.inputImageUrl ? [input.inputImageUrl] : []
+      image_url: imageUrls[0] || "",
+      image_urls: imageUrls
     };
     const hasTemplate = Object.keys(config.requestTemplate).length > 0;
     const payload = hasTemplate
@@ -252,9 +256,9 @@ export class AinbClient {
     if (config.injectCount) payload.n = input.count;
     for (const [key, value] of Object.entries(sizeParams)) if (!hasTemplate || !(key in payload)) payload[key] = value;
     if (input.mode === "image-to-image") {
-      if (!input.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-      if (config.imageInputMode === "url-array") payload[config.imageInputField || "image_urls"] = [input.inputImageUrl];
-      if (config.imageInputMode === "url") payload[config.imageInputField || "image"] = input.inputImageUrl;
+      if (!imageUrls.length) throw new BadRequestException("图生图需要参考图");
+      if (config.imageInputMode === "url-array") payload[config.imageInputField || "image_urls"] = imageUrls;
+      if (config.imageInputMode === "url") payload[config.imageInputField || "image"] = imageUrls[0];
       if (config.imageInputMode === "multipart") {
         throw new BadRequestException("通用 HTTP 适配器当前请使用 URL 或 URL 数组传递参考图");
       }

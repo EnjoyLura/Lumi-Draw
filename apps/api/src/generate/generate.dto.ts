@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from "class-validator";
 import { PageQueryDto } from "../common/dto/pagination";
 
 export class CreateGenerateJobDto {
@@ -18,6 +18,12 @@ export class CreateGenerateJobDto {
   @IsOptional()
   @IsString()
   inputImageUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @IsString({ each: true })
+  inputImageUrls?: string[];
 
   @IsOptional()
   @Type(() => Number)

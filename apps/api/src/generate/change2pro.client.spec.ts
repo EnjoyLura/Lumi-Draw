@@ -162,6 +162,7 @@ test("Image 2 sends reference URLs as JSON when the provider requires URL arrays
     mode: "image-to-image",
     prompt: "watercolor",
     inputImageUrl: "https://cdn.example.com/reference.png",
+    inputImageUrls: ["https://cdn.example.com/reference.png", "https://cdn.example.com/reference-2.png"],
     ratio: "16:9",
     quality: "4K",
     count: 1
@@ -175,7 +176,7 @@ test("Image 2 sends reference URLs as JSON when the provider requires URL arrays
   });
 
   assert.equal(request?.url, "https://images.example.com/v1/images/generations");
-  assert.deepEqual(request?.payload.image_urls, ["https://cdn.example.com/reference.png"]);
+  assert.deepEqual(request?.payload.image_urls, ["https://cdn.example.com/reference.png", "https://cdn.example.com/reference-2.png"]);
   assert.equal(request?.payload.size, "16:9");
   assert.equal(request?.payload.resolution, "4k");
 });

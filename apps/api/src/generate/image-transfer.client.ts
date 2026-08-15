@@ -42,6 +42,7 @@ export type ImageGenerationRequest = {
     mode: string;
     prompt: string;
     inputImageUrl: string;
+    inputImageUrls?: string[];
     ratio: string;
     quality: string;
     size: string;

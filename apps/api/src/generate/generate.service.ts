@@ -343,8 +343,8 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!ratio) throw new BadRequestException("尺寸比例不可用");
     if (normalized.mode === "text-to-image" && !model.supportsTextToImage) throw new BadRequestException("该模型不支持文生图");
     if (normalized.mode === "image-to-image" && !model.supportsImageToImage) throw new BadRequestException("该模型不支持图生图");
-    if (normalized.mode === "image-to-image" && !normalized.inputImageUrl) throw new BadRequestException("图生图需要参考图");
-    if (normalized.mode === "image-to-image") this.uploads.assertManagedImageUrl(normalized.inputImageUrl);
+    if (normalized.mode === "image-to-image" && !normalized.inputImageUrls.length) throw new BadRequestException("图生图需要参考图");
+    if (normalized.mode === "image-to-image") normalized.inputImageUrls.forEach((url) => this.uploads.assertManagedImageUrl(url));
 
     const isImageToImage = normalized.mode === "image-to-image";
     const configuredProviderIds = resolveProviderIds(model.provider, model.providerRouting, quality.label);
@@ -417,6 +417,7 @@ export class GenerateService implements OnApplicationBootstrap {
           providerAttempts: [],
           prompt: normalized.prompt,
           inputImageUrl: normalized.inputImageUrl,
+          inputImageUrls: normalized.inputImageUrls,
           gameplayId: normalized.gameplayId,
           style: normalized.style,
           ratio: ratio.label,
@@ -585,6 +586,7 @@ export class GenerateService implements OnApplicationBootstrap {
         modelId: source.modelId,
         prompt: source.prompt,
         inputImageUrl: source.inputImageUrl || undefined,
+        inputImageUrls: this.readInputImageUrls(source),
         gameplayId: source.gameplayId ?? undefined,
         style: source.style || undefined,
         ratio: source.ratio,
@@ -757,12 +759,23 @@ export class GenerateService implements OnApplicationBootstrap {
     return running;
   }
 
+  private readInputImageUrls(job: Pick<GenerateJob, "inputImageUrl" | "inputImageUrls">) {
+    const values = Array.isArray(job.inputImageUrls) ? job.inputImageUrls : [];
+    const urls = values.filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map((value) => value.trim());
+    return [...new Set(urls.length ? urls : (job.inputImageUrl ? [job.inputImageUrl] : []))].slice(0, 5);
+  }
+
   private normalizeCreateDto(dto: CreateGenerateJobDto) {
+    const inputImageUrls = [...new Set([
+      ...(Array.isArray(dto.inputImageUrls) ? dto.inputImageUrls : []),
+      ...(dto.inputImageUrl ? [dto.inputImageUrl] : [])
+    ].map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 5);
     return {
       mode: dto.mode,
       modelId: dto.modelId.trim(),
       prompt: dto.prompt.trim(),
-      inputImageUrl: (dto.inputImageUrl ?? "").trim(),
+      inputImageUrl: inputImageUrls[0] || "",
+      inputImageUrls,
       gameplayId: dto.gameplayId,
       style: (dto.style ?? "").trim(),
       ratio: dto.ratio.trim(),
@@ -846,6 +859,7 @@ export class GenerateService implements OnApplicationBootstrap {
           providerModel: job.providerModel,
           prompt: job.prompt,
           inputImageUrl: job.inputImageUrl,
+          inputImageUrls: this.readInputImageUrls(job),
           ratio: job.ratio,
           quality: job.quality,
           count: job.count
@@ -907,6 +921,7 @@ export class GenerateService implements OnApplicationBootstrap {
         model,
         prompt: job.prompt,
         inputImageUrl: job.inputImageUrl,
+        inputImageUrls: this.readInputImageUrls(job),
         ratio: job.ratio,
         quality: job.quality,
         count: job.count
@@ -942,6 +957,7 @@ export class GenerateService implements OnApplicationBootstrap {
       mode: job.mode,
       prompt: job.prompt,
       inputImageUrl: job.inputImageUrl,
+      inputImageUrls: this.readInputImageUrls(job),
       ratio: job.ratio,
       quality: job.quality,
       count: job.count
@@ -961,7 +977,7 @@ export class GenerateService implements OnApplicationBootstrap {
       invocationKey: `${job.id}:${job.provider}:${job.providerAttemptIndex}:${job.startedAt?.getTime() || 0}`,
       jobId: job.id,
       provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping, sizeConfig: runtime.sizeConfig, imageInputMode: runtime.imageInputMode, imageInputField: runtime.imageInputField, resultUrlRewriteRules: runtime.resultUrlRewriteRules },
-      input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
+      input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, inputImageUrls: this.readInputImageUrls(job), ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
       objectKeys
     });
     return this.prisma.generateJob.findUniqueOrThrow({ where: { id: job.id }, include: { results: true } });
@@ -1722,6 +1738,7 @@ export class GenerateService implements OnApplicationBootstrap {
       providerModel: job.providerModel,
       prompt: job.prompt,
       inputImageUrl: job.inputImageUrl ? this.uploads.readUrl(job.inputImageUrl, "private") : undefined,
+      inputImageUrls: this.readInputImageUrls(job).map((url) => this.uploads.readUrl(url, "private")),
       gameplayId: job.gameplayId ?? undefined,
       style: job.style,
       ratio: job.ratio,
