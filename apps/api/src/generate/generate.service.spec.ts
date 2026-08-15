@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { calculatePartialRefund, resolveProviderResultMode, transferRetryDelayMs, userFacingGenerateError, userFacingGenerateStageText } from "./generate.service";
+import { decideProviderFailure } from "./provider-attempts";
 
 test("refunds the missing share when a provider returns fewer images", () => {
   assert.deepEqual(calculatePartialRefund(45, 0, 2, 1), { missingCount: 1, refundCredits: 22 });
@@ -30,6 +31,18 @@ test("uses bounded persistent retry backoff for image transfers", () => {
   assert.equal(transferRetryDelayMs(2), 3 * 60_000);
   assert.equal(transferRetryDelayMs(4), 30 * 60_000);
   assert.equal(transferRetryDelayMs(99), 30 * 60_000);
+});
+
+test("falls back instead of repeating a provider after an upstream response", () => {
+  assert.equal(decideProviderFailure({
+    durationMs: 800,
+    quickFailureWindowMs: 15_000,
+    attemptsForProvider: 1,
+    maxAttemptsPerProvider: 2,
+    retryable: true,
+    retrySameProvider: false,
+    hasNextProvider: true
+  }), "fallback");
 });
 
 test("converts provider errors and progress stages to user-facing Chinese", () => {

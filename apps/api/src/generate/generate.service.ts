@@ -69,6 +69,7 @@ const MAX_ATTEMPTS_PER_PROVIDER = 2;
 const TRANSFER_RETRY_SCAN_INTERVAL_MS = 60_000;
 const TRANSFER_RETRY_BATCH_SIZE = 30;
 const TRANSFER_DISPATCH_LEASE_MS = 12 * 60_000;
+const STARTUP_SUBMISSION_GRACE_MS = 2 * 60_000;
 
 type ProviderResultMode = "url" | "base64" | "auto";
 
@@ -199,6 +200,13 @@ export class GenerateService implements OnApplicationBootstrap {
         continue;
       }
       if (!job.kieTaskId) {
+        // A second API process can observe the short interval after a provider
+        // failover selects an async route but before the first process writes
+        // its task ID. Re-submitting here creates a billable duplicate task.
+        if (job.startedAt && Date.now() - job.startedAt.getTime() < STARTUP_SUBMISSION_GRACE_MS) {
+          this.logger.warn(`Skipping fresh async job recovery for ${job.id}: provider submission may still be in progress`);
+          continue;
+        }
         await this.failoverOrRefund(job.id, "generation service restarted before task could resume").catch(() => undefined);
         continue;
       }
@@ -1303,6 +1311,15 @@ export class GenerateService implements OnApplicationBootstrap {
     return !/unsafe|safety|content.*(?:policy|filter)|不安全|违规|敏感|参考图|input image|积分不足|insufficient.*(?:balance|credit|fund)/i.test(message);
   }
 
+  private providerFailureCanRetrySameProvider(message: string) {
+    // A provider response is an ambiguous, potentially billable submit.
+    // Only retry the same route when a connection could not be established.
+    if (/\b(?:408|409|413|422|429|5\d\d)\b|\bHTTP\s*\d{3}\b|upstream request failed|submit failed|provider request failed/i.test(message)) {
+      return false;
+    }
+    return /und_err|econn(?:reset|refused)|enotfound|eai_again|network.*(?:connect|timeout)|connect timeout|socket hang up/i.test(message);
+  }
+
   private async failoverOrRefund(jobId: string, errorMessage: string): Promise<ProviderFailureResult> {
     const current = await this.prisma.generateJob.findUniqueOrThrow({ where: { id: jobId }, include: { results: true } });
     if (TERMINAL_STATUSES.has(current.status)) {
@@ -1326,6 +1343,7 @@ export class GenerateService implements OnApplicationBootstrap {
       attemptsForProvider: sameProviderAttempts,
       maxAttemptsPerProvider: MAX_ATTEMPTS_PER_PROVIDER,
       retryable: this.providerFailureCanRetry(errorMessage),
+      retrySameProvider: this.providerFailureCanRetrySameProvider(errorMessage),
       hasNextProvider: current.providerAttemptIndex + 1 < candidates.length
     });
     if (decision === "fail") return this.failAndRefund(jobId, errorMessage);

@@ -73,9 +73,10 @@ export function decideProviderFailure(input: {
   attemptsForProvider: number;
   maxAttemptsPerProvider: number;
   retryable: boolean;
+  retrySameProvider?: boolean;
   hasNextProvider: boolean;
 }) {
   if (!input.retryable || input.durationMs > input.quickFailureWindowMs) return "fail" as const;
-  if (input.attemptsForProvider < input.maxAttemptsPerProvider) return "retry-same" as const;
+  if (input.retrySameProvider !== false && input.attemptsForProvider < input.maxAttemptsPerProvider) return "retry-same" as const;
   return input.hasNextProvider ? "fallback" as const : "fail" as const;
 }
