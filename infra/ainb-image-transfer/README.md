@@ -39,6 +39,10 @@ Environment variables:
 - `CDN_PUBLIC_BASE_URL`, optional unauthenticated domain for stable published-work URLs
 - `CDN_AUTH_KEY`, Type A authentication key for `CDN_BASE_URL`
 - `CDN_AUTH_URL_WINDOW_SECONDS=1800`, stable signed-URL window
+- `CDN_PREFETCH_ENABLED=true`, submits CDN prefetch jobs after OSS persistence
+- `CDN_PREFETCH_AREA=domestic`, CDN prefetch region
+- `CDN_PREFETCH_L2=false`, optionally prefetch only to L2 POPs
+- `CDN_API_ENDPOINT=cdn.aliyuncs.com`
 - `TRANSFER_CALLBACK_TOKEN`
 - `API_CALLBACK_URL`, used to finish URL-to-OSS transfers
 - `GENERATION_CALLBACK_URL`, used by Base64 generation and progress callbacks
@@ -49,7 +53,10 @@ Runtime requirements:
 - 1 GB memory or more
 - 30-minute timeout for slow 4K providers
 - Internet access enabled
+- Asynchronous invocation and asynchronous task mode enabled; keep the same task ID for idempotent retries
+- At least 3 asynchronous retries and a task validity period of at least 6 hours
 - An FC execution role with write access limited to `uploads/system/generate/*`
+- The FC execution role permission `cdn:PushObjectCache`; CDN prefetch failure is non-blocking
 
 Build the ZIP with directory entries intact. On Windows, use `tar.exe -a -cf package.zip index.mjs package.json package-lock.json node_modules`; `Compress-Archive` can omit explicit directory entries and cause FC to deploy without resolving `node_modules`.
 
@@ -64,7 +71,7 @@ The handler writes one-line JSON events to the FC invocation log. Filter by `job
 - `generation.outputs.ready`: result count and whether each result arrived as URL or Base64.
 - `oss.upload.start` and `oss.upload.complete`: OSS payload size and upload duration.
 - `callback.complete` and `callback.failed`: delivery of the final result to the business API.
-- `cdn.prewarm.start`, `cdn.prewarm.complete`, and `cdn.prewarm.failed`: post-callback warming of the 640px card and 2048px preview variants. Warming never changes the completed task result.
+- `cdn.prefetch.start`, `cdn.prefetch.accepted`, and `cdn.prefetch.failed`: submission of official `PushObjectCache` jobs for the 640px card and 2048px preview variants. FC no longer downloads those variants itself, and a prefetch failure never changes the completed task result.
 - `image.download.cooldown-route`: a previously unstable source host was bypassed in favor of its fallback host.
 - `invocation.failed`: final phase-aware error, including available socket byte counters and `UND_ERR_*` codes.
 

@@ -1,4 +1,6 @@
 import OSS from "ali-oss";
+import CdnSdk from "@alicloud/cdn20180510";
+import OpenApiSdk from "@alicloud/openapi-client";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { setDefaultResultOrder } from "node:dns";
 
@@ -16,6 +18,9 @@ const CDN_VARIANTS = [
   { name: "preview", process: "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp" }
 ];
 const downloadHostHealth = new Map();
+const CdnClient = CdnSdk.default || CdnSdk;
+const { PushObjectCacheRequest } = CdnSdk;
+const { Config: OpenApiConfig } = OpenApiSdk;
 
 function safeEndpoint(value) {
   try {
@@ -64,6 +69,17 @@ function errorDetails(error) {
     bytesRead: Number(socket.bytesRead || 0) || undefined,
     bytesWritten: Number(socket.bytesWritten || 0) || undefined
   };
+}
+
+function transferMetrics(error) {
+  const value = error && typeof error === "object" ? error.transferMetrics : undefined;
+  return value && typeof value === "object" ? value : {};
+}
+
+function attachTransferMetrics(error, metrics) {
+  const value = error instanceof Error ? error : new Error(String(error || "image transfer failed"));
+  value.transferMetrics = { ...transferMetrics(value), ...metrics };
+  return value;
 }
 
 function logEvent(level, event, details = {}) {
@@ -212,23 +228,50 @@ async function requestJson(url, init, trace = {}) {
 
 async function downloadImage(url, trace = {}) {
   const startedAt = Date.now();
-  const downloadTrace = { ...trace, endpoint: safeEndpoint(url) };
+  const sourceHost = downloadHost(url);
+  const downloadTrace = { ...trace, endpoint: safeEndpoint(url), sourceHost };
   logEvent("info", "image.download.start", downloadTrace);
   let upstream;
+  let headersReceivedAt = 0;
   try {
     const imageUrl = trace.allowHttpResultUrl ? assertPublicUrl(url, "image URL") : assertPublicHttps(url, "image URL");
     upstream = await fetch(imageUrl, { signal: AbortSignal.timeout(240_000) });
+    headersReceivedAt = Date.now();
   } catch (error) {
-    logEvent("error", "image.download.failed", { ...downloadTrace, phase: "headers", elapsedMs: Date.now() - startedAt, error: errorDetails(error) });
-    throw error;
+    const metrics = {
+      transferHost: sourceHost,
+      transferTtfbMs: Date.now() - startedAt,
+      transferDownloadMs: Date.now() - startedAt
+    };
+    logEvent("error", "image.download.failed", { ...downloadTrace, phase: "headers", elapsedMs: metrics.transferDownloadMs, error: errorDetails(error) });
+    throw attachTransferMetrics(error, metrics);
   }
-  if (!upstream.ok) throw new Error(`image download failed: HTTP ${upstream.status}`);
-  const contentType = (upstream.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
-  if (!ALLOWED_CONTENT_TYPES.has(contentType)) throw new Error("unsupported image content type");
-  const buffer = await readResponseBody(upstream, { ...downloadTrace, status: upstream.status, contentType });
-  if (!buffer.length || buffer.byteLength > MAX_IMAGE_BYTES) throw new Error("image exceeds 40 MB");
-  logEvent("info", "image.download.complete", { ...downloadTrace, elapsedMs: Date.now() - startedAt, bytes: buffer.byteLength, contentType });
-  return { buffer, contentType };
+  try {
+    if (!upstream.ok) throw new Error(`image download failed: HTTP ${upstream.status}`);
+    const contentType = (upstream.headers.get("content-type") || "").split(";", 1)[0].trim().toLowerCase();
+    if (!ALLOWED_CONTENT_TYPES.has(contentType)) throw new Error("unsupported image content type");
+    const buffer = await readResponseBody(upstream, { ...downloadTrace, status: upstream.status, contentType });
+    if (!buffer.length || buffer.byteLength > MAX_IMAGE_BYTES) throw new Error("image exceeds 40 MB");
+    const metrics = {
+      transferHost: sourceHost,
+      transferTtfbMs: headersReceivedAt - startedAt,
+      transferDownloadMs: Date.now() - startedAt
+    };
+    logEvent("info", "image.download.complete", {
+      ...downloadTrace,
+      elapsedMs: metrics.transferDownloadMs,
+      ttfbMs: metrics.transferTtfbMs,
+      bytes: buffer.byteLength,
+      contentType
+    });
+    return { buffer, contentType, metrics };
+  } catch (error) {
+    throw attachTransferMetrics(error, {
+      transferHost: sourceHost,
+      transferTtfbMs: Math.max(0, headersReceivedAt - startedAt),
+      transferDownloadMs: Date.now() - startedAt
+    });
+  }
 }
 
 async function downloadImageWithRetry(url, trace = {}) {
@@ -296,19 +339,40 @@ async function downloadImageWithFallback(url, fallbackUrl, trace = {}) {
   try {
     const image = await downloadImage(primary, { ...trace, fallback: primary !== url });
     markDownloadHostSuccess(primary);
+    image.metrics.transferFallbackUsed = primary !== url;
     return image;
   } catch (error) {
     markDownloadHostFailure(primary, error);
-    if (!secondary || secondary === primary) return downloadImageWithRetry(primary, trace);
+    if (!secondary || secondary === primary) {
+      try {
+        const image = await downloadImageWithRetry(primary, trace);
+        markDownloadHostSuccess(primary);
+        image.metrics.transferFallbackUsed = primary !== url;
+        return image;
+      } catch (retryError) {
+        throw attachTransferMetrics(retryError, {
+          ...transferMetrics(retryError),
+          transferFallbackUsed: primary !== url
+        });
+      }
+    }
     logEvent("warn", "image.download.fallback", {
       ...trace,
       failedEndpoint: safeEndpoint(primary),
       fallbackEndpoint: safeEndpoint(secondary),
       error: errorDetails(error)
     });
-    const image = await downloadImageWithRetry(secondary, { ...trace, fallback: true });
-    markDownloadHostSuccess(secondary);
-    return image;
+    try {
+      const image = await downloadImageWithRetry(secondary, { ...trace, fallback: true });
+      markDownloadHostSuccess(secondary);
+      image.metrics.transferFallbackUsed = true;
+      return image;
+    } catch (fallbackError) {
+      throw attachTransferMetrics(fallbackError, {
+        ...transferMetrics(fallbackError),
+        transferFallbackUsed: true
+      });
+    }
   }
 }
 
@@ -337,7 +401,21 @@ function cdnObjectUrl(objectKey, imageProcess) {
   return `${baseUrl}${pathname}?${processQuery ? `${processQuery}&` : ""}${authQuery}`;
 }
 
-async function prewarmCdnVariants(objectKeys, trace = {}) {
+function cdnClient(context) {
+  const credentials = context?.credentials || {};
+  if (!credentials.accessKeyId || !credentials.accessKeySecret) throw new Error("FC runtime credentials are unavailable for CDN prefetch");
+  const config = new OpenApiConfig({
+    accessKeyId: credentials.accessKeyId,
+    accessKeySecret: credentials.accessKeySecret,
+    securityToken: credentials.securityToken,
+    endpoint: process.env.CDN_API_ENDPOINT || "cdn.aliyuncs.com",
+    regionId: process.env.CDN_API_REGION || process.env.OSS_REGION || "cn-beijing"
+  });
+  return new CdnClient(config);
+}
+
+async function prewarmCdnVariants(objectKeys, context, trace = {}) {
+  if (process.env.CDN_PREFETCH_ENABLED === "false") return;
   const targets = objectKeys.flatMap((objectKey) =>
     CDN_VARIANTS.flatMap((variant) => {
       const url = cdnObjectUrl(objectKey, variant.process);
@@ -346,34 +424,36 @@ async function prewarmCdnVariants(objectKeys, trace = {}) {
   );
   if (!targets.length) return;
   const startedAt = Date.now();
-  logEvent("info", "cdn.prewarm.start", { ...trace, objectCount: objectKeys.length, variantCount: targets.length });
-  const settled = await Promise.allSettled(targets.map(async (target) => {
-    const response = await fetch(target.url, { signal: AbortSignal.timeout(120_000) });
-    if (!response.ok) throw new Error(`CDN prewarm failed with HTTP ${response.status}`);
-    const bytes = (await response.arrayBuffer()).byteLength;
-    return { ...target, bytes };
-  }));
-  const failures = settled.flatMap((result, index) =>
-    result.status === "rejected"
-      ? [{ objectKey: targets[index].objectKey, variant: targets[index].variant, error: errorDetails(result.reason) }]
-      : []
-  );
-  if (failures.length) {
-    logEvent("warn", "cdn.prewarm.failed", {
+  logEvent("info", "cdn.prefetch.start", {
+    ...trace,
+    objectCount: objectKeys.length,
+    variantCount: targets.length
+  });
+  try {
+    const request = new PushObjectCacheRequest({
+      objectPath: targets.map((target) => target.url).join("\n"),
+      area: process.env.CDN_PREFETCH_AREA || "domestic",
+      queryHashkey: true,
+      l2Preload: process.env.CDN_PREFETCH_L2 === "true"
+    });
+    const result = await cdnClient(context).pushObjectCache(request);
+    logEvent("info", "cdn.prefetch.accepted", {
       ...trace,
       elapsedMs: Date.now() - startedAt,
-      succeeded: settled.length - failures.length,
-      failed: failures.length,
-      failures
+      urlCount: targets.length,
+      pushTaskId: String(result?.body?.pushTaskId || result?.body?.PushTaskId || "")
     });
-    return;
+  } catch (error) {
+    // Prefetch is an optimization only. The OSS object and task callback have
+    // already succeeded, so a CDN quota or permission issue must not fail the
+    // generation task.
+    logEvent("warn", "cdn.prefetch.failed", {
+      ...trace,
+      elapsedMs: Date.now() - startedAt,
+      urlCount: targets.length,
+      error: errorDetails(error)
+    });
   }
-  logEvent("info", "cdn.prewarm.complete", {
-    ...trace,
-    elapsedMs: Date.now() - startedAt,
-    succeeded: settled.length,
-    totalBytes: settled.reduce((sum, result) => sum + (result.status === "fulfilled" ? result.value.bytes : 0), 0)
-  });
 }
 
 function validateImageBuffer(buffer, contentType) {
@@ -596,7 +676,6 @@ async function runGemini(provider, input) {
 }
 
 async function putImage(client, objectKey, output, trace = {}, rewriteRules = []) {
-  const startedAt = Date.now();
   let image = output;
   if (output.url) {
     const source = rewriteResultUrl(output.url, rewriteRules);
@@ -614,6 +693,7 @@ async function putImage(client, objectKey, output, trace = {}, rewriteRules = []
     });
   }
   validateImageBuffer(image.buffer, image.contentType);
+  const uploadStartedAt = Date.now();
   logEvent("info", "oss.upload.start", { ...trace, objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await client.put(objectKey, image.buffer, {
     headers: {
@@ -621,8 +701,17 @@ async function putImage(client, objectKey, output, trace = {}, rewriteRules = []
       "Cache-Control": IMMUTABLE_CACHE_CONTROL
     }
   });
-  logEvent("info", "oss.upload.complete", { ...trace, objectKey, bytes: image.buffer.byteLength, elapsedMs: Date.now() - startedAt });
-  return { objectKey, sizeBytes: image.buffer.byteLength };
+  const transferUploadMs = Date.now() - uploadStartedAt;
+  logEvent("info", "oss.upload.complete", { ...trace, objectKey, bytes: image.buffer.byteLength, elapsedMs: transferUploadMs });
+  return {
+    objectKey,
+    sizeBytes: image.buffer.byteLength,
+    transferHost: image.metrics?.transferHost || "",
+    transferFallbackUsed: image.metrics?.transferFallbackUsed === true,
+    transferTtfbMs: image.metrics?.transferTtfbMs,
+    transferDownloadMs: image.metrics?.transferDownloadMs,
+    transferUploadMs
+  };
 }
 
 function callbackUrl() {
@@ -632,21 +721,43 @@ function callbackUrl() {
 
 async function notify(payload, url = callbackUrl()) {
   if (!url) throw new Error("generation callback URL is not configured");
-  const startedAt = Date.now();
-  let upstream;
-  try {
-    upstream = await fetch(assertPublicHttps(url, "callback URL"), {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-lumi-transfer-token": process.env.TRANSFER_CALLBACK_TOKEN || "" },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60_000)
-    });
-  } catch (error) {
-    logEvent("error", "callback.failed", { jobId: payload?.jobId, endpoint: safeEndpoint(url), elapsedMs: Date.now() - startedAt, error: errorDetails(error) });
-    throw error;
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const startedAt = Date.now();
+    try {
+      const upstream = await fetch(assertPublicHttps(url, "callback URL"), {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-lumi-transfer-token": process.env.TRANSFER_CALLBACK_TOKEN || "" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(60_000)
+      });
+      if (!upstream.ok) throw new Error(`callback failed: HTTP ${upstream.status}`);
+      if (payload?.outputs || payload?.error) {
+        logEvent("info", "callback.complete", {
+          jobId: payload?.jobId,
+          endpoint: safeEndpoint(url),
+          elapsedMs: Date.now() - startedAt,
+          status: upstream.status,
+          kind: payload?.error ? "failure" : "success",
+          callbackAttempt: attempt
+        });
+      }
+      return;
+    } catch (error) {
+      lastError = error;
+      logEvent(attempt === 3 ? "error" : "warn", "callback.failed", {
+        jobId: payload?.jobId,
+        endpoint: safeEndpoint(url),
+        elapsedMs: Date.now() - startedAt,
+        callbackAttempt: attempt,
+        error: errorDetails(error)
+      });
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+    }
   }
-  if (!upstream.ok) throw new Error(`callback failed: HTTP ${upstream.status}`);
-  if (payload?.outputs || payload?.error) logEvent("info", "callback.complete", { jobId: payload?.jobId, endpoint: safeEndpoint(url), elapsedMs: Date.now() - startedAt, status: upstream.status, kind: payload?.error ? "failure" : "success" });
+  const callbackError = lastError instanceof Error ? lastError : new Error("callback failed");
+  callbackError.isCallbackFailure = true;
+  throw callbackError;
 }
 
 function ossClient(context) {
@@ -710,7 +821,7 @@ async function runGeneration(payload, context) {
     }
     if (!stored.length) throw new Error("provider returned no usable images");
     await notify({ jobId: payload.jobId, outputs: stored });
-    await prewarmCdnVariants(stored.map((item) => item.objectKey), { jobId: payload.jobId, operation: "generate" });
+    await prewarmCdnVariants(stored.map((item) => item.objectKey), context, { jobId: payload.jobId, operation: "generate" });
     logEvent("info", "generation.complete", { jobId: payload.jobId, elapsedMs: Date.now() - startedAt, outputCount: stored.length, totalBytes: stored.reduce((sum, item) => sum + item.sizeBytes, 0) });
     return { ok: true, outputs: stored };
   } finally {
@@ -726,6 +837,7 @@ async function runTransfer(payload, context) {
     payload.fallbackSourceUrl,
     { jobId: payload.jobId, resultId: payload.resultId, phase: "result-image" }
   );
+  validateImageBuffer(image.buffer, image.contentType);
   const startedAt = Date.now();
   logEvent("info", "oss.upload.start", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, contentType: image.contentType });
   await ossClient(context).put(payload.objectKey, image.buffer, {
@@ -734,9 +846,20 @@ async function runTransfer(payload, context) {
       "Cache-Control": IMMUTABLE_CACHE_CONTROL
     }
   });
-  logEvent("info", "oss.upload.complete", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, elapsedMs: Date.now() - startedAt });
-  await notify({ jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, sizeBytes: image.buffer.byteLength }, process.env.API_CALLBACK_URL);
-  await prewarmCdnVariants([payload.objectKey], { jobId: payload.jobId, resultId: payload.resultId, operation: "transfer" });
+  const transferUploadMs = Date.now() - startedAt;
+  logEvent("info", "oss.upload.complete", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, elapsedMs: transferUploadMs });
+  await notify({
+    jobId: payload.jobId,
+    resultId: payload.resultId,
+    objectKey: payload.objectKey,
+    sizeBytes: image.buffer.byteLength,
+    transferHost: image.metrics?.transferHost || "",
+    transferFallbackUsed: image.metrics?.transferFallbackUsed === true,
+    transferTtfbMs: image.metrics?.transferTtfbMs,
+    transferDownloadMs: image.metrics?.transferDownloadMs,
+    transferUploadMs
+  }, process.env.API_CALLBACK_URL);
+  await prewarmCdnVariants([payload.objectKey], context, { jobId: payload.jobId, resultId: payload.resultId, operation: "transfer" });
   return { ok: true };
 }
 
@@ -753,13 +876,28 @@ export const handler = async (event, context) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "image function failed";
     logEvent("error", "invocation.failed", { jobId: payload?.jobId, operation: payload?.operation || "unknown", invocationId: context?.requestId || context?.requestID || "", error: errorDetails(error) });
+    // A final callback failure must fail the FC asynchronous task. FC can then
+    // retry the same idempotent task instead of silently losing a completed
+    // OSS object or reclassifying it as a generation failure.
+    if (error?.isCallbackFailure) throw error;
+    if (/unauthorized|signature|token/i.test(message)) return response(401, { message });
     try {
       if (payload?.operation === "generate" && payload.jobId) await notify({ jobId: payload.jobId, error: message });
-      if (payload?.operation !== "generate" && payload?.jobId && payload?.resultId && payload?.objectKey) await notify({ jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, error: message }, process.env.API_CALLBACK_URL);
+      if (payload?.operation !== "generate" && payload?.jobId && payload?.resultId && payload?.objectKey) {
+        await notify({
+          jobId: payload.jobId,
+          resultId: payload.resultId,
+          objectKey: payload.objectKey,
+          error: message,
+          ...transferMetrics(error)
+        }, process.env.API_CALLBACK_URL);
+      }
     } catch (callbackError) {
       logEvent("error", "failure_callback.failed", { jobId: payload?.jobId, error: errorDetails(callbackError) });
-      // The API can retry stale jobs from its task recovery path.
+      throw callbackError;
     }
-    return response(/unauthorized|signature|token/i.test(message) ? 401 : 500, { message });
+    // The terminal failure was persisted by the API callback, so the
+    // asynchronous FC task itself can finish without a duplicate execution.
+    return response(200, { ok: false, message });
   }
 };

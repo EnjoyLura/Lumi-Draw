@@ -613,10 +613,16 @@ model GenerateResult {
   transferAttempts Int  @default(0)
   transferLastAttemptAt DateTime?
   transferNextAttemptAt DateTime?
+  transferHost String   @default("")
+  transferFallbackUsed Boolean @default(false)
+  transferTtfbMs Int?
+  transferDownloadMs Int?
+  transferUploadMs Int?
   workId       Int?
   createdAt    DateTime @default(now())
 
   @@index([jobId])
+  @@index([transferNextAttemptAt])
   @@map("generate_results")
 }
 

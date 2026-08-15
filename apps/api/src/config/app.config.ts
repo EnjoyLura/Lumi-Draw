@@ -80,7 +80,12 @@ export const appConfig = registerAs("app", () => ({
   },
   imageTransfer: {
     functionUrl: process.env.IMAGE_TRANSFER_FUNCTION_URL ?? "",
-    bearerToken: process.env.IMAGE_TRANSFER_BEARER_TOKEN ?? ""
+    bearerToken: process.env.IMAGE_TRANSFER_BEARER_TOKEN ?? "",
+    // FC HTTP triggers must have asynchronous invocation enabled. Keep this
+    // enabled by default so large image transfers never hold an API request
+    // open; set IMAGE_TRANSFER_ASYNC=false only for an explicitly synchronous
+    // legacy trigger.
+    asyncInvocation: process.env.IMAGE_TRANSFER_ASYNC !== "false"
   },
   generate: {
     allowMock: process.env.GENERATE_ALLOW_MOCK === "true"

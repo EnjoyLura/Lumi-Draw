@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@alicloud/cdn20180510": "^9.2.0",
+    "@alicloud/openapi-client": "^0.4.15",
     "ali-oss": "^6.23.0"
   }
 }

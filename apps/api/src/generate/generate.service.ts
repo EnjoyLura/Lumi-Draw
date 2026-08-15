@@ -43,6 +43,11 @@ type GeneratedImage = {
   sizeBytes: number;
   width?: number;
   height?: number;
+  transferHost?: string;
+  transferFallbackUsed?: boolean;
+  transferTtfbMs?: number;
+  transferDownloadMs?: number;
+  transferUploadMs?: number;
 };
 type ProviderSubmission = {
   job: JobWithResults;
@@ -70,6 +75,10 @@ type ProviderResultMode = "url" | "base64" | "auto";
 export function transferRetryDelayMs(attempt: number) {
   const delays = [60_000, 3 * 60_000, 10 * 60_000, 30 * 60_000];
   return delays[Math.max(0, Math.min(delays.length - 1, attempt - 1))] ?? 60 * 60_000;
+}
+
+function transferDuration(value: number | undefined) {
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value as number)) : null;
 }
 
 export function resolveProviderResultMode(
@@ -949,6 +958,7 @@ export class GenerateService implements OnApplicationBootstrap {
     const protocol = /(?:\/v1beta\/models\/|:generateContent(?:\?|$))/i.test(runtime.apiBase) ? "gemini" as const : "openai-images" as const;
     await this.imageTransfer.dispatchGeneration({
       operation: "generate",
+      invocationKey: `${job.id}:${job.provider}:${job.providerAttemptIndex}:${job.startedAt?.getTime() || 0}`,
       jobId: job.id,
       provider: { protocol, endpoint: runtime.apiBase, apiKey: runtime.apiKey, model: job.providerModel, params: runtime.params, requestMode: runtime.requestMode, queryEndpoint: runtime.queryEndpoint, responseMapping: runtime.responseMapping, sizeConfig: runtime.sizeConfig, imageInputMode: runtime.imageInputMode, imageInputField: runtime.imageInputField, resultUrlRewriteRules: runtime.resultUrlRewriteRules },
       input: { mode: job.mode, prompt: job.prompt, inputImageUrl: job.inputImageUrl, ratio: job.ratio, quality: job.quality, size: normalizeImage2Size(job.ratio, job.quality), count: job.count },
@@ -976,7 +986,18 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async completeImageTransfer(
     token: string | undefined,
-    input: { jobId?: string; resultId?: string; objectKey?: string; sizeBytes?: number; error?: string }
+    input: {
+      jobId?: string;
+      resultId?: string;
+      objectKey?: string;
+      sizeBytes?: number;
+      transferHost?: string;
+      transferFallbackUsed?: boolean;
+      transferTtfbMs?: number;
+      transferDownloadMs?: number;
+      transferUploadMs?: number;
+      error?: string;
+    }
   ) {
     if (!this.imageTransfer.matchesToken(token)) throw new UnauthorizedException("invalid image transfer token");
     if (!input.jobId || !input.resultId || !input.objectKey) throw new BadRequestException("invalid image transfer callback");
@@ -986,6 +1007,16 @@ export class GenerateService implements OnApplicationBootstrap {
     if (!result || result.ossKey !== input.objectKey) throw new BadRequestException("image transfer result does not match job");
 
     if (input.error) {
+      await this.prisma.generateResult.updateMany({
+        where: { id: result.id, status: "transferring" },
+        data: {
+          transferHost: String(input.transferHost || "").slice(0, 255),
+          transferFallbackUsed: input.transferFallbackUsed === true,
+          transferTtfbMs: transferDuration(input.transferTtfbMs),
+          transferDownloadMs: transferDuration(input.transferDownloadMs),
+          transferUploadMs: transferDuration(input.transferUploadMs)
+        }
+      });
       await this.deferUrlTransferRetry(job.id, result, input.error);
       return { ok: true };
     }
@@ -996,6 +1027,11 @@ export class GenerateService implements OnApplicationBootstrap {
         status: "succeeded",
         imageUrl: this.uploads.objectUrlForKey(result.ossKey),
         sizeBytes: Math.max(0, Math.floor(input.sizeBytes || 0)),
+        transferHost: String(input.transferHost || "").slice(0, 255),
+        transferFallbackUsed: input.transferFallbackUsed === true,
+        transferTtfbMs: transferDuration(input.transferTtfbMs),
+        transferDownloadMs: transferDuration(input.transferDownloadMs),
+        transferUploadMs: transferDuration(input.transferUploadMs),
         ...resolveGeneratedImageSize(job.ratio, job.quality),
         errorMessage: "",
         transferNextAttemptAt: null
@@ -1009,7 +1045,21 @@ export class GenerateService implements OnApplicationBootstrap {
 
   async completeImageGeneration(
     token: string | undefined,
-    input: { jobId?: string; outputs?: Array<{ objectKey?: string; sizeBytes?: number }>; error?: string; progress?: number; stageText?: string }
+    input: {
+      jobId?: string;
+      outputs?: Array<{
+        objectKey?: string;
+        sizeBytes?: number;
+        transferHost?: string;
+        transferFallbackUsed?: boolean;
+        transferTtfbMs?: number;
+        transferDownloadMs?: number;
+        transferUploadMs?: number;
+      }>;
+      error?: string;
+      progress?: number;
+      stageText?: string;
+    }
   ) {
     if (!this.imageTransfer.matchesToken(token)) throw new UnauthorizedException("invalid image generation token");
     if (!input.jobId) throw new BadRequestException("invalid image generation callback");
@@ -1038,6 +1088,11 @@ export class GenerateService implements OnApplicationBootstrap {
         imageUrl: this.uploads.objectUrlForKey(objectKey),
         ossKey: objectKey,
         sizeBytes: Math.max(0, Math.floor(item.sizeBytes || 0)),
+        transferHost: String(item.transferHost || "").slice(0, 255),
+        transferFallbackUsed: item.transferFallbackUsed === true,
+        transferTtfbMs: transferDuration(item.transferTtfbMs) ?? undefined,
+        transferDownloadMs: transferDuration(item.transferDownloadMs) ?? undefined,
+        transferUploadMs: transferDuration(item.transferUploadMs) ?? undefined,
         ...resolveGeneratedImageSize(job.ratio, job.quality)
       }];
     });
@@ -1157,6 +1212,7 @@ export class GenerateService implements OnApplicationBootstrap {
     }
     try {
       await this.imageTransfer.dispatchInBackground({
+        invocationKey: `${result.id}:${result.transferAttempts + 1}`,
         jobId,
         resultId: result.id,
         sourceUrl: source.url,
@@ -1468,6 +1524,11 @@ export class GenerateService implements OnApplicationBootstrap {
             sizeBytes: result.sizeBytes,
             width: result.width ?? expectedDimensions?.width,
             height: result.height ?? expectedDimensions?.height,
+            transferHost: result.transferHost || "",
+            transferFallbackUsed: result.transferFallbackUsed === true,
+            transferTtfbMs: transferDuration(result.transferTtfbMs),
+            transferDownloadMs: transferDuration(result.transferDownloadMs),
+            transferUploadMs: transferDuration(result.transferUploadMs),
             workId: work.id
           }
         });

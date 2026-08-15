@@ -74,6 +74,11 @@ export class GenerateController {
       resultId: typeof body.resultId === "string" ? body.resultId : undefined,
       objectKey: typeof body.objectKey === "string" ? body.objectKey : undefined,
       sizeBytes: typeof body.sizeBytes === "number" ? body.sizeBytes : undefined,
+      transferHost: typeof body.transferHost === "string" ? body.transferHost : undefined,
+      transferFallbackUsed: typeof body.transferFallbackUsed === "boolean" ? body.transferFallbackUsed : undefined,
+      transferTtfbMs: typeof body.transferTtfbMs === "number" ? body.transferTtfbMs : undefined,
+      transferDownloadMs: typeof body.transferDownloadMs === "number" ? body.transferDownloadMs : undefined,
+      transferUploadMs: typeof body.transferUploadMs === "number" ? body.transferUploadMs : undefined,
       error: typeof body.error === "string" ? body.error : undefined
     });
   }
@@ -85,7 +90,12 @@ export class GenerateController {
       const value = item as Record<string, unknown>;
       return [{
         objectKey: typeof value.objectKey === "string" ? value.objectKey : undefined,
-        sizeBytes: typeof value.sizeBytes === "number" ? value.sizeBytes : undefined
+        sizeBytes: typeof value.sizeBytes === "number" ? value.sizeBytes : undefined,
+        transferHost: typeof value.transferHost === "string" ? value.transferHost : undefined,
+        transferFallbackUsed: typeof value.transferFallbackUsed === "boolean" ? value.transferFallbackUsed : undefined,
+        transferTtfbMs: typeof value.transferTtfbMs === "number" ? value.transferTtfbMs : undefined,
+        transferDownloadMs: typeof value.transferDownloadMs === "number" ? value.transferDownloadMs : undefined,
+        transferUploadMs: typeof value.transferUploadMs === "number" ? value.transferUploadMs : undefined
       }];
     }) : undefined;
     return this.generate.completeImageGeneration(token, {
