@@ -8,12 +8,14 @@ setDefaultResultOrder("ipv4first");
 const MAX_IMAGE_BYTES = 40 * 1024 * 1024;
 const MAX_RESPONSE_BYTES = 60 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 30 * 60 * 1000;
+const DOWNLOAD_HOST_COOLDOWN_MS = 10 * 60 * 1000;
 const ALLOWED_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 const CDN_VARIANTS = [
   { name: "card", process: "image/resize,w_640/quality,Q_95/format,webp" },
   { name: "preview", process: "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp" }
 ];
+const downloadHostHealth = new Map();
 
 function safeEndpoint(value) {
   try {
@@ -243,18 +245,70 @@ async function downloadImageWithRetry(url, trace = {}) {
   throw lastError;
 }
 
-async function downloadImageWithFallback(url, fallbackUrl, trace = {}) {
+function downloadHost(url) {
   try {
-    return await downloadImageWithRetry(url, trace);
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isTransientDownloadFailure(error) {
+  const detail = errorDetails(error);
+  return /UND_ERR_SOCKET|terminated|ECONNRESET|ETIMEDOUT|timeout|fetch failed|other side closed/i.test(
+    `${detail.code} ${detail.cause} ${detail.message}`
+  );
+}
+
+function markDownloadHostFailure(url, error) {
+  const host = downloadHost(url);
+  if (!host || !isTransientDownloadFailure(error)) return;
+  downloadHostHealth.set(host, { until: Date.now() + DOWNLOAD_HOST_COOLDOWN_MS });
+}
+
+function markDownloadHostSuccess(url) {
+  const host = downloadHost(url);
+  if (host) downloadHostHealth.delete(host);
+}
+
+function isDownloadHostCooling(url) {
+  const host = downloadHost(url);
+  const state = host ? downloadHostHealth.get(host) : undefined;
+  if (!state || state.until <= Date.now()) {
+    if (host) downloadHostHealth.delete(host);
+    return false;
+  }
+  return true;
+}
+
+async function downloadImageWithFallback(url, fallbackUrl, trace = {}) {
+  const primary = fallbackUrl && isDownloadHostCooling(url) && !isDownloadHostCooling(fallbackUrl)
+    ? fallbackUrl
+    : url;
+  const secondary = primary === url ? fallbackUrl : url;
+  if (primary !== url) {
+    logEvent("info", "image.download.cooldown-route", {
+      ...trace,
+      cooledEndpoint: safeEndpoint(url),
+      selectedEndpoint: safeEndpoint(primary)
+    });
+  }
+  try {
+    const image = await downloadImage(primary, { ...trace, fallback: primary !== url });
+    markDownloadHostSuccess(primary);
+    return image;
   } catch (error) {
-    if (!fallbackUrl || fallbackUrl === url) throw error;
+    markDownloadHostFailure(primary, error);
+    if (!secondary || secondary === primary) return downloadImageWithRetry(primary, trace);
     logEvent("warn", "image.download.fallback", {
       ...trace,
-      failedEndpoint: safeEndpoint(url),
-      fallbackEndpoint: safeEndpoint(fallbackUrl),
+      failedEndpoint: safeEndpoint(primary),
+      fallbackEndpoint: safeEndpoint(secondary),
       error: errorDetails(error)
     });
-    return downloadImageWithRetry(fallbackUrl, { ...trace, fallback: true });
+    const image = await downloadImageWithRetry(secondary, { ...trace, fallback: true });
+    markDownloadHostSuccess(secondary);
+    return image;
   }
 }
 

@@ -11,7 +11,7 @@ Each API provider has independent result modes for text-to-image and image-to-im
 
 - `url`: the business API calls the provider, immediately exposes the temporary result URL, and asks FC to preserve the original bytes in OSS in the background. The business server never downloads the image.
 - `base64`: FC calls the provider and uploads decoded bytes directly to OSS. The business API only sends configuration and receives progress, errors, and OSS object keys.
-- `auto`: asynchronous providers and `response_format=url` use URL mode; synchronous OpenAI-compatible image providers default to Base64 mode.
+- `auto`: the function inspects the actual response from the same request and handles either URL or Base64 output without a probe request. For URL downloads with a configured fallback host, the first transient socket failure immediately switches hosts; a failed host is cooled down for ten minutes on warm instances.
 
 The selected mode and provider configuration are snapshotted on every generation job, so later administrator edits do not change an in-flight task.
 
@@ -65,6 +65,7 @@ The handler writes one-line JSON events to the FC invocation log. Filter by `job
 - `oss.upload.start` and `oss.upload.complete`: OSS payload size and upload duration.
 - `callback.complete` and `callback.failed`: delivery of the final result to the business API.
 - `cdn.prewarm.start`, `cdn.prewarm.complete`, and `cdn.prewarm.failed`: post-callback warming of the 640px card and 2048px preview variants. Warming never changes the completed task result.
+- `image.download.cooldown-route`: a previously unstable source host was bypassed in favor of its fallback host.
 - `invocation.failed`: final phase-aware error, including available socket byte counters and `UND_ERR_*` codes.
 
 Use Alibaba Cloud Function Compute logs and search for the generation job ID shown by the business API log. A successful task ends with `generation.complete`; a failed task ends with `invocation.failed`.
