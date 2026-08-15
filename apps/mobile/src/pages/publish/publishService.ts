@@ -10,6 +10,7 @@ interface BackendDraftWork {
   ratio: string;
   width?: number | null;
   height?: number | null;
+  isAnonymous?: boolean;
 }
 
 interface BackendWorkDetail {
@@ -25,6 +26,7 @@ interface BackendWorkDetail {
   tags?: string[];
   status?: string;
   isPublic?: boolean;
+  isAnonymous?: boolean;
 }
 
 interface PageResult<T> {
@@ -39,6 +41,7 @@ export interface PublishWorkPayload {
   title: string;
   description: string;
   tags: string[];
+  isAnonymous: boolean;
   draft: DraftWork;
 }
 
@@ -50,6 +53,7 @@ function toDraftWork(item: BackendDraftWork): DraftWork {
     title: item.title || "未命名作品",
     ratio: normalizeAspectRatio(item.ratio),
     resolution: formatResolution(item.width, item.height, item.ratio),
+    isAnonymous: item.isAnonymous ?? false,
     source: "backend"
   };
 }
@@ -74,7 +78,8 @@ export async function publishWork(payload: PublishWorkPayload) {
       description: payload.description,
       style: payload.tags[0] || detail.style || "",
       tags: payload.tags,
-      isPublic: true
+      isPublic: true,
+      isAnonymous: payload.isAnonymous
     });
   }
 
@@ -91,6 +96,7 @@ export async function publishWork(payload: PublishWorkPayload) {
     modelId: detail.modelId || "",
     style,
     tags: payload.tags,
-    isPublic: true
+    isPublic: true,
+    isAnonymous: payload.isAnonymous
   });
 }

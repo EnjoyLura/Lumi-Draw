@@ -12,6 +12,7 @@ export function updateEditableWork(
     description: string;
     style?: string;
     tags?: string[];
+    isAnonymous?: boolean;
   }
 ) {
   return api.patch<unknown>(`/works/${id}`, payload);

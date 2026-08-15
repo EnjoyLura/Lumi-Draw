@@ -24,6 +24,7 @@ interface BackendWorkDetail {
   remakes: number;
   status: string;
   isPublic: boolean;
+  isAnonymous?: boolean;
   createdAt: string;
   author: BackendAuthor;
 }
@@ -81,6 +82,7 @@ export async function fetchWorkDetail(id: number): Promise<BackendWorkDetailView
       editTags,
       favorites: item.favorites,
       remakes: item.remakes,
+      isAnonymous: item.isAnonymous ?? false,
       time: formatRelativeTime(item.createdAt)
     },
     user: toDetailAuthor(item.author)

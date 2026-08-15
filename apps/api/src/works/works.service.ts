@@ -21,7 +21,20 @@ type PlazaFilters = {
 
 const PUBLIC_WHERE: Prisma.WorkWhereInput = { status: "published", isPublic: true };
 
-function author(user: User) {
+function author(user: User, anonymous = false) {
+  if (anonymous) {
+    return {
+      id: 0,
+      nickname: "匿名用户",
+      avatarText: "匿",
+      avatarColor: "#A7B0C0",
+      avatarUrl: undefined,
+      worksCount: 0,
+      likesCount: 0,
+      followers: 0,
+      following: 0
+    };
+  }
   return {
     id: user.id,
     nickname: user.nickname,
@@ -35,7 +48,7 @@ function author(user: User) {
   };
 }
 
-function toCard(work: WorkWithAuthor) {
+function toCard(work: WorkWithAuthor, currentUserId?: number) {
   return {
     id: work.id,
     imageUrl: work.imageUrl,
@@ -52,8 +65,9 @@ function toCard(work: WorkWithAuthor) {
     tags: work.tags,
     status: work.status,
     isPublic: work.isPublic,
+    isAnonymous: work.isAnonymous,
     createdAt: work.createdAt.toISOString(),
-    author: author(work.user)
+    author: author(work.user, work.isAnonymous && work.userId !== currentUserId)
   };
 }
 
@@ -108,9 +122,9 @@ export class WorksService {
     private readonly safety: WechatContentSafetyService
   ) {}
 
-  private toCard(work: WorkWithAuthor, modelName?: string) {
+  private toCard(work: WorkWithAuthor, modelName?: string, currentUserId?: number) {
     return {
-      ...toCard(work),
+      ...toCard(work, currentUserId),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
       thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public"),
       modelName: modelName ?? work.modelId
@@ -133,7 +147,7 @@ export class WorksService {
       ? await this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
       : [];
     const modelNames = new Map(models.map((model) => [model.id, model.name]));
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toCard(work, modelNames.get(work.modelId))));
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toCard(work, modelNames.get(work.modelId), currentUserId)));
     return buildPage(items, total, page, pageSize);
   }
 
@@ -218,8 +232,9 @@ export class WorksService {
       favorites: work.favorites,
       remakes: work.remakes,
       isPublic: work.isPublic,
+      isAnonymous: work.isAnonymous,
       createdAt: work.createdAt.toISOString(),
-      author: author(work.user)
+      author: author(work.user, work.isAnonymous && work.userId !== currentUserId)
     };
   }
 
@@ -259,6 +274,7 @@ export class WorksService {
         textModerationStatus,
         imageModerationStatus: needsImageReview ? "unchecked" : "skipped",
         isPublic,
+        isAnonymous: dto.isAnonymous ?? false,
         status
       }
     });
@@ -304,6 +320,7 @@ export class WorksService {
         data.status = "draft";
       }
     }
+    if (dto.isAnonymous !== undefined) data.isAnonymous = dto.isAnonymous;
     const updated = await this.prisma.work.update({ where: { id }, data });
     const needsImageReview = targetIsPublic
       && reviewSettings.imageEnabled

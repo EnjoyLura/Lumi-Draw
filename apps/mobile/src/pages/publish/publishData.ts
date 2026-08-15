@@ -45,6 +45,7 @@ export interface DraftWork {
   prompt?: string;
   ratio: string;
   resolution: string;
+  isAnonymous?: boolean;
   source?: "mock" | "backend" | "uploaded";
 }
 

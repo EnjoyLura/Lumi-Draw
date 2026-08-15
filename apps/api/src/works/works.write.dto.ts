@@ -47,6 +47,10 @@ export class CreateWorkDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAnonymous?: boolean;
 }
 
 export class UpdateWorkDto {
@@ -63,6 +67,10 @@ export class UpdateWorkDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAnonymous?: boolean;
 
   @IsOptional()
   @IsString()

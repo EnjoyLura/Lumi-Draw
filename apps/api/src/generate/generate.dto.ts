@@ -67,6 +67,10 @@ export class PublishGenerateResultDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isAnonymous?: boolean;
 }
 
 export class ReversePromptDto {

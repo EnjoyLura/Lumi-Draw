@@ -15,6 +15,7 @@ export interface DetailWork extends HomeWork {
   editTags?: string[];
   favorites: number;
   remakes: number;
+  isAnonymous?: boolean;
   time: string;
 }
 

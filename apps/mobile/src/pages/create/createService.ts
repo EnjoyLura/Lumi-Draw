@@ -149,6 +149,7 @@ export interface PublishGenerateResultPayload {
   title: string;
   description?: string;
   isPublic?: boolean;
+  isAnonymous?: boolean;
 }
 
 export interface PublishGenerateResultResponse {

@@ -614,9 +614,10 @@ export class GenerateService implements OnApplicationBootstrap {
           modelId: result.job.modelId,
           style: result.job.style,
           textModerationStatus,
-          imageModerationStatus: needsImageReview ? "unchecked" : "skipped",
-          isPublic,
-          status
+            imageModerationStatus: needsImageReview ? "unchecked" : "skipped",
+            isPublic,
+            isAnonymous: dto.isAnonymous ?? false,
+            status
         }
       });
       const linked = await tx.generateResult.updateMany({ where: { id: result.id, workId: null }, data: { workId: work.id } });
@@ -641,8 +642,9 @@ export class GenerateService implements OnApplicationBootstrap {
     return {
       workId: published.id,
       status: published.status,
-      isPublic: published.isPublic,
-      work: {
+        isPublic: published.isPublic,
+        isAnonymous: published.isAnonymous,
+        work: {
         id: published.id,
         imageUrl: this.uploads.readUrl(
           published.imageUrl,

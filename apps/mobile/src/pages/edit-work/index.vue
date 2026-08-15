@@ -27,6 +27,7 @@ const info = ref("");
 const title = ref("");
 const desc = ref("");
 const selectedTags = ref<string[]>([]);
+const isAnonymous = ref(false);
 const isLoading = ref(false);
 const isSaving = ref(false);
 const showLoginSheet = ref(false);
@@ -98,6 +99,7 @@ function clearWork() {
   title.value = "";
   desc.value = "";
   selectedTags.value = [];
+  isAnonymous.value = false;
 }
 
 function applyWork(work: {
@@ -109,6 +111,7 @@ function applyWork(work: {
   title?: string;
   description?: string;
   tags: string[];
+  isAnonymous?: boolean;
   editTags?: string[];
 }) {
   image.value = work.image;
@@ -117,6 +120,7 @@ function applyWork(work: {
   title.value = work.title || "";
   desc.value = work.description || "";
   selectedTags.value = (work.editTags ?? work.tags).filter((tag) => workTags.some((item) => item.name === tag));
+  isAnonymous.value = Boolean(work.isAnonymous);
 }
 
 async function loadWork() {
@@ -224,7 +228,8 @@ async function submit() {
       title: title.value.trim(),
       description: desc.value.trim(),
       style: selectedTags.value[0] || "",
-      tags: selectedTags.value
+      tags: selectedTags.value,
+      isAnonymous: isAnonymous.value
     });
     patchWorkDetailSnapshot(workId.value, {
       title: title.value.trim(),
@@ -311,6 +316,16 @@ async function submit() {
             >
               {{ tag.name }}
             </view>
+          </view>
+        </view>
+
+        <view class="anonymous-row" @click="isAnonymous = !isAnonymous">
+          <view class="anonymous-copy">
+            <view class="anonymous-title">匿名发布</view>
+            <view class="anonymous-sub">公开作品时不展示你的昵称和头像</view>
+          </view>
+          <view class="anonymous-switch" :class="{ active: isAnonymous }">
+            <view class="anonymous-knob" />
           </view>
         </view>
 
@@ -507,6 +522,62 @@ async function submit() {
   background: var(--bg-elevated);
   border: 1.5px solid transparent;
   border-radius: 999px;
+}
+
+.anonymous-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 2px 0 20px;
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+.anonymous-copy {
+  min-width: 0;
+}
+
+.anonymous-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.anonymous-sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.anonymous-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  transition: background 160ms ease;
+}
+
+.anonymous-switch.active {
+  background: var(--accent);
+}
+
+.anonymous-knob {
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(20, 32, 56, 0.2);
+  transition: transform 160ms ease;
+}
+
+.anonymous-switch.active .anonymous-knob {
+  transform: translateX(18px);
 }
 
 .submit-btn {

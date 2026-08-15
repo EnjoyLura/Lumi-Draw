@@ -12,7 +12,20 @@ type InteractionType = "like" | "favorite";
 
 const PUBLIC_WORK_WHERE: Prisma.WorkWhereInput = { status: "published", isPublic: true };
 
-function toAuthor(user: User) {
+function toAuthor(user: User, anonymous = false) {
+  if (anonymous) {
+    return {
+      id: 0,
+      nickname: "匿名用户",
+      avatarText: "匿",
+      avatarColor: "#A7B0C0",
+      avatarUrl: undefined,
+      worksCount: 0,
+      likesCount: 0,
+      followers: 0,
+      following: 0
+    };
+  }
   return {
     id: user.id,
     nickname: user.nickname,
@@ -26,7 +39,7 @@ function toAuthor(user: User) {
   };
 }
 
-function toWorkCard(work: WorkWithAuthor) {
+function toWorkCard(work: WorkWithAuthor, currentUserId?: number) {
   return {
     id: work.id,
     imageUrl: work.imageUrl,
@@ -44,8 +57,9 @@ function toWorkCard(work: WorkWithAuthor) {
     tags: work.tags,
     status: work.status,
     isPublic: work.isPublic,
+    isAnonymous: work.isAnonymous,
     createdAt: work.createdAt.toISOString(),
-    author: toAuthor(work.user)
+    author: toAuthor(work.user, work.isAnonymous && work.userId !== currentUserId)
   };
 }
 
@@ -95,9 +109,9 @@ export class SocialService {
     private readonly safety: WechatContentSafetyService
   ) {}
 
-  private toWorkCard(work: WorkWithAuthor) {
+  private toWorkCard(work: WorkWithAuthor, currentUserId?: number) {
     return {
-      ...toWorkCard(work),
+      ...toWorkCard(work, currentUserId),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
       thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
     };
@@ -282,7 +296,7 @@ export class SocialService {
       this.prisma.work.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toWorkCard(work)));
+    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toWorkCard(work, currentUserId)));
     return buildPage(items, total, page, pageSize);
   }
 
@@ -374,7 +388,7 @@ export class SocialService {
     const cards = views
       .map((view) => {
         const work = byId.get(view.workId);
-        return work ? { ...this.toWorkCard(work), viewedAt: view.viewedAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work, userId), viewedAt: view.viewedAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);
@@ -399,7 +413,7 @@ export class SocialService {
     const cards = favorites
       .map((favorite) => {
         const work = byId.get(favorite.workId);
-        return work ? { ...this.toWorkCard(work), favoritedAt: favorite.createdAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work, userId), favoritedAt: favorite.createdAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);

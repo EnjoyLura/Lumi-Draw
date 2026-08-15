@@ -48,6 +48,7 @@ export class ModerationService {
       textModerationStatus: w.textModerationStatus,
       imageModerationStatus: w.imageModerationStatus,
       moderationReason: w.moderationReason,
+      isAnonymous: w.isAnonymous,
       authorName: w.user?.nickname ?? `用户${w.userId}`,
       createdAt: w.createdAt.toISOString()
     }));

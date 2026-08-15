@@ -490,6 +490,7 @@ model Work {
   moderationReason       String  @default("")
   status      String   @default("published") // draft | pending | published | rejected | offline
   isPublic    Boolean  @default(true)
+  isAnonymous Boolean  @default(false)
   featured    Boolean  @default(false)
   recommend   Boolean  @default(false)
   likes       Int      @default(0)

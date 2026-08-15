@@ -1,0 +1,2 @@
+ALTER TABLE "works"
+  ADD COLUMN "isAnonymous" BOOLEAN NOT NULL DEFAULT false;

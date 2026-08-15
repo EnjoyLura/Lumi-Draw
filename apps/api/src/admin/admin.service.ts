@@ -44,6 +44,7 @@ function workRow(work: Work & { user?: User | null }) {
     featured: work.featured,
     recommend: work.recommend,
     isPublic: work.isPublic,
+    isAnonymous: work.isAnonymous,
     likes: work.likes,
     favorites: work.favorites,
     remakes: work.remakes,
