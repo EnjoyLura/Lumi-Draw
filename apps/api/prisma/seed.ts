@@ -148,7 +148,7 @@ const settings = [
   { key: "manualReviewEnabled", value: "true" },
   { key: "creditsConfig", value: JSON.stringify({ registerGift: 50, publishReward: 2, favoriteReward: 0, inviteReward: 10 }) },
   { key: "checkinConfig", value: JSON.stringify({ base: 2, tiers: [2, 2, 2, 3, 3, 3, 5] }) },
-  { key: "inviteConfig", value: JSON.stringify({ enabled: true, inviterReward: 10, inviteeReward: 0, cap: 10 }) }
+  { key: "inviteConfig", value: JSON.stringify({ enabled: true, inviterReward: 10, inviteeReward: 10, cap: 10 }) }
 ];
 
 const users = [

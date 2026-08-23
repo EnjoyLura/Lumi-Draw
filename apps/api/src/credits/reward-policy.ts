@@ -15,7 +15,7 @@ export const DEFAULT_CHECKIN_CONFIG = {
 export const DEFAULT_INVITE_CONFIG = {
   enabled: true,
   inviterReward: 10,
-  inviteeReward: 0,
+  inviteeReward: 10,
   cap: 10
 };
 

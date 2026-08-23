@@ -164,7 +164,7 @@ onShareAppMessage(() => ({
             <view class="hero-icon"><LumiIcon name="gift" :size="22" /></view>
           </view>
           <view class="hero-title">与好友一起开启灵感</view>
-          <view class="hero-desc">好友通过你的邀请链接注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
+          <view class="hero-desc">好友通过你的邀请链接注册，双方获得 10 积分</view>
         </view>
 
         <view class="share-actions">
@@ -200,12 +200,6 @@ onShareAppMessage(() => ({
           </view>
         </view>
 
-        <view class="rules-card">
-          <view class="rules-title">活动规则</view>
-          <view class="rule-line">1. 好友通过你的邀请链接首次注册，双方获得积分奖励</view>
-          <view class="rule-line">2. 邀请奖励积分实时到账</view>
-          <view class="rule-line">3. 禁止刷邀请，违规将扣除积分并限制账号</view>
-        </view>
       </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
@@ -424,22 +418,6 @@ onShareAppMessage(() => ({
   color: var(--mint);
   background: rgba(111, 212, 176, 0.14);
   border-radius: 999px;
-}
-
-.rules-card {
-  padding: 14px;
-  margin-top: 16px;
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--fg-secondary);
-  background: var(--accent-soft);
-  border-radius: 12px;
-}
-
-.rules-title {
-  margin-bottom: 6px;
-  font-weight: 700;
-  color: var(--accent-deep);
 }
 
 /* Lumi custom page header layout */
