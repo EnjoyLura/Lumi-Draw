@@ -21,8 +21,8 @@ watch(
   }
 );
 
-function handleAgreementChange(event: { detail: { value: string[] } }) {
-  agreed.value = event.detail.value.includes("accepted");
+function toggleAgreement() {
+  agreed.value = !agreed.value;
 }
 
 function openAgreement(type: "user" | "privacy") {
@@ -51,15 +51,17 @@ function submitLogin() {
       <LumiIcon v-else name="log-in" :size="18" />
       <text>{{ isLoggingIn ? "登录中..." : "微信一键登录" }}</text>
     </button>
-    <checkbox-group class="login-agree" @change="handleAgreementChange">
-      <label class="agree-label">
-        <checkbox class="agree-checkbox" value="accepted" :checked="agreed" color="var(--accent)" />
+    <view class="login-agree">
+      <view class="agree-label" @click="toggleAgreement">
+        <view class="agree-checkbox" :class="{ checked: agreed }">
+          <text v-if="agreed" class="agree-checkmark">✓</text>
+        </view>
         <text>我已阅读并同意</text>
-      </label>
+      </view>
       <text class="agree-link" @click.stop="openAgreement('user')">用户协议</text>
       <text>和</text>
       <text class="agree-link" @click.stop="openAgreement('privacy')">隐私政策</text>
-    </checkbox-group>
+    </view>
   </view>
 </template>
 
@@ -145,6 +147,10 @@ function submitLogin() {
   background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
 }
 
+.login-primary::after {
+  border: 0;
+}
+
 .login-agree {
   display: flex;
   align-items: center;
@@ -160,8 +166,33 @@ function submitLogin() {
 }
 
 .agree-checkbox {
-  margin-right: 2px;
-  transform: scale(0.72);
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-right: 5px;
+  box-sizing: border-box;
+  color: #fff;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 3px;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.agree-checkbox.checked {
+  background: #5b9fe8;
+  border-color: #5b9fe8;
+  box-shadow: 0 2px 6px rgba(91, 159, 232, 0.24);
+}
+
+.agree-checkmark {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
 }
 
 .agree-link {

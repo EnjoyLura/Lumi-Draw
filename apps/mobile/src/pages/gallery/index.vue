@@ -1632,7 +1632,7 @@ function openWork(work: HomeWork) {
   margin-bottom: 18px;
   font-size: 38px;
   color: #fff;
-  background: var(--gradient-dream);
+  background: linear-gradient(135deg, var(--accent), #7bc4f0);
   border-radius: 24px;
   box-shadow: 0 4px 16px var(--accent-glow);
 }
