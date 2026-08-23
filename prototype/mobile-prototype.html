@@ -557,7 +557,7 @@ textarea.input{resize:none;line-height:1.6;}
     </div>
     <div style="flex:1;min-width:0;">
       <div style="font-size:18px;font-weight:700;color:var(--fg-primary);">云端造梦师</div>
-      <div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: 露米_3ncur</div>
+      <div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: LUMI_KRPD</div>
       <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
         <span class="tag" style="background:var(--rose-soft);color:var(--rose);padding:2px 8px;font-size:12px;">
           <i class="ri-women-line" style="font-size:12px;"></i>
@@ -641,7 +641,7 @@ textarea.input{resize:none;line-height:1.6;}
     <div style="margin-bottom:28px;">
       <div style="font-size:13px;font-weight:600;color:var(--fg-secondary);margin-bottom:6px;">账号ID</div>
       <div style="display:flex;align-items:center;gap:6px;">
-        <input class="input" type="text" value="露米_3ncur" disabled style="flex:1;opacity:0.6;cursor:not-allowed;"/>
+        <input class="input" type="text" value="LUMI_KRPD" disabled style="flex:1;opacity:0.6;cursor:not-allowed;"/>
         <i class="ri-lock-line" style="font-size:16px;color:var(--fg-muted);flex-shrink:0;"></i>
       </div>
       <div style="font-size:11px;color:var(--fg-muted);margin-top:4px;">账号ID不可修改</div>
@@ -709,7 +709,7 @@ textarea.input{resize:none;line-height:1.6;}
         <div class="avatar" style="width:56px;height:56px;font-size:22px;box-shadow:0 4px 12px var(--accent-glow);" onclick="if(!isLoggedIn)showLoginSheet()">梦</div>
         <div style="flex:1;cursor:pointer;" id="mineUserInfo" onclick="if(!isLoggedIn)showLoginSheet()">
           <div style="font-size:17px;font-weight:700;color:var(--fg-primary);">云端造梦师</div>
-          <div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: 露米_3ncur</div>
+          <div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: LUMI_KRPD</div>
         </div>
         <div style="text-align:right;cursor:pointer;" id="mineCredits" onclick="if(isLoggedIn)navigateTo('recharge');else showLoginSheet()">
           <div style="font-size:14px;color:var(--fg-muted);">我的积分</div>
@@ -1709,11 +1709,11 @@ const GAMEPLAYS=[
 ];
 const CATEGORIES=['全部','二次元','风景','建筑','表情包','写实','国风','人像','动物','抽象'];
 const USERS=[
-  {id:1,publicId:'露米_3ncur',name:'云端造梦师',avatar:'梦',color:'var(--accent)',bio:'用AI描绘心中的梦境',works:48,likes:1200,followers:326,following:58,gender:'female'},
-  {id:2,publicId:'露米_k7m2p',name:'星辰大海',avatar:'星',color:'var(--mint)',bio:'探索AI的无限可能',works:36,likes:890,followers:215,following:42,gender:'male'},
-  {id:3,publicId:'露米_w9f4a',name:'月光如水',avatar:'月',color:'var(--peach)',bio:'月光下的AI画家',works:52,likes:2100,followers:580,following:73,gender:'female'},
-  {id:4,publicId:'露米_6qj8x',name:'风之绘师',avatar:'风',color:'var(--lavender)',bio:'风中捕捉灵感',works:29,likes:670,followers:180,following:35,gender:'male'},
-  {id:5,publicId:'露米_t2v5d',name:'光影魔术',avatar:'光',color:'var(--lemon)',bio:'玩转光与影的魔法',works:41,likes:1500,followers:410,following:67,gender:'male'}
+  {id:1,publicId:'LUMI_KRPD',name:'云端造梦师',avatar:'梦',color:'var(--accent)',bio:'用AI描绘心中的梦境',works:48,likes:1200,followers:326,following:58,gender:'female'},
+  {id:2,publicId:'LUMI_MXQF',name:'星辰大海',avatar:'星',color:'var(--mint)',bio:'探索AI的无限可能',works:36,likes:890,followers:215,following:42,gender:'male'},
+  {id:3,publicId:'LUMI_TBVA',name:'月光如水',avatar:'月',color:'var(--peach)',bio:'月光下的AI画家',works:52,likes:2100,followers:580,following:73,gender:'female'},
+  {id:4,publicId:'LUMI_HJWX',name:'风之绘师',avatar:'风',color:'var(--lavender)',bio:'风中捕捉灵感',works:29,likes:670,followers:180,following:35,gender:'male'},
+  {id:5,publicId:'LUMI_NGSD',name:'光影魔术',avatar:'光',color:'var(--lemon)',bio:'玩转光与影的魔法',works:41,likes:1500,followers:410,following:67,gender:'male'}
 ];
 const CURRENT_USER_ID=1;
 const WORKS=[
@@ -1925,7 +1925,7 @@ function updateLoginUI(){
   var mineCredits=$('mineCredits');
   var logoutBtn=$('logoutBtn');
   if(mineInfo){
-    if(isLoggedIn){mineInfo.innerHTML='<div style="font-size:17px;font-weight:700;color:var(--fg-primary);">云端造梦师</div><div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: 露米_3ncur</div>'}
+    if(isLoggedIn){mineInfo.innerHTML='<div style="font-size:17px;font-weight:700;color:var(--fg-primary);">云端造梦师</div><div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: LUMI_KRPD</div>'}
     else{mineInfo.innerHTML='<div style="font-size:17px;font-weight:700;color:var(--fg-primary);">点击登录</div><div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">登录解锁更多功能</div>'}
   }
   if(mineCredits){
@@ -2542,7 +2542,7 @@ html+='<div style="padding-bottom:8px;">';
 html+='<div style="display:flex;align-items:flex-start;gap:14px;padding:16px 16px 0;">';
 html+='<div style="flex-shrink:0;"><div class="avatar" style="width:72px;height:72px;font-size:28px;background:'+u.color+'">'+u.avatar+'</div></div>';
 html+='<div style="flex:1;min-width:0;"><div style="font-size:18px;font-weight:700;color:var(--fg-primary);">'+u.name+'</div>';
-html+='<div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: '+(u.publicId||'露米_3ncur')+'</div>';
+html+='<div style="font-size:13px;color:var(--fg-muted);margin-top:3px;">ID: '+(u.publicId||'LUMI_KRPD')+'</div>';
 var genderIcon=u.gender==='female'?'ri-women-line':'ri-men-line';
 var genderBg=u.gender==='female'?'var(--rose-soft)':'var(--accent-soft)';
 var genderColor=u.gender==='female'?'var(--rose)':'var(--accent)';

@@ -71,7 +71,7 @@ function resetMockProfile() {
   nickname.value = "云端造梦师";
   gender.value = "male";
   signature.value = "用 AI 描绘心中的梦境，每一笔都是想象力的延伸";
-  accountId.value = "露米_3ncur";
+  accountId.value = "LUMI_KRPD";
   avatarText.value = "梦";
   avatarColor.value = "var(--accent)";
   avatarUrl.value = "";

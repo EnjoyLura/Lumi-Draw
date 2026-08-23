@@ -2,6 +2,7 @@ import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import type { User } from "@prisma/client";
+import { randomBytes } from "node:crypto";
 import { generateOpaqueToken, sha256Hex } from "../common/crypto/password";
 import { readCreditsConfig } from "../credits/reward-policy";
 import { PrismaService } from "../prisma/prisma.service";
@@ -9,6 +10,16 @@ import { encryptWechatSessionKey } from "./session-secret";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
 
 const AVATAR_COLORS = ["#5B9FE8", "#6FD4B0", "#FFB59A", "#B8A5E3", "#FFE08A", "#FFA8B8"];
+const DEFAULT_NICKNAME_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+function generateDefaultNickname() {
+  const bytes = randomBytes(5);
+  let suffix = "";
+  for (let index = 0; index < bytes.length; index += 1) {
+    suffix += DEFAULT_NICKNAME_ALPHABET[bytes[index] % DEFAULT_NICKNAME_ALPHABET.length];
+  }
+  return `露米_${suffix}`;
+}
 
 function publicUser(user: User) {
   return {
@@ -110,7 +121,7 @@ export class AuthService {
         const created = await tx.user.create({
           data: {
             openId,
-            nickname: `体验用户${seq + 1}`,
+            nickname: generateDefaultNickname(),
             avatarText: "米",
             avatarColor: AVATAR_COLORS[seq % AVATAR_COLORS.length],
             credits: this.wallet.enabled ? 0 : registerGift,

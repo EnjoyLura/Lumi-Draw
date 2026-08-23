@@ -1,4 +1,5 @@
-const PUBLIC_ID_PREFIX = "露米_";
+const PUBLIC_ID_PREFIX = "LUMI_";
+const PUBLIC_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 function hashInternalId(value: string) {
   let hash = 2166136261;
@@ -12,6 +13,11 @@ function hashInternalId(value: string) {
 export function formatPublicUserId(publicId: string | null | undefined, internalId: number | string) {
   const normalized = publicId?.trim();
   if (normalized) return normalized;
-  const fallback = hashInternalId(String(internalId || "guest")).toString(36).padStart(5, "0").slice(-5);
+  let hash = hashInternalId(String(internalId || "guest"));
+  let fallback = "";
+  for (let index = 0; index < 4; index += 1) {
+    fallback += PUBLIC_ID_ALPHABET[hash % PUBLIC_ID_ALPHABET.length];
+    hash = Math.floor(hash / PUBLIC_ID_ALPHABET.length);
+  }
   return `${PUBLIC_ID_PREFIX}${fallback}`;
 }
