@@ -82,6 +82,16 @@
       }
     },
     {
+      "path": "pages/recharge/index",
+      "style": {
+        "navigationBarTitleText": "积分充值",
+        "navigationStyle": "custom",
+        "backgroundColor": "@pageBackground",
+        "backgroundColorTop": "@pageBackground",
+        "backgroundColorBottom": "@pageBackground"
+      }
+    },
+    {
       "path": "pages/work-detail/index",
       "style": {
         "navigationBarTitleText": "作品详情",
