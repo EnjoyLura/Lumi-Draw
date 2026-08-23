@@ -162,18 +162,18 @@ onShareAppMessage(() => ({
         <view class="hero-card">
           <view class="hero-top">
             <view class="hero-icon"><LumiIcon name="gift" :size="22" /></view>
-            <view class="hero-tag"><LumiIcon name="sparkles-filled" :size="12" /><text>邀请有礼</text></view>
           </view>
           <view class="hero-title">与好友一起开启灵感</view>
           <view class="hero-desc">好友通过你的邀请链接注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
         </view>
 
-        <view class="share-card">
-          <view class="share-title">邀请方式</view>
-          <view class="share-actions">
-            <button class="btn gradient" open-type="share" :disabled="isLoading || !inviteCode">分享给好友</button>
-            <button class="btn secondary" :disabled="isLoading || !inviteCode" @click="copyInviteLink">复制链接</button>
-          </view>
+        <view class="share-actions">
+          <button class="btn gradient" open-type="share" :disabled="isLoading || !inviteCode">
+            <LumiIcon name="share-2" :size="18" /><text>分享给好友</text>
+          </button>
+          <button class="btn secondary" :disabled="isLoading || !inviteCode" @click="copyInviteLink">
+            <LumiIcon name="copy" :size="18" /><text>复制链接</text>
+          </button>
         </view>
 
         <view class="summary-row">
@@ -232,7 +232,6 @@ onShareAppMessage(() => ({
 }
 
 .hero-card,
-.share-card,
 .invite-list,
 .summary-card {
   background: var(--bg-card);
@@ -256,7 +255,6 @@ onShareAppMessage(() => ({
 .hero-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   margin-bottom: 18px;
 }
 
@@ -270,20 +268,6 @@ onShareAppMessage(() => ({
   background: rgba(91, 159, 232, 0.12);
   border: 1px solid rgba(91, 159, 232, 0.12);
   border-radius: 14px;
-}
-
-.hero-tag {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--accent);
-  background: rgba(91, 159, 232, 0.1);
-  border: 1px solid rgba(91, 159, 232, 0.1);
-  border-radius: 999px;
 }
 
 .hero-title {
@@ -315,27 +299,20 @@ onShareAppMessage(() => ({
   border-color: rgba(91, 159, 232, 0.18);
 }
 
-.share-card {
-  padding: 20px;
-  margin-bottom: 12px;
-}
-
-.share-title {
-  margin-bottom: 14px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--fg-primary);
-}
-
 .share-actions,
 .summary-row {
   display: flex;
   gap: 10px;
 }
 
+.share-actions {
+  margin-bottom: 12px;
+}
+
 .btn {
   display: inline-flex;
   flex: 1;
+  gap: 7px;
   align-items: center;
   justify-content: center;
   height: 42px;

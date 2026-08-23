@@ -964,19 +964,15 @@ textarea.input{resize:none;line-height:1.6;}
 <div class="page" id="page-invite" data-title="邀请好友">
   <div style="padding:16px;">
     <div class="card" style="padding:18px;margin-bottom:16px;overflow:hidden;border-radius:18px;background:radial-gradient(circle at 5% 5%,rgba(111,212,176,.2),transparent 34%),radial-gradient(circle at 100% 10%,rgba(184,168,224,.18),transparent 34%),linear-gradient(145deg,rgba(247,252,255,.98),rgba(255,255,255,.94));box-shadow:0 12px 32px rgba(63,99,139,.07);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;margin-bottom:18px;">
         <div style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--accent);background:rgba(91,159,232,.12);border:1px solid rgba(91,159,232,.12);border-radius:14px;"><i class="ri-gift-line" style="font-size:22px;"></i></div>
-        <div style="display:inline-flex;gap:4px;align-items:center;min-height:28px;padding:0 10px;font-size:12px;font-weight:700;color:var(--accent);background:rgba(91,159,232,.1);border:1px solid rgba(91,159,232,.1);border-radius:999px;"><i class="ri-sparkling-fill"></i><span>邀请有礼</span></div>
       </div>
       <div style="margin-bottom:7px;font-size:21px;font-weight:700;color:var(--fg-primary);">与好友一起开启灵感</div>
       <div style="font-size:13px;line-height:1.65;color:var(--fg-muted);">好友通过你的邀请链接注册，你得 50 积分，好友也可获得新人奖励</div>
     </div>
-    <div class="card" style="padding:20px;text-align:center;margin-bottom:16px;">
-      <div style="font-size:15px;font-weight:700;text-align:left;margin-bottom:14px;">邀请方式</div>
-      <div style="display:flex;gap:10px;">
-        <button class="btn btn-gradient" style="flex:1;" onclick="showToast('分享给微信好友')">分享给好友</button>
-        <button class="btn btn-secondary" style="flex:1;" onclick="showToast('邀请链接已复制')">复制链接</button>
-      </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;">
+      <button class="btn btn-gradient" style="display:flex;flex:1;gap:7px;align-items:center;justify-content:center;" onclick="showToast('分享给微信好友')"><i class="ri-share-line" style="font-size:18px;"></i>分享给好友</button>
+      <button class="btn btn-secondary" style="display:flex;flex:1;gap:7px;align-items:center;justify-content:center;" onclick="showToast('邀请链接已复制')"><i class="ri-file-copy-line" style="font-size:18px;"></i>复制链接</button>
     </div>
     <div class="section-title"><span>已邀请 3 人</span></div>
     <div class="card" style="overflow:hidden;">
