@@ -2291,7 +2291,7 @@ function renderGalleryContent(tab){
   else{filtered=myWorks}
   if(filtered.length===0){
     var em=_galleryEmptyMap[tab]||_galleryEmptyMap.all;
-    var btnHtml=em.btn?'<button class="btn btn-gradient btn-sm" style="margin-top:14px;" onclick="'+em.action+'"><i class="ri-magic-line" style="margin-right:4px;"></i>'+em.btn+'</button>':'';
+    var btnHtml=em.btn?'<button class="btn btn-gradient btn-sm" style="margin-top:14px;font-weight:700;" onclick="'+em.action+'"><i class="ri-magic-line" style="margin-right:4px;"></i>'+em.btn+'</button>':'';
     $('galleryWaterfall').innerHTML='<div class="empty-state" style="grid-column:1/-1;padding:50px 20px;"><div class="empty-state-icon"><i class="'+em.icon+'" style="font-size:30px;color:var(--accent);"></i></div><div class="empty-state-text">'+em.text+'</div><div style="font-size:12px;color:var(--fg-muted);">'+em.sub+'</div>'+btnHtml+'</div>';
   }else{renderWaterfall('galleryWaterfall',filtered,tab==='published'||tab==='all',tab==='draft',tab==='draft'||tab==='all')}
   addLoadMoreBtn('galleryLoadMore');

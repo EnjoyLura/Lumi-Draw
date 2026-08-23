@@ -2389,6 +2389,7 @@ function openWork(work: HomeWork) {
   position: relative;
   margin-top: 14px;
   overflow: hidden;
+  font-weight: 700;
   line-height: 1;
   color: #fff;
   text-shadow: none;
