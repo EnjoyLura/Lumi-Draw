@@ -634,7 +634,7 @@ async function submit() {
   flex: 0 0 auto;
   width: 44px;
   height: 26px;
-  padding: 3px;
+  padding: 0;
   background: var(--bg-elevated);
   border-radius: 999px;
   transition: background 160ms ease;
@@ -645,16 +645,20 @@ async function submit() {
 }
 
 .anonymous-knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
   width: 20px;
   height: 20px;
   background: #fff;
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(20, 32, 56, 0.2);
+  transform: translateY(-50%);
   transition: transform 160ms ease;
 }
 
 .anonymous-switch.active .anonymous-knob {
-  transform: translateX(18px);
+  transform: translate(18px, -50%);
 }
 
 .submit-btn {
