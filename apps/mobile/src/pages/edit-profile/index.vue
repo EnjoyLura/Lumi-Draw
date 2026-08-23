@@ -12,6 +12,7 @@ import { fetchMyProfile, updateMyProfile } from "./profileService";
 import { useTheme } from "../../services/theme";
 import { invalidateTabPages } from "../../services/tabPageCache";
 import { patchWorkDetailAuthors } from "../../services/workDetailPreviewCache";
+import { formatPublicUserId } from "../../services/publicUserId";
 
 const { themeClass } = useTheme();
 
@@ -97,7 +98,7 @@ async function loadProfile() {
     nickname.value = profile.nickname || nickname.value;
     gender.value = (profile.gender as "male" | "female" | "unknown") || "unknown";
     signature.value = profile.bio || "";
-    accountId.value = profile.publicId;
+    accountId.value = formatPublicUserId(profile.publicId, profile.id);
     avatarText.value = profile.avatarText || profile.nickname?.slice(0, 1) || "露";
     avatarColor.value = profile.avatarColor || "var(--accent)";
     avatarUrl.value = profile.avatarUrl || "";
@@ -218,7 +219,8 @@ async function save() {
         <button class="empty-btn" @click="loadProfile">重新加载</button>
       </view>
 
-      <form v-else class="edit-content" @submit="save">
+      <view v-else class="edit-content-shell">
+      <form class="edit-content" @submit="save">
         <view class="avatar-block">
           <button class="avatar-wrap" open-type="chooseAvatar" @click="handleAvatarButtonClick" @chooseavatar="chooseOfficialAvatar">
             <image v-if="avatarUrl" class="avatar avatar-img" :src="avatarUrl" mode="aspectFill" />
@@ -277,6 +279,7 @@ async function save() {
 
         <button class="save-btn" form-type="submit" :disabled="isSaving || loadFailed">{{ isSaving ? "保存中..." : "保存" }}</button>
       </form>
+      </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
   </view>
@@ -304,19 +307,20 @@ async function save() {
   background: var(--page-bg);
 }
 
-.edit-content {
+.edit-content-shell {
   box-sizing: border-box;
-  width: auto;
-  padding: 24px 0 32px;
+  width: 100%;
+  padding: 24px 16px 32px;
   padding-bottom: calc(32px + constant(safe-area-inset-bottom));
   padding-bottom: calc(32px + env(safe-area-inset-bottom));
-  margin-right: 16px;
-  margin-right: calc(16px + constant(safe-area-inset-right));
-  margin-right: calc(16px + env(safe-area-inset-right));
-  margin-left: 16px;
-  margin-left: calc(16px + constant(safe-area-inset-left));
-  margin-left: calc(16px + env(safe-area-inset-left));
   overflow: visible;
+}
+
+.edit-content {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  margin: 0;
 }
 
 .edit-empty {

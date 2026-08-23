@@ -2,12 +2,13 @@ import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mergeGenerationProgress } from "../../services/generationProgress";
 import { toPublicModelName } from "../../services/modelDisplay";
+import { formatPublicUserId } from "../../services/publicUserId";
 import type { HomeWork } from "../home/homeData";
 import type { GalleryGenTask, GalleryUser } from "./galleryData";
 
 interface BackendUser {
   id: number;
-  publicId: string;
+  publicId?: string | null;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;
@@ -86,7 +87,7 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     avatar: user.avatarText || name.slice(0, 1) || "U",
     color: user.avatarColor || "var(--accent)",
     points: `${user.credits}`,
-    userNo: user.publicId,
+    userNo: formatPublicUserId(user.publicId, user.id),
     bio: user.bio || "这个用户还没有填写简介",
     role: user.creatorTitle || "画布新星",
     memberPlan: user.memberPlan || "",

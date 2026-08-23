@@ -1,9 +1,10 @@
 import { api } from "../../services/api";
+import { formatPublicUserId } from "../../services/publicUserId";
 import type { MineUser } from "./mineData";
 
 interface BackendMineProfile {
   id: number;
-  publicId: string;
+  publicId?: string | null;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;
@@ -17,7 +18,7 @@ export function toMineUser(profile: BackendMineProfile): MineUser {
     name,
     avatar: profile.avatarText || name.slice(0, 1) || "U",
     color: profile.avatarColor || "var(--accent)",
-    userNo: profile.publicId,
+    userNo: formatPublicUserId(profile.publicId, profile.id),
     credits: profile.credits
   };
 }

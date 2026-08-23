@@ -1735,7 +1735,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
   font-weight: 700;
   line-height: 1;
   color: #fff;
-  background: var(--gradient-dream);
+  background: var(--accent);
   border: none;
   border-radius: 12px;
 }

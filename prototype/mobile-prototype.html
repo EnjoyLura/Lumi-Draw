@@ -720,14 +720,14 @@ textarea.input{resize:none;line-height:1.6;}
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('recharge')">
           <div class="mgi-icon" style="background:linear-gradient(135deg,#a8d8f8,#b0e6d0);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="ri-wallet-3-line" style="font-size:20px;color:white;"></i></div><div style="font-size:11px;color:var(--fg-secondary);">充值</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('checkin')">
-          <div class="mgi-icon" style="background:linear-gradient(135deg,#FFD4C8,#FFC8D6);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:20px;color:white;"></i></div><div style="font-size:11px;color:var(--fg-secondary);">签到</div>
-        </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('membership')">
           <div class="mgi-icon" style="background:linear-gradient(135deg,#D4C8F0,#B8A8E0);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="ri-vip-crown-2-line" style="font-size:20px;color:white;"></i></div><div style="font-size:11px;color:var(--fg-secondary);">会员</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('invite')">
           <div class="mgi-icon" style="background:linear-gradient(135deg,#A3E4CC,#8BD8B8);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="ri-user-add-line" style="font-size:20px;color:white;"></i></div><div style="font-size:11px;color:var(--fg-secondary);">邀请</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="navigateTo('checkin')">
+          <div class="mgi-icon" style="background:linear-gradient(135deg,#FFD4C8,#FFC8D6);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:20px;color:white;"></i></div><div style="font-size:11px;color:var(--fg-secondary);">每日签到</div>
         </div>
       </div>
     </div>
@@ -796,10 +796,6 @@ textarea.input{resize:none;line-height:1.6;}
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#a8d8f8,#b0e6d0);display:flex;align-items:center;justify-content:center;"><i class="ri-wallet-3-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">充值</span>
       </div>
-      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('checkin')">
-        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FFD4C8,#FFC8D6);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:20px;color:white;"></i></div>
-        <span style="font-size:12px;color:var(--fg-secondary);">签到</span>
-      </div>
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('membership')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#D4C8F0,#B8A8E0);display:flex;align-items:center;justify-content:center;"><i class="ri-vip-crown-2-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">会员</span>
@@ -807,6 +803,10 @@ textarea.input{resize:none;line-height:1.6;}
       <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('invite')">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#A3E4CC,#8BD8B8);display:flex;align-items:center;justify-content:center;"><i class="ri-user-add-line" style="font-size:20px;color:white;"></i></div>
         <span style="font-size:12px;color:var(--fg-secondary);">邀请</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;" onclick="drawerGo('checkin')">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#FFD4C8,#FFC8D6);display:flex;align-items:center;justify-content:center;"><i class="ri-calendar-check-line" style="font-size:20px;color:white;"></i></div>
+        <span style="font-size:12px;color:var(--fg-secondary);">每日签到</span>
       </div>
     </div>
   </div>

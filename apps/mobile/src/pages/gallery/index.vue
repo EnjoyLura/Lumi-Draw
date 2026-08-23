@@ -147,9 +147,8 @@ const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
 const sideQuickActions: SideQuick[] = [
-  { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
+  ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请有礼", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : []),
   { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-  ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : [])
 ];
 const sideRows = ref<SideRow[]>([
   { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
@@ -1079,10 +1078,9 @@ function openWork(work: HomeWork) {
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()"><LumiIcon :name="isMineMode ? 'settings' : 'menu'" :size="22" /></view>
               <view v-if="isMineMode" class="icon-btn search" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
-              <view v-if="isMineMode" class="icon-btn checkin" @click="navigateSide('/pages/checkin/index')"><LumiIcon name="calendar-check" :size="18" /></view>
             </view>
             <text v-if="!isMineMode" class="nav-title">画廊</text>
-            <view v-if="isMineMode && inviteRewardsEnabled" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/invite/index')"><LumiIcon name="gift" :size="16" /><text>邀请有礼</text></view>
+            <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/checkin/index')"><LumiIcon name="calendar-check" :size="16" /><text>每日签到</text></view>
           </view>
         </view>
 
@@ -1673,12 +1671,10 @@ function openWork(work: HomeWork) {
   color: #fff;
   text-shadow: none;
   background: var(--accent);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: none;
   border-radius: 12px;
   box-shadow:
-    0 8px 24px rgba(148, 163, 184, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 2px rgba(148, 163, 184, 0.15);
+    0 8px 24px rgba(148, 163, 184, 0.25);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -1690,9 +1686,7 @@ function openWork(work: HomeWork) {
 
 .gallery-login-btn:active {
   box-shadow:
-    0 4px 12px rgba(148, 163, 184, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 -1px 2px rgba(148, 163, 184, 0.12);
+    0 4px 12px rgba(148, 163, 184, 0.2);
   transform: scale(0.98);
 }
 
@@ -2398,12 +2392,10 @@ function openWork(work: HomeWork) {
   color: #fff;
   text-shadow: none;
   background: var(--accent);
-  border: 1px solid rgba(255, 255, 255, 0.65);
+  border: none;
   border-radius: 8px;
   box-shadow:
-    0 8px 24px rgba(148, 163, 184, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 -1px 2px rgba(148, 163, 184, 0.15);
+    0 8px 24px rgba(148, 163, 184, 0.25);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
   backdrop-filter: blur(18px) saturate(180%);
   -webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -2415,9 +2407,7 @@ function openWork(work: HomeWork) {
 
 .empty-btn:active {
   box-shadow:
-    0 4px 12px rgba(148, 163, 184, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 -1px 2px rgba(148, 163, 184, 0.12);
+    0 4px 12px rgba(148, 163, 184, 0.2);
   transform: scale(0.98);
 }
 
