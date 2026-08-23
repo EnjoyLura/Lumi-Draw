@@ -962,36 +962,29 @@ textarea.input{resize:none;line-height:1.6;}
 
 <!-- ============ 邀请 ============ -->
 <div class="page" id="page-invite" data-title="邀请好友">
-  <div style="padding:16px;">
-    <div class="card" style="padding:18px;margin-bottom:16px;overflow:hidden;border-radius:18px;background:radial-gradient(circle at 5% 5%,rgba(111,212,176,.2),transparent 34%),radial-gradient(circle at 100% 10%,rgba(184,168,224,.18),transparent 34%),linear-gradient(145deg,rgba(247,252,255,.98),rgba(255,255,255,.94));box-shadow:0 12px 32px rgba(63,99,139,.07);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <div style="display:flex;align-items:center;justify-content:center;width:44px;height:44px;color:var(--accent);background:rgba(91,159,232,.12);border:1px solid rgba(91,159,232,.12);border-radius:14px;"><i class="ri-gift-line" style="font-size:22px;"></i></div>
-        <div style="display:inline-flex;gap:4px;align-items:center;min-height:28px;padding:0 10px;font-size:12px;font-weight:700;color:var(--accent);background:rgba(91,159,232,.1);border:1px solid rgba(91,159,232,.1);border-radius:999px;"><i class="ri-sparkling-fill"></i><span>邀请有礼</span></div>
-      </div>
-      <div style="margin-bottom:7px;font-size:21px;font-weight:700;color:var(--fg-primary);">与好友一起开启灵感</div>
-      <div style="font-size:13px;line-height:1.65;color:var(--fg-muted);">好友通过你的邀请链接注册，你得 50 积分，好友也可获得新人奖励</div>
-    </div>
-    <div class="card" style="padding:20px;text-align:center;margin-bottom:16px;">
-      <div style="font-size:15px;font-weight:700;text-align:left;margin-bottom:14px;">邀请方式</div>
-      <div style="display:flex;gap:10px;">
-        <button class="btn btn-gradient" style="flex:1;" onclick="showToast('分享给微信好友')">分享给好友</button>
-        <button class="btn btn-secondary" style="flex:1;" onclick="showToast('邀请链接已复制')">复制链接</button>
+  <div style="min-height:100%;padding:18px 16px 32px;background:radial-gradient(circle at 0 0,rgba(255,197,214,.18),transparent 34%),radial-gradient(circle at 100% 0,rgba(184,168,224,.2),transparent 38%);">
+    <div class="card" style="padding:20px 18px;margin-bottom:14px;border-radius:24px;box-shadow:0 14px 38px rgba(84,91,128,.08);">
+      <div style="margin-bottom:18px;font-size:19px;font-weight:700;">邀请获积分规则</div>
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <div style="display:flex;align-items:center;gap:13px;"><div style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;color:var(--fg-secondary);background:rgba(91,159,232,.06);border-radius:13px;"><i class="ri-gift-line" style="font-size:23px;"></i></div><div style="font-size:15px;color:var(--fg-secondary);">每邀请 1 位好友注册，你得 <b style="color:var(--fg-primary);">50</b> 积分</div></div>
+        <div style="display:flex;align-items:center;gap:13px;"><div style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;color:var(--fg-secondary);background:rgba(91,159,232,.06);border-radius:13px;"><i class="ri-user-line" style="font-size:23px;"></i></div><div style="font-size:15px;color:var(--fg-secondary);">好友注册后也可领取新人积分</div></div>
+        <div style="display:flex;align-items:center;gap:13px;"><div style="display:flex;align-items:center;justify-content:center;width:42px;height:42px;color:var(--fg-secondary);background:rgba(91,159,232,.06);border-radius:13px;"><i class="ri-information-line" style="font-size:23px;"></i></div><div style="font-size:15px;color:var(--fg-secondary);">奖励实时到账 · 已奖励 3 人</div></div>
       </div>
     </div>
-    <div class="section-title"><span>已邀请 3 人</span></div>
-    <div class="card" style="overflow:hidden;">
+    <div class="card" style="display:flex;align-items:center;padding:18px 8px;margin-bottom:14px;border-radius:24px;box-shadow:0 14px 38px rgba(84,91,128,.08);">
+      <div style="flex:1;text-align:center;"><div style="font-size:28px;font-weight:700;">3</div><div style="margin-top:9px;font-size:12px;color:var(--fg-muted);">已邀请</div></div><div style="width:1px;height:46px;background:var(--border);"></div>
+      <div style="flex:1;text-align:center;"><div style="font-size:28px;font-weight:700;">3</div><div style="margin-top:9px;font-size:12px;color:var(--fg-muted);">已发奖</div></div><div style="width:1px;height:46px;background:var(--border);"></div>
+      <div style="flex:1;text-align:center;"><div style="font-size:28px;font-weight:700;">150</div><div style="margin-top:9px;font-size:12px;color:var(--fg-muted);">累计积分</div></div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <button class="btn" style="flex:1;height:54px;border:1px solid var(--card-border);border-radius:27px;background:rgba(255,255,255,.9);box-shadow:0 12px 30px rgba(84,91,128,.08);" onclick="showToast('分享给微信好友')"><i class="ri-share-line" style="margin-right:7px;font-size:20px;"></i>分享给好友</button>
+      <button class="btn" style="flex:1;height:54px;border:1px solid var(--card-border);border-radius:27px;background:rgba(255,255,255,.9);box-shadow:0 12px 30px rgba(84,91,128,.08);" onclick="showToast('邀请链接已复制')"><i class="ri-file-copy-line" style="margin-right:7px;font-size:20px;"></i>复制链接</button>
+    </div>
+    <div class="section-title" style="margin-left:2px;"><span>邀请记录</span></div>
+    <div class="card" style="overflow:hidden;border-radius:24px;box-shadow:0 14px 38px rgba(84,91,128,.08);">
       <div class="list-row"><div class="avatar" style="width:36px;height:36px;font-size:14px;background:var(--mint);">星</div><div class="lr-text"><div>星辰大海</div><div style="font-size:11px;color:var(--fg-muted);">06-15 注册</div></div><span class="tag tag-mint">+50</span></div>
-
       <div class="list-row"><div class="avatar" style="width:36px;height:36px;font-size:14px;background:var(--peach);">月</div><div class="lr-text"><div>月光如水</div><div style="font-size:11px;color:var(--fg-muted);">06-12 注册</div></div><span class="tag tag-mint">+50</span></div>
-
       <div class="list-row"><div class="avatar" style="width:36px;height:36px;font-size:14px;background:var(--lavender);">风</div><div class="lr-text"><div>风之绘师</div><div style="font-size:11px;color:var(--fg-muted);">06-08 注册</div></div><span class="tag tag-mint">+50</span></div>
-    </div>
-    <div style="margin-top:16px;padding:14px;background:var(--accent-soft);border-radius:12px;font-size:12px;color:var(--fg-secondary);line-height:1.8;">
-      <div style="font-weight:600;color:var(--accent-deep);margin-bottom:6px;">活动规则</div>
-      1. 好友首次注册时填写你的邀请码，双方各获得积分奖励<br>
-      2. 每人最多可邀请50位好友<br>
-      3. 邀请奖励积分实时到账<br>
-      4. 禁止刷邀请，违规者将扣除积分并封号
     </div>
   </div>
 </div>
