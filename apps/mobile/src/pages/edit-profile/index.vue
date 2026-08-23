@@ -306,14 +306,16 @@ async function save() {
 
 .edit-content {
   box-sizing: border-box;
-  width: 100%;
-  padding: 24px 16px 32px;
-  padding-right: calc(16px + constant(safe-area-inset-right));
-  padding-right: calc(16px + env(safe-area-inset-right));
+  width: auto;
+  padding: 24px 0 32px;
   padding-bottom: calc(32px + constant(safe-area-inset-bottom));
   padding-bottom: calc(32px + env(safe-area-inset-bottom));
-  padding-left: calc(16px + constant(safe-area-inset-left));
-  padding-left: calc(16px + env(safe-area-inset-left));
+  margin-right: 16px;
+  margin-right: calc(16px + constant(safe-area-inset-right));
+  margin-right: calc(16px + env(safe-area-inset-right));
+  margin-left: 16px;
+  margin-left: calc(16px + constant(safe-area-inset-left));
+  margin-left: calc(16px + env(safe-area-inset-left));
   overflow: visible;
 }
 
