@@ -12,6 +12,18 @@ import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
 import { clipboardFailureMessage, copyToClipboard } from "../../services/clipboard";
 
+interface WechatShortLinkApi {
+  canIUse?: (schema: string) => boolean;
+  generateShortLink: (options: {
+    pageUrl: string;
+    pageTitle: string;
+    success: (result: { shortLink: string }) => void;
+    fail: (error: unknown) => void;
+  }) => void;
+}
+
+declare const wx: WechatShortLinkApi;
+
 const { themeClass } = useTheme();
 
 const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
@@ -89,19 +101,49 @@ async function login() {
   }
 }
 
-async function copyInviteCode() {
+function invitePagePath() {
+  return `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`;
+}
+
+function generateInviteShortLink() {
+  return new Promise<string>((resolve, reject) => {
+    if (typeof wx === "undefined" || !wx.generateShortLink || (wx.canIUse && !wx.canIUse("generateShortLink"))) {
+      reject(new Error("当前微信版本暂不支持生成小程序链接"));
+      return;
+    }
+    wx.generateShortLink({
+      pageUrl: invitePagePath(),
+      pageTitle: "露米绘画AI",
+      success: ({ shortLink }) => shortLink ? resolve(shortLink) : reject(new Error("未获取到邀请链接")),
+      fail: reject
+    });
+  });
+}
+
+async function copyInviteLink() {
   if (!ensureLogin()) return;
+  if (!inviteCode.value) {
+    uni.showToast({ title: "邀请链接正在准备，请稍后重试", icon: "none" });
+    return;
+  }
+  uni.showLoading({ title: "生成链接中", mask: true });
   try {
-    await copyToClipboard(inviteCode.value);
-    uni.showToast({ title: "邀请码已复制", icon: "none" });
+    const link = await generateInviteShortLink();
+    await copyToClipboard(link);
+    uni.showToast({ title: "邀请链接已复制", icon: "none" });
   } catch (error) {
-    uni.showToast({ title: clipboardFailureMessage(error), icon: "none" });
+    const message = error instanceof Error && error.message.includes("链接")
+      ? error.message
+      : clipboardFailureMessage(error);
+    uni.showToast({ title: message, icon: "none" });
+  } finally {
+    uni.hideLoading();
   }
 }
 
 onShareAppMessage(() => ({
   title: "来露米绘画AI一起创作，注册可领取新人积分",
-  path: `/pages/home/index?inviteCode=${encodeURIComponent(inviteCode.value)}`
+  path: invitePagePath()
 }));
 </script>
 
@@ -112,7 +154,7 @@ onShareAppMessage(() => ({
       <LumiLoginRequired
         v-if="!useMockData && loginRequired"
         title="登录后查看邀请"
-        subtitle="登录后可以获取专属邀请码，并查看邀请奖励到账记录。"
+        subtitle="登录后可以分享专属邀请链接，并查看邀请奖励到账记录。"
         @login="showLoginSheet = true"
       />
 
@@ -123,15 +165,14 @@ onShareAppMessage(() => ({
             <view class="hero-tag"><LumiIcon name="sparkles-filled" :size="12" /><text>邀请有礼</text></view>
           </view>
           <view class="hero-title">与好友一起开启灵感</view>
-          <view class="hero-desc">好友填写你的邀请码注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
+          <view class="hero-desc">好友通过你的邀请链接注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
         </view>
 
-        <view class="code-card">
-          <view class="code-label">{{ isLoading ? "邀请码同步中" : "我的邀请码" }}</view>
-          <view class="invite-code">{{ inviteCode }}</view>
-          <view class="code-actions">
-            <button class="btn secondary" @click="copyInviteCode">复制邀请码</button>
-            <button class="btn gradient" open-type="share">分享邀请</button>
+        <view class="share-card">
+          <view class="share-title">邀请方式</view>
+          <view class="share-actions">
+            <button class="btn gradient" open-type="share" :disabled="isLoading || !inviteCode">分享给好友</button>
+            <button class="btn secondary" :disabled="isLoading || !inviteCode" @click="copyInviteLink">复制链接</button>
           </view>
         </view>
 
@@ -161,7 +202,7 @@ onShareAppMessage(() => ({
 
         <view class="rules-card">
           <view class="rules-title">活动规则</view>
-          <view class="rule-line">1. 好友首次注册时填写你的邀请码，双方获得积分奖励</view>
+          <view class="rule-line">1. 好友通过你的邀请链接首次注册，双方获得积分奖励</view>
           <view class="rule-line">2. 邀请奖励积分实时到账</view>
           <view class="rule-line">3. 禁止刷邀请，违规将扣除积分并限制账号</view>
         </view>
@@ -191,7 +232,7 @@ onShareAppMessage(() => ({
 }
 
 .hero-card,
-.code-card,
+.share-card,
 .invite-list,
 .summary-card {
   background: var(--bg-card);
@@ -274,27 +315,19 @@ onShareAppMessage(() => ({
   border-color: rgba(91, 159, 232, 0.18);
 }
 
-.code-card {
+.share-card {
   padding: 20px;
   margin-bottom: 12px;
-  text-align: center;
 }
 
-.code-label {
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--fg-muted);
-}
-
-.invite-code {
-  margin-bottom: 12px;
-  font-size: 32px;
+.share-title {
+  margin-bottom: 14px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--accent);
-  letter-spacing: 4px;
+  color: var(--fg-primary);
 }
 
-.code-actions,
+.share-actions,
 .summary-row {
   display: flex;
   gap: 10px;
@@ -314,6 +347,10 @@ onShareAppMessage(() => ({
 
 .btn::after {
   border: none;
+}
+
+.btn[disabled] {
+  opacity: 0.55;
 }
 
 .btn.secondary {
