@@ -13,6 +13,7 @@ export interface PageResult<T> {
 
 export interface BackendAuthor {
   id: number;
+  publicId?: string;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;

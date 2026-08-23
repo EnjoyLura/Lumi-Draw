@@ -48,6 +48,7 @@ let unsubscribeWorkVisibility: (() => void) | undefined;
 
 interface ProfileView {
   id: number;
+  publicId: string;
   name: string;
   avatar: string;
   color: string;
@@ -63,6 +64,7 @@ interface ProfileView {
 
 const emptyProfile = computed<ProfileView>(() => ({
   id: userId.value,
+  publicId: "",
   name: "",
   avatar: "",
   color: "var(--accent)",
@@ -165,6 +167,7 @@ function toProfileView(profile: BackendUserProfile): ProfileView {
   const name = profile.nickname || fallbackName;
   return {
     id: profile.id,
+    publicId: profile.publicId || "",
     name,
     avatar: profile.avatarText || name.slice(0, 1) || "U",
     color: profile.avatarColor || "var(--accent)",
@@ -364,7 +367,7 @@ async function confirmUnfollow() {
         <view class="header-main">
           <view class="user-name">{{ user.name }}</view>
           <view class="id-row">
-            <text class="user-id">ID: LUMI{{ user.id }}</text>
+            <text class="user-id">ID: {{ user.publicId }}</text>
             <view v-if="hasGenderIcon" class="gender-tag" :class="user.gender"><LumiIcon :name="user.gender === 'male' ? 'mars' : 'venus'" :size="15" /></view>
           </view>
           <view class="role-tag"><LumiIcon name="sparkles" :size="12" />{{ user.role }}</view>

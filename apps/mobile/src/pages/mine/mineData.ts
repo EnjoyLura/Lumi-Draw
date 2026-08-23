@@ -28,7 +28,7 @@ export const mineUser: MineUser = {
   name: "云端造梦师",
   avatar: "梦",
   color: "var(--accent)",
-  userNo: "LUMI8829",
+  userNo: "露米_3ncur",
   credits: 2860
 };
 

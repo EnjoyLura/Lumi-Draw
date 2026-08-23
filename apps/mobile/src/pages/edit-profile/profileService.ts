@@ -2,6 +2,7 @@ import { api } from "../../services/api";
 
 export interface MobileProfile {
   id: number;
+  publicId: string;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;

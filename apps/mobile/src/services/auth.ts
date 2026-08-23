@@ -9,6 +9,7 @@ const PENDING_INVITE_KEY = "lumi-pending-invite-code";
 
 export interface MobileUser {
   id: number;
+  publicId: string;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;

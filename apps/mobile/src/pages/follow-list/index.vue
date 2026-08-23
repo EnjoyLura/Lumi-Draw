@@ -96,6 +96,7 @@ function toProfileUser(user: BackendUserProfile): FollowProfileUser {
   const name = user.nickname || fallbackName;
   return {
     id: user.id,
+    publicId: user.publicId || "",
     name,
     avatar: user.avatarText || name.slice(0, 1) || "U",
     color: user.avatarColor || "var(--accent)",

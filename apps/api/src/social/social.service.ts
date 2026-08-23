@@ -16,6 +16,7 @@ function toAuthor(user: User, anonymous = false) {
   if (anonymous) {
     return {
       id: 0,
+      publicId: "",
       nickname: "匿名用户",
       avatarText: "匿",
       avatarColor: "#A7B0C0",
@@ -28,6 +29,7 @@ function toAuthor(user: User, anonymous = false) {
   }
   return {
     id: user.id,
+    publicId: user.publicId,
     nickname: user.nickname,
     avatarText: user.avatarText,
     avatarColor: user.avatarColor,
@@ -86,6 +88,7 @@ async function withInteractionState(prisma: PrismaService, userId: number | unde
 function toUserCard(user: User, following = false) {
   return {
     id: user.id,
+    publicId: user.publicId,
     nickname: user.nickname,
     avatarText: user.avatarText,
     avatarColor: user.avatarColor,

@@ -3,6 +3,7 @@ import type { MineUser } from "./mineData";
 
 interface BackendMineProfile {
   id: number;
+  publicId: string;
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;
@@ -16,7 +17,7 @@ export function toMineUser(profile: BackendMineProfile): MineUser {
     name,
     avatar: profile.avatarText || name.slice(0, 1) || "U",
     color: profile.avatarColor || "var(--accent)",
-    userNo: `LUMI${String(profile.id).padStart(4, "0")}`,
+    userNo: profile.publicId,
     credits: profile.credits
   };
 }

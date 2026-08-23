@@ -70,7 +70,7 @@ function resetMockProfile() {
   nickname.value = "云端造梦师";
   gender.value = "male";
   signature.value = "用 AI 描绘心中的梦境，每一笔都是想象力的延伸";
-  accountId.value = "LUMI8829";
+  accountId.value = "露米_3ncur";
   avatarText.value = "梦";
   avatarColor.value = "var(--accent)";
   avatarUrl.value = "";
@@ -97,7 +97,7 @@ async function loadProfile() {
     nickname.value = profile.nickname || nickname.value;
     gender.value = (profile.gender as "male" | "female" | "unknown") || "unknown";
     signature.value = profile.bio || "";
-    accountId.value = `LUMI${String(profile.id).padStart(4, "0")}`;
+    accountId.value = profile.publicId;
     avatarText.value = profile.avatarText || profile.nickname?.slice(0, 1) || "露";
     avatarColor.value = profile.avatarColor || "var(--accent)";
     avatarUrl.value = profile.avatarUrl || "";

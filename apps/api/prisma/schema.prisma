@@ -242,6 +242,7 @@ model AppSetting {
 // 用户 User
 model User {
   id          Int      @id @default(autoincrement())
+  publicId    String   @unique @default(dbgenerated("generate_public_user_id()"))
   openId      String?  @unique
   wechatSessionKeyEncrypted String @default("")
   wechatSessionUpdatedAt DateTime?

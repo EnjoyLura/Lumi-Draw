@@ -37,6 +37,7 @@ function author(user: User, anonymous = false) {
   }
   return {
     id: user.id,
+    publicId: user.publicId,
     nickname: user.nickname,
     avatarText: user.avatarText,
     avatarColor: user.avatarColor,

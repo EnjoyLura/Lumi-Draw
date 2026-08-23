@@ -35,7 +35,7 @@ export const galleryUser: GalleryUser = {
   avatar: "梦",
   color: "var(--accent)",
   points: "2860",
-  userNo: "LUMI8829",
+  userNo: "露米_3ncur",
   bio: "用AI描绘心中的梦境，每一笔都是想象力的延伸",
   role: "AI创作者",
   memberPlan: "",

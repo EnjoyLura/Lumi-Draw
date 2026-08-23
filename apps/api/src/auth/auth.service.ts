@@ -13,6 +13,7 @@ const AVATAR_COLORS = ["#5B9FE8", "#6FD4B0", "#FFB59A", "#B8A5E3", "#FFE08A", "#
 function publicUser(user: User) {
   return {
     id: user.id,
+    publicId: user.publicId,
     nickname: user.nickname,
     avatarText: user.avatarText,
     avatarColor: user.avatarColor,
