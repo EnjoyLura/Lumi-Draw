@@ -130,7 +130,16 @@ export class SocialService {
   }
 
   async workState(userId: number, workId: number) {
-    const work = await this.publicWork(workId);
+    // The mine page can open the owner's unpublished/draft works as well as
+    // public works. Resolve interaction state for both cases instead of
+    // turning valid owner views into a misleading 404.
+    const work = await this.prisma.work.findFirst({
+      where: {
+        id: workId,
+        OR: [{ ...PUBLIC_WORK_WHERE }, { userId }]
+      }
+    });
+    if (!work) throw new NotFoundException("作品不存在或无权查看");
     const [like, favorite, follow] = await Promise.all([
       this.prisma.workInteraction.findUnique({
         where: { userId_workId_type: { userId, workId, type: "like" } }

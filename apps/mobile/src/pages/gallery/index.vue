@@ -1078,6 +1078,7 @@ function openWork(work: HomeWork) {
             <view class="nav-left-actions">
               <view class="icon-btn nav-menu" @click="isMineMode ? goSettings() : openSideMenu()"><LumiIcon :name="isMineMode ? 'settings' : 'menu'" :size="22" /></view>
               <view v-if="isMineMode" class="icon-btn search" @click="goSearch"><LumiIcon name="search" :size="18" /></view>
+              <view v-if="isMineMode && inviteRewardsEnabled" class="icon-btn invite" @click="navigateSide('/pages/invite/index')"><LumiIcon name="gift" :size="18" /></view>
             </view>
             <text v-if="!isMineMode" class="nav-title">画廊</text>
             <view v-if="isMineMode" class="nav-invite" :style="{ right: `${navInviteRight}px` }" @click="navigateSide('/pages/checkin/index')"><LumiIcon name="calendar-check" :size="16" /><text>每日签到</text></view>
