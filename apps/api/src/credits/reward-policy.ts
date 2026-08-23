@@ -13,7 +13,7 @@ export const DEFAULT_CHECKIN_CONFIG = {
 };
 
 export const DEFAULT_INVITE_CONFIG = {
-  enabled: false,
+  enabled: true,
   inviterReward: 10,
   inviteeReward: 0,
   cap: 10
@@ -72,4 +72,3 @@ export async function readInviteConfig(prisma: PrismaService) {
     cap: nonNegativeInt(value.cap, DEFAULT_INVITE_CONFIG.cap)
   };
 }
-

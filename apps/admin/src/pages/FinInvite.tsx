@@ -6,7 +6,7 @@ import { useAdminSession } from "../data/adminSession";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 
-const DEFAULT_CONFIG: AdminInviteConfig = { enabled: false, inviterReward: 10, inviteeReward: 0, cap: 10 };
+const DEFAULT_CONFIG: AdminInviteConfig = { enabled: true, inviterReward: 10, inviteeReward: 0, cap: 10 };
 export function FinInvite() {
   const { toast } = useNav(); const { useMock } = useAdminSession(); const { data, loading, error, reload } = useAsyncData<AdminInviteConfig>(useMock ? null : apiGetInviteConfig, [useMock]); const [form] = Form.useForm<AdminInviteConfig>(); const [saving, setSaving] = useState(false); const config = useMock ? DEFAULT_CONFIG : data ?? DEFAULT_CONFIG;
   useEffect(() => { form.setFieldsValue(config); }, [config, form]);
