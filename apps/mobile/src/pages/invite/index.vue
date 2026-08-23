@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import LumiPageHeader from "../../components/LumiPageHeader.vue";
-import { computed, ref } from "vue";
+import { ref } from "vue";
 import { onShareAppMessage, onShow } from "@dcloudio/uni-app";
 import LumiLoginRequired from "../../components/LumiLoginRequired.vue";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
@@ -36,7 +36,6 @@ const totalReward = ref(0);
 const isLoading = ref(false);
 const showLoginSheet = ref(false);
 const loginRequired = ref(false);
-const rewardedCount = computed(() => invitedUsers.value.filter((user) => user.reward > 0).length);
 
 onShow(() => {
   if (!inviteRewardsEnabled) {
@@ -160,57 +159,37 @@ onShareAppMessage(() => ({
       />
 
       <view v-else class="page-content">
-        <view class="rules-card">
-          <view class="rules-title">邀请获积分规则</view>
-          <view class="rule-list">
-            <view class="rule-row">
-              <view class="rule-icon"><LumiIcon name="gift" :size="23" /></view>
-              <view class="rule-copy">每邀请 1 位好友注册，你得 <text>{{ rewardPerInvite }}</text> 积分</view>
-            </view>
-            <view class="rule-row">
-              <view class="rule-icon"><LumiIcon name="user" :size="23" /></view>
-              <view class="rule-copy">好友注册后也可领取新人积分</view>
-            </view>
-            <view class="rule-row">
-              <view class="rule-icon"><LumiIcon name="info" :size="23" /></view>
-              <view class="rule-copy">奖励实时到账 · 已奖励 {{ rewardedCount }} 人</view>
-            </view>
+        <view class="hero-card">
+          <view class="hero-top">
+            <view class="hero-icon"><LumiIcon name="gift" :size="22" /></view>
+            <view class="hero-tag"><LumiIcon name="sparkles-filled" :size="12" /><text>邀请有礼</text></view>
+          </view>
+          <view class="hero-title">与好友一起开启灵感</view>
+          <view class="hero-desc">好友通过你的邀请链接注册，你得 {{ rewardPerInvite }} 积分，好友也可获得新人奖励</view>
+        </view>
+
+        <view class="share-card">
+          <view class="share-title">邀请方式</view>
+          <view class="share-actions">
+            <button class="btn gradient" open-type="share" :disabled="isLoading || !inviteCode">分享给好友</button>
+            <button class="btn secondary" :disabled="isLoading || !inviteCode" @click="copyInviteLink">复制链接</button>
           </view>
         </view>
 
-        <view class="summary-card">
-          <view class="summary-item">
+        <view class="summary-row">
+          <view class="summary-card">
             <view class="summary-num">{{ invitedUsers.length }}</view>
             <view class="summary-label">已邀请</view>
           </view>
-          <view class="summary-divider" />
-          <view class="summary-item">
-            <view class="summary-num">{{ rewardedCount }}</view>
-            <view class="summary-label">已发奖</view>
-          </view>
-          <view class="summary-divider" />
-          <view class="summary-item">
+          <view class="summary-card">
             <view class="summary-num">{{ totalReward }}</view>
-            <view class="summary-label">累计积分</view>
+            <view class="summary-label credits-label"><LumiIcon name="sparkles-filled" :size="13" /><text>累计</text></view>
           </view>
         </view>
 
-        <view class="share-actions">
-          <button class="btn" open-type="share" :disabled="isLoading || !inviteCode">
-            <LumiIcon name="share-2" :size="21" /><text>分享给好友</text>
-          </button>
-          <button class="btn" :disabled="isLoading || !inviteCode" @click="copyInviteLink">
-            <LumiIcon name="copy" :size="21" /><text>复制链接</text>
-          </button>
-        </view>
-
-        <view class="section-title">邀请记录</view>
-        <view v-if="!invitedUsers.length" class="empty-state">
-          <view class="empty-icon"><LumiIcon name="users" :size="28" /></view>
-          <view class="empty-title">还没有邀请记录</view>
-          <view class="empty-desc">把邀请链接分享给好友，TA 注册后会出现在这里。</view>
-        </view>
-        <view v-else class="invite-list">
+        <view class="section-title">已邀请 {{ invitedUsers.length }} 人</view>
+        <view class="invite-list">
+          <view v-if="!invitedUsers.length" class="empty-row">暂无邀请记录</view>
           <view v-for="user in invitedUsers" :key="`${user.name}-${user.date}`" class="invite-row">
             <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
             <view class="invite-main">
@@ -220,6 +199,13 @@ onShareAppMessage(() => ({
             <view class="reward-tag">+{{ user.reward }}</view>
           </view>
         </view>
+
+        <view class="rules-card">
+          <view class="rules-title">活动规则</view>
+          <view class="rule-line">1. 好友通过你的邀请链接首次注册，双方获得积分奖励</view>
+          <view class="rule-line">2. 邀请奖励积分实时到账</view>
+          <view class="rule-line">3. 禁止刷邀请，违规将扣除积分并限制账号</view>
+        </view>
       </view>
     </scroll-view>
     <LumiLoginSheet :open="showLoginSheet" @close="showLoginSheet = false" @login="login" />
@@ -228,16 +214,11 @@ onShareAppMessage(() => ({
 
 <style scoped>
 .invite-page {
-  display: flex;
-  flex-direction: column;
   height: calc(100vh - var(--window-top) - var(--window-bottom));
   min-height: calc(100vh - var(--window-top) - var(--window-bottom));
   overflow: hidden;
   color: var(--fg-primary);
-  background:
-    radial-gradient(circle at 0 0, rgba(255, 197, 214, 0.18), transparent 34%),
-    radial-gradient(circle at 100% 0, rgba(184, 168, 224, 0.2), transparent 38%),
-    var(--page-bg);
+  background: var(--page-bg);
 }
 
 .page-scroll {
@@ -247,120 +228,121 @@ onShareAppMessage(() => ({
 }
 
 .page-content {
-  padding: 18px 16px calc(28px + var(--lumi-safe-bottom, 0px));
+  padding: 16px 16px calc(16px + var(--lumi-safe-bottom, 0px));
 }
 
-.rules-card,
+.hero-card,
+.share-card,
 .invite-list,
 .summary-card {
   background: var(--bg-card);
   border: 1px solid var(--card-border);
-  border-radius: 24px;
-  box-shadow: 0 14px 38px rgba(84, 91, 128, 0.08);
+  border-radius: 10px;
 }
 
-.rules-card {
-  padding: 20px 18px;
-  margin-bottom: 14px;
+.hero-card {
+  position: relative;
+  padding: 18px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 5% 5%, rgba(111, 212, 176, 0.2), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(184, 168, 224, 0.18), transparent 34%),
+    linear-gradient(145deg, rgba(247, 252, 255, 0.98), rgba(255, 255, 255, 0.94));
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(63, 99, 139, 0.07);
 }
 
-.rules-title {
-  margin-bottom: 18px;
-  font-size: 19px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.rule-list {
+.hero-top {
   display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.rule-row {
-  display: flex;
-  gap: 13px;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
 }
 
-.rule-icon {
+.hero-icon {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
-  color: var(--fg-secondary);
-  background: rgba(91, 159, 232, 0.06);
-  border-radius: 13px;
+  width: 44px;
+  height: 44px;
+  color: var(--accent);
+  background: rgba(91, 159, 232, 0.12);
+  border: 1px solid rgba(91, 159, 232, 0.12);
+  border-radius: 14px;
 }
 
-.rule-copy {
-  min-width: 0;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--fg-secondary);
-}
-
-.rule-copy text {
-  font-weight: 700;
-  color: var(--fg-primary);
-}
-
-.summary-card {
-  display: flex;
+.hero-tag {
+  display: inline-flex;
+  gap: 4px;
   align-items: center;
-  padding: 18px 8px;
-  margin-bottom: 14px;
-}
-
-.summary-item {
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-}
-
-.summary-divider {
-  width: 1px;
-  height: 46px;
-  background: var(--border);
-}
-
-.summary-num {
-  font-size: 28px;
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1;
+  color: var(--accent);
+  background: rgba(91, 159, 232, 0.1);
+  border: 1px solid rgba(91, 159, 232, 0.1);
+  border-radius: 999px;
+}
+
+.hero-title {
+  margin-bottom: 7px;
+  font-size: 21px;
+  font-weight: 700;
   color: var(--fg-primary);
 }
 
-.summary-label {
-  margin-top: 9px;
-  font-size: 12px;
+.hero-desc {
+  font-size: 13px;
+  line-height: 1.65;
   color: var(--fg-muted);
 }
 
-.share-actions {
+.invite-page.theme-dark .hero-card,
+:root[data-theme="dark"] .hero-card {
+  background:
+    radial-gradient(circle at 5% 5%, rgba(111, 212, 176, 0.12), transparent 34%),
+    radial-gradient(circle at 100% 10%, rgba(184, 168, 224, 0.12), transparent 34%),
+    linear-gradient(145deg, rgba(38, 38, 42, 0.98), rgba(28, 28, 31, 0.96));
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.invite-page.theme-dark .hero-icon,
+:root[data-theme="dark"] .hero-icon {
+  background: rgba(91, 159, 232, 0.16);
+  border-color: rgba(91, 159, 232, 0.18);
+}
+
+.share-card {
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+.share-title {
+  margin-bottom: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fg-primary);
+}
+
+.share-actions,
+.summary-row {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 10px;
 }
 
 .btn {
   display: inline-flex;
   flex: 1;
-  gap: 8px;
   align-items: center;
   justify-content: center;
-  height: 54px;
-  padding: 0;
+  height: 42px;
   font-size: 14px;
   font-weight: 700;
-  line-height: 54px;
-  color: var(--fg-primary);
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--card-border);
-  border-radius: 27px;
-  box-shadow: 0 12px 30px rgba(84, 91, 128, 0.08);
+  border: none;
+  border-radius: 12px;
 }
 
 .btn::after {
@@ -371,13 +353,42 @@ onShareAppMessage(() => ({
   opacity: 0.55;
 }
 
-.btn:active {
-  transform: scale(0.98);
+.btn.secondary {
+  color: var(--fg-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+}
+
+.btn.gradient {
+  color: #fff;
+  background: var(--gradient-dream);
+}
+
+.summary-row {
+  margin-bottom: 16px;
+}
+
+.summary-card {
+  flex: 1;
+  padding: 14px 0;
+  text-align: center;
+}
+
+.summary-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.summary-label {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-muted);
 }
 
 .section-title {
-  margin: 0 0 14px 2px;
-  font-size: 20px;
+  margin-bottom: 12px;
+  font-size: 18px;
   font-weight: 700;
 }
 
@@ -385,17 +396,19 @@ onShareAppMessage(() => ({
   overflow: hidden;
 }
 
-.invite-row {
+.invite-row,
+.empty-row {
   display: flex;
   gap: 10px;
   align-items: center;
-  min-height: 68px;
-  padding: 0 16px;
+  min-height: 60px;
+  padding: 0 14px;
   border-bottom: 0.5px solid var(--border);
 }
 
-.invite-row:last-child {
-  border-bottom: none;
+.empty-row {
+  justify-content: center;
+  color: var(--fg-muted);
 }
 
 .avatar {
@@ -428,67 +441,43 @@ onShareAppMessage(() => ({
 }
 
 .reward-tag {
-  padding: 4px 9px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--mint);
   background: rgba(111, 212, 176, 0.14);
   border-radius: 999px;
 }
 
-.empty-state {
+.rules-card {
+  padding: 14px;
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--fg-secondary);
+  background: var(--accent-soft);
+  border-radius: 12px;
+}
+
+.rules-title {
+  margin-bottom: 6px;
+  font-weight: 700;
+  color: var(--accent-deep);
+}
+
+/* Lumi custom page header layout */
+.invite-page {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 300px;
-  padding: 28px 18px 54px;
-  text-align: center;
 }
 
-.empty-icon {
+
+.credits-label {
   display: flex;
+  gap: 3px;
   align-items: center;
   justify-content: center;
-  width: 60px;
-  height: 60px;
-  margin-bottom: 14px;
-  color: var(--fg-muted);
-  background: rgba(91, 159, 232, 0.06);
-  border-radius: 20px;
-}
-
-.empty-title {
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.empty-desc {
-  max-width: 290px;
-  margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--fg-muted);
-}
-
-.invite-page.theme-dark .rules-card,
-.invite-page.theme-dark .summary-card,
-.invite-page.theme-dark .invite-list,
-.invite-page.theme-dark .btn,
-:root[data-theme="dark"] .rules-card,
-:root[data-theme="dark"] .summary-card,
-:root[data-theme="dark"] .invite-list,
-:root[data-theme="dark"] .btn {
-  background: rgba(34, 34, 38, 0.92);
-  border-color: var(--border);
-  box-shadow: none;
-}
-
-.invite-page.theme-dark .rule-icon,
-.invite-page.theme-dark .empty-icon,
-:root[data-theme="dark"] .rule-icon,
-:root[data-theme="dark"] .empty-icon {
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent);
 }
 
 </style>
