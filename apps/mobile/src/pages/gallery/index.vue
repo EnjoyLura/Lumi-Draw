@@ -1659,9 +1659,9 @@ function openWork(work: HomeWork) {
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
-  color: #1e3a8a;
+  color: #172554;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(191, 219, 254, 0.75), rgba(147, 197, 253, 0.55));
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 12px;
   box-shadow:
@@ -1669,8 +1669,8 @@ function openWork(work: HomeWork) {
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     inset 0 -1px 2px rgba(148, 163, 184, 0.15);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 
 .gallery-login-btn::after {
@@ -1895,15 +1895,15 @@ function openWork(work: HomeWork) {
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
-  color: #1e3a8a;
+  color: #172554;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(191, 219, 254, 0.75), rgba(147, 197, 253, 0.55));
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(148, 163, 184, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 2px rgba(148, 163, 184, 0.15);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 .filter-confirm::after { border: 0; }
 .filter-confirm:active { transform: scale(0.98); box-shadow: 0 4px 12px rgba(148, 163, 184, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.72); }
@@ -2377,9 +2377,9 @@ function openWork(work: HomeWork) {
   position: relative;
   margin-top: 14px;
   overflow: hidden;
-  color: #1e3a8a;
+  color: #172554;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(191, 219, 254, 0.75), rgba(147, 197, 253, 0.55));
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 8px;
   box-shadow:
@@ -2387,8 +2387,8 @@ function openWork(work: HomeWork) {
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     inset 0 -1px 2px rgba(148, 163, 184, 0.15);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 
 .empty-btn::after {
@@ -2474,8 +2474,8 @@ function openWork(work: HomeWork) {
   height: 48px;
   font-size: 28px;
   overflow: hidden;
-  color: #1e3a8a;
-  background: linear-gradient(135deg, rgba(191, 219, 254, 0.75), rgba(147, 197, 253, 0.55));
+  color: #172554;
+  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 50%;
   box-shadow:
@@ -2483,8 +2483,8 @@ function openWork(work: HomeWork) {
     inset 0 1px 0 rgba(255, 255, 255, 0.8),
     inset 0 -1px 2px rgba(148, 163, 184, 0.15);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease;
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 }
 
 .publish-btn:active {
