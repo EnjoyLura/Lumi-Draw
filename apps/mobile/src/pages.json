@@ -275,6 +275,8 @@
     }
   ],
   "globalStyle": {
+    "enableShareAppMessage": true,
+    "enableShareTimeline": true,
     "navigationBarTextStyle": "@navTextStyle",
     "navigationBarTitleText": "露米绘画",
     "navigationBarBackgroundColor": "@pageBackground",
