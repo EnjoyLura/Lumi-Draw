@@ -1654,14 +1654,20 @@ function openWork(work: HomeWork) {
 
 .gallery-login-btn {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 70%;
   height: 42px;
+  padding: 0;
+  box-sizing: border-box;
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
-  color: #172554;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
+  line-height: 1;
+  color: #fff;
+  text-shadow: none;
+  background: var(--accent);
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 12px;
   box-shadow:
@@ -1889,15 +1895,21 @@ function openWork(work: HomeWork) {
 .filter-chip.active { color: var(--accent-deep); background: var(--accent-soft); border-color: var(--accent); }
 .filter-confirm {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 42px;
+  padding: 0;
+  box-sizing: border-box;
   margin-top: 20px;
   overflow: hidden;
   font-size: 14px;
   font-weight: 700;
-  color: #172554;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
+  line-height: 1;
+  color: #fff;
+  text-shadow: none;
+  background: var(--accent);
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(148, 163, 184, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.8), inset 0 -1px 2px rgba(148, 163, 184, 0.15);
@@ -2377,9 +2389,10 @@ function openWork(work: HomeWork) {
   position: relative;
   margin-top: 14px;
   overflow: hidden;
-  color: #172554;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
+  line-height: 1;
+  color: #fff;
+  text-shadow: none;
+  background: var(--accent);
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 8px;
   box-shadow:
@@ -2474,8 +2487,8 @@ function openWork(work: HomeWork) {
   height: 48px;
   font-size: 28px;
   overflow: hidden;
-  color: #172554;
-  background: linear-gradient(135deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.85));
+  color: #fff;
+  background: var(--accent);
   border: 1px solid rgba(255, 255, 255, 0.65);
   border-radius: 50%;
   box-shadow:

@@ -1724,10 +1724,16 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .login-gate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 70%;
   height: 40px;
+  padding: 0;
+  box-sizing: border-box;
   font-size: 14px;
   font-weight: 700;
+  line-height: 1;
   color: #fff;
   background: var(--gradient-dream);
   border: none;
