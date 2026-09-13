@@ -1,4 +1,5 @@
 import { api } from "../../services/api";
+import { engineJobToCompat, fetchEngineJob, fetchEngineJobs } from "../../services/engine/engineApi";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mergeGenerationProgress } from "../../services/generationProgress";
 import { toPublicModelName } from "../../services/modelDisplay";
@@ -178,28 +179,25 @@ function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
   };
 }
 
-async function fetchGenerateJobsByStatuses(statuses: BackendGenerateJob["status"][]) {
-  const statusQuery = encodeURIComponent(statuses.join(","));
-  const result = await api.get<PageResult<BackendGenerateJob>>(`/generate/jobs?status=${statusQuery}&page=1&pageSize=20`);
-  return result.items;
+async function fetchGenerateJobsByStatuses(statuses: string[]) {
+  const result = await fetchEngineJobs(statuses, 1, 20);
+  return result.items.map((job) => engineJobToCompat(job));
 }
 
 export async function fetchGalleryGenerateTasks() {
-  const items = await fetchGenerateJobsByStatuses(["running", "queued", "finalizing"]);
+  const items = await fetchGenerateJobsByStatuses(["queued", "submitted", "running", "settling"]);
   return items
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map(toGalleryGenTask);
 }
 
 export async function fetchGalleryGenerateTask(id: string) {
-  const job = await api.get<BackendGenerateJob>(`/generate/jobs/${encodeURIComponent(id)}`);
-  return ["running", "queued", "finalizing"].includes(job.status) ? toGalleryGenTask(job) : undefined;
+  const job = engineJobToCompat(await fetchEngineJob(id));
+  return ["queued", "running", "finalizing"].includes(job.status) ? toGalleryGenTask(job) : undefined;
 }
 
 async function fetchTerminalGenerateJobsByStatuses(statuses: GalleryTerminalGenerateJob["status"][]) {
-  const statusQuery = encodeURIComponent(statuses.join(","));
-  const result = await api.get<PageResult<GalleryTerminalGenerateJob>>(`/generate/jobs?status=${statusQuery}&page=1&pageSize=20`);
-  return result.items;
+  return fetchGenerateJobsByStatuses(statuses);
 }
 
 export async function fetchGalleryTerminalGenerateJobs() {

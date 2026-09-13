@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onHide, onLoad, onShow } from "@dcloudio/uni-app";
+import { startJobPolling, stopJobPolling } from "../../services/engine/enginePoller";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { refreshWechatSession, useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -121,7 +122,6 @@ const previewData = ref<{
 } | null>(null);
 
 let finishTimer: ReturnType<typeof setTimeout> | undefined;
-let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let elapsedTimer: ReturnType<typeof setInterval> | undefined;
 let generationStartedAt = 0;
 let activeGenerationQuality = "";
@@ -299,7 +299,7 @@ onShow(() => {
   }
 
   if (activeBackendJobId && (isGenerating.value || isSavingOriginal.value)) {
-    void pollBackendJob(activeBackendJobId);
+    beginJobPolling(activeBackendJobId);
   } else {
     void restoreActiveBackendJob();
   }
@@ -308,8 +308,7 @@ onShow(() => {
 
 onHide(() => {
   // Polling is only for the UI. The persisted server-side job continues in the background.
-  if (pollTimer) clearTimeout(pollTimer);
-  pollTimer = undefined;
+  stopJobPolling();
 });
 
 onMounted(() => {
@@ -333,7 +332,7 @@ onUnmounted(() => {
 
 onBeforeUnmount(() => {
   if (finishTimer) clearTimeout(finishTimer);
-  if (pollTimer) clearTimeout(pollTimer);
+  stopJobPolling();
   stopElapsedTimer();
 });
 
@@ -800,7 +799,7 @@ function applyBackendJob(job: BackendGenerateJob) {
 
   if (!isTerminalJob(job.status)) return;
 
-  if (pollTimer) clearTimeout(pollTimer);
+  stopJobPolling();
   removeActiveGenerateJobIds([job.id]);
   activeBackendJobId = "";
   void syncCreditsAfterTerminalJob(job);
@@ -835,22 +834,26 @@ function applyBackendJob(job: BackendGenerateJob) {
   else showToast(job.errorMessage || job.stageText || "生成失败，积分已按规则退回");
 }
 
+function beginJobPolling(jobId: string) {
+  startJobPolling({
+    jobId,
+    tick: async (id) => {
+      const job = await fetchGenerateJob(id);
+      applyBackendJob(job);
+      return isTerminalJob(job.status);
+    },
+    onError: () => {
+      isGenerating.value = true;
+      if (Date.now() >= nextPollErrorToastAt) {
+        nextPollErrorToastAt = Date.now() + 30_000;
+        showToast("任务状态获取失败，请稍后在画廊查看");
+      }
+    }
+  });
+}
+
 async function pollBackendJob(jobId: string) {
-  try {
-    const job = await fetchGenerateJob(jobId);
-    applyBackendJob(job);
-    if (!isTerminalJob(job.status)) {
-      pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
-    }
-  } catch {
-    isGenerating.value = true;
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = setTimeout(() => void pollBackendJob(jobId), 5000);
-    if (Date.now() >= nextPollErrorToastAt) {
-      nextPollErrorToastAt = Date.now() + 30_000;
-      showToast("任务状态获取失败，请稍后在画廊查看");
-    }
-  }
+  beginJobPolling(jobId);
 }
 
 let activeJobRestorePromise: Promise<void> | undefined;
@@ -873,7 +876,7 @@ async function restoreActiveBackendJob() {
 
 async function resumeBackendJob(jobId: string) {
   if (finishTimer) clearTimeout(finishTimer);
-  if (pollTimer) clearTimeout(pollTimer);
+  stopJobPolling();
   activeBackendJobId = jobId;
 
   isGenerating.value = true;
@@ -903,7 +906,7 @@ async function resumeBackendJob(jobId: string) {
     applyBackendJob(job);
     if (!isTerminalJob(job.status)) {
       addActiveGenerateJobId(jobId);
-      pollTimer = setTimeout(() => void pollBackendJob(jobId), 2000);
+      beginJobPolling(jobId);
     }
   } catch {
     activeBackendJobId = "";
@@ -930,7 +933,7 @@ async function resolvePromptImageUrls() {
 
 async function startBackendGenerate(prompt: string) {
   if (finishTimer) clearTimeout(finishTimer);
-  if (pollTimer) clearTimeout(pollTimer);
+  stopJobPolling();
 
   isGenerating.value = true;
   isSavingOriginal.value = false;
@@ -974,7 +977,7 @@ async function startBackendGenerate(prompt: string) {
         stage: created.job.stageText,
         createdAt: created.job.createdAt
       });
-      pollTimer = setTimeout(() => void pollBackendJob(created.jobId), 2000);
+      beginJobPolling(created.jobId);
     }
   } catch (error) {
     activeBackendJobId = "";
@@ -1016,7 +1019,7 @@ async function startGenerate() {
   }
 
   if (finishTimer) clearTimeout(finishTimer);
-  if (pollTimer) clearTimeout(pollTimer);
+  stopJobPolling();
 
   isGenerating.value = true;
   isSavingOriginal.value = false;

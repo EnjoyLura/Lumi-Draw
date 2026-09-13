@@ -1,4 +1,21 @@
 import { api } from "../../services/api";
+import {
+  createEngineJob,
+  engineJobToCompat,
+  fetchEngineActiveJob,
+  fetchEngineJob,
+  publishEngineAsset,
+  type CompatGenerateJob,
+  type EngineCreateJobResponse,
+  type EngineJobView
+} from "../../services/engine/engineApi";
+import {
+  catalogStyleNameById,
+  getEngineCatalog,
+  resolveCatalogQualityId,
+  resolveCatalogRatioId,
+  resolveCatalogStyleId
+} from "../../services/engine/engineCatalog";
 import { toPublicModelName } from "../../services/modelDisplay";
 import {
   createModels as mockModels,
@@ -13,48 +30,34 @@ import {
   type RatioOption
 } from "./createData";
 
-interface BackendModel {
+// 页面层继续消费 /generate/jobs 时代的 BackendGenerateJob 形态；
+// 数据源已切换到 /engine/*，兼容映射统一在 services/engine 内完成。
+export type BackendGenerateResult = CompatGenerateJob["results"][number];
+export type BackendGenerateJob = CompatGenerateJob;
+
+interface CatalogModel {
   id: string;
   name: string;
   description: string;
+  badge?: string;
   tags?: string[];
-  badge?: string | null;
   costCredits: number;
 }
 
-interface BackendStyle {
+interface CatalogStyle {
   id: number;
   name: string;
   prompt: string;
-  imageUrl?: string;
+  imageUrl: string;
+  uses: number;
 }
 
-interface BackendQuality {
-  id: number;
-  label: string;
-  pixel: string;
-  multiplier: number;
-}
-
-interface BackendRatio {
-  id: number;
-  label: string;
-}
-
-interface BackendGameplay {
+interface CatalogGameplay {
   id: number;
   name: string;
-  prompt: string;
-  uses: string | number;
-  imageUrl?: string;
-}
-
-interface BackendBootstrap {
-  models: BackendModel[];
-  styles: BackendStyle[];
-  qualities: BackendQuality[];
-  ratios: BackendRatio[];
-  gameplays: BackendGameplay[];
+  description: string;
+  uses: string;
+  imageUrl: string;
 }
 
 export interface CreateConfigView {
@@ -80,43 +83,6 @@ export interface CreatedDraftWork {
   id: number;
 }
 
-export interface BackendGenerateResult {
-  id: string;
-  status: "transferring" | "succeeded" | "failed";
-  temporary?: boolean;
-  imageUrl?: string;
-  cardUrl?: string;
-  previewUrl?: string;
-  originalUrl?: string;
-  errorMessage?: string;
-  workId?: number;
-  createdAt?: string;
-}
-
-export interface BackendGenerateJob {
-  id: string;
-  mode: "text-to-image" | "image-to-image";
-  modelId: string;
-  providerModel?: string;
-  prompt: string;
-  inputImageUrl?: string;
-  inputImageUrls?: string[];
-  gameplayId?: number;
-  style?: string;
-  ratio: string;
-  quality: string;
-  count: number;
-  status: "queued" | "running" | "finalizing" | "succeeded" | "partial_failed" | "failed" | "cancelled";
-  progress: number;
-  stageText: string;
-  costCredits: number;
-  refundCredits: number;
-  errorMessage?: string;
-  results: BackendGenerateResult[];
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface CreateGenerateJobPayload {
   mode: "text-to-image" | "image-to-image";
   modelId: string;
@@ -128,6 +94,7 @@ export interface CreateGenerateJobPayload {
   ratio: string;
   quality: string;
   count: number;
+  retryOfJobId?: string;
 }
 
 const CREATE_CONFIG_TTL = 5 * 60_000;
@@ -143,7 +110,7 @@ export interface CreateGenerateJobResponse {
   job: BackendGenerateJob;
 }
 
-interface GenerateJobPage {
+export interface GenerateJobPage {
   items: BackendGenerateJob[];
 }
 
@@ -164,11 +131,9 @@ function fallbackByIndex<T>(items: T[], index: number) {
   return items[index % items.length];
 }
 
-function formatUses(value: string | number, fallback: string) {
+function formatUses(value: string, fallback: string) {
   if (typeof value === "string" && value.trim()) return value;
-  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-  if (value >= 10000) return `${(value / 10000).toFixed(value >= 100000 ? 0 : 1)}w`;
-  return `${value}`;
+  return fallback;
 }
 
 function parseRatio(label: string, fallback: RatioOption): RatioOption {
@@ -177,12 +142,15 @@ function parseRatio(label: string, fallback: RatioOption): RatioOption {
   return { label, width, height };
 }
 
-export async function fetchCreateConfig(options?: { force?: boolean }): Promise<CreateConfigView> {
-  if (!options?.force && cachedCreateConfig && Date.now() - cachedCreateConfigAt < CREATE_CONFIG_TTL) return cachedCreateConfig;
-  if (pendingCreateConfig) return pendingCreateConfig;
-
-  pendingCreateConfig = api.get<BackendBootstrap>("/app/bootstrap", { skipAuth: true }).then((data) => ({
-    models: data.models.map((item, index) => {
+function toCreateConfig(catalog: {
+  models: CatalogModel[];
+  styles: CatalogStyle[];
+  qualities: Array<{ id: number; label: string; multiplier: number }>;
+  ratios: Array<{ id: number; label: string; description: string }>;
+  gameplays: CatalogGameplay[];
+}): CreateConfigView {
+  return {
+    models: catalog.models.map((item, index) => {
       const fallback = mockModels.find((model) => model.name === item.name) ?? fallbackByIndex(mockModels, index);
       return {
         id: item.id,
@@ -195,7 +163,7 @@ export async function fetchCreateConfig(options?: { force?: boolean }): Promise<
         badgeColor: fallback.badgeColor
       };
     }),
-    styles: data.styles.map((item, index) => {
+    styles: catalog.styles.map((item, index) => {
       const fallback = mockStyles.find((style) => style.name === item.name) ?? fallbackByIndex(mockStyles, index);
       return {
         name: item.name || fallback.name,
@@ -203,27 +171,34 @@ export async function fetchCreateConfig(options?: { force?: boolean }): Promise<
         prompt: item.prompt || fallback.prompt
       };
     }),
-    qualities: data.qualities.map((item, index) => {
+    qualities: catalog.qualities.map((item, index) => {
       const fallback = fallbackByIndex(mockQualities, index);
       return {
         label: item.label || fallback.label,
-        description: item.pixel || fallback.description,
+        description: fallback.description,
         icon: item.label.match(/\b(?:1K|2K|4K)\b/i)?.[0]?.toUpperCase() || fallback.icon,
         multiplier: Number(item.multiplier) || fallback.multiplier
       };
     }),
-    ratios: data.ratios.map((item, index) => parseRatio(item.label, fallbackByIndex(mockRatios, index))),
-    gameplays: data.gameplays.map((item, index) => {
+    ratios: catalog.ratios.map((item, index) => parseRatio(item.label, fallbackByIndex(mockRatios, index))),
+    gameplays: catalog.gameplays.map((item, index) => {
       const fallback = mockGameplays.find((gameplay) => gameplay.name === item.name) ?? fallbackByIndex(mockGameplays, index);
       return {
         id: item.id,
         name: item.name || fallback.name,
         image: item.imageUrl || fallback.image,
         uses: formatUses(item.uses, fallback.uses),
-        prompt: item.prompt || fallback.prompt
+        prompt: fallback.prompt
       };
     })
-  }));
+  };
+}
+
+export async function fetchCreateConfig(options?: { force?: boolean }): Promise<CreateConfigView> {
+  if (!options?.force && cachedCreateConfig && Date.now() - cachedCreateConfigAt < CREATE_CONFIG_TTL) return cachedCreateConfig;
+  if (!options?.force && pendingCreateConfig) return pendingCreateConfig;
+
+  pendingCreateConfig = getEngineCatalog(options).then((catalog) => toCreateConfig(catalog));
 
   try {
     cachedCreateConfig = await pendingCreateConfig;
@@ -241,19 +216,50 @@ export function createDraftWork(payload: CreateDraftWorkPayload) {
   });
 }
 
-export function createGenerateJob(payload: CreateGenerateJobPayload) {
-  return api.post<CreateGenerateJobResponse>("/generate/jobs", payload);
+async function toCompatJob(job: EngineJobView): Promise<BackendGenerateJob> {
+  const catalog = await getEngineCatalog().catch(() => undefined);
+  return engineJobToCompat(job, catalogStyleNameById(catalog, job.styleId));
 }
 
-export function fetchGenerateJob(jobId: string) {
-  return api.get<BackendGenerateJob>(`/generate/jobs/${jobId}`);
+export async function createGenerateJob(payload: CreateGenerateJobPayload): Promise<CreateGenerateJobResponse> {
+  const catalog = await getEngineCatalog();
+  const qualityId = resolveCatalogQualityId(catalog, payload.quality);
+  const ratioId = resolveCatalogRatioId(catalog, payload.ratio);
+  if (!qualityId || !ratioId) {
+    throw new Error("创作配置未同步，请下拉刷新后重试");
+  }
+  const styleId = resolveCatalogStyleId(catalog, payload.style || "");
+  const created: EngineCreateJobResponse = await createEngineJob({
+    operation: payload.mode,
+    modelId: payload.modelId,
+    prompt: payload.prompt,
+    qualityId,
+    ratioId,
+    styleId,
+    gameplayId: payload.gameplayId,
+    count: payload.count,
+    inputImageUrls: payload.inputImageUrls?.length ? payload.inputImageUrls : undefined,
+    retryOfJobId: payload.retryOfJobId
+  });
+  return {
+    jobId: created.jobId,
+    status: created.status === "settling" ? "finalizing" : created.status === "submitted" ? "running" : created.status,
+    costCredits: created.job.costCredits,
+    creditsAfter: created.creditsAfter,
+    job: await toCompatJob(created.job)
+  };
 }
 
-export async function fetchActiveGenerateJob() {
-  const result = await api.get<GenerateJobPage>("/generate/jobs?status=queued,running,finalizing&page=1&pageSize=1");
-  return result.items[0];
+export async function fetchGenerateJob(jobId: string): Promise<BackendGenerateJob> {
+  return toCompatJob(await fetchEngineJob(jobId));
+}
+
+export async function fetchActiveGenerateJob(): Promise<BackendGenerateJob | undefined> {
+  const result = await fetchEngineActiveJob();
+  const job = result.items[0];
+  return job ? toCompatJob(job) : undefined;
 }
 
 export function publishGenerateResult(resultId: string, payload: PublishGenerateResultPayload) {
-  return api.post<PublishGenerateResultResponse>(`/generate/results/${resultId}/publish`, payload);
+  return publishEngineAsset(resultId, payload);
 }

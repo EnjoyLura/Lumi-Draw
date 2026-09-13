@@ -8,5 +8,5 @@ export interface ReversePromptResult {
 }
 
 export function reversePrompt(payload: { imageUrl: string; hint?: string }) {
-  return api.post<ReversePromptResult>("/generate/reverse-prompt", payload);
+  return api.post<ReversePromptResult>("/engine/reverse-prompt", payload);
 }
