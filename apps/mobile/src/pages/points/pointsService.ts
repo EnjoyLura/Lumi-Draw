@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { getWechatLoginCode } from "../../services/auth";
 import type { InvitedUser, MemberPlan, PointRecord, RechargeTier } from "./pointsData";
@@ -16,13 +17,6 @@ interface WechatVirtualPaymentApi {
 
 declare const wx: WechatVirtualPaymentApi;
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 interface CreditBalance {
   credits: number;

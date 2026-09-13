@@ -8,9 +8,9 @@ import { WechatContentSafetyService } from "../content-safety/wechat-content-saf
 import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
-import { resolveProviderIds } from "../generate/provider-routing";
+import { resolveProviderIds } from "../common/provider-routing";
 import { decryptProviderApiKey } from "../common/provider-secret";
-import { normalizeProviderParams } from "../generate/provider-runtime";
+import { normalizeProviderParams } from "./provider-runtime";
 import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "../common/provider-result-url";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";

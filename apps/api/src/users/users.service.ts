@@ -111,10 +111,10 @@ export class UsersService {
         }
       });
       if (workIds.length) {
-        await tx.generateResult.updateMany({ where: { workId: { in: workIds } }, data: { workId: null } });
+        await tx.engineAsset.updateMany({ where: { workId: { in: workIds } }, data: { workId: null } });
       }
       await tx.work.deleteMany({ where: { userId } });
-      await tx.generateJob.deleteMany({ where: { userId } });
+      await tx.engineJob.deleteMany({ where: { userId } });
       await tx.follow.deleteMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] } });
       await tx.inviteRecord.deleteMany({ where: { OR: [{ inviterId: userId }, { inviteeId: userId }] } });
       await tx.feedback.deleteMany({ where: { userId } });

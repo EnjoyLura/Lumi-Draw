@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { ratioToResolution, type DraftWork } from "./publishData";
@@ -29,13 +30,6 @@ interface BackendWorkDetail {
   isAnonymous?: boolean;
 }
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 export interface PublishWorkPayload {
   title: string;

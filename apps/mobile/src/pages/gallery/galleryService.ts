@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { engineJobToCompat, fetchEngineJob, fetchEngineJobs } from "../../services/engine/engineApi";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
@@ -46,13 +47,6 @@ interface BackendWork {
   createdAt?: string;
 }
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 interface BackendGenerateJob {
   id: string;

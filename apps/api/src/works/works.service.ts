@@ -350,7 +350,7 @@ export class WorksService {
       await tx.workInteraction.deleteMany({ where: { workId: id } });
       await tx.workView.deleteMany({ where: { workId: id } });
       await tx.report.deleteMany({ where: { workId: id } });
-      await tx.generateResult.updateMany({ where: { workId: id }, data: { workId: null } });
+      await tx.engineAsset.updateMany({ where: { workId: id }, data: { workId: null } });
       await tx.work.delete({ where: { id } });
       await tx.user.updateMany({
         where: { id: userId, worksCount: { gt: 0 } },
@@ -387,7 +387,7 @@ export class WorksService {
         ? this.prisma.modelConfig.findMany({ where: { id: { in: modelIds } }, select: { id: true, name: true } })
         : Promise.resolve([]),
       rows.length
-        ? this.prisma.generateResult.findMany({
+        ? this.prisma.engineAsset.findMany({
             where: { workId: { in: rows.map((work) => work.id) } },
             orderBy: { createdAt: "desc" },
             select: { workId: true, width: true, height: true, job: { select: { ratio: true, quality: true } } }

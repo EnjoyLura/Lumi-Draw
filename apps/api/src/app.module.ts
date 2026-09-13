@@ -12,7 +12,6 @@ import { ContentSafetyModule } from "./content-safety/content-safety.module";
 import { CreditsModule } from "./credits/credits.module";
 import { FeedbackModule } from "./feedback/feedback.module";
 import { EngineModule } from "./engine/engine.module";
-import { GenerateModule } from "./generate/generate.module";
 import { HealthModule } from "./health/health.module";
 import { InviteModule } from "./invite/invite.module";
 import { MembershipModule } from "./membership/membership.module";
@@ -45,7 +44,6 @@ import { WorksModule } from "./works/works.module";
     InviteModule,
     MembershipModule,
     FeedbackModule,
-    GenerateModule,
     EngineModule,
     NotificationsModule,
     PaymentsModule,

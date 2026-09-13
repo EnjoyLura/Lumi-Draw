@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mockImage } from "../../services/mockImages";
@@ -83,13 +84,6 @@ interface BackendWork {
   author: BackendAuthor;
 }
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 export interface HomeBootstrapView {
   banners: HomeBanner[];

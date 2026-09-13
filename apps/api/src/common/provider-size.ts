@@ -1,3 +1,6 @@
+import { BadRequestException } from "@nestjs/common";
+import { resolveGeneratedImageSize } from "./generated-image-size";
+
 export type ProviderSizeMode = "pixels" | "ratio-resolution";
 
 export type ProviderSizeConfig = {
@@ -41,4 +44,11 @@ export function buildProviderSizeParams(
     };
   }
   return { [config.pixelSizeField]: pixelSize };
+}
+
+/** 比例+精度 → OpenAI Images 风格的 "宽x高" 像素值；不支持时抛 invalid_request。 */
+export function normalizeImage2Size(ratio: string, quality: string) {
+  const size = resolveGeneratedImageSize(ratio, quality);
+  if (!size) throw new BadRequestException("当前模型不支持所选图片尺寸");
+  return `${size.width}x${size.height}`;
 }

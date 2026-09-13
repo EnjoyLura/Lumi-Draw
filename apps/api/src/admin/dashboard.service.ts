@@ -114,7 +114,7 @@ export class DashboardService {
 
   async generationStats() {
     const [modelRows, qualityRows, ratioRows, paidOrders, totalUsers] = await Promise.all([
-      this.prisma.generateJob.groupBy({ by: ["modelId"], _count: { _all: true } }),
+      this.prisma.engineJob.groupBy({ by: ["modelId"], _count: { _all: true } }),
       this.prisma.work.groupBy({ by: ["quality"], _count: { _all: true } }),
       this.prisma.work.groupBy({ by: ["ratio"], _count: { _all: true } }),
       this.prisma.paymentOrder.count({ where: { status: "paid" } }),

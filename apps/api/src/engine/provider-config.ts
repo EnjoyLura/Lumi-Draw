@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import type { GenerationProvider } from "@prisma/client";
 import { normalizeProviderResultUrlRewriteRules } from "../common/provider-result-url";
-import { normalizeProviderJsonObject, normalizeProviderParams } from "../generate/provider-runtime";
+import { normalizeProviderJsonObject, normalizeProviderParams } from "./provider-runtime";
 import type {
   AdapterKind,
   ProviderConfig,

@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { toPublicModelName } from "../../services/modelDisplay";
@@ -66,13 +67,6 @@ interface BackendWork {
   author: BackendAuthor;
 }
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 export interface PlazaWorkPage {
   works: HomeWork[];

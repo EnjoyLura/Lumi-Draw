@@ -1,6 +1,6 @@
 // Real API adapter: maps backend responses into the shapes already used by pages.
 import { http, type Paginated } from "./http";
-import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminGenerationProvider, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
+import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -516,112 +516,6 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
     supportsImageToImage: true
   };
   return mapModelConfig(id ? await http.patch<ApiModelConfig>(`/admin/models/${id}`, body) : await http.post<ApiModelConfig>("/admin/models", body));
-}
-
-interface ApiGenerationProvider {
-  id: string;
-  name: string;
-  groupName: string;
-  adapter: "ainb" | "change2pro" | "kie";
-  requestMode: "sync" | "async";
-  textResultMode: "auto" | "url" | "base64";
-  imageResultMode: "auto" | "url" | "base64";
-  baseUrl: string;
-  imageEndpoint: string;
-  queryEndpoint: string;
-  statusEnabled: boolean;
-  responseMapping: Record<string, string>;
-  resultUrlRewriteRules: Array<{ sourceHost: string; targetHost: string }>;
-  textToImageEnabled: boolean;
-  imageToImageEnabled: boolean;
-  apiKeyConfigured: boolean;
-  apiKeyHint: string;
-  apiKeySource: "admin" | "environment" | "none";
-  requestParams: Record<string, string>;
-  imageRequestParams: Record<string, string>;
-  imageInputMode: "multipart" | "url-array";
-  imageInputField: string;
-  sizeMode: "pixels" | "ratio-resolution";
-  pixelSizeField: string;
-  ratioField: string;
-  resolutionField: string;
-  modelIds: string[];
-  metrics: AdminGenerationProvider["metrics"];
-  enabled: boolean;
-  sort: number;
-}
-
-function mapGenerationProvider(provider: ApiGenerationProvider): AdminGenerationProvider {
-  return {
-    ...provider,
-    apiKey: "",
-    requestParams: { model: "", ...(provider.requestParams || {}) },
-    imageRequestParams: { model: "", ...(provider.imageRequestParams || {}) },
-    resultUrlRewriteRules: provider.resultUrlRewriteRules || [],
-    imageInputMode: provider.imageInputMode || "multipart",
-    imageInputField: provider.imageInputField || (provider.adapter === "ainb" ? "image[]" : "image"),
-    sizeMode: provider.sizeMode || "pixels",
-    pixelSizeField: provider.pixelSizeField || "size",
-    ratioField: provider.ratioField || "size",
-    resolutionField: provider.resolutionField || "resolution",
-    modelIds: provider.modelIds || [],
-    metrics: provider.metrics || { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
-    on: provider.enabled
-  };
-}
-
-export async function apiGetGenerationProviders() {
-  return (await http.get<ApiGenerationProvider[]>("/admin/generation-providers")).map(mapGenerationProvider);
-}
-
-export async function apiSaveGenerationProvider(id: string, values: AdminGenerationProvider) {
-  const body = {
-    id: values.id,
-    name: values.name,
-    groupName: values.groupName,
-    adapter: values.adapter,
-    requestMode: values.requestMode,
-    textResultMode: values.textResultMode || "auto",
-    imageResultMode: values.imageResultMode || "auto",
-    baseUrl: values.baseUrl,
-    imageEndpoint: values.imageEndpoint,
-    queryEndpoint: values.queryEndpoint,
-    statusEnabled: values.statusEnabled,
-    responseMapping: values.responseMapping,
-    resultUrlRewriteRules: values.resultUrlRewriteRules,
-    textToImageEnabled: values.textToImageEnabled,
-    imageToImageEnabled: values.imageToImageEnabled,
-    apiKey: values.apiKey || undefined,
-    requestParams: values.requestParams,
-    imageRequestParams: values.imageRequestParams,
-    imageInputMode: values.imageInputMode,
-    imageInputField: values.imageInputField,
-    sizeMode: values.sizeMode,
-    pixelSizeField: values.pixelSizeField,
-    ratioField: values.ratioField,
-    resolutionField: values.resolutionField,
-    modelIds: values.modelIds,
-    enabled: values.on,
-    sort: values.sort
-  };
-  return mapGenerationProvider(id
-    ? await http.patch<ApiGenerationProvider>(`/admin/generation-providers/${id}`, body)
-    : await http.post<ApiGenerationProvider>("/admin/generation-providers", body));
-}
-
-export async function apiDeleteGenerationProvider(id: string) {
-  return http.del<ApiGenerationProvider>(`/admin/generation-providers/${id}`);
-}
-
-export async function apiDuplicateGenerationProvider(
-  sourceId: string,
-  values: { id: string; name: string; groupName: string; copyApiKey: boolean; enabled: boolean; sort: number }
-) {
-  return mapGenerationProvider(await http.post<ApiGenerationProvider>(`/admin/generation-providers/${sourceId}/duplicate`, values));
-}
-
-export async function apiMoveGenerationProvider(id: string, direction: "up" | "down") {
-  return mapGenerationProvider(await http.patch<ApiGenerationProvider>(`/admin/generation-providers/${id}/order`, { direction }));
 }
 
 export async function apiDeleteModel(id: string) {

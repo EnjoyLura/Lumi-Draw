@@ -107,45 +107,45 @@ model ModelConfig {
 
 // 生图 API 平台 GenerationProvider
 model GenerationProvider {
-  id            String   @id
-  name          String
-  groupName     String   @default("")
-  adapter       String
-  requestMode   String   @default("sync")
-  textResultMode String  @default("auto")
-  imageResultMode String @default("auto")
-  baseUrl       String
-  imageEndpoint String   @default("")
-  queryEndpoint String   @default("")
-  statusEnabled Boolean  @default(false)
-  responseMapping Json   @default("{}")
-  resultUrlRewriteRules Json @default("[]")
-  textToImageEnabled Boolean @default(true)
-  imageToImageEnabled Boolean @default(false)
-  apiKeyEnv     String
-  apiKeyEncrypted String @default("")
-  config        Json?
-  authMode      String   @default("bearer") // bearer | raw | query | none
-  authHeaderName String  @default("Authorization")
-  authQueryName String   @default("api_key")
-  requestHeaders Json    @default("{}")
-  queryHeaders Json      @default("{}")
-  requestTemplate Json   @default("{}")
-  imageRequestTemplate Json @default("{}")
-  injectModel   Boolean  @default(true)
-  injectCount   Boolean  @default(true)
-  requestParams Json
-  imageRequestParams Json @default("{}")
-  imageInputMode String   @default("multipart")
-  imageInputField String  @default("")
-  sizeMode      String   @default("pixels")
-  pixelSizeField String  @default("size")
-  ratioField    String   @default("size")
-  resolutionField String @default("resolution")
-  enabled       Boolean  @default(true)
-  sort          Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id
+  name                  String
+  groupName             String   @default("")
+  adapter               String
+  requestMode           String   @default("sync")
+  textResultMode        String   @default("auto")
+  imageResultMode       String   @default("auto")
+  baseUrl               String
+  imageEndpoint         String   @default("")
+  queryEndpoint         String   @default("")
+  statusEnabled         Boolean  @default(false)
+  responseMapping       Json     @default("{}")
+  resultUrlRewriteRules Json     @default("[]")
+  textToImageEnabled    Boolean  @default(true)
+  imageToImageEnabled   Boolean  @default(false)
+  apiKeyEnv             String
+  apiKeyEncrypted       String   @default("")
+  config                Json?
+  authMode              String   @default("bearer") // bearer | raw | query | none
+  authHeaderName        String   @default("Authorization")
+  authQueryName         String   @default("api_key")
+  requestHeaders        Json     @default("{}")
+  queryHeaders          Json     @default("{}")
+  requestTemplate       Json     @default("{}")
+  imageRequestTemplate  Json     @default("{}")
+  injectModel           Boolean  @default(true)
+  injectCount           Boolean  @default(true)
+  requestParams         Json
+  imageRequestParams    Json     @default("{}")
+  imageInputMode        String   @default("multipart")
+  imageInputField       String   @default("")
+  sizeMode              String   @default("pixels")
+  pixelSizeField        String   @default("size")
+  ratioField            String   @default("size")
+  resolutionField       String   @default("resolution")
+  enabled               Boolean  @default(true)
+  sort                  Int      @default(0)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@map("generation_providers")
 }
@@ -193,18 +193,18 @@ model RechargeTier {
 
 // 会员方案 MemberPlan
 model MemberPlan {
-  id           Int      @id @default(autoincrement())
-  name         String
-  price        Int
-  rights       String
-  giftCredits  Int      @default(0)
-  checkinBonus Int      @default(0)
-  milestoneBonus Int    @default(0)
-  publishBonus Int      @default(0)
-  enabled      Boolean  @default(true)
-  sort         Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  name           String
+  price          Int
+  rights         String
+  giftCredits    Int      @default(0)
+  checkinBonus   Int      @default(0)
+  milestoneBonus Int      @default(0)
+  publishBonus   Int      @default(0)
+  enabled        Boolean  @default(true)
+  sort           Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@map("member_plans")
 }
@@ -242,36 +242,35 @@ model AppSetting {
 
 // 用户 User
 model User {
-  id          Int      @id @default(autoincrement())
-  publicId    String   @unique @default(dbgenerated("generate_public_user_id()"))
-  openId      String?  @unique
-  wechatSessionKeyEncrypted String @default("")
-  wechatSessionUpdatedAt DateTime?
-  wechatSessionUserIp String @default("")
-  nickname    String
-  avatarText  String   @default("")
-  avatarColor String   @default("#5B9FE8")
-  avatarUrl   String?
-  pendingAvatarUrl String?
-  avatarModerationStatus String @default("unchecked") // unchecked | pending | pass | review | risky | failed | skipped
-  bio         String   @default("")
-  gender      String   @default("unknown") // unknown | male | female
-  credits        Int       @default(0)
-  memberPlan     String    @default("") // "" | 月卡 | 季卡 | 年卡
-  memberExpireAt DateTime?
-  status         String    @default("normal") // normal | banned
-  phone          String    @default("")
-  inviteCode     String?   @unique
-  invitedById    Int?
-  worksCount  Int      @default(0)
-  likesCount  Int      @default(0)
-  followers   Int      @default(0)
-  following   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                        Int       @id @default(autoincrement())
+  publicId                  String    @unique @default(dbgenerated("generate_public_user_id()"))
+  openId                    String?   @unique
+  wechatSessionKeyEncrypted String    @default("")
+  wechatSessionUpdatedAt    DateTime?
+  wechatSessionUserIp       String    @default("")
+  nickname                  String
+  avatarText                String    @default("")
+  avatarColor               String    @default("#5B9FE8")
+  avatarUrl                 String?
+  pendingAvatarUrl          String?
+  avatarModerationStatus    String    @default("unchecked") // unchecked | pending | pass | review | risky | failed | skipped
+  bio                       String    @default("")
+  gender                    String    @default("unknown") // unknown | male | female
+  credits                   Int       @default(0)
+  memberPlan                String    @default("") // "" | 月卡 | 季卡 | 年卡
+  memberExpireAt            DateTime?
+  status                    String    @default("normal") // normal | banned
+  phone                     String    @default("")
+  inviteCode                String?   @unique
+  invitedById               Int?
+  worksCount                Int       @default(0)
+  likesCount                Int       @default(0)
+  followers                 Int       @default(0)
+  following                 Int       @default(0)
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
 
   works              Work[]
-  generateJobs       GenerateJob[]
   engineJobs         EngineJob[]
   paymentOrders      PaymentOrder[]
   refreshTokens      RefreshToken[]
@@ -359,7 +358,7 @@ model WorkInteraction {
   id        Int      @id @default(autoincrement())
   userId    Int
   workId    Int
-  type      String   // like | favorite
+  type      String // like | favorite
   createdAt DateTime @default(now())
 
   @@unique([userId, workId, type])
@@ -420,8 +419,8 @@ model CreditTransaction {
   id           Int      @id @default(autoincrement())
   userId       Int
   user         User     @relation(fields: [userId], references: [id])
-  type         String   // recharge | consume | refund | checkin | invite | membership | adjust
-  amount       Int      // 正数入账，负数消费
+  type         String // recharge | consume | refund | checkin | invite | membership | adjust
+  amount       Int // 正数入账，负数消费
   balanceAfter Int
   reason       String   @default("")
   refId        String   @default("")
@@ -436,7 +435,7 @@ model CheckinRecord {
   id             Int      @id @default(autoincrement())
   userId         Int
   user           User     @relation(fields: [userId], references: [id])
-  date           String   // YYYY-MM-DD
+  date           String // YYYY-MM-DD
   credits        Int
   continuousDays Int
   createdAt      DateTime @default(now())
@@ -475,33 +474,33 @@ model AdminUser {
 
 // 作品 Work
 model Work {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-  title       String
-  description String   @default("")
-  prompt      String   @default("")
-  imageUrl    String   @default("")
-  ratio       String   @default("1:1")
-  quality     String   @default("1K")
-  modelId     String   @default("")
-  style       String   @default("")
-  tags        String[] @default([])
-  textModerationStatus  String   @default("unchecked") // unchecked | pass | risky | failed | skipped
-  imageModerationStatus String   @default("unchecked") // unchecked | submitting | pending | pass | review | risky | failed | skipped
-  imageModerationTraceId String  @default("")
-  moderationReason       String  @default("")
-  status      String   @default("published") // draft | pending | published | rejected | offline
-  isPublic    Boolean  @default(true)
-  isAnonymous Boolean  @default(false)
-  featured    Boolean  @default(false)
-  recommend   Boolean  @default(false)
-  likes       Int      @default(0)
-  favorites   Int      @default(0)
-  remakes     Int      @default(0)
-  reviewedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                     Int       @id @default(autoincrement())
+  userId                 Int
+  user                   User      @relation(fields: [userId], references: [id])
+  title                  String
+  description            String    @default("")
+  prompt                 String    @default("")
+  imageUrl               String    @default("")
+  ratio                  String    @default("1:1")
+  quality                String    @default("1K")
+  modelId                String    @default("")
+  style                  String    @default("")
+  tags                   String[]  @default([])
+  textModerationStatus   String    @default("unchecked") // unchecked | pass | risky | failed | skipped
+  imageModerationStatus  String    @default("unchecked") // unchecked | submitting | pending | pass | review | risky | failed | skipped
+  imageModerationTraceId String    @default("")
+  moderationReason       String    @default("")
+  status                 String    @default("published") // draft | pending | published | rejected | offline
+  isPublic               Boolean   @default(true)
+  isAnonymous            Boolean   @default(false)
+  featured               Boolean   @default(false)
+  recommend              Boolean   @default(false)
+  likes                  Int       @default(0)
+  favorites              Int       @default(0)
+  remakes                Int       @default(0)
+  reviewedAt             DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   @@index([status])
   @@index([userId])
@@ -512,122 +511,25 @@ model Work {
 // WeChat content-security jobs. The generic target keeps callback handling
 // independent from the public-content type being reviewed.
 model ContentModerationTask {
-  id          String    @id @default(cuid())
-  traceId     String?   @unique
-  userId      Int
-  targetType  String    // work | avatar
-  targetId    String
-  sourceUrl   String
-  mediaUrl    String
-  status      String    @default("submitting") // submitting | pending | pass | review | risky | failed | skipped
-  suggest     String    @default("")
-  label       Int?
-  detail      Json?
-  errorMessage String   @default("")
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  traceId      String?   @unique
+  userId       Int
+  targetType   String // work | avatar
+  targetId     String
+  sourceUrl    String
+  mediaUrl     String
+  status       String    @default("submitting") // submitting | pending | pass | review | risky | failed | skipped
+  suggest      String    @default("")
+  label        Int?
+  detail       Json?
+  errorMessage String    @default("")
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([targetType, targetId])
   @@index([userId, createdAt])
   @@map("content_moderation_tasks")
-}
-
-// AI generation task.
-model GenerateJob {
-  id            String   @id @default(cuid())
-  userId        Int
-  user          User     @relation(fields: [userId], references: [id])
-  mode          String   // text-to-image | image-to-image
-  modelId       String
-  provider      String   @default("kie")
-  providerAdapter String @default("")
-  providerBaseUrl String @default("")
-  providerRequestMode String @default("sync")
-  providerResultMode String @default("auto")
-  providerQueryEndpoint String @default("")
-  providerStatusEnabled Boolean @default(false)
-  providerResponseMapping Json?
-  providerResultUrlRewriteRules Json @default("[]")
-  providerApiKeyEnv String @default("")
-  providerApiKeyEncrypted String @default("")
-  providerAuthMode String @default("bearer")
-  providerAuthHeaderName String @default("Authorization")
-  providerAuthQueryName String @default("api_key")
-  providerRequestHeaders Json @default("{}")
-  providerQueryHeaders Json @default("{}")
-  providerRequestTemplate Json @default("{}")
-  providerInjectModel Boolean @default(true)
-  providerInjectCount Boolean @default(true)
-  providerParams Json?
-  providerModel String   @default("")
-  providerImageInputMode String @default("multipart")
-  providerImageInputField String @default("")
-  providerSizeMode String @default("pixels")
-  providerPixelSizeField String @default("size")
-  providerRatioField String @default("size")
-  providerResolutionField String @default("resolution")
-  providerCandidates Json @default("[]")
-  providerAttemptIndex Int @default(0)
-  providerAttempts Json @default("[]")
-  prompt        String
-  inputImageUrl String   @default("")
-  inputImageUrls Json    @default("[]")
-  gameplayId    Int?
-  style         String   @default("")
-  ratio         String
-  quality       String
-  count         Int
-  costCredits   Int
-  refundCredits Int      @default(0)
-  walletBillNo  String   @default("")
-  walletRefunded Boolean @default(false)
-  status        String   @default("queued") // queued | running | finalizing | succeeded | partial_failed | failed | cancelled
-  progress      Int      @default(0)
-  stageText     String   @default("")
-  kieTaskId     String?  @unique
-  errorMessage  String   @default("")
-  retryOfJobId  String?
-  cancelledAt   DateTime?
-  startedAt     DateTime?
-  finishedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  results GenerateResult[]
-
-  @@index([userId, createdAt])
-  @@index([status, createdAt])
-  @@map("generate_jobs")
-}
-
-// AI generation output.
-model GenerateResult {
-  id           String   @id @default(cuid())
-  jobId        String
-  job          GenerateJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  status       String   @default("succeeded") // succeeded | transferring | failed
-  imageUrl     String   @default("")
-  sourceUrl    String   @default("")
-  width        Int?
-  height       Int?
-  sizeBytes    Int?
-  ossKey       String   @default("")
-  errorMessage String   @default("")
-  transferAttempts Int  @default(0)
-  transferLastAttemptAt DateTime?
-  transferNextAttemptAt DateTime?
-  transferHost String   @default("")
-  transferFallbackUsed Boolean @default(false)
-  transferTtfbMs Int?
-  transferDownloadMs Int?
-  transferUploadMs Int?
-  workId       Int?
-  createdAt    DateTime @default(now())
-
-  @@index([jobId])
-  @@index([transferNextAttemptAt])
-  @@map("generate_results")
 }
 
 // User payment order for recharge and membership purchases.
@@ -636,7 +538,7 @@ model PaymentOrder {
   orderNo        String    @unique
   userId         Int
   user           User      @relation(fields: [userId], references: [id])
-  type           String    // recharge | membership
+  type           String // recharge | membership
   status         String    @default("pending") // pending | paid | closed | failed
   channel        String    @default("wechat")
   amountFen      Int
@@ -662,48 +564,48 @@ model PaymentOrder {
 
 // 引擎任务 EngineJob：一次生图请求的完整生命周期（账务、供应商快照、推进状态）。
 model EngineJob {
-  id              String   @id @default(cuid())
-  clientRequestId String   @unique
-  userId          Int
-  user            User     @relation(fields: [userId], references: [id])
-  operation       String   // text-to-image | image-to-image
-  modelId         String
-  modelRevision   BigInt   @default(0) // ModelConfig.updatedAt 提交时快照，配置变更后旧请求报 41002
-  qualityId       Int
-  ratioId         Int
-  ratio           String   // 比例标签快照（作品落库、尺寸解析用）
-  quality         String   // 精度标签快照
-  prompt          String
-  styleId         Int?
-  gameplayId      Int?
-  count           Int
-  inputImageUrls  Json     @default("[]")
+  id                   String    @id @default(cuid())
+  clientRequestId      String    @unique
+  userId               Int
+  user                 User      @relation(fields: [userId], references: [id])
+  operation            String // text-to-image | image-to-image
+  modelId              String
+  modelRevision        BigInt    @default(0) // ModelConfig.updatedAt 提交时快照，配置变更后旧请求报 41002
+  qualityId            Int
+  ratioId              Int
+  ratio                String // 比例标签快照（作品落库、尺寸解析用）
+  quality              String // 精度标签快照
+  prompt               String
+  styleId              Int?
+  gameplayId           Int?
+  count                Int
+  inputImageUrls       Json      @default("[]")
   // 供应商快照：单列 JSON，轮询/重试/恢复不依赖配置表当前值
-  providerId          String
-  providerAttemptIndex Int   @default(0)
-  providerCandidates  Json  @default("[]")
-  providerSnapshot    Json?
+  providerId           String
+  providerAttemptIndex Int       @default(0)
+  providerCandidates   Json      @default("[]")
+  providerSnapshot     Json?
   // 账务
-  costCredits        Int
-  refundCredits      Int      @default(0)
-  billingState       String   @default("reserved") // reserved | settled | refunded | charge_failed
-  walletBillNo       String   @default("")
-  walletRefunded     Boolean  @default(false)
-  walletPendingRefund Int     @default(0) // >0 表示 watchdog 需重试微信钱包退款
+  costCredits          Int
+  refundCredits        Int       @default(0)
+  billingState         String    @default("reserved") // reserved | settled | refunded | charge_failed
+  walletBillNo         String    @default("")
+  walletRefunded       Boolean   @default(false)
+  walletPendingRefund  Int       @default(0) // >0 表示 watchdog 需重试微信钱包退款
   // 生命周期
-  status         String   @default("queued") // queued | submitted | running | settling | succeeded | partial_failed | failed | cancelled
-  progress       Int      @default(0)
-  stageText      String   @default("")
-  failureCode    Int      @default(0)
-  failureMessage String   @default("")
-  submitDeadlineAt DateTime?
-  totalTimeoutAt   DateTime?
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  cancelledAt    DateTime?
-  retryOfJobId   String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  status               String    @default("queued") // queued | submitted | running | settling | succeeded | partial_failed | failed | cancelled
+  progress             Int       @default(0)
+  stageText            String    @default("")
+  failureCode          Int       @default(0)
+  failureMessage       String    @default("")
+  submitDeadlineAt     DateTime?
+  totalTimeoutAt       DateTime?
+  startedAt            DateTime?
+  finishedAt           DateTime?
+  cancelledAt          DateTime?
+  retryOfJobId         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   attempts EngineAttempt[]
   assets   EngineAsset[]
@@ -740,29 +642,29 @@ model EngineAttempt {
 
 // 引擎产物 EngineAsset：每一张生成图独立的转存状态机。
 model EngineAsset {
-  id            String    @id @default(cuid())
-  jobId         String
-  job           EngineJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  index         Int
-  status        String    @default("pending") // pending | transferring | stored | failed
-  providerUrl   String    @default("")
-  sourceUrl     String    @default("")
-  url           String    @default("")
-  ossKey        String    @default("")
-  width         Int?
-  height        Int?
-  sizeBytes     Int?
-  errorMessage  String    @default("")
-  transferAttempts       Int       @default(0)
-  transferLastAttemptAt  DateTime?
-  transferNextAttemptAt  DateTime?
-  transferHost           String    @default("")
-  transferFallbackUsed   Boolean   @default(false)
-  transferTtfbMs         Int?
-  transferDownloadMs     Int?
-  transferUploadMs       Int?
-  workId       Int?
-  createdAt    DateTime  @default(now())
+  id                    String    @id @default(cuid())
+  jobId                 String
+  job                   EngineJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  index                 Int
+  status                String    @default("pending") // pending | transferring | stored | failed
+  providerUrl           String    @default("")
+  sourceUrl             String    @default("")
+  url                   String    @default("")
+  ossKey                String    @default("")
+  width                 Int?
+  height                Int?
+  sizeBytes             Int?
+  errorMessage          String    @default("")
+  transferAttempts      Int       @default(0)
+  transferLastAttemptAt DateTime?
+  transferNextAttemptAt DateTime?
+  transferHost          String    @default("")
+  transferFallbackUsed  Boolean   @default(false)
+  transferTtfbMs        Int?
+  transferDownloadMs    Int?
+  transferUploadMs      Int?
+  workId                Int?
+  createdAt             DateTime  @default(now())
 
   @@index([jobId])
   @@index([status, transferNextAttemptAt])

@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import {
   cancelEngineJob,
   createEngineJob,
@@ -58,13 +59,6 @@ export type CancelGenerateJobResult = GenerateHistoryJob & {
   creditsAfter?: number;
 };
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 const FILTER_STATUS_MAP: Record<Exclude<GenerateHistoryFilter, "all">, string[]> = {
   running: ["queued", "submitted", "running"],

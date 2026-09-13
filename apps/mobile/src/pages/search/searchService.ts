@@ -1,3 +1,4 @@
+import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import type { HomeUser, HomeWork } from "../home/homeData";
@@ -26,13 +27,6 @@ interface BackendWork {
   author: BackendAuthor;
 }
 
-interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
 
 export interface SearchResultPage {
   works: HomeWork[];

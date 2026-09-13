@@ -1,4 +1,4 @@
-import { normalizeImage2Size } from "../../generate/change2pro.client";
+import { normalizeImage2Size } from "../../common/provider-size";
 import { firstStringAtPath, stringValuesAtPath } from "../../common/provider-response";
 import { buildProviderSizeParams, sizeParamKeys, requestJson, authHeaders, downloadReferenceImage, extensionFor } from "./adapter-http";
 import type {

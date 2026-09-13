@@ -409,7 +409,7 @@ export class AdminService {
       await tx.workInteraction.deleteMany({ where: { workId: id } });
       await tx.workView.deleteMany({ where: { workId: id } });
       await tx.report.deleteMany({ where: { workId: id } });
-      await tx.generateResult.updateMany({ where: { workId: id }, data: { workId: null } });
+      await tx.engineAsset.updateMany({ where: { workId: id }, data: { workId: null } });
       await tx.work.delete({ where: { id } });
       await tx.user.updateMany({
         where: { id: work.userId, worksCount: { gt: 0 } },

@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, Logger, UnauthorizedException } from "
 import type { EngineJob } from "@prisma/client";
 import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import { rewriteProviderResultUrl } from "../common/provider-result-url";
-import { ImageTransferClient } from "../generate/image-transfer.client";
-import { normalizeImage2Size } from "../generate/change2pro.client";
+import { ImageTransferClient } from "./image-transfer.client";
+import { normalizeImage2Size } from "../common/provider-size";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { EngineBillingService, transferRetryDelayMs, type GeneratedImage } from "./engine-billing.service";

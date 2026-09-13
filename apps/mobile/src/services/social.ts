@@ -3,13 +3,8 @@ import { normalizeAspectRatio } from "./aspectRatio";
 import { toPublicModelName } from "./modelDisplay";
 import type { HomeUser, HomeWork } from "../pages/home/homeData";
 
-export interface PageResult<T> {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-  hasMore: boolean;
-}
+import type { PageResult } from "./page-result";
+export type { PageResult };
 
 export interface BackendAuthor {
   id: number;

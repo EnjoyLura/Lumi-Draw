@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
-import { apiDeleteModel, apiGetGenerationProviders, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
+import { apiDeleteModel, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
-import { GENERATION_PROVIDERS, IMG, MODEL_BADGES, MODELS, type AdminGenerationProvider, type AdminModel } from "../data/mock";
+import { ENGINE_PLATFORMS, IMG, MODEL_BADGES, MODELS, type AdminModel } from "../data/mock";
 import { getModels } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
+import { fetchEnginePlatforms } from "../data/engineApi";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
@@ -15,6 +16,8 @@ const QUALITY_TIERS = ["1K", "2K", "4K"] as const;
 type QualityTier = (typeof QUALITY_TIERS)[number];
 type ProviderRouting = Partial<Record<QualityTier, string[]>>;
 
+type ProviderOption = { id: string; name: string; on: boolean };
+
 function ProviderRouteEditor({
   tier,
   value,
@@ -23,7 +26,7 @@ function ProviderRouteEditor({
 }: {
   tier: QualityTier;
   value: string[];
-  providers: AdminGenerationProvider[];
+  providers: ProviderOption[];
   onChange: (next: string[]) => void;
 }) {
   const available = providers.filter((provider) => !value.includes(provider.id));
@@ -77,7 +80,7 @@ function ProviderRouteEditor({
   );
 }
 
-function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item?: AdminModel; providers: AdminGenerationProvider[]; useMock: boolean; onSaved: () => void }) {
+function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item?: AdminModel; providers: ProviderOption[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const m = item ?? (id ? MODELS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(m?.name ?? "");
@@ -174,9 +177,9 @@ export function OpsModel() {
   const { useMock } = useAdminSession();
   const refresh = useRefresh();
   const { data, loading, error, reload } = useAsyncData<AdminModel[]>(useMock ? null : () => apiGetModels(), [useMock]);
-  const { data: providerData, loading: providersLoading, error: providersError } = useAsyncData<AdminGenerationProvider[]>(useMock ? null : () => apiGetGenerationProviders(), [useMock]);
+  const { data: providerData, loading: providersLoading, error: providersError } = useAsyncData<ProviderOption[]>(useMock ? null : async () => (await fetchEnginePlatforms()).map((platform) => ({ id: platform.id, name: platform.name, on: platform.enabled })), [useMock]);
   const models = useMock ? getModels() : data ?? [];
-  const providers = useMock ? GENERATION_PROVIDERS : providerData ?? [];
+  const providers = useMock ? ENGINE_PLATFORMS.map((platform) => ({ id: platform.id, name: platform.name, on: platform.enabled })) : providerData ?? [];
   const providerName = (providerId?: string) => providers.find((provider) => provider.id === providerId)?.name || providerId || "未配置";
   const afterSaved = () => useMock ? refresh() : reload();
   const routeFor = (model: AdminModel, tier: QualityTier) => {

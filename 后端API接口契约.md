@@ -189,7 +189,7 @@ interface Work {
 }
 ```
 
-### 3.3 GenerateJob
+### 3.3 GenerateJob（已归档，现表名 legacy_generate_jobs）
 
 ```ts
 interface GenerateJob {
@@ -216,7 +216,7 @@ interface GenerateJob {
 }
 ```
 
-### 3.4 GenerateResult
+### 3.4 GenerateResult（已归档，现表名 legacy_generate_results）
 
 ```ts
 interface GenerateResult {
@@ -585,111 +585,80 @@ AI 模型列表。
 
 上传完成登记。
 
-### 4.7 AI 生成
+### 4.7 AI 生成（引擎 v3）
 
-#### POST `/generate/jobs`
+任务状态机：`queued → submitted → running → settling → succeeded | partial_failed | failed | cancelled`（前 4 个为进行中，后 4 个为终态）。
 
-创建生成任务。
+#### GET `/engine/catalog`
 
-请求：
+公开创作目录（无需登录）：
 
 ```json
 {
-  "mode": "text-to-image",
+  "schemaVersion": 3,
+  "revision": "20260913...",
+  "models": [{ "id": "gpt-image-2", "name": "...", "qualities": [{ "id": 1, "costPerImage": 5 }], "ratios": [], "styles": [], "gameplays": [] }],
+  "ratios": [],
+  "styles": [],
+  "gameplays": [],
+  "limits": { "maxOutputs": 4, "maxReferenceImages": 5 },
+  "reversePrompt": { "enabled": true, "costCredits": 2 }
+}
+```
+
+`revision` 随配置更新变化，小程序据此刷新本地目录缓存。
+
+#### POST `/engine/jobs`
+
+创建生成任务（登录）。`clientRequestId` 为幂等键（8-64 字符），网络重试必须复用同一值：
+
+```json
+{
+  "clientRequestId": "eng-abc123",
+  "operation": "text-to-image",
   "modelId": "gpt-image-2",
   "prompt": "一只猫",
-  "inputImageUrl": "",
-  "gameplayId": 1,
+  "inputImageUrls": [],
+  "qualityId": 1,
+  "ratioId": 1,
   "styleId": 2,
-  "ratio": "1:1",
-  "quality": "2K",
-  "count": 2
+  "gameplayId": 1,
+  "count": 2,
+  "retryOfJobId": ""
 }
 ```
 
-响应：
+响应：`{ "jobId": "...", "status": "queued", "costCredits": 10, "creditsAfter": 990 }`。
 
-```json
-{
-  "jobId": "job_xxx",
-  "status": "queued",
-  "costCredits": 30,
-  "creditsAfter": 1250
-}
-```
+规则：每用户同时只允许 1 个进行中任务；提交即预扣积分；可能已被上游受理计费的请求绝不原地重试，只会故障转移或退款。
 
-后端动作：
+#### GET `/engine/jobs?status=queued,submitted,running,settling&page=1&pageSize=20`
 
-- 校验登录、模型、积分、参数。
-- 调用微信内容安全检查提示词和参考图。
-- 扣减积分并创建积分流水。
-- 写入 BullMQ 队列。
-- Worker 调用 KIE `/api/v1/jobs/createTask`。
-- 优先等待 KIE 回调，必要时用 `/api/v1/jobs/recordInfo` 轮询兜底。
-- 成功图片转存 OSS。
-- 失败按结果数量退还积分。
+分页任务列表（`all` 可表示全部状态）。
 
-#### GET `/generate/jobs/:jobId`
+#### GET `/engine/jobs/:jobId`、GET `/engine/jobs/by-request/:clientRequestId`
 
-查询任务状态。
+任务详情，`assets` 内含每张图独立状态（`stored` / `failed` / `transferring`）。
 
-响应：
+#### POST `/engine/jobs/:jobId/cancel`
 
-```json
-{
-  "id": "job_xxx",
-  "status": "running",
-  "progress": 66,
-  "stageText": "高清渲染输出，即将完成...",
-  "results": [],
-  "refundCredits": 0
-}
-```
+仅 `queued` 且未提交时可取消，全额退款。
 
-#### POST `/generate/jobs/:jobId/cancel`
+#### POST `/engine/jobs/:jobId/retry-storage`
 
-取消排队中任务。运行中任务可标记取消，但不保证 KIE 已取消。
+对转存失败的图片重新发起转存。
 
-#### POST `/generate/jobs/:jobId/retry`
+#### POST `/engine/assets/:assetId/publish`
 
-重试失败任务。
+将单张产物发布为作品。
 
-#### POST `/generate/reverse-prompt`
+#### POST `/engine/reverse-prompt`
 
-反推提示词。
+反推提示词（限流 5 次/分钟），成功才扣 2 积分。
 
-请求：
+#### POST `/engine/callbacks/kie?secret=...`、POST `/engine/callbacks/transfer`、POST `/engine/callbacks/generation`
 
-```json
-{
-  "imageUrl": "https://...",
-  "language": "zh-CN"
-}
-```
-
-响应：
-
-```json
-{
-  "prompt": "反推后的提示词",
-  "tags": ["写实", "人像"]
-}
-```
-
-#### POST `/generate/callback`
-
-KIE 回调地址。公网固定为：
-
-```text
-https://ejoyflie.cloud/api/generate/callback
-```
-
-要求：
-
-- 校验回调签名或共享 secret。
-- 根据 KIE task id 找到本地任务。
-- 保存结果、转存 OSS、更新积分退款、触发站内消息。
-- 回调必须幂等。
+服务端间回调（KIE 任务、FC 转存、生成回调），小程序不直接调用。
 
 ### 4.8 积分、签到、邀请、会员
 
@@ -1075,6 +1044,30 @@ interface AdminModelConfig {
 #### DELETE `/admin/ratios/:id`
 
 尺寸比例。
+
+#### GET `/admin/engine/meta`
+
+适配器元数据：`adapters`（kind/label/description/requiredFields/optionalFields/defaults）与枚举 `resultModes`/`requestModes`/`authModes`/`imageInputModes`。管理端表单据此动态渲染。
+
+#### GET `/admin/engine/platforms`
+
+平台列表：`config` JSON 为唯一权威配置，附 `linkedModelIds` 与近 7 天 `health` 统计。
+
+#### POST `/admin/engine/platforms`
+
+创建平台：`{ id, name, groupName, enabled, adapter, apiKey?, apiKeyEnv?, config }`。API Key 加密入库，或引用服务器环境变量名。
+
+#### GET/PATCH/DELETE `/admin/engine/platforms/:id`
+
+详情 / 更新（标识不可改，config 缺省字段沿用适配器默认值）/ 删除（有关联模型时拒绝）。
+
+#### POST `/admin/engine/platforms/:id/duplicate`、PATCH `/admin/engine/platforms/:id/order`、POST `/admin/engine/platforms/:id/test`
+
+创建副本（配置与密钥整体复制）、组内排序（`{ direction: "up" | "down" }`）、连通性测试（不产生扣费请求）。
+
+#### GET `/admin/engine/health`
+
+近 7 天各平台尝试统计（total/succeeded/failed）与进行中任务数。
 
 ### 5.7 财务管理
 

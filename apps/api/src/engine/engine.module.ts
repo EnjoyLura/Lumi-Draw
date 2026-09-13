@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { CreditsModule } from "../credits/credits.module";
 import { ContentSafetyModule } from "../content-safety/content-safety.module";
-import { ImageTransferClient } from "../generate/image-transfer.client";
+import { ImageTransferClient } from "./image-transfer.client";
 import { WechatWalletModule } from "../payments/wechat-wallet.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { UploadsModule } from "../uploads/uploads.module";
