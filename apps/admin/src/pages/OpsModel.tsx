@@ -1,5 +1,3 @@
-import { AppstoreOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { Button, Card, Space, Switch as AntSwitch, Table, Tag, Typography } from "antd";
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
 import { apiDeleteModel, apiGetGenerationProviders, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
@@ -8,7 +6,7 @@ import { GENERATION_PROVIDERS, IMG, MODEL_BADGES, MODELS, type AdminGenerationPr
 import { getModels } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Badge, Switch } from "../ui";
+import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -142,13 +140,10 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
         {id ? <AdminImage eager className="thumb" src={IMG("model" + id)} style={{ width: 56, height: 56 }} alt="" /> : null}
         <div style={{ textAlign: "center" }}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} /><div style={{ fontSize: 12 }}>点击上传</div></div>
       </div>
-      <label className="field-label" style={{ marginTop: 12 }}>小程序显示名称</label>
-      <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="用户在创作页、作品详情等位置看到的名称" />
-      <div className="lr-s" style={{ marginTop: 5, lineHeight: 1.55 }}>
-        保存后由小程序动态读取，可随时调整；只改变用户看到的名称，不影响实际 API 请求。
-      </div>
-      <label className="field-label" style={{ marginTop: 12 }}>上游请求模型名</label>
-      <input className="input" value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="发送给上游 API 的 model 参数，通常无需随展示名称修改" />
+      <label className="field-label" style={{ marginTop: 12 }}>模型名称</label>
+      <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="如：GPT Image 2" />
+      <label className="field-label" style={{ marginTop: 12 }}>上游模型名称</label>
+      <input className="input" value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="未在 API 参数中配置 model 时使用" />
       <label className="field-label" style={{ marginTop: 12 }}>模型描述</label>
       <input className="input" value={desc} onChange={(event) => setDesc(event.target.value)} placeholder="如：画质细腻·理解力强" />
       <label className="field-label" style={{ marginTop: 12 }}>优势标签</label>
@@ -223,35 +218,33 @@ export function OpsModel() {
     })();
   }, true);
 
-  const loadError = error || providersError;
   return (
-    <div className="lumi-admin-page">
-      <Card className="lumi-table-card" title="创作模型" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm("")}>新增模型</Button>}>
-        <Table<AdminModel>
-          rowKey="id"
-          loading={loading || providersLoading}
-          dataSource={models}
-          pagination={false}
-          scroll={{ x: 1160 }}
-          locale={{ emptyText: loadError || "暂无创作模型" }}
-          columns={[
-            {
-              title: "模型",
-              width: 320,
-              render: (_, model) => <Space align="start"><AdminImage className="lumi-table-image" src={IMG("model" + model.id)} style={{ width: 46, height: 46 }} alt="" /><div><Space size={4} wrap><Typography.Text strong>{model.name}</Typography.Text>{model.badge ? <Tag color="blue">{model.badge}</Tag> : null}</Space><Typography.Paragraph type="secondary" ellipsis={{ rows: 1 }} style={{ margin: "3px 0 0", maxWidth: 250 }}>{model.desc}</Typography.Paragraph></div></Space>
-            },
-            { title: "能力标签", width: 230, render: (_, model) => <Space size={[4, 4]} wrap>{model.tags?.length ? model.tags.map((tag) => <Tag key={tag}>{tag}</Tag>) : <Typography.Text type="secondary">—</Typography.Text>}</Space> },
-            { title: "单次成本", dataIndex: "cost", width: 130, render: (cost) => <Typography.Text strong>{cost} 积分</Typography.Text> },
-            {
-              title: "分辨率降级线路",
-              width: 320,
-              render: (_, model) => <div className="lumi-model-routes">{QUALITY_TIERS.map((tier) => <span key={tier}><Tag color={tier === "4K" ? "purple" : tier === "2K" ? "blue" : "default"}>{tier}</Tag>{routeFor(model, tier)}</span>)}</div>
-            },
-            { title: "启用", dataIndex: "on", width: 90, fixed: "right", render: (_, model) => <AntSwitch checked={model.on} onChange={() => void toggle(model)} /> },
-            { title: "操作", width: 150, fixed: "right", render: (_, model) => <Space><Button type="link" icon={<EditOutlined />} onClick={() => openForm(model.id)}>编辑</Button><Button type="link" danger onClick={() => del(model)}>删除</Button></Space> }
-          ]}
-        />
-      </Card>
-    </div>
+    <>
+      <AddBtn text="新增模型" onClick={() => openForm("")} />
+      {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载模型中</div></div> : null}
+      {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}
+      {providersLoading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
+      {providersError ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{providersError}</div></div> : null}
+      <div className="card">
+        {models.map((model) => (
+          <div key={model.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
+            <AdminImage className="thumb" src={IMG("model" + model.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
+            <div className="lr-main">
+              <div className="lr-t">{model.name}{model.badge ? <>&nbsp;<Badge text={model.badge} type="info" /></> : null}</div>
+              <div className="lr-s">{model.desc}</div>
+              {model.tags?.length ? <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>{model.tags.map((tag) => <Badge key={tag} text={tag} type="muted" />)}</div> : null}
+              <div className="lr-s" style={{ marginTop: 4 }}>消耗 {model.cost} 积分/次</div>
+              <div style={{ display: "grid", gap: 3, marginTop: 7 }}>
+                {QUALITY_TIERS.map((tier) => <div key={tier} className="lr-s"><b style={{ color: "var(--fg-2)" }}>{tier}</b>&nbsp; {routeFor(model, tier)}</div>)}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
+              <Switch on={model.on} onToggle={() => toggle(model)} />
+              <CtrlIcons onEdit={() => openForm(model.id)} onDelete={() => del(model)} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

@@ -1,6 +1,4 @@
-import { CloudServerOutlined, CopyOutlined, EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
-import { Button, Card, Input, Segmented, Space, Statistic, Switch as AntSwitch, Table, Tag, Tooltip, Typography } from "antd";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   apiDeleteGenerationProvider,
   apiDuplicateGenerationProvider,
@@ -13,20 +11,13 @@ import { useAdminSession } from "../data/adminSession";
 import { GENERATION_PROVIDERS, MODELS, type AdminGenerationProvider, type AdminModel } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Badge, Switch } from "../ui";
+import { AddBtn, Badge, Chips, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const ADAPTERS = [
   { value: "ainb", label: "OpenAI Images 异步协议" },
-  { value: "generic", label: "通用 HTTP 图像接口" },
   { value: "change2pro", label: "OpenAI Images / Gemini 普通协议" },
   { value: "kie", label: "KIE 任务协议" }
-] as const;
-const AUTH_MODES = [
-  { value: "bearer", label: "Bearer Token" },
-  { value: "raw", label: "原始请求头密钥" },
-  { value: "query", label: "URL 查询参数密钥" },
-  { value: "none", label: "不附加鉴权" }
 ] as const;
 const REQUEST_MODES = [
   { value: "sync", label: "普通接口" },
@@ -84,28 +75,6 @@ function MappingField({ label, value, placeholder, onChange }: { label: string; 
       <input className="input" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </label>
   );
-}
-
-function JsonTemplateEditor({ value, onChange, label }: { value: Record<string, unknown>; onChange: (value: Record<string, unknown>) => void; label: string }) {
-  const [draft, setDraft] = useState(() => JSON.stringify(value || {}, null, 2));
-  const [error, setError] = useState("");
-  useEffect(() => setDraft(JSON.stringify(value || {}, null, 2)), [value]);
-  const commit = () => {
-    try {
-      const parsed = JSON.parse(draft || "{}");
-      if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") throw new Error();
-      onChange(parsed as Record<string, unknown>);
-      setError("");
-    } catch {
-      setError("请输入合法的 JSON 对象，保存前必须修正");
-    }
-  };
-  return <label style={{ display: "block" }}>
-    <span className="field-label">{label}</span>
-    <textarea className="input" value={draft} onChange={(event) => setDraft(event.target.value)} onBlur={commit} rows={7} spellCheck={false} style={{ resize: "vertical", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", lineHeight: 1.45 }} />
-    <div className="lr-s" style={{ marginTop: 5 }}>可用变量：<code>{"{{prompt}}"}</code>、<code>{"{{model}}"}</code>、<code>{"{{count}}"}</code>、<code>{"{{ratio}}"}</code>、<code>{"{{resolution}}"}</code>、<code>{"{{size}}"}</code>、<code>{"{{image_url}}"}</code>、<code>{"{{image_urls}}"}</code></div>
-    {error ? <div style={{ color: "var(--danger)", marginTop: 4, fontSize: 12 }}>{error}</div> : null}
-  </label>;
 }
 
 function ResultUrlRewriteEditor({
@@ -173,15 +142,6 @@ function emptyProvider(): AdminGenerationProvider {
     pixelSizeField: "size",
     ratioField: "size",
     resolutionField: "resolution",
-    authMode: "bearer",
-    authHeaderName: "Authorization",
-    authQueryName: "api_key",
-    requestHeaders: {},
-    queryHeaders: {},
-    requestTemplate: {},
-    imageRequestTemplate: {},
-    injectModel: true,
-    injectCount: true,
     modelIds: [],
     metrics: { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     sort: GENERATION_PROVIDERS.length + 1,
@@ -302,21 +262,12 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
     imageInputField: item.imageInputField || (item.adapter === "ainb" ? "image[]" : "image"),
     resultUrlRewriteRules: (item.resultUrlRewriteRules || []).map((rule) => ({ ...rule })),
     responseMapping: { ...(item.requestMode === "async" ? DEFAULT_ASYNC_MAPPING : {}), ...item.responseMapping },
-    authMode: item.authMode || "bearer",
-    authHeaderName: item.authHeaderName || "Authorization",
-    authQueryName: item.authQueryName || "api_key",
-    requestHeaders: { ...(item.requestHeaders || {}) },
-    queryHeaders: { ...(item.queryHeaders || {}) },
-    requestTemplate: { ...(item.requestTemplate || {}) },
-    imageRequestTemplate: { ...(item.imageRequestTemplate || {}) },
-    injectModel: item.injectModel !== false,
-    injectCount: item.injectCount !== false,
     modelIds: [...item.modelIds]
   } : emptyProvider());
   const [saving, setSaving] = useState(false);
   const update = <K extends keyof AdminGenerationProvider>(key: K, next: AdminGenerationProvider[K]) => setValue((current) => ({ ...current, [key]: next }));
   const save = async () => {
-    if (!value.id.trim() || !value.name.trim() || (value.authMode !== "none" && !value.apiKeyConfigured && !value.apiKey.trim())) {
+    if (!value.id.trim() || !value.name.trim() || (!value.apiKeyConfigured && !value.apiKey.trim())) {
       toast("请填写平台标识、名称和 API Key");
       return;
     }
@@ -364,7 +315,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         const nextValue = {
           ...value,
           apiKey: "",
-          apiKeyConfigured: value.authMode === "none" || value.apiKeyConfigured || Boolean(value.apiKey),
+          apiKeyConfigured: value.apiKeyConfigured || Boolean(value.apiKey),
           apiKeyHint: value.apiKey ? `••••${value.apiKey.slice(-4)}` : value.apiKeyHint,
           apiKeySource: value.apiKey ? "admin" as const : value.apiKeySource
         };
@@ -408,7 +359,7 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         setValue((current) => ({
           ...current,
           requestMode,
-          adapter: current.adapter === "change2pro" && requestMode === "async" ? "ainb" : current.adapter,
+          adapter: requestMode === "sync" ? "change2pro" : current.adapter === "change2pro" ? "ainb" : current.adapter,
           statusEnabled: requestMode === "async" && current.statusEnabled,
           responseMapping: requestMode === "async" ? { ...DEFAULT_ASYNC_MAPPING, ...current.responseMapping } : current.responseMapping
         }));
@@ -427,28 +378,9 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
       </select>
       <label className="field-label" style={{ marginTop: 12 }}>请求协议</label>
       <select className="input" value={value.adapter} onChange={(event) => update("adapter", event.target.value as AdminGenerationProvider["adapter"])}>
-        {ADAPTERS.map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
+        {ADAPTERS.filter((adapter) => value.requestMode === "sync" ? adapter.value === "change2pro" : adapter.value !== "change2pro")
+          .map((adapter) => <option key={adapter.value} value={adapter.value}>{adapter.label}</option>)}
       </select>
-      {value.adapter === "generic" ? <div className="card" style={{ padding: 12, marginTop: 12 }}>
-        <div className="lr-t">通用 HTTP 传输配置</div>
-        <div className="lr-s" style={{ margin: "4px 0 10px" }}>用于兼容非标准 OpenAI 接口；旧的标准平台不需要修改。模型和数量可关闭自动注入，改由请求体模板自行定义。</div>
-        <label className="field-label">鉴权方式</label>
-        <select className="input" value={value.authMode} onChange={(event) => update("authMode", event.target.value as AdminGenerationProvider["authMode"])}>
-          {AUTH_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
-        </select>
-        {value.authMode === "raw" || value.authMode === "bearer" ? <MappingField label="鉴权请求头名称" value={value.authHeaderName} placeholder="Authorization" onChange={(next) => update("authHeaderName", next)} /> : null}
-        {value.authMode === "query" ? <MappingField label="鉴权查询参数名称" value={value.authQueryName} placeholder="api_key" onChange={(next) => update("authQueryName", next)} /> : null}
-        <div style={{ marginTop: 10 }}><ParamEditor value={value.requestHeaders} onChange={(headers) => update("requestHeaders", headers)} /></div>
-        {value.requestMode === "async" ? <div style={{ marginTop: 10 }}><ParamEditor value={value.queryHeaders} onChange={(headers) => update("queryHeaders", headers)} /></div> : null}
-        <label className="lrow" style={{ cursor: "pointer", marginTop: 8, padding: "8px 0" }}>
-          <input type="checkbox" checked={value.injectModel} onChange={(event) => update("injectModel", event.target.checked)} />
-          <div className="lr-main"><div className="lr-t">自动注入 model</div><div className="lr-s">关闭后由请求体模板或自定义参数提供模型字段</div></div>
-        </label>
-        <label className="lrow" style={{ cursor: "pointer", padding: "8px 0" }}>
-          <input type="checkbox" checked={value.injectCount} onChange={(event) => update("injectCount", event.target.checked)} />
-          <div className="lr-main"><div className="lr-t">自动注入 n</div><div className="lr-s">关闭后可兼容不支持数量参数的平台</div></div>
-        </label>
-      </div> : null}
       {value.adapter !== "kie" ? <div className="card" style={{ padding: 12, marginTop: 12 }}>
         <div className="lrow" style={{ padding: 0 }}>
           <div className="lr-main">
@@ -553,7 +485,6 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
         <input className="input" value={value.baseUrl} onChange={(event) => update("baseUrl", event.target.value)} placeholder="https://api.example.com/v1/images/generations" />
         <label className="field-label" style={{ marginTop: 10 }}>文生图请求参数</label>
         <ParamEditor value={value.requestParams} onChange={(params) => update("requestParams", params)} />
-        {value.adapter === "generic" ? <div style={{ marginTop: 10 }}><JsonTemplateEditor label="文生图 JSON 请求体模板（可选）" value={value.requestTemplate} onChange={(template) => update("requestTemplate", template)} /></div> : null}
       </> : null}
 
       <label className="lrow" style={{ cursor: "pointer", marginTop: 12, padding: "8px 0" }}>
@@ -576,7 +507,6 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
             }));
           }}>
             <option value="multipart">Multipart 文件上传</option>
-            <option value="url">JSON 单个 URL</option>
             <option value="url-array">JSON URL 数组</option>
           </select>
           <div style={{ marginTop: 10 }}>
@@ -589,13 +519,12 @@ function ProviderForm({ item, providers, models, useMock, onSaved }: { item?: Ad
           </div>
           <div className="lr-s" style={{ marginTop: 5 }}>
             {value.imageInputMode === "url-array"
-              ? `发送 JSON：${value.imageInputField || "image_urls"}=${value.imageInputMode === "url-array" ? "[\"https://...\"]" : "\"https://...\""}，不会先下载参考图。`
+              ? `发送 JSON：${value.imageInputField || "image_urls"}=["https://..."]，不会先下载参考图。`
               : `发送 multipart/form-data，并把参考图写入 ${value.imageInputField || "image"} 字段。`}
           </div>
         </> : null}
         <label className="field-label" style={{ marginTop: 10 }}>图生图请求参数</label>
         <ParamEditor value={value.imageRequestParams} onChange={(params) => update("imageRequestParams", params)} />
-        {value.adapter === "generic" ? <div style={{ marginTop: 10 }}><JsonTemplateEditor label="图生图 JSON 请求体模板（可选）" value={value.imageRequestTemplate} onChange={(template) => update("imageRequestTemplate", template)} /></div> : null}
       </> : null}
 
       <label className="field-label" style={{ marginTop: 12 }}>当前使用模型</label>
@@ -685,93 +614,84 @@ export function OpsApiProvider() {
   }, true);
 
   return (
-    <div className="lumi-admin-page lumi-provider-page">
-      <div className="lumi-provider-stats">
-        <Card><Statistic title="平台总数" value={providers.length} prefix={<CloudServerOutlined />} /></Card>
-        <Card><Statistic title="已启用" value={providers.filter((provider) => provider.on).length} suffix={`/ ${providers.length}`} /></Card>
-        <Card><Statistic title="服务分组" value={groups.length + (hasUngrouped ? 1 : 0)} /></Card>
-      </div>
-      <Card
-        className="lumi-table-card"
-        title="生图 API 平台"
-        extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>新增 API 平台</Button>}
-      >
-        <div className="lumi-table-toolbar lumi-provider-toolbar">
-          <Input allowClear prefix={<SearchOutlined />} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索名称、标识、分组或接口地址" />
-          {providers.length ? <Segmented options={groupFilters} value={activeGroupFilter} onChange={(value) => setGroupFilter(String(value))} /> : null}
+    <>
+      <AddBtn text="新增 API 平台" onClick={() => openForm()} />
+      <div className="card" style={{ padding: 12, marginBottom: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, textAlign: "center" }}>
+          <div><div className="lr-t">{providers.length}</div><div className="lr-s">平台总数</div></div>
+          <div><div className="lr-t">{providers.filter((provider) => provider.on).length}</div><div className="lr-s">已启用</div></div>
+          <div><div className="lr-t">{groups.length + (hasUngrouped ? 1 : 0)}</div><div className="lr-s">分组</div></div>
         </div>
-        <Table<AdminGenerationProvider>
-          rowKey="id"
-          loading={state.loading}
-          dataSource={visibleProviders}
-          pagination={false}
-          scroll={{ x: 1200 }}
-          locale={{ emptyText: state.error || (providers.length ? "没有匹配的 API 平台" : "暂无 API 平台") }}
-          columns={[
-            {
-              title: "平台与接口",
-              width: 340,
-              render: (_, provider) => (
-                <Space align="start" size={10}>
-                  <span className="lumi-table-icon"><CloudServerOutlined /></span>
-                  <div className="lumi-provider-name-cell">
-                    <Space size={4} wrap><Typography.Text strong>{provider.name}</Typography.Text><Tag color={provider.apiKeyConfigured ? "green" : "red"}>{provider.apiKeyConfigured ? "密钥已配置" : "密钥未配置"}</Tag></Space>
-                    <Typography.Text type="secondary" ellipsis={{ tooltip: provider.baseUrl }}>{provider.baseUrl}</Typography.Text>
-                    <Space size={[4, 4]} wrap><Tag color={provider.groupName ? "blue" : "default"}>{provider.groupName || "未分组"}</Tag><Tag>{ADAPTERS.find((item) => item.value === provider.adapter)?.label || provider.adapter}</Tag></Space>
-                  </div>
-                </Space>
-              )
-            },
-            {
-              title: "能力与结果处理",
-              width: 300,
-              render: (_, provider) => (
-                <Space size={[4, 4]} wrap>
-                  {provider.textToImageEnabled ? <Tag color="green">文生图</Tag> : null}
-                  {provider.imageToImageEnabled ? <Tag color="blue">图生图</Tag> : null}
-                  <Tag color={provider.requestMode === "async" ? "blue" : "default"}>{provider.requestMode === "async" ? "异步任务" : "普通接口"}</Tag>
-                  <Tag color={provider.textResultMode === "base64" ? "purple" : "default"}>文：{provider.textResultMode === "base64" ? "Base64 / FC" : provider.textResultMode === "url" ? "URL" : "自动"}</Tag>
-                  <Tag color={provider.imageResultMode === "base64" ? "purple" : "default"}>图：{provider.imageResultMode === "base64" ? "Base64 / FC" : provider.imageResultMode === "url" ? "URL" : "自动"}</Tag>
-                  {provider.statusEnabled ? <Tag color="green">真实进度</Tag> : null}
-                  {provider.resultUrlRewriteRules.length ? <Tag color="cyan">域名加速 {provider.resultUrlRewriteRules.length}</Tag> : null}
-                </Space>
-              )
-            },
-            {
-              title: "关联模型",
-              width: 220,
-              render: (_, provider) => <Space size={[4, 4]} wrap>{provider.modelIds.length ? provider.modelIds.map((modelId) => <Tag key={modelId} color="blue">{models.find((model) => model.id === modelId)?.name || modelId}</Tag>) : <Typography.Text type="secondary">未关联模型</Typography.Text>}</Space>
-            },
-            {
-              title: "近 30 天运行情况",
-              width: 270,
-              render: (_, provider) => (
-                <div className="lumi-provider-metrics">
-                  <span><b>{provider.metrics.successRate === null ? "—" : `${provider.metrics.successRate}%`}</b>成功率</span>
-                  <span><b>{formatDuration(provider.metrics.avgDurationMs)}</b>平均耗时</span>
-                  <span><b>{provider.metrics.attempts}</b>请求数</span>
-                  {provider.metrics.lastError ? <Typography.Text type="danger" ellipsis={{ tooltip: provider.metrics.lastError }}>最近故障：{provider.metrics.lastError}</Typography.Text> : null}
+      </div>
+      <div style={{ position: "relative", marginBottom: 10 }}>
+        <i className="ri-search-line" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--fg-muted)" }} />
+        <input className="input" style={{ paddingLeft: 36 }} value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索平台名称、标识、分组或接口地址" />
+      </div>
+      {providers.length ? <Chips items={groupFilters} active={activeGroupFilter} onPick={setGroupFilter} /> : null}
+      {state.loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载 API 平台中</div></div> : null}
+      {state.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{state.error}</div></div> : null}
+      {!state.loading && !state.error && providers.length > 0 && visibleProviders.length === 0 ? <div className="empty"><i className="ri-inbox-2-line" /><div className="et">该分组暂无 API 平台</div></div> : null}
+      {visibleProviders.map((provider) => (
+        <div key={provider.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div className="lr-ico" style={{ color: "#5B9FE8", background: "var(--info-soft)", flexShrink: 0 }}><i className="ri-server-line" /></div>
+            <div className="lr-main">
+              <div className="lr-t">{provider.name} <Badge text={provider.apiKeyConfigured ? `密钥已配置 ${provider.apiKeyHint}` : "密钥未配置"} type={provider.apiKeyConfigured ? "success" : "danger"} /></div>
+              <div style={{ marginTop: 4 }}><Badge text={provider.groupName || "未分组"} type={provider.groupName ? "info" : "muted"} /></div>
+              <div className="lr-s" style={{ wordBreak: "break-all" }}>{provider.baseUrl}</div>
+              <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                <Badge text={`文 ${(provider.textResultMode || "auto") === "base64" ? "Base64 / FC" : (provider.textResultMode || "auto") === "url" ? "URL / 本地" : "自动"}`} type={(provider.textResultMode || "auto") === "base64" ? "purple" : "muted"} />
+                <Badge text={`图 ${(provider.imageResultMode || "auto") === "base64" ? "Base64 / FC" : (provider.imageResultMode || "auto") === "url" ? "URL / 本地" : "自动"}`} type={(provider.imageResultMode || "auto") === "base64" ? "purple" : "muted"} />
+              </div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                {provider.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
+                {provider.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
+                {provider.imageToImageEnabled && provider.adapter !== "kie"
+                  ? <Badge text={provider.imageInputMode === "url-array" ? `参考图 URL · ${provider.imageInputField}` : `参考图文件 · ${provider.imageInputField}`} type="muted" />
+                  : null}
+                <Badge text={provider.requestMode === "async" ? "异步" : "普通"} type={provider.requestMode === "async" ? "info" : "muted"} />
+                {provider.statusEnabled ? <Badge text="真实进度" type="success" /> : null}
+                {provider.adapter !== "kie" ? <Badge
+                  text={provider.sizeMode === "ratio-resolution"
+                    ? `${provider.ratioField}=16:9 + ${provider.resolutionField}=4k`
+                    : `${provider.pixelSizeField}=3840x2160`}
+                  type="muted"
+                /> : null}
+                {provider.resultUrlRewriteRules.length
+                  ? <Badge text={`域名加速 ${provider.resultUrlRewriteRules.length} 条`} type="success" />
+                  : null}
+              </div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                {provider.modelIds.length ? provider.modelIds.map((modelId) => <Badge key={modelId} text={models.find((model) => model.id === modelId)?.name || modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 9 }}>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{provider.metrics.successRate === null ? "暂无" : `${provider.metrics.successRate}%`}</div>
+                  <div className="lr-s">近30天成功率</div>
                 </div>
-              )
-            },
-            { title: "启用", dataIndex: "on", width: 90, fixed: "right", render: (_, provider) => <AntSwitch checked={provider.on} onChange={() => void toggle(provider)} /> },
-            {
-              title: "优先级与操作",
-              width: 220,
-              fixed: "right",
-              render: (_, provider) => (
-                <Space size={0}>
-                  <Tooltip title="提高组内优先级"><Button type="text" icon={<i className="ri-arrow-up-line" />} onClick={() => void moveProvider(provider, "up")} /></Tooltip>
-                  <Tooltip title="降低组内优先级"><Button type="text" icon={<i className="ri-arrow-down-line" />} onClick={() => void moveProvider(provider, "down")} /></Tooltip>
-                  <Tooltip title="复制配置"><Button type="text" icon={<CopyOutlined />} onClick={() => copyProvider(provider)} /></Tooltip>
-                  <Tooltip title="编辑"><Button type="text" icon={<EditOutlined />} onClick={() => openForm(provider)} /></Tooltip>
-                  <Button type="link" danger onClick={() => remove(provider)}>删除</Button>
-                </Space>
-              )
-            }
-          ]}
-        />
-      </Card>
-    </div>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{formatDuration(provider.metrics.avgDurationMs)}</div>
+                  <div className="lr-s">平均成功耗时</div>
+                </div>
+                <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 750 }}>{provider.metrics.attempts}</div>
+                  <div className="lr-s">请求次数</div>
+                </div>
+              </div>
+              {provider.metrics.lastError ? <div className="lr-s" style={{ marginTop: 6, color: "var(--danger)" }}>最近故障：{provider.metrics.lastError}</div> : null}
+            </div>
+            <Switch on={provider.on} onToggle={() => toggle(provider)} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{ADAPTERS.find((item) => item.value === provider.adapter)?.label} · 组内优先级</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <button className="nav-btn" type="button" aria-label="提高优先级" onClick={() => moveProvider(provider, "up")}><i className="ri-arrow-up-line" /></button>
+              <button className="nav-btn" type="button" aria-label="降低优先级" onClick={() => moveProvider(provider, "down")}><i className="ri-arrow-down-line" /></button>
+              <CtrlIcons onCopy={() => copyProvider(provider)} onEdit={() => openForm(provider)} onDelete={() => remove(provider)} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

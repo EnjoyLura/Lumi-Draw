@@ -23,7 +23,8 @@ export function AdminSessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setUseMock = useCallback((v: boolean) => {
-    setUseMockState(writeUseMockData(v));
+    writeUseMockData(v);
+    setUseMockState(v);
   }, []);
 
   const onLoggedIn = useCallback((token: string) => {

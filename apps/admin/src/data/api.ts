@@ -75,9 +75,6 @@ export interface AdminReportData extends AdminReport {
 
 export interface AdminFeedbackData extends AdminFeedback {
   imageUrls: string[];
-  userName?: string;
-  userAvatar?: string;
-  userAvatarColor?: string;
 }
 
 function mapWork(w: ApiWork): AdminWorkDetailData {
@@ -112,28 +109,13 @@ function mapWork(w: ApiWork): AdminWorkDetailData {
   };
 }
 
-export interface AdminUserQuery {
-  page?: number;
-  pageSize?: number;
-  keyword?: string;
-  status?: "normal" | "banned";
-  member?: string;
-}
-
-export async function apiGetUsersPage(options: AdminUserQuery = {}): Promise<Paginated<AdminUser>> {
-  const params = new URLSearchParams({
-    page: String(options.page || 1),
-    pageSize: String(options.pageSize || 20)
-  });
+export async function apiGetUsers(options: { keyword?: string; status?: "normal" | "banned"; member?: string } = {}): Promise<AdminUser[]> {
+  const params = new URLSearchParams({ page: "1", pageSize: "100" });
   if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
   if (options.status) params.set("status", options.status);
   if (options.member) params.set("member", options.member);
   const page = await http.get<Paginated<ApiUser>>(`/admin/users?${params.toString()}`);
-  return { ...page, items: page.items.map(mapUser) };
-}
-
-export async function apiGetUsers(options: AdminUserQuery = {}): Promise<AdminUser[]> {
-  return (await apiGetUsersPage({ ...options, page: 1, pageSize: 100 })).items;
+  return page.items.map(mapUser);
 }
 
 export interface AdminUsersSummary {
@@ -182,32 +164,9 @@ export async function apiGiftUserMember(id: number, planId: number, reason: stri
   return mapUser(await http.post<ApiUser>(`/admin/users/${id}/member/gift`, { planId, reason }));
 }
 
-export interface AdminWorkQuery {
-  page?: number;
-  pageSize?: number;
-  keyword?: string;
-  userId?: number;
-  status?: "draft" | "pending" | "published" | "rejected" | "offline";
-  featured?: boolean;
-  recommend?: boolean;
-}
-
-export async function apiGetWorksPage(options: AdminWorkQuery = {}): Promise<Paginated<AdminWork>> {
-  const params = new URLSearchParams({
-    page: String(options.page || 1),
-    pageSize: String(options.pageSize || 20)
-  });
-  if (options.keyword?.trim()) params.set("keyword", options.keyword.trim());
-  if (options.userId) params.set("userId", String(options.userId));
-  if (options.status) params.set("status", options.status);
-  if (typeof options.featured === "boolean") params.set("featured", String(options.featured));
-  if (typeof options.recommend === "boolean") params.set("recommend", String(options.recommend));
-  const page = await http.get<Paginated<ApiWork>>(`/admin/works?${params.toString()}`);
-  return { ...page, items: page.items.map(mapWork) };
-}
-
 export async function apiGetWorks(): Promise<AdminWork[]> {
-  return (await apiGetWorksPage({ page: 1, pageSize: 100 })).items;
+  const page = await http.get<Paginated<ApiWork>>("/admin/works?page=1&pageSize=100");
+  return page.items.map(mapWork);
 }
 
 export interface AdminWorksSummary {
@@ -225,12 +184,11 @@ export async function apiGetWorkDetail(id: number): Promise<AdminWorkDetailData>
   return mapWork(await http.get<ApiWork>(`/admin/works/${id}`));
 }
 
-export async function apiUpdateWork(id: number, values: { title: string; desc: string; style: string; tags: string[]; likes: number }) {
+export async function apiUpdateWork(id: number, values: { title: string; desc: string; style: string; likes: number }) {
   return mapWork(await http.patch<ApiWork>(`/admin/works/${id}`, {
     title: values.title,
     description: values.desc,
     style: values.style,
-    tags: values.tags,
     likes: values.likes
   }));
 }
@@ -313,25 +271,9 @@ function mapReviewWork(w: ApiReviewWork): AdminWorkDetailData {
   };
 }
 
-export interface AdminReviewQuery {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-}
-
-export async function apiGetReviewsPage(options: AdminReviewQuery = {}): Promise<Paginated<AdminWorkDetailData>> {
-  const params = new URLSearchParams({
-    page: String(options.page || 1),
-    pageSize: String(options.pageSize || 20),
-    status: options.status || "pending"
-  });
-  const page = await http.get<Paginated<ApiReviewWork>>(`/admin/reviews?${params.toString()}`);
-  return { ...page, items: page.items.map(mapReviewWork) };
-}
-
 export async function apiGetReviews(status = "pending"): Promise<AdminWorkDetailData[]> {
-  const page = await apiGetReviewsPage({ status, page: 1, pageSize: 100 });
-  return page.items;
+  const page = await http.get<Paginated<ApiReviewWork>>(`/admin/reviews?status=${encodeURIComponent(status)}&page=1&pageSize=100`);
+  return page.items.map(mapReviewWork);
 }
 
 export async function apiApproveReview(id: number) {
@@ -362,25 +304,9 @@ function mapReport(r: ApiReport): AdminReportData {
   };
 }
 
-export interface AdminReportQuery {
-  page?: number;
-  pageSize?: number;
-  status?: string;
-}
-
-export async function apiGetReportsPage(options: AdminReportQuery = {}): Promise<Paginated<AdminReportData>> {
-  const params = new URLSearchParams({
-    page: String(options.page || 1),
-    pageSize: String(options.pageSize || 20),
-    status: options.status || "pending"
-  });
-  const page = await http.get<Paginated<ApiReport>>(`/admin/reports?${params.toString()}`);
-  return { ...page, items: page.items.map(mapReport) };
-}
-
 export async function apiGetReports(): Promise<AdminReportData[]> {
-  const page = await apiGetReportsPage({ status: "pending", page: 1, pageSize: 100 });
-  return page.items;
+  const page = await http.get<Paginated<ApiReport>>("/admin/reports?status=pending&page=1&pageSize=100");
+  return page.items.map(mapReport);
 }
 
 export async function apiResolveReport(id: number, action: "offline" | "warn" | "ignore") {
@@ -396,7 +322,6 @@ const FEEDBACK_STATUS_API: Record<string, string> = { 待处理: "pending", 处�
 interface ApiFeedback {
   id: number; userId: number; type: string; content: string; imageUrls: string[];
   wechat: string; status: string; reply?: string; createdAt: string;
-  userName?: string; userAvatar?: string; userAvatarColor?: string;
 }
 
 function mapFeedback(f: ApiFeedback): AdminFeedbackData {
@@ -409,9 +334,6 @@ function mapFeedback(f: ApiFeedback): AdminFeedbackData {
     time: (f.createdAt ?? "").slice(0, 10),
     imgs: f.imageUrls?.length ?? 0,
     imageUrls: f.imageUrls ?? [],
-    userName: f.userName,
-    userAvatar: f.userAvatar,
-    userAvatarColor: f.userAvatarColor,
     wechat: f.wechat,
     reply: f.reply || undefined
   };
@@ -600,7 +522,7 @@ interface ApiGenerationProvider {
   id: string;
   name: string;
   groupName: string;
-  adapter: "ainb" | "generic" | "change2pro" | "kie";
+  adapter: "ainb" | "change2pro" | "kie";
   requestMode: "sync" | "async";
   textResultMode: "auto" | "url" | "base64";
   imageResultMode: "auto" | "url" | "base64";
@@ -617,17 +539,8 @@ interface ApiGenerationProvider {
   apiKeySource: "admin" | "environment" | "none";
   requestParams: Record<string, string>;
   imageRequestParams: Record<string, string>;
-  imageInputMode: "multipart" | "url" | "url-array";
+  imageInputMode: "multipart" | "url-array";
   imageInputField: string;
-  authMode: "bearer" | "raw" | "query" | "none";
-  authHeaderName: string;
-  authQueryName: string;
-  requestHeaders: Record<string, string>;
-  queryHeaders: Record<string, string>;
-  requestTemplate: Record<string, unknown>;
-  imageRequestTemplate: Record<string, unknown>;
-  injectModel: boolean;
-  injectCount: boolean;
   sizeMode: "pixels" | "ratio-resolution";
   pixelSizeField: string;
   ratioField: string;
@@ -651,15 +564,6 @@ function mapGenerationProvider(provider: ApiGenerationProvider): AdminGeneration
     pixelSizeField: provider.pixelSizeField || "size",
     ratioField: provider.ratioField || "size",
     resolutionField: provider.resolutionField || "resolution",
-    authMode: provider.authMode || "bearer",
-    authHeaderName: provider.authHeaderName || "Authorization",
-    authQueryName: provider.authQueryName || "api_key",
-    requestHeaders: provider.requestHeaders || {},
-    queryHeaders: provider.queryHeaders || {},
-    requestTemplate: provider.requestTemplate || {},
-    imageRequestTemplate: provider.imageRequestTemplate || {},
-    injectModel: provider.injectModel !== false,
-    injectCount: provider.injectCount !== false,
     modelIds: provider.modelIds || [],
     metrics: provider.metrics || { windowDays: 30, attempts: 0, successes: 0, failures: 0, successRate: null, avgDurationMs: null, lastUsedAt: null, lastError: "" },
     on: provider.enabled
@@ -688,15 +592,6 @@ export async function apiSaveGenerationProvider(id: string, values: AdminGenerat
     textToImageEnabled: values.textToImageEnabled,
     imageToImageEnabled: values.imageToImageEnabled,
     apiKey: values.apiKey || undefined,
-    authMode: values.authMode,
-    authHeaderName: values.authHeaderName,
-    authQueryName: values.authQueryName,
-    requestHeaders: values.requestHeaders,
-    queryHeaders: values.queryHeaders,
-    requestTemplate: values.requestTemplate,
-    imageRequestTemplate: values.imageRequestTemplate,
-    injectModel: values.injectModel,
-    injectCount: values.injectCount,
     requestParams: values.requestParams,
     imageRequestParams: values.imageRequestParams,
     imageInputMode: values.imageInputMode,
@@ -992,47 +887,17 @@ function mapPaymentOrder(order: ApiPaymentOrder): AdminTxn {
   };
 }
 
-export interface AdminPaymentOrderQuery {
-  page?: number;
-  pageSize?: number;
-  type?: "recharge" | "membership";
-  status?: "paid" | "pending" | "closed" | "failed" | "refunded";
-  userId?: number;
-}
-
-export async function apiGetPaymentOrdersPage(options: AdminPaymentOrderQuery = {}): Promise<Paginated<AdminTxn>> {
-  const params = new URLSearchParams({
-    page: String(options.page || 1),
-    pageSize: String(options.pageSize || 20)
-  });
-  if (options.type) params.set("type", options.type);
-  if (options.status) params.set("status", options.status);
-  if (options.userId) params.set("userId", String(options.userId));
-  const page = await http.get<Paginated<ApiPaymentOrder>>(`/admin/payment-orders?${params.toString()}`);
-  return { ...page, items: page.items.map(mapPaymentOrder) };
-}
-
 export async function apiGetPaymentOrders() {
-  return (await apiGetPaymentOrdersPage({ page: 1, pageSize: 100 })).items;
+  const page = await http.get<Paginated<ApiPaymentOrder>>("/admin/payment-orders?page=1&pageSize=100");
+  return page.items.map(mapPaymentOrder);
 }
 
-export interface AdminTransactionQuery {
-  page?: number;
-  pageSize?: number;
-  userId?: number;
-  type?: string;
-}
-
-export async function apiGetTransactionsPage(options: AdminTransactionQuery = {}): Promise<Paginated<AdminTxn>> {
-  const params = new URLSearchParams({ page: String(options.page || 1), pageSize: String(options.pageSize || 20) });
+export async function apiGetTransactions(options: { userId?: number; type?: string } = {}) {
+  const params = new URLSearchParams({ page: "1", pageSize: "100" });
   if (options.userId) params.set("userId", String(options.userId));
   if (options.type) params.set("type", options.type);
   const page = await http.get<Paginated<ApiTransaction>>(`/admin/transactions?${params.toString()}`);
-  return { ...page, items: page.items.map(mapTransaction) };
-}
-
-export async function apiGetTransactions(options: AdminTransactionQuery = {}) {
-  return (await apiGetTransactionsPage({ ...options, page: 1, pageSize: 100 })).items;
+  return page.items.map(mapTransaction);
 }
 
 interface ApiAnnouncement {
@@ -1152,7 +1017,6 @@ const AGREEMENT_TYPE_BY_NAME: Record<string, string> = {
   用户协议: "user",
   隐私政策: "privacy",
   充值协议: "recharge",
-  会员服务协议: "membership",
   社区规范: "community"
 };
 
@@ -1279,26 +1143,9 @@ export interface AdminDashboardDetail {
 }
 
 export async function apiGetDashboardDetail(metric: string): Promise<AdminDashboardDetail> {
-  const actualMetric = ["newUsers", "totalUsers", "newWorks", "totalWorks", "income"].includes(metric)
-    ? metric
-    : metric === "works"
-      ? "newWorks"
-      : "newUsers";
+  const actualMetric = ["newUsers", "totalUsers", "newWorks", "totalWorks"].includes(metric) ? metric : metric === "works" ? "newWorks" : "newUsers";
   const d = await http.get<{ labels: string[]; series: number[]; total: number }>(`/admin/dashboard/detail?metric=${actualMetric}&range=7d`);
   return { labels: shortDateLabels(d.labels), series: d.series, total: d.total };
-}
-
-export interface AdminReviewSummary {
-  reviewed: number;
-  approved: number;
-  rejected: number;
-  passRate: number;
-  pending: number;
-  pendingReports: number;
-}
-
-export async function apiGetReviewSummary(): Promise<AdminReviewSummary> {
-  return http.get<AdminReviewSummary>("/admin/dashboard/review-summary");
 }
 
 export interface AdminFinanceSummary {

@@ -1,5 +1,4 @@
 import { Component, type ReactNode } from "react";
-import { Button, Result } from "antd";
 
 interface Props {
   resetKey: string;
@@ -27,12 +26,10 @@ export class PageBoundary extends Component<Props, State> {
   render() {
     if (this.state.error) {
       return (
-        <Result
-          status="error"
-          title="页面暂时无法显示"
-          subTitle={this.state.error.message || "页面运行时出现异常，请重新加载后再试。"}
-          extra={<Button type="primary" onClick={() => window.location.reload()}>重新加载</Button>}
-        />
+        <div className="empty">
+          <i className="ri-plug-line" />
+          <div className="et">{this.state.error.message}</div>
+        </div>
       );
     }
     return this.props.children;
