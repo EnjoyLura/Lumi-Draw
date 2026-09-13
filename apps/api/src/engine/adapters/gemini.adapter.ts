@@ -24,7 +24,7 @@ export class GeminiAdapter implements ProviderAdapter {
     const config = ctx.config;
     const endpoint = config.baseUrl.includes("{model}")
       ? config.baseUrl.replace("{model}", encodeURIComponent(req.providerModel))
-      : config.baseUrl || `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(req.providerModel)}:generateContent`;
+      : `${(config.baseUrl || "https://generativelanguage.googleapis.com/v1beta").replace(/\/$/, "")}/models/${encodeURIComponent(req.providerModel)}:generateContent`;
     const references: Array<{ buffer: Buffer; contentType: string }> = [];
     if (req.operation === "image-to-image") {
       if (!req.inputImageUrls.length) throw new Error("图生图需要参考图");

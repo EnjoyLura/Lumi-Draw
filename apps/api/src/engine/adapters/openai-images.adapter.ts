@@ -22,8 +22,8 @@ export class OpenAiImagesAdapter implements ProviderAdapter {
   async submit(ctx: AdapterContext, req: NormalizedRequest): Promise<AdapterSubmitResult> {
     const config = ctx.config;
     const endpoint = req.operation === "image-to-image"
-      ? (config.imageEndpoint || this.defaultEndpoint(config.baseUrl, "/images/edits"))
-      : (config.baseUrl || this.defaultEndpoint(config.baseUrl, "/images/generations"));
+      ? (config.imageEndpoint || this.defaultEditEndpoint(config.baseUrl))
+      : config.baseUrl;
     const outputs: AdapterOutput[] = [];
     const requests = Array.from({ length: Math.max(1, req.count) }, (_, index) => index);
 
@@ -120,10 +120,11 @@ export class OpenAiImagesAdapter implements ProviderAdapter {
     return "image/png";
   }
 
-  private defaultEndpoint(apiBase: string, path: string): string {
-    const base = apiBase.replace(/\/$/, "");
-    const versioned = base.endsWith("/v1") ? base : `${base}/v1`;
-    return `${versioned}${path}`;
+  /** baseUrl 是文生图完整 URL；图生图未单独配置时按 /generations→/edits 推导。 */
+  private defaultEditEndpoint(baseUrl: string): string {
+    const trimmed = baseUrl.replace(/\/$/, "");
+    if (trimmed.endsWith("/generations")) return `${trimmed.slice(0, -"/generations".length)}/edits`;
+    return `${trimmed}/edits`;
   }
 }
 
