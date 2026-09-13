@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { normalizeImage2Size, type Change2ProOutput } from "./change2pro.client";
 import { normalizeProviderJsonObject, pickProviderParams, type ProviderAuthMode, type ProviderRuntimeConfig } from "./provider-runtime";
-import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "./provider-response";
-import { buildProviderSizeParams, normalizeProviderSizeConfig, type ProviderSizeConfig } from "./provider-size";
+import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "../common/provider-response";
+import { buildProviderSizeParams, normalizeProviderSizeConfig, type ProviderSizeConfig } from "../common/provider-size";
 
 type AinbConfig = {
   adapter: "ainb" | "generic";

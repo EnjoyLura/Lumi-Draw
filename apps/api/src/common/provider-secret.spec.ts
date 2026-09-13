@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "./provider-secret";
+import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../common/provider-secret";
 
 const MASTER = "test-generation-provider-master-secret-1234567890";
 

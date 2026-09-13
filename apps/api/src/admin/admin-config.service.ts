@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma, type GenerationProvider } from "@prisma/client";
-import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../generate/provider-secret";
+import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../common/provider-secret";
 import { normalizeProviderRouting } from "../generate/provider-routing";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";

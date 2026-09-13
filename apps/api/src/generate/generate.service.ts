@@ -18,8 +18,8 @@ import { ImageTransferClient } from "./image-transfer.client";
 import { KieClient } from "./kie.client";
 import { normalizeProviderJsonObject, normalizeProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
 import { resolveProviderIds } from "./provider-routing";
-import { decryptProviderApiKey } from "./provider-secret";
-import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "./provider-result-url";
+import { decryptProviderApiKey } from "../common/provider-secret";
+import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "../common/provider-result-url";
 import {
   beginProviderAttempt,
   decideProviderFailure,

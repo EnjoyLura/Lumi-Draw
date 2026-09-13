@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { rewriteProviderResultUrl } from "./provider-result-url";
+import { rewriteProviderResultUrl } from "../common/provider-result-url";
 
 test("rewrites only an exact HTTPS result host and preserves the resource path", () => {
   const result = rewriteProviderResultUrl(

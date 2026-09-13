@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildProviderSizeParams, normalizeProviderResolution } from "./provider-size";
+import { buildProviderSizeParams, normalizeProviderResolution } from "../common/provider-size";
 
 test("builds a single pixel size parameter by default", () => {
   assert.deepEqual(buildProviderSizeParams("16:9", "超高清 4K", "3840x2160"), {

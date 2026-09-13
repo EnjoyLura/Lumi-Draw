@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { ModelConfig } from "@prisma/client";
 import type { ProviderRuntimeConfig } from "./provider-runtime";
-import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "./provider-response";
+import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "../common/provider-response";
 
 type KieConfig = {
   apiBase: string;

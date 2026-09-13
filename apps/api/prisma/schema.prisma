@@ -124,6 +124,7 @@ model GenerationProvider {
   imageToImageEnabled Boolean @default(false)
   apiKeyEnv     String
   apiKeyEncrypted String @default("")
+  config        Json?
   authMode      String   @default("bearer") // bearer | raw | query | none
   authHeaderName String  @default("Authorization")
   authQueryName String   @default("api_key")
@@ -271,6 +272,7 @@ model User {
 
   works              Work[]
   generateJobs       GenerateJob[]
+  engineJobs         EngineJob[]
   paymentOrders      PaymentOrder[]
   refreshTokens      RefreshToken[]
   creditTransactions CreditTransaction[]
@@ -580,7 +582,7 @@ model GenerateJob {
   refundCredits Int      @default(0)
   walletBillNo  String   @default("")
   walletRefunded Boolean @default(false)
-  status        String   @default("queued") // queued | running | succeeded | partial_failed | failed | cancelled
+  status        String   @default("queued") // queued | running | finalizing | succeeded | partial_failed | failed | cancelled
   progress      Int      @default(0)
   stageText     String   @default("")
   kieTaskId     String?  @unique
@@ -604,7 +606,7 @@ model GenerateResult {
   id           String   @id @default(cuid())
   jobId        String
   job          GenerateJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  status       String   @default("succeeded") // succeeded | failed
+  status       String   @default("succeeded") // succeeded | transferring | failed
   imageUrl     String   @default("")
   sourceUrl    String   @default("")
   width        Int?
@@ -654,4 +656,115 @@ model PaymentOrder {
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@map("payment_orders")
+}
+
+// ===================== Image Engine v3 =====================
+
+// 引擎任务 EngineJob：一次生图请求的完整生命周期（账务、供应商快照、推进状态）。
+model EngineJob {
+  id              String   @id @default(cuid())
+  clientRequestId String   @unique
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  operation       String   // text-to-image | image-to-image
+  modelId         String
+  modelRevision   BigInt   @default(0) // ModelConfig.updatedAt 提交时快照，配置变更后旧请求报 41002
+  qualityId       Int
+  ratioId         Int
+  ratio           String   // 比例标签快照（作品落库、尺寸解析用）
+  quality         String   // 精度标签快照
+  prompt          String
+  styleId         Int?
+  gameplayId      Int?
+  count           Int
+  inputImageUrls  Json     @default("[]")
+  // 供应商快照：单列 JSON，轮询/重试/恢复不依赖配置表当前值
+  providerId          String
+  providerAttemptIndex Int   @default(0)
+  providerCandidates  Json  @default("[]")
+  providerSnapshot    Json?
+  // 账务
+  costCredits        Int
+  refundCredits      Int      @default(0)
+  billingState       String   @default("reserved") // reserved | settled | refunded | charge_failed
+  walletBillNo       String   @default("")
+  walletRefunded     Boolean  @default(false)
+  walletPendingRefund Int     @default(0) // >0 表示 watchdog 需重试微信钱包退款
+  // 生命周期
+  status         String   @default("queued") // queued | submitted | running | settling | succeeded | partial_failed | failed | cancelled
+  progress       Int      @default(0)
+  stageText      String   @default("")
+  failureCode    Int      @default(0)
+  failureMessage String   @default("")
+  submitDeadlineAt DateTime?
+  totalTimeoutAt   DateTime?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  cancelledAt    DateTime?
+  retryOfJobId   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  attempts EngineAttempt[]
+  assets   EngineAsset[]
+
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+  @@map("engine_jobs")
+}
+
+// 引擎尝试 EngineAttempt：每一次向上游的真实提交（故障转移决策、健康统计、审计的唯一事实来源）。
+model EngineAttempt {
+  id             String    @id @default(cuid())
+  jobId          String
+  job            EngineJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  index          Int
+  providerId     String
+  providerName   String    @default("")
+  adapter        String
+  state          String    @default("pending") // pending | submitted | succeeded | failed
+  upstreamTaskId String    @default("")
+  errorKind      String    @default("") // auth | quota | policy | invalid_request | size | rate_limit | capacity | network | timeout | parse | ambiguous | unknown
+  errorMessage   String    @default("")
+  latencyMs      Int?
+  nextPollAt     DateTime?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([jobId])
+  @@index([providerId, startedAt])
+  @@index([state, nextPollAt])
+  @@map("engine_attempts")
+}
+
+// 引擎产物 EngineAsset：每一张生成图独立的转存状态机。
+model EngineAsset {
+  id            String    @id @default(cuid())
+  jobId         String
+  job           EngineJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  index         Int
+  status        String    @default("pending") // pending | transferring | stored | failed
+  providerUrl   String    @default("")
+  sourceUrl     String    @default("")
+  url           String    @default("")
+  ossKey        String    @default("")
+  width         Int?
+  height        Int?
+  sizeBytes     Int?
+  errorMessage  String    @default("")
+  transferAttempts       Int       @default(0)
+  transferLastAttemptAt  DateTime?
+  transferNextAttemptAt  DateTime?
+  transferHost           String    @default("")
+  transferFallbackUsed   Boolean   @default(false)
+  transferTtfbMs         Int?
+  transferDownloadMs     Int?
+  transferUploadMs       Int?
+  workId       Int?
+  createdAt    DateTime  @default(now())
+
+  @@index([jobId])
+  @@index([status, transferNextAttemptAt])
+  @@map("engine_assets")
 }

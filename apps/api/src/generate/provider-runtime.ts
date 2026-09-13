@@ -1,5 +1,5 @@
-import type { ProviderSizeConfig } from "./provider-size";
-import type { ProviderResultUrlRewriteRule } from "./provider-result-url";
+import type { ProviderSizeConfig } from "../common/provider-size";
+import type { ProviderResultUrlRewriteRule } from "../common/provider-result-url";
 
 export type ProviderRequestParams = Record<string, string>;
 export type ProviderAuthMode = "bearer" | "raw" | "query" | "none";

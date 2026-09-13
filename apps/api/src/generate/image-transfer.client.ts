@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash, createHmac } from "node:crypto";
-import type { ProviderSizeConfig } from "./provider-size";
-import type { ProviderResultUrlRewriteRule } from "./provider-result-url";
+import type { ProviderSizeConfig } from "../common/provider-size";
+import type { ProviderResultUrlRewriteRule } from "../common/provider-result-url";
 
 type ImageTransferConfig = {
   functionUrl: string;

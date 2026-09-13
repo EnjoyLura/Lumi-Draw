@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import { pickProviderParams, type ProviderRuntimeConfig } from "./provider-runtime";
-import { buildProviderSizeParams, normalizeProviderSizeConfig, type ProviderSizeConfig } from "./provider-size";
+import { buildProviderSizeParams, normalizeProviderSizeConfig, type ProviderSizeConfig } from "../common/provider-size";
 
 type Change2ProConfig = {
   apiBase: string;

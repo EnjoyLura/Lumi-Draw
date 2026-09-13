@@ -3,7 +3,7 @@ import test from "node:test";
 import { ConflictException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerationProvider } from "@prisma/client";
-import { decryptProviderApiKey } from "../generate/provider-secret";
+import { decryptProviderApiKey } from "../common/provider-secret";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { AdminConfigService } from "./admin-config.service";
@@ -262,6 +262,7 @@ test("never exposes encrypted or environment key fields in administrator respons
     pixelSizeField: "size",
     ratioField: "size",
     resolutionField: "resolution",
+    config: null,
     enabled: true,
     sort: 1,
     createdAt: new Date(),
