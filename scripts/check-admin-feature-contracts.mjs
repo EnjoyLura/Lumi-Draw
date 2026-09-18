@@ -6,6 +6,7 @@ const ADMIN_SRC = path.join(ROOT, "apps", "admin", "src");
 const REGISTRY = path.join(ADMIN_SRC, "pages", "registry.tsx");
 const MENU = path.join(ADMIN_SRC, "shell", "menu.ts");
 const API = path.join(ADMIN_SRC, "data", "api.ts");
+const ENGINE_API = path.join(ADMIN_SRC, "data", "engineApi.ts");
 
 function readText(file) {
   return readFileSync(file, "utf8");
@@ -98,7 +99,9 @@ const adminApiPathContracts = [
   "/admin/categories",
   "/admin/hot-searches",
   "/admin/models",
-  "/admin/generation-providers",
+  "/admin/engine/platforms",
+  "/admin/engine/meta",
+  "/admin/engine/health",
   "/admin/qualities",
   "/admin/ratios",
   "/admin/recharge-tiers",
@@ -120,7 +123,7 @@ function main() {
   const errors = [];
   const registry = readText(REGISTRY);
   const menu = readText(MENU);
-  const api = readText(API);
+  const api = `${readText(API)}\n${readText(ENGINE_API)}`;
 
   for (const id of registryPageContracts) {
     assertIncludes(registry, `${id}:`, "admin page registry", errors);

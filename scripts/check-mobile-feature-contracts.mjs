@@ -147,7 +147,11 @@ const pageContracts = [
   },
   {
     route: "pages/invite/index",
-    tokens: ["useDataMode", "fetchInviteSummary", "copyInviteCode", "onShareAppMessage"]
+    tokens: ["useDataMode", "fetchInviteSummary", "copyInviteLink", "onShareAppMessage"]
+  },
+  {
+    route: "pages/recharge/index",
+    tokens: ["useDataMode", "createRechargeOrder", "requestOrderPayment", "fetchCreditRecordPage", "loginRequired"]
   },
   {
     route: "pages/membership/index",
@@ -215,9 +219,9 @@ const apiPathContracts = [
   "/works/me/gallery",
   "/works/me/drafts",
   "/works",
-  "/generate/jobs",
-  "/generate/reverse-prompt",
-  "/generate/results/",
+  "/engine/jobs",
+  "/engine/reverse-prompt",
+  "/engine/assets/",
   "/social/works/",
   "/social/users/",
   "/social/follows",
