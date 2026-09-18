@@ -160,9 +160,12 @@ export class EngineBillingService {
       });
       if (!claimed.count) return tx.engineJob.findUniqueOrThrow({ where: { id: job.id } });
       await tx.engineAsset.deleteMany({ where: { jobId: job.id, workId: null } });
-      const styleName = job.styleId ? (await tx.style.findUnique({ where: { id: job.styleId }, select: { name: true } }))?.name ?? "" : "";
+      const styleName = job.dryRun || !job.styleId
+        ? ""
+        : (await tx.style.findUnique({ where: { id: job.styleId }, select: { name: true } }))?.name ?? "";
       for (const [index, result] of accepted.entries()) {
-        const work = await tx.work.create({
+        // 试运行任务只落库产物供后台检视，不建草稿作品、不计入用户作品数。
+        const workId = job.dryRun ? null : (await tx.work.create({
           data: {
             userId: job.userId,
             title: this.draftTitle(job.prompt, accepted.length > 1 ? index + 1 : undefined),
@@ -176,18 +179,18 @@ export class EngineBillingService {
             isPublic: false,
             status: "draft"
           }
-        });
+        })).id;
         await tx.engineAsset.create({
           data: {
             jobId: job.id,
             index: index + 1,
             status: "stored",
             ...assetColumns(result, expected),
-            workId: work.id
+            workId
           }
         });
       }
-      if (accepted.length) {
+      if (accepted.length && !job.dryRun) {
         await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: accepted.length } } });
       }
       if (partial.refundCredits > 0) {
@@ -233,26 +236,28 @@ export class EngineBillingService {
         data: { stageText: "正在保存作品" }
       });
       if (!claimed.count) return tx.engineJob.findUniqueOrThrow({ where: { id: jobId } });
-      const styleName = job.styleId ? (await tx.style.findUnique({ where: { id: job.styleId }, select: { name: true } }))?.name ?? "" : "";
-      for (const asset of successful) {
-        const work = await tx.work.create({
-          data: {
-            userId: job.userId,
-            title: this.draftTitle(job.prompt, successful.length > 1 ? asset.index : undefined),
-            description: "",
-            prompt: job.prompt,
-            imageUrl: asset.url,
-            ratio: job.ratio,
-            quality: job.quality,
-            modelId: job.modelId,
-            style: styleName,
-            isPublic: false,
-            status: "draft"
-          }
-        });
-        await tx.engineAsset.update({ where: { id: asset.id }, data: { workId: work.id } });
+      if (!job.dryRun) {
+        const styleName = job.styleId ? (await tx.style.findUnique({ where: { id: job.styleId }, select: { name: true } }))?.name ?? "" : "";
+        for (const asset of successful) {
+          const work = await tx.work.create({
+            data: {
+              userId: job.userId,
+              title: this.draftTitle(job.prompt, successful.length > 1 ? asset.index : undefined),
+              description: "",
+              prompt: job.prompt,
+              imageUrl: asset.url,
+              ratio: job.ratio,
+              quality: job.quality,
+              modelId: job.modelId,
+              style: styleName,
+              isPublic: false,
+              status: "draft"
+            }
+          });
+          await tx.engineAsset.update({ where: { id: asset.id }, data: { workId: work.id } });
+        }
+        await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: successful.length } } });
       }
-      await tx.user.update({ where: { id: job.userId }, data: { worksCount: { increment: successful.length } } });
       if (partial.refundCredits > 0) {
         const refId = `engine_partial_refund:${jobId}`;
         if (walletAdjustment) {

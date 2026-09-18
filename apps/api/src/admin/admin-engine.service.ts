@@ -1,17 +1,18 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { GenerationProvider } from "@prisma/client";
 import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../common/provider-secret";
+import { extractQualityTier, QUALITY_TIERS } from "../common/provider-routing";
 import { PrismaService } from "../prisma/prisma.service";
-import { adapterMetadata } from "../engine/adapters";
-import { readProviderConfig } from "../engine/provider-config";
-import type { ProviderConfig } from "../engine/engine.types";
+import { UploadsService } from "../uploads/uploads.service";
+import { adapterMetadata, findAdapterMetadata } from "../engine/adapters/adapter-metadata";
+import { isAdapterKind, providerConfigDefaults, readProviderConfig } from "../engine/provider-config";
+import { ENGINE_ACTIVE_STATUSES, type AdapterKind, type ProviderConfig } from "../engine/engine.types";
+import { EngineService } from "../engine/engine.service";
 
-type AdapterMetaEntry = ReturnType<typeof adapterMetadata>[number];
-
-/** 配置 JSON 是唯一权威；旧扁平列只作为过渡期镜像，由本服务同步维护。 */
+/** config JSON 里允许由 admin 写入的键（与 ProviderConfig 一一对应，adapter 单独处理）。 */
 const CONFIG_FIELDS = [
-  "adapter", "requestMode", "textResultMode", "imageResultMode",
+  "requestMode", "textResultMode", "imageResultMode",
   "baseUrl", "imageEndpoint", "queryEndpoint", "statusEnabled",
   "responseMapping", "resultUrlRewriteRules",
   "textToImageEnabled", "imageToImageEnabled",
@@ -22,56 +23,31 @@ const CONFIG_FIELDS = [
   "sizeMode", "pixelSizeField", "ratioField", "resolutionField"
 ] as const;
 
-const CONFIG_DEFAULTS: Record<string, unknown> = {
-  requestMode: "async",
-  textResultMode: "url",
-  imageResultMode: "url",
-  imageEndpoint: "",
-  queryEndpoint: "",
-  statusEnabled: false,
-  responseMapping: {},
-  resultUrlRewriteRules: [],
-  textToImageEnabled: true,
-  imageToImageEnabled: false,
-  authMode: "bearer",
-  authHeaderName: "Authorization",
-  authQueryName: "api_key",
-  requestHeaders: {},
-  queryHeaders: {},
-  requestTemplate: {},
-  imageRequestTemplate: {},
-  injectModel: true,
-  injectCount: true,
-  requestParams: {},
-  imageRequestParams: {},
-  imageInputMode: "multipart",
-  imageInputField: "",
-  sizeMode: "pixels",
-  pixelSizeField: "size",
-  ratioField: "size",
-  resolutionField: "resolution"
-};
-
-function adapterDefaults(kind: string): Record<string, unknown> {
-  const meta = adapterMetadata().find((item) => item.kind === kind) as AdapterMetaEntry | undefined;
-  if (!meta) throw new BadRequestException(`未知适配器类型：${kind}`);
-  return { ...meta.defaults };
-}
+/** 试运行任务挂在这个系统用户下，与真实用户数据完全隔离。 */
+const DRY_RUN_USER_OPENID = "system:engine-dry-run";
+const DRY_RUN_DEFAULT_PROMPT = "一只戴着宇航头盔的橘猫漂浮在星空里，电影质感，细节丰富";
 
 @Injectable()
 export class AdminEngineService {
+  private readonly logger = new Logger(AdminEngineService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly uploads: UploadsService,
+    private readonly engine: EngineService
   ) {}
 
-  meta() {
+  async meta() {
+    const qualities = await this.prisma.qualityConfig.findMany({ where: { enabled: true }, orderBy: { sort: "asc" } });
+    const tiers = QUALITY_TIERS.filter((tier) => qualities.some((quality) => extractQualityTier(quality.label) === tier));
     return {
       adapters: adapterMetadata(),
       resultModes: ["url", "base64", "auto"],
       requestModes: ["sync", "async"],
       authModes: ["bearer", "raw", "query", "none"],
-      imageInputModes: ["multipart", "url", "url-array"]
+      imageInputModes: ["multipart", "url", "url-array"],
+      qualityTiers: tiers.length ? tiers : [...QUALITY_TIERS]
     };
   }
 
@@ -102,16 +78,39 @@ export class AdminEngineService {
     const existing = await this.prisma.generationProvider.findUnique({ where: { id }, select: { id: true } });
     if (existing) throw new ConflictException("平台标识已存在，请更换一个标识");
     const config = this.buildConfig(body);
-    const data = this.toRowData(body, config, true);
-    await this.prisma.generationProvider.create({ data: { id, name, ...data } as never });
+    const data = this.toRowData(body, config);
+    if (!data.apiKeyEnv && !data.apiKeyEncrypted && config.authMode !== "none") {
+      throw new BadRequestException("请填写 API Key 或环境变量名");
+    }
+    await this.prisma.generationProvider.create({ data: { id, ...data } as never });
     return this.detail(id);
   }
 
   async update(id: string, body: Record<string, unknown>) {
     const current = await this.findOrFail(id);
     const config = this.buildConfig(body, current);
-    const data = this.toRowData(body, config, false);
-    delete (data as Record<string, unknown>).id;
+    const data: Record<string, unknown> = {
+      // 局部更新：未携带的字段保持当前值。
+      name: body.name === undefined ? current.name : String(body.name || "").trim() || current.name,
+      groupName: body.groupName === undefined ? current.groupName : String(body.groupName || "").trim(),
+      enabled: body.enabled === undefined ? current.enabled : Boolean(body.enabled),
+      sort: body.sort === undefined || !Number.isFinite(Number(body.sort)) ? current.sort : Number(body.sort),
+      config
+    };
+    const apiKey = body.apiKey === null || body.clearApiKey === true
+      ? null
+      : typeof body.apiKey === "string" && body.apiKey.trim()
+        ? body.apiKey.trim()
+        : undefined;
+    if (apiKey === null) {
+      data.apiKeyEncrypted = "";
+      if (body.apiKeyEnv !== undefined) data.apiKeyEnv = String(body.apiKeyEnv || "").trim();
+    } else if (apiKey) {
+      data.apiKeyEncrypted = encryptProviderApiKey(apiKey, this.config.getOrThrow<string>("app.generationProviderEncryptionKey"));
+      if (body.apiKeyEnv !== undefined) data.apiKeyEnv = String(body.apiKeyEnv || "").trim();
+    } else if (body.apiKeyEnv !== undefined) {
+      data.apiKeyEnv = String(body.apiKeyEnv || "").trim();
+    }
     await this.prisma.generationProvider.update({ where: { id }, data: data as never });
     return this.detail(id);
   }
@@ -124,16 +123,18 @@ export class AdminEngineService {
     const existing = await this.prisma.generationProvider.findUnique({ where: { id: newId }, select: { id: true } });
     if (existing) throw new ConflictException("平台标识已存在，请更换一个标识");
     const copyApiKey = body.copyApiKey !== false;
-    const data: Record<string, unknown> = {
-      name: newName,
-      groupName: body.groupName === undefined ? source.groupName : String(body.groupName || ""),
-      ...this.configRecord(source),
-      apiKeyEnv: copyApiKey ? source.apiKeyEnv : "",
-      apiKeyEncrypted: copyApiKey ? source.apiKeyEncrypted : "",
-      enabled: Boolean(body.enabled),
-      sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : source.sort + 1
-    };
-    await this.prisma.generationProvider.create({ data: { id: newId, ...data } as never });
+    await this.prisma.generationProvider.create({
+      data: {
+        id: newId,
+        name: newName,
+        groupName: body.groupName === undefined ? source.groupName : String(body.groupName || ""),
+        config: readProviderConfig(source) as unknown as object,
+        apiKeyEnv: copyApiKey ? source.apiKeyEnv : "",
+        apiKeyEncrypted: copyApiKey ? source.apiKeyEncrypted : "",
+        enabled: Boolean(body.enabled),
+        sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : source.sort + 1
+      }
+    });
     return this.detail(newId);
   }
 
@@ -205,18 +206,155 @@ export class AdminEngineService {
     return { ok: status < 400 || status === 404 || status === 405, reachable: true, status, latencyMs: Date.now() - startedAt, message };
   }
 
-  /** 近 7 天各平台尝试成功率（EngineAttempt 是唯一事实来源）。 */
+  // ---------------- 全链路试运行 ----------------
+
+  /**
+   * 用真实引擎链路（提交 → 上游 → FC 转存/直存 → OSS → CDN）验证平台配置。
+   * 任务挂系统用户、0 积分、不建草稿作品、不计入健康度；复用引擎全部推进与失败分类。
+   */
+  async startDryRun(id: string, prompt?: string) {
+    const provider = await this.findOrFail(id);
+    const config = readProviderConfig(provider);
+    if (!config.textToImageEnabled) throw new BadRequestException("该平台未启用文生图，无法试运行");
+    if (!config.baseUrl) throw new BadRequestException("请先填写提交接口 URL");
+    if (config.authMode !== "none" && !this.resolveApiKey(provider)) {
+      throw new BadRequestException("请先配置 API Key 或环境变量密钥");
+    }
+    const active = await this.prisma.engineJob.findFirst({
+      where: { dryRun: true, providerId: id, status: { in: [...ENGINE_ACTIVE_STATUSES] } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true }
+    });
+    if (active) return { jobId: active.id, reused: true };
+
+    const [userId, quality, ratio] = await Promise.all([
+      this.ensureDryRunUser(),
+      this.prisma.qualityConfig.findFirst({ where: { enabled: true }, orderBy: { sort: "asc" } }),
+      this.prisma.ratioConfig.findFirst({ where: { enabled: true, label: "1:1" }, orderBy: { sort: "asc" } })
+        .then((row) => row ?? this.prisma.ratioConfig.findFirst({ where: { enabled: true }, orderBy: { sort: "asc" } }))
+    ]);
+    if (!quality || !ratio) throw new BadRequestException("请先在「分辨率配置 / 尺寸比例」中配置至少一个可用档位");
+
+    const job = await this.prisma.engineJob.create({
+      data: {
+        clientRequestId: `dry-run-${id}-${Date.now()}`,
+        userId,
+        operation: "text-to-image",
+        modelId: "dry-run",
+        modelRevision: BigInt(0),
+        qualityId: quality.id,
+        ratioId: ratio.id,
+        ratio: ratio.label,
+        quality: quality.label,
+        prompt: prompt?.trim() || DRY_RUN_DEFAULT_PROMPT,
+        count: 1,
+        inputImageUrls: [],
+        providerId: id,
+        providerAttemptIndex: 0,
+        providerCandidates: [id],
+        providerSnapshot: {
+          providerId: id,
+          providerName: provider.name,
+          adapterKind: config.adapter,
+          requestMode: config.requestMode,
+          resultMode: config.textResultMode,
+          providerModel: config.requestParams.model || "dry-run",
+          config,
+          apiKeyEncrypted: provider.apiKeyEncrypted,
+          apiKeyEnv: provider.apiKeyEnv
+        } as unknown as object,
+        costCredits: 0,
+        billingState: "settled",
+        status: "queued",
+        stageText: "试运行任务已创建",
+        dryRun: true
+      }
+    });
+    void this.engine.submitJob(job.id).catch((error) => {
+      this.logger.error(`dry-run submit failed job=${job.id}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    return { jobId: job.id, reused: false };
+  }
+
+  async dryRunStatus(jobId: string) {
+    const job = await this.prisma.engineJob.findUnique({
+      where: { id: jobId },
+      include: { attempts: { orderBy: { index: "asc" } }, assets: { orderBy: { index: "asc" } } }
+    });
+    if (!job || !job.dryRun) throw new NotFoundException("试运行任务不存在");
+    return {
+      jobId: job.id,
+      providerId: job.providerId,
+      status: job.status,
+      progress: job.progress,
+      stageText: job.stageText,
+      prompt: job.prompt,
+      failure: job.failureCode ? { code: job.failureCode, message: job.failureMessage } : undefined,
+      createdAt: job.createdAt.toISOString(),
+      startedAt: job.startedAt?.toISOString(),
+      finishedAt: job.finishedAt?.toISOString(),
+      attempts: job.attempts.map((attempt) => ({
+        index: attempt.index,
+        adapter: attempt.adapter,
+        state: attempt.state,
+        errorKind: attempt.errorKind || undefined,
+        errorMessage: attempt.errorMessage || undefined,
+        latencyMs: attempt.latencyMs ?? undefined,
+        startedAt: attempt.startedAt.toISOString(),
+        finishedAt: attempt.finishedAt?.toISOString()
+      })),
+      assets: job.assets.map((asset) => ({
+        index: asset.index,
+        status: asset.status,
+        width: asset.width ?? undefined,
+        height: asset.height ?? undefined,
+        sizeBytes: asset.sizeBytes ?? undefined,
+        transferHost: asset.transferHost || undefined,
+        transferTtfbMs: asset.transferTtfbMs ?? undefined,
+        transferDownloadMs: asset.transferDownloadMs ?? undefined,
+        transferUploadMs: asset.transferUploadMs ?? undefined,
+        errorMessage: asset.errorMessage || undefined,
+        imageUrl: asset.status === "stored" && asset.url ? this.uploads.readUrl(asset.url, "private") : undefined,
+        cardUrl: asset.status === "stored" && asset.url ? this.uploads.readResponsiveImageUrl(asset.url, "private") : undefined
+      }))
+    };
+  }
+
+  private async ensureDryRunUser(): Promise<number> {
+    const existing = await this.prisma.user.findUnique({ where: { openId: DRY_RUN_USER_OPENID }, select: { id: true } });
+    if (existing) return existing.id;
+    try {
+      const created = await this.prisma.user.create({
+        data: { openId: DRY_RUN_USER_OPENID, nickname: "系统试运行", credits: 0, status: "normal" }
+      });
+      return created.id;
+    } catch {
+      const raced = await this.prisma.user.findUnique({ where: { openId: DRY_RUN_USER_OPENID }, select: { id: true } });
+      if (!raced) throw new BadRequestException("试运行系统用户创建失败");
+      return raced.id;
+    }
+  }
+
+  /** 近 7 天各平台尝试成功率（EngineAttempt 是唯一事实来源；试运行不计入）。 */
   async health() {
     const healths = await this.providerHealth();
-    const activeJobs = await this.prisma.engineJob.count({ where: { status: { in: ["queued", "submitted", "running", "settling"] } } });
-    return { activeJobs, providers: [...healths.entries()].map(([providerId, health]) => ({ providerId, ...health })) };
+    const [activeJobs, imageTransfer] = await Promise.all([
+      this.prisma.engineJob.count({ where: { status: { in: ["queued", "submitted", "running", "settling"] }, dryRun: false } }),
+      Promise.resolve(this.config.get<{ functionUrl?: string; bearerToken?: string }>("app.imageTransfer"))
+    ]);
+    return {
+      activeJobs,
+      imageTransferConfigured: Boolean(imageTransfer?.functionUrl && imageTransfer?.bearerToken),
+      callbackSecretConfigured: Boolean(this.config.get<string>("app.callbackSecret")),
+      providers: [...healths.entries()].map(([providerId, health]) => ({ providerId, ...health }))
+    };
   }
 
   private async providerHealth() {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60_000);
     const attempts = await this.prisma.engineAttempt.groupBy({
       by: ["providerId", "state"],
-      where: { startedAt: { gte: since } },
+      where: { startedAt: { gte: since }, job: { dryRun: false } },
       _count: { _all: true }
     });
     const map = new Map<string, { total: number; succeeded: number; failed: number }>();
@@ -236,24 +374,20 @@ export class AdminEngineService {
     return provider;
   }
 
-  private configRecord(provider: GenerationProvider): Record<string, unknown> {
-    const config = readProviderConfig(provider);
-    const record: Record<string, unknown> = {};
-    for (const field of CONFIG_FIELDS) record[field] = (config as unknown as Record<string, unknown>)[field];
-    return record;
-  }
-
   private buildConfig(body: Record<string, unknown>, current?: GenerationProvider): ProviderConfig {
-    const base: Record<string, unknown> = current
-      ? this.configRecord(current)
-      : { ...CONFIG_DEFAULTS };
-    const kind = String(body.adapter ?? current?.adapter ?? base.adapter ?? "");
-    Object.assign(base, adapterDefaults(kind));
     const incoming = (body.config && typeof body.config === "object" && !Array.isArray(body.config)
       ? body.config
       : {}) as Record<string, unknown>;
+    const currentConfig = current ? readProviderConfig(current) : undefined;
+    const kindRaw = String(body.adapter ?? currentConfig?.adapter ?? "");
+    if (body.adapter !== undefined && !isAdapterKind(kindRaw)) throw new BadRequestException(`未知适配器类型：${kindRaw}`);
+    const kind: AdapterKind = isAdapterKind(kindRaw) ? kindRaw : "async-http";
+    const meta = findAdapterMetadata(kind);
+    if (!meta) throw new BadRequestException(`未知适配器类型：${kind}`);
+    // 与旧行为一致：切换/保存协议时，协议默认值覆盖历史值，表单提交值最后覆盖。
+    const base: Record<string, unknown> = { ...(currentConfig ?? providerConfigDefaults(kind)) as unknown as Record<string, unknown> };
+    Object.assign(base, meta.defaults);
     for (const field of CONFIG_FIELDS) {
-      if (field === "adapter") continue;
       if (incoming[field] !== undefined) base[field] = incoming[field];
     }
     base.adapter = kind;
@@ -261,34 +395,25 @@ export class AdminEngineService {
     if (!["sync", "async"].includes(String(base.requestMode))) throw new BadRequestException("requestMode 无效");
     if (!["url", "base64", "auto"].includes(String(base.textResultMode))) throw new BadRequestException("textResultMode 无效");
     if (!["url", "base64", "auto"].includes(String(base.imageResultMode))) throw new BadRequestException("imageResultMode 无效");
-    return base as unknown as ProviderConfig;
+    return readProviderConfig({ config: base as unknown as object });
   }
 
-  private toRowData(body: Record<string, unknown>, config: ProviderConfig, isCreate: boolean) {
+  /** 单轨写入：平面列已删除，只有身份、密钥与 config JSON 落库。 */
+  private toRowData(body: Record<string, unknown>, config: ProviderConfig) {
     const data: Record<string, unknown> = {
       name: String(body.name || "").trim(),
       groupName: String(body.groupName ?? "").trim(),
       enabled: body.enabled === undefined ? true : Boolean(body.enabled),
-      sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0
+      sort: Number.isFinite(Number(body.sort)) ? Number(body.sort) : 0,
+      config: config as unknown as object,
+      apiKeyEnv: String(body.apiKeyEnv ?? "").trim()
     };
-    for (const field of CONFIG_FIELDS) {
-      data[field] = (config as unknown as Record<string, unknown>)[field];
-    }
     const apiKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
-    const apiKeyEnv = String(body.apiKeyEnv ?? "").trim();
     if (apiKey) {
       data.apiKeyEncrypted = encryptProviderApiKey(apiKey, this.config.getOrThrow<string>("app.generationProviderEncryptionKey"));
-      data.apiKeyEnv = apiKeyEnv;
-    } else if (body.apiKey === null || body.clearApiKey === true) {
-      data.apiKeyEncrypted = "";
-      data.apiKeyEnv = apiKeyEnv;
-    } else if (isCreate) {
-      if (!apiKeyEnv) throw new BadRequestException("请填写 API Key 或环境变量名");
-      data.apiKeyEnv = apiKeyEnv;
     } else {
-      if (apiKeyEnv) data.apiKeyEnv = apiKeyEnv;
+      data.apiKeyEncrypted = "";
     }
-    data.config = config;
     return data;
   }
 

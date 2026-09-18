@@ -84,8 +84,12 @@ export class EngineController {
   }
 
   @Post("callbacks/kie")
-  handleKieCallback(@Body() body: Record<string, unknown>, @Query("secret") secret?: string) {
-    return this.engine.handleKieCallback(body, secret);
+  handleKieCallback(@Body() body: Record<string, unknown>, @Query() query: Record<string, string | undefined>) {
+    return this.engine.handleKieCallback(body, {
+      secret: typeof query.secret === "string" ? query.secret : undefined,
+      jobId: typeof query.jobId === "string" ? query.jobId : undefined,
+      sig: typeof query.sig === "string" ? query.sig : undefined
+    });
   }
 
   @Post("callbacks/transfer")

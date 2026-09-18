@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { createHash, createHmac } from "node:crypto";
+import { timingSafeEqualStrings } from "../common/timing-safe";
 import type { ProviderSizeConfig } from "../common/provider-size";
 import type { ProviderResultUrlRewriteRule } from "../common/provider-result-url";
 
@@ -138,7 +139,7 @@ export class ImageTransferClient {
 
   matchesToken(token: string | undefined) {
     const expected = this.getConfig().bearerToken;
-    return Boolean(expected && token && expected === token);
+    return Boolean(expected) && timingSafeEqualStrings(token, expected);
   }
 
   private getConfig() {

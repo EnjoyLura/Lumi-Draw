@@ -5,6 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import type { EngineAsset, EngineAttempt, EngineJob } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
 import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
+import { AdminEngineService } from "../admin/admin-engine.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
 import { EngineBillingService } from "./engine-billing.service";
@@ -154,11 +155,13 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     prisma as never, credits as never, wallet, config, stubUploads(),
     stubSafety(), stubPublishRewards(), billing, storage
   );
-  const watchdog = new EngineWatchdogService(prisma as never, engine, billing, storage);
+  const watchdog = new EngineWatchdogService(prisma as never, engine, billing, storage, stubImageTransfer());
 
   const refs = { userId: 0, modelId: "", providerAId: "", providerBId: "", qualityId: 0, ratioId: 0 };
   t.after(async () => {
     await prisma.engineJob.deleteMany({ where: { userId: refs.userId } }).catch(() => {});
+    await prisma.engineJob.deleteMany({ where: { dryRun: true } }).catch(() => {});
+    await prisma.user.deleteMany({ where: { openId: "system:engine-dry-run" } }).catch(() => {});
     await prisma.work.deleteMany({ where: { userId: refs.userId } }).catch(() => {});
     await prisma.creditTransaction.deleteMany({ where: { userId: refs.userId } }).catch(() => {});
     if (refs.userId) await prisma.user.delete({ where: { id: refs.userId } }).catch(() => {});
@@ -176,9 +179,7 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
   const ratio = await prisma.ratioConfig.create({ data: { label: "1:1", description: "test", sort: 999 } });
   const providerA = await prisma.generationProvider.create({
     data: {
-      id: `fail-a-${stamp}`, name: "故障平台A", adapter: "async-http", requestMode: "async",
-      baseUrl: "http://127.0.0.1:1/v1/tasks", queryEndpoint: "http://127.0.0.1:1/query?task_id={task_id}",
-      requestParams: {}, imageRequestParams: {}, apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
+      id: `fail-a-${stamp}`, name: "故障平台A", apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
       config: {
         adapter: "async-http", requestMode: "async", textResultMode: "url", imageResultMode: "url",
         baseUrl: "http://127.0.0.1:1/v1/tasks", queryEndpoint: "http://127.0.0.1:1/query?task_id={task_id}",
@@ -191,9 +192,7 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
   });
   const providerB = await prisma.generationProvider.create({
     data: {
-      id: `ok-b-${stamp}`, name: "正常平台B", adapter: "async-http", requestMode: "async",
-      baseUrl: `http://127.0.0.1:${port}/v1/tasks`, queryEndpoint: `http://127.0.0.1:${port}/query?task_id={task_id}`,
-      requestParams: {}, imageRequestParams: {}, apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
+      id: `ok-b-${stamp}`, name: "正常平台B", apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
       config: {
         adapter: "async-http", requestMode: "async", textResultMode: "url", imageResultMode: "url",
         baseUrl: `http://127.0.0.1:${port}/v1/tasks`, queryEndpoint: `http://127.0.0.1:${port}/query?task_id={task_id}`,
@@ -317,6 +316,58 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     assert.equal(job.failureCode, 42001, "network 失败码");
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { credits: true } });
     assert.equal(after.credits, before.credits, "失败后积分应完全退回");
+  });
+
+  await t.test("试运行：真实链路成功但不建草稿、不动积分", async () => {
+    // 恢复平台 B 指向 mock 上游并让其返回成功。
+    await prisma.generationProvider.update({
+      where: { id: providerB.id },
+      data: {
+        config: {
+          ...(providerB.config as Record<string, unknown>),
+          baseUrl: `http://127.0.0.1:${port}/v1/tasks`,
+          queryEndpoint: `http://127.0.0.1:${port}/query?task_id={task_id}`
+        } as never
+      }
+    });
+    state.status = "SUCCESS";
+    const adminConfig = {
+      get: () => undefined,
+      getOrThrow: (name: string) => name === "app.generationProviderEncryptionKey" ? "engine-integration-test-master-secret" : ""
+    } as never;
+    const admin = new AdminEngineService(prisma as never, adminConfig, stubUploads(), engine);
+    const worksBefore = await prisma.work.count();
+    const creditsBefore = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { credits: true } });
+
+    const started = await admin.startDryRun(providerB.id);
+    assert.ok(started.jobId);
+
+    // submitJob 由 startDryRun 异步触发；异步协议需 watchdog 轮询推进（手动到期 + tick）。
+    let dryJob = await prisma.engineJob.findUniqueOrThrow({ where: { id: started.jobId }, include: { assets: true } });
+    for (let i = 0; i < 50 && !["succeeded", "partial_failed", "failed", "cancelled"].includes(dryJob.status); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await prisma.engineAttempt.updateMany({
+        where: { jobId: started.jobId, state: "submitted" },
+        data: { nextPollAt: new Date(Date.now() - 1000) }
+      });
+      await watchdog.tick();
+      dryJob = await prisma.engineJob.findUniqueOrThrow({ where: { id: started.jobId }, include: { assets: true } });
+    }
+    assert.equal(dryJob.status, "succeeded");
+    assert.equal(dryJob.dryRun, true);
+    assert.equal(dryJob.costCredits, 0);
+    assert.equal(dryJob.assets.length, 1, "count=1 只落一张产物");
+    assert.equal(dryJob.assets[0].status, "stored");
+    assert.equal(dryJob.assets[0].workId, null, "试运行不建草稿作品");
+
+    const status = await admin.dryRunStatus(started.jobId);
+    assert.equal(status.status, "succeeded");
+    assert.equal(status.assets.length, 1);
+    assert.ok(status.assets[0].imageUrl, "试运行产物应有可访问 URL");
+
+    assert.equal(await prisma.work.count(), worksBefore, "试运行不产生作品");
+    const creditsAfterDryRun = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { credits: true } });
+    assert.equal(creditsAfterDryRun.credits, creditsBefore.credits, "试运行不动用户积分");
   });
 
   await t.test("发布生成结果", async () => {

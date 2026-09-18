@@ -106,46 +106,19 @@ model ModelConfig {
 }
 
 // 生图 API 平台 GenerationProvider
+// v3.1 单轨：config JSON 是协议配置的唯一权威（结构见 engine.types.ts ProviderConfig），
+// 平面列只保留身份、密钥与排序。
 model GenerationProvider {
-  id                    String   @id
-  name                  String
-  groupName             String   @default("")
-  adapter               String
-  requestMode           String   @default("sync")
-  textResultMode        String   @default("auto")
-  imageResultMode       String   @default("auto")
-  baseUrl               String
-  imageEndpoint         String   @default("")
-  queryEndpoint         String   @default("")
-  statusEnabled         Boolean  @default(false)
-  responseMapping       Json     @default("{}")
-  resultUrlRewriteRules Json     @default("[]")
-  textToImageEnabled    Boolean  @default(true)
-  imageToImageEnabled   Boolean  @default(false)
-  apiKeyEnv             String
-  apiKeyEncrypted       String   @default("")
-  config                Json?
-  authMode              String   @default("bearer") // bearer | raw | query | none
-  authHeaderName        String   @default("Authorization")
-  authQueryName         String   @default("api_key")
-  requestHeaders        Json     @default("{}")
-  queryHeaders          Json     @default("{}")
-  requestTemplate       Json     @default("{}")
-  imageRequestTemplate  Json     @default("{}")
-  injectModel           Boolean  @default(true)
-  injectCount           Boolean  @default(true)
-  requestParams         Json
-  imageRequestParams    Json     @default("{}")
-  imageInputMode        String   @default("multipart")
-  imageInputField       String   @default("")
-  sizeMode              String   @default("pixels")
-  pixelSizeField        String   @default("size")
-  ratioField            String   @default("size")
-  resolutionField       String   @default("resolution")
-  enabled               Boolean  @default(true)
-  sort                  Int      @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id              String   @id
+  name            String
+  groupName       String   @default("")
+  apiKeyEnv       String
+  apiKeyEncrypted String   @default("")
+  config          Json
+  enabled         Boolean  @default(true)
+  sort            Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("generation_providers")
 }
@@ -604,6 +577,7 @@ model EngineJob {
   finishedAt           DateTime?
   cancelledAt          DateTime?
   retryOfJobId         String?
+  dryRun               Boolean   @default(false) // 管理端试运行：真实走链路但不建草稿作品、不计健康度
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 

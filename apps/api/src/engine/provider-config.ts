@@ -1,13 +1,18 @@
 import type { Prisma } from "@prisma/client";
-import type { GenerationProvider } from "@prisma/client";
 import { normalizeProviderResultUrlRewriteRules } from "../common/provider-result-url";
 import { normalizeProviderJsonObject, normalizeProviderParams } from "./provider-runtime";
+import { ADAPTER_KINDS, findAdapterMetadata } from "./adapters/adapter-metadata";
 import type {
   AdapterKind,
   ProviderConfig,
   ProviderErrorKind,
   ProviderResultMode
 } from "./engine.types";
+
+/**
+ * v3.1 单轨：GenerationProvider.config JSON 是协议配置的唯一权威。
+ * 读取 = config JSON 与「全局默认值 + 适配器默认值」合并归一，不再存在平面列回退。
+ */
 
 function pickString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value.trim() : fallback;
@@ -17,124 +22,109 @@ function pickBool(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function pickMapping(value: unknown): Record<string, string> {
-  return normalizeProviderParams(value);
-}
-
-function pickParams(value: unknown): Record<string, string> {
-  return normalizeProviderParams(value);
+function pickMapping(value: unknown, fallback: Record<string, string> = {}): Record<string, string> {
+  const normalized = normalizeProviderParams(value);
+  return Object.keys(normalized).length ? normalized : fallback;
 }
 
 function pickTemplate(value: unknown): Record<string, unknown> {
   return normalizeProviderJsonObject(value);
 }
 
-/**
- * 从 config JSON 读取供应商配置；缺失时回落到旧平面列（迁移前兼容），
- * 这样引擎上线瞬间无需强依赖数据回填的完成度。
- */
-export function readProviderConfig(row: GenerationProvider): ProviderConfig {
-  const raw = (row.config ?? undefined) as Prisma.JsonValue | undefined;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-    const value = raw as Record<string, unknown>;
-    const legacyAdapter = ["openai-images", "gemini", "kie", "async-http"].includes(String(value.adapter))
-      ? (String(value.adapter) as AdapterKind)
-      : legacyAdapterKind(row.adapter);
-    return {
-      adapter: legacyAdapter,
-      requestMode: value.requestMode === "sync" ? "sync" : "async",
-      textResultMode: pickResultMode(value.textResultMode),
-      imageResultMode: pickResultMode(value.imageResultMode),
-      baseUrl: pickString(value.baseUrl, row.baseUrl),
-      imageEndpoint: pickString(value.imageEndpoint, row.imageEndpoint),
-      queryEndpoint: pickString(value.queryEndpoint, row.queryEndpoint),
-      statusEnabled: pickBool(value.statusEnabled, row.statusEnabled),
-      responseMapping: Object.keys(pickMapping(value.responseMapping)).length
-        ? pickMapping(value.responseMapping)
-        : pickMapping(row.responseMapping),
-      resultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(
-        value.resultUrlRewriteRules ?? row.resultUrlRewriteRules
-      ),
-      textToImageEnabled: pickBool(value.textToImageEnabled, row.textToImageEnabled),
-      imageToImageEnabled: pickBool(value.imageToImageEnabled, row.imageToImageEnabled),
-      authMode: (["bearer", "raw", "query", "none"].includes(pickString(value.authMode, row.authMode))
-        ? pickString(value.authMode, row.authMode)
-        : "bearer") as ProviderConfig["authMode"],
-      authHeaderName: pickString(value.authHeaderName, row.authHeaderName || "Authorization"),
-      authQueryName: pickString(value.authQueryName, row.authQueryName || "api_key"),
-      requestHeaders: Object.keys(pickParams(value.requestHeaders)).length
-        ? pickParams(value.requestHeaders)
-        : pickParams(row.requestHeaders),
-      queryHeaders: Object.keys(pickParams(value.queryHeaders)).length
-        ? pickParams(value.queryHeaders)
-        : pickParams(row.queryHeaders),
-      requestTemplate: pickTemplate(value.requestTemplate ?? row.requestTemplate),
-      imageRequestTemplate: pickTemplate(value.imageRequestTemplate ?? row.imageRequestTemplate),
-      injectModel: pickBool(value.injectModel, row.injectModel),
-      injectCount: pickBool(value.injectCount, row.injectCount),
-      requestParams: Object.keys(pickParams(value.requestParams)).length
-        ? pickParams(value.requestParams)
-        : pickParams(row.requestParams),
-      imageRequestParams: Object.keys(pickParams(value.imageRequestParams)).length
-        ? pickParams(value.imageRequestParams)
-        : pickParams(row.imageRequestParams),
-      imageInputMode: (["multipart", "url", "url-array"].includes(pickString(value.imageInputMode, row.imageInputMode))
-        ? pickString(value.imageInputMode, row.imageInputMode)
-        : "multipart") as ProviderConfig["imageInputMode"],
-      imageInputField: pickString(value.imageInputField, row.imageInputField),
-      sizeMode: pickString(value.sizeMode, row.sizeMode) === "ratio-resolution" ? "ratio-resolution" : "pixels",
-      pixelSizeField: pickString(value.pixelSizeField, row.pixelSizeField || "size"),
-      ratioField: pickString(value.ratioField, row.ratioField || "size"),
-      resolutionField: pickString(value.resolutionField, row.resolutionField || "resolution")
-    };
-  }
-  return legacyProviderConfig(row);
+function pickResultMode(value: unknown, fallback: ProviderResultMode): ProviderResultMode {
+  return value === "url" || value === "base64" || value === "auto" ? value : fallback;
 }
 
-function pickResultMode(value: unknown): ProviderResultMode {
-  return value === "url" || value === "base64" ? value : "auto";
-}
+/** 全局默认值（协议无关）；适配器默认值在其上覆盖。 */
+const BASE_DEFAULTS = {
+  requestMode: "async",
+  textResultMode: "url",
+  imageResultMode: "url",
+  imageEndpoint: "",
+  queryEndpoint: "",
+  statusEnabled: false,
+  textToImageEnabled: true,
+  imageToImageEnabled: false,
+  authMode: "bearer",
+  authHeaderName: "Authorization",
+  authQueryName: "api_key",
+  imageInputMode: "multipart",
+  imageInputField: "",
+  sizeMode: "pixels",
+  pixelSizeField: "size",
+  ratioField: "size",
+  resolutionField: "resolution",
+  injectModel: true,
+  injectCount: true
+} as const;
 
-function legacyAdapterKind(adapter: string): AdapterKind {
-  if (adapter === "kie") return "kie";
-  if (adapter === "change2pro") return "openai-images";
-  return "async-http";
-}
-
-/** 迁移前兼容：直接从旧平面列拼出配置。 */
-export function legacyProviderConfig(row: GenerationProvider): ProviderConfig {
+/** 指定协议族的完整默认配置（全局默认 + 适配器默认）。admin 新建平台与读取合并共用。 */
+export function providerConfigDefaults(kind: AdapterKind): ProviderConfig {
+  const meta = findAdapterMetadata(kind);
   return {
-    adapter: legacyAdapterKind(row.adapter),
-    requestMode: row.requestMode === "sync" ? "sync" : "async",
-    textResultMode: pickResultMode(row.textResultMode),
-    imageResultMode: pickResultMode(row.imageResultMode),
-    baseUrl: row.baseUrl,
-    imageEndpoint: row.imageEndpoint,
-    queryEndpoint: row.queryEndpoint,
-    statusEnabled: row.statusEnabled,
-    responseMapping: pickMapping(row.responseMapping),
-    resultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(row.resultUrlRewriteRules),
-    textToImageEnabled: row.textToImageEnabled,
-    imageToImageEnabled: row.imageToImageEnabled,
-    authMode: (["bearer", "raw", "query", "none"].includes(row.authMode) ? row.authMode : "bearer") as ProviderConfig["authMode"],
-    authHeaderName: row.authHeaderName || "Authorization",
-    authQueryName: row.authQueryName || "api_key",
-    requestHeaders: pickParams(row.requestHeaders),
-    queryHeaders: pickParams(row.queryHeaders),
-    requestTemplate: pickTemplate(row.requestTemplate),
-    imageRequestTemplate: pickTemplate(row.imageRequestTemplate),
-    injectModel: row.injectModel,
-    injectCount: row.injectCount,
-    requestParams: pickParams(row.requestParams),
-    imageRequestParams: pickParams(row.imageRequestParams),
-    imageInputMode: (["multipart", "url", "url-array"].includes(row.imageInputMode)
-      ? row.imageInputMode
+    adapter: kind,
+    baseUrl: "",
+    responseMapping: {},
+    resultUrlRewriteRules: [],
+    requestHeaders: {},
+    queryHeaders: {},
+    requestTemplate: {},
+    imageRequestTemplate: {},
+    requestParams: {},
+    imageRequestParams: {},
+    ...BASE_DEFAULTS,
+    ...(meta?.defaults ?? {})
+  } as ProviderConfig;
+}
+
+export function isAdapterKind(value: unknown): value is AdapterKind {
+  return typeof value === "string" && (ADAPTER_KINDS as string[]).includes(value);
+}
+
+/** 从 config JSON 读取并归一化供应商配置；非法 adapter 收敛为 async-http。 */
+export function readProviderConfig(row: { config: Prisma.JsonValue }): ProviderConfig {
+  const raw = row.config;
+  const value: Record<string, unknown> = raw && typeof raw === "object" && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : {};
+  const adapter: AdapterKind = isAdapterKind(value.adapter) ? value.adapter : "async-http";
+  const defaults = providerConfigDefaults(adapter);
+  return {
+    adapter,
+    requestMode: value.requestMode === "sync" ? "sync" : "async",
+    textResultMode: pickResultMode(value.textResultMode, defaults.textResultMode),
+    imageResultMode: pickResultMode(value.imageResultMode, defaults.imageResultMode),
+    baseUrl: pickString(value.baseUrl, ""),
+    imageEndpoint: pickString(value.imageEndpoint, defaults.imageEndpoint),
+    queryEndpoint: pickString(value.queryEndpoint, defaults.queryEndpoint),
+    statusEnabled: pickBool(value.statusEnabled, defaults.statusEnabled),
+    responseMapping: pickMapping(value.responseMapping),
+    resultUrlRewriteRules: normalizeProviderResultUrlRewriteRules(
+      value.resultUrlRewriteRules ?? []
+    ),
+    textToImageEnabled: pickBool(value.textToImageEnabled, defaults.textToImageEnabled),
+    imageToImageEnabled: pickBool(value.imageToImageEnabled, defaults.imageToImageEnabled),
+    authMode: (["bearer", "raw", "query", "none"].includes(pickString(value.authMode, defaults.authMode))
+      ? pickString(value.authMode, defaults.authMode)
+      : "bearer") as ProviderConfig["authMode"],
+    authHeaderName: pickString(value.authHeaderName, defaults.authHeaderName || "Authorization"),
+    authQueryName: pickString(value.authQueryName, defaults.authQueryName || "api_key"),
+    requestHeaders: pickMapping(value.requestHeaders),
+    queryHeaders: pickMapping(value.queryHeaders),
+    requestTemplate: pickTemplate(value.requestTemplate),
+    imageRequestTemplate: pickTemplate(value.imageRequestTemplate),
+    injectModel: pickBool(value.injectModel, defaults.injectModel),
+    injectCount: pickBool(value.injectCount, defaults.injectCount),
+    requestParams: pickMapping(value.requestParams),
+    imageRequestParams: pickMapping(value.imageRequestParams),
+    imageInputMode: (["multipart", "url", "url-array"].includes(pickString(value.imageInputMode, defaults.imageInputMode))
+      ? pickString(value.imageInputMode, defaults.imageInputMode)
       : "multipart") as ProviderConfig["imageInputMode"],
-    imageInputField: row.imageInputField,
-    sizeMode: row.sizeMode === "ratio-resolution" ? "ratio-resolution" : "pixels",
-    pixelSizeField: row.pixelSizeField || "size",
-    ratioField: row.ratioField || "size",
-    resolutionField: row.resolutionField || "resolution"
+    imageInputField: pickString(value.imageInputField, defaults.imageInputField),
+    sizeMode: pickString(value.sizeMode, defaults.sizeMode) === "ratio-resolution" ? "ratio-resolution" : "pixels",
+    pixelSizeField: pickString(value.pixelSizeField, defaults.pixelSizeField || "size"),
+    ratioField: pickString(value.ratioField, defaults.ratioField || "size"),
+    resolutionField: pickString(value.resolutionField, defaults.resolutionField || "resolution")
   };
 }
 

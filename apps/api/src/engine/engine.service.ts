@@ -1,9 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Prisma } from "@prisma/client";
+import { createHmac } from "node:crypto";
 import type { EngineAsset, EngineAttempt, EngineJob, GenerationProvider, ModelConfig, QualityConfig, RatioConfig } from "@prisma/client";
 import { buildPage, skipTake } from "../common/dto/pagination";
 import { resolveGeneratedImageSize } from "../common/generated-image-size";
+import { timingSafeEqualStrings } from "../common/timing-safe";
 import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 import { requiresManualReview } from "../common/review-policy";
 import { CreditsService } from "../credits/credits.service";
@@ -67,6 +69,11 @@ function mockImageUrl(seed: string) {
   const [a, b, c] = colors[hash % colors.length];
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="${a}"/><stop offset=".58" stop-color="${b}"/><stop offset="1" stop-color="${c}"/></linearGradient></defs><rect width="1024" height="1024" fill="url(#g)"/><text x="50%" y="52%" text-anchor="middle" font-family="Arial" font-size="48" fill="#fff" opacity=".7">${seed}</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+/** KIE 回调 per-job 签名：HMAC-SHA256(secret, jobId)，回调侧 timing-safe 校验。 */
+export function kieCallbackSignature(secret: string, jobId: string): string {
+  return createHmac("sha256", secret).update(jobId).digest("hex");
 }
 
 /** 上游事件失败原因的文本分类（事件无状态码，这是唯一保留的文本匹配点）。 */
@@ -278,7 +285,7 @@ export class EngineService {
     }
 
     const snapshot = this.readSnapshot(job);
-    const ctx = this.buildContext(snapshot);
+    const ctx = this.buildContext(snapshot, job.id);
     const req: NormalizedRequest = {
       jobId: job.id,
       attemptId: `${job.id}:${job.providerAttemptIndex + 1}`,
@@ -706,9 +713,19 @@ export class EngineService {
 
   // ---------------- 回调 ----------------
 
-  async handleKieCallback(body: Record<string, unknown>, secret?: string) {
-    const callbackSecret = this.config.get<string>("app.callbackSecret");
-    if (callbackSecret && secret !== callbackSecret) throw new UnauthorizedException("invalid callback secret");
+  async handleKieCallback(body: Record<string, unknown>, query: { secret?: string; jobId?: string; sig?: string } = {}) {
+    const callbackSecret = this.config.get<string>("app.callbackSecret") || "";
+    let signedJobId = "";
+    if (callbackSecret) {
+      const signatureOk = Boolean(query.jobId && query.sig && timingSafeEqualStrings(kieCallbackSignature(callbackSecret, query.jobId), query.sig));
+      const sharedOk = timingSafeEqualStrings(query.secret, callbackSecret);
+      if (!signatureOk && !sharedOk) throw new UnauthorizedException("invalid callback signature");
+      if (signatureOk) signedJobId = query.jobId as string;
+    } else if (process.env.NODE_ENV === "production") {
+      throw new UnauthorizedException("callback secret not configured");
+    } else {
+      this.logger.warn("CALLBACK_SECRET 未配置，开发环境放行 KIE 回调；生产环境将直接拒绝");
+    }
     const taskId = kieCallbackTaskId(body);
     if (!taskId) throw new BadRequestException("callback missing taskId");
     const attempt = await this.prisma.engineAttempt.findFirst({
@@ -720,6 +737,8 @@ export class EngineService {
       if (!finished) throw new NotFoundException("engine job not found");
       return this.toJobView(await this.loadJob(finished.jobId));
     }
+    // 签名回调必须与任务归属一致，防止跨任务重放。
+    if (signedJobId && attempt.jobId !== signedJobId) throw new UnauthorizedException("callback signature does not match job");
     const adapter = resolveAdapter((attempt.adapter || "kie") as AdapterKind, "async");
     if (!adapter.parseCallback) throw new BadRequestException("adapter does not support callbacks");
     return this.toJobView(await this.applyProviderEvent(attempt.jobId, adapter.parseCallback(body)));
@@ -844,16 +863,34 @@ export class EngineService {
     return process.env[envName] || "";
   }
 
-  buildContext(snapshot: ProviderSnapshot): AdapterContext {
-    const kie = this.config.get<{ callbackUrl?: string }>("app.kie");
-    const callbackBase = kie?.callbackUrl || "";
-    const callbackUrl = callbackBase.replace("/generate/callback", "/engine/callbacks/kie");
+  buildContext(snapshot: ProviderSnapshot, jobId?: string): AdapterContext {
     return buildAdapterContext({
       config: snapshot.config,
       apiKey: this.resolveProviderApiKey(snapshot.apiKeyEncrypted, snapshot.apiKeyEnv),
-      callbackUrl,
+      callbackUrl: this.buildCallbackUrl(jobId),
       allowedReferenceHosts: this.referenceHosts()
     });
+  }
+
+  /**
+   * KIE 回调地址：兼容旧 env（/generate/callback 自动改写为 v3 路由），
+   * 并对具体任务附加 per-job HMAC 签名，回调侧 timing-safe 校验。
+   */
+  private buildCallbackUrl(jobId?: string): string {
+    const kie = this.config.get<{ callbackUrl?: string }>("app.kie");
+    let base = (kie?.callbackUrl || "").trim();
+    if (!base) return "";
+    if (base.includes("/generate/callback")) base = base.replace("/generate/callback", "/engine/callbacks/kie");
+    const secret = this.config.get<string>("app.callbackSecret") || "";
+    if (!jobId || !secret) return base;
+    try {
+      const url = new URL(base);
+      url.searchParams.set("jobId", jobId);
+      url.searchParams.set("sig", kieCallbackSignature(secret, jobId));
+      return url.toString();
+    } catch {
+      return base;
+    }
   }
 
   private referenceHosts(): string[] {

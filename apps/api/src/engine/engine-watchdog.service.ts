@@ -5,6 +5,7 @@ import { resolveAdapter } from "./adapters";
 import { EngineBillingService } from "./engine-billing.service";
 import { EngineService } from "./engine.service";
 import { EngineStorageService } from "./engine-storage.service";
+import { ImageTransferClient } from "./image-transfer.client";
 import {
   ASYNC_POLL_INTERVAL_MS,
   ENGINE_ACTIVE_STATUSES,
@@ -15,9 +16,10 @@ import {
 
 const POLL_ERROR_BACKOFF_MS = 30_000;
 const SETTLING_STALE_MS = 10 * 60_000;
+const DRY_RUN_RETENTION_MS = 3 * 24 * 60 * 60_000;
 
 /**
- * 单一守护进程：提交补偿、轮询调度、超时清扫、转存重试、退款补偿。
+ * 单一守护进程：提交补偿、轮询调度、超时清扫、转存重试、退款补偿、试运行清理。
  * 所有用户侧请求都不再触发轮询；崩溃恢复只依赖数据库状态。
  */
 @Injectable()
@@ -30,10 +32,17 @@ export class EngineWatchdogService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly engine: EngineService,
     private readonly billing: EngineBillingService,
-    private readonly storage: EngineStorageService
+    private readonly storage: EngineStorageService,
+    private readonly imageTransfer: ImageTransferClient
   ) {}
 
   onModuleInit() {
+    if (process.env.NODE_ENV === "production" && !this.imageTransfer.isConfigured()) {
+      this.logger.error(
+        "IMAGE_TRANSFER_FUNCTION_URL/IMAGE_TRANSFER_BEARER_TOKEN 未配置：生成图片将由 API 服务器进程内转存，" +
+        "图片字节会占用服务器带宽（生产环境严禁此状态，请立即配置 FC 转存函数）"
+      );
+    }
     // 延后首轮，避免与应用启动、迁移抢占资源。
     this.timer = setTimeout(() => {
       this.timer = setInterval(() => void this.tick(), WATCHDOG_INTERVAL_MS);
@@ -58,6 +67,7 @@ export class EngineWatchdogService implements OnModuleInit, OnModuleDestroy {
       await this.settleStaleSettlingJobs();
       await this.storage.scanTransferRetries();
       await this.billing.reconcilePendingWalletRefunds();
+      await this.cleanupDryRuns();
     } catch (error) {
       this.logger.error(`watchdog tick failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
@@ -136,7 +146,7 @@ export class EngineWatchdogService implements OnModuleInit, OnModuleDestroy {
       if (!adapter.poll) continue;
       try {
         const snapshot = this.engine.readSnapshot(job as unknown as EngineJob);
-        const ctx = this.engine.buildContext(snapshot);
+        const ctx = this.engine.buildContext(snapshot, job.id);
         const event = await adapter.poll(ctx, attempt.upstreamTaskId);
         await this.prisma.engineAttempt.update({
           where: { id: attempt.id },
@@ -186,5 +196,14 @@ export class EngineWatchdogService implements OnModuleInit, OnModuleDestroy {
     for (const job of stale) {
       await this.billing.settleTransferredJob(job.id);
     }
+  }
+
+  /** 管理端试运行任务保留 3 天用于排查，之后连同 attempts/assets 级联清理。 */
+  private async cleanupDryRuns() {
+    const cutoff = new Date(Date.now() - DRY_RUN_RETENTION_MS);
+    const removed = await this.prisma.engineJob.deleteMany({
+      where: { dryRun: true, createdAt: { lt: cutoff }, status: { notIn: [...ENGINE_ACTIVE_STATUSES] } }
+    });
+    if (removed.count) this.logger.log(`cleaned up ${removed.count} expired dry-run jobs`);
   }
 }

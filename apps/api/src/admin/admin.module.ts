@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { CreditsModule } from "../credits/credits.module";
+import { EngineModule } from "../engine/engine.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { UploadsModule } from "../uploads/uploads.module";
 import { WechatWalletModule } from "../payments/wechat-wallet.module";
@@ -19,7 +20,7 @@ import { ModerationController } from "./moderation.controller";
 import { ModerationService } from "./moderation.service";
 
 @Module({
-  imports: [AuthModule, CreditsModule, NotificationsModule, UploadsModule, WechatWalletModule],
+  imports: [AuthModule, CreditsModule, EngineModule, NotificationsModule, UploadsModule, WechatWalletModule],
   controllers: [
     AdminAuthController,
     DashboardController,

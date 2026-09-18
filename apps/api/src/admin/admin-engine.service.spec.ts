@@ -13,7 +13,12 @@ function configService() {
 }
 
 function serviceWith(prisma: Record<string, unknown>) {
-  return new AdminEngineService(prisma as unknown as PrismaService, configService());
+  return new AdminEngineService(
+    prisma as unknown as PrismaService,
+    configService(),
+    {} as never,
+    {} as never
+  );
 }
 
 const CREATE_BODY = {
@@ -34,9 +39,13 @@ test("create：明文密钥加密入库，明文不回传", async () => {
     }
   });
   await service.create(CREATE_BODY);
-  assert.equal(typeof created.apiKeyEncrypted, "string");
-  assert.notEqual(created.apiKeyEncrypted, "sk-admin-secret");
-  assert.equal(decryptProviderApiKey(String(created.apiKeyEncrypted), MASTER_KEY), "sk-admin-secret");
+  assert.equal(typeof created!.apiKeyEncrypted, "string");
+  assert.notEqual(created!.apiKeyEncrypted, "sk-admin-secret");
+  assert.equal(decryptProviderApiKey(String(created!.apiKeyEncrypted), MASTER_KEY), "sk-admin-secret");
+  assert.equal("adapter" in created!, false, "单轨化后不再写平面列");
+  const config = created!.config as Record<string, unknown>;
+  assert.equal(config.adapter, "async-http");
+  assert.equal(config.baseUrl, "https://upstream.example.com/v1/tasks");
 });
 
 test("update：API Key 留空时保留已存密文", async () => {

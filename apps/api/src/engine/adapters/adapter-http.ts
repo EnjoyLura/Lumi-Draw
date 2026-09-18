@@ -30,6 +30,39 @@ function isNeverDelivered(error: unknown): boolean {
 }
 
 /**
+ * 上游错误文案归一化：
+ * - 错误消息本身可能是序列化的 JSON 字符串（中转站套娃），解一层取 message/msg/error；
+ * - 网关 502/504 常返回 HTML 错误页，转成人话；
+ * - 统一截断，避免整页 HTML 进日志与 failureMessage。
+ */
+export function extractUpstreamErrorMessage(payload: Record<string, unknown> | null, status: number): string {
+  const record = payload ?? {};
+  const errorField = record.error;
+  let message = "";
+  if (typeof errorField === "string") message = errorField;
+  else if (errorField && typeof errorField === "object") {
+    const nested = errorField as Record<string, unknown>;
+    message = String(nested.message ?? nested.msg ?? nested.error ?? "");
+  }
+  if (!message) message = String(record.message ?? record.msg ?? record.fail_reason ?? record.error ?? "");
+  message = message.trim();
+  if (message.startsWith("{") || message.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(message) as Record<string, unknown>;
+      const inner = String(parsed?.message ?? parsed?.msg ?? parsed?.error ?? "").trim();
+      if (inner) message = inner;
+    } catch {
+      // 非合法 JSON，保留原文。
+    }
+  }
+  if (/^\s*<(!doctype|html)/i.test(message)) {
+    return `上游网关返回了 HTML 错误页（HTTP ${status}）`;
+  }
+  if (!message) return `HTTP ${status}`;
+  return message.slice(0, 300);
+}
+
+/**
  * 统一 JSON 请求层：所有适配器共用。
  * POST 提交的网络错误默认视为"可能已计费"，只有确定未送达（连接被拒/域名不存在）
  * 才标记为可安全重试。
@@ -50,11 +83,23 @@ export async function requestJson(
     }
     throw new ProviderError("network", `${options.label}: ${message}`, { maybeBilled: billed && !isNeverDelivered(error) });
   }
-  const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  const contentType = response.headers.get("content-type") || "";
+  const text = await response.text();
+  let payload: Record<string, unknown> | null = null;
+  if (text) {
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) payload = parsed as Record<string, unknown>;
+    } catch {
+      payload = null;
+    }
+  }
   if (!response.ok || !payload) {
-    const record = payload ?? {};
-    const errorRecord = (record.error && typeof record.error === "object" ? record.error : {}) as Record<string, unknown>;
-    const message = String(errorRecord.message ?? record.message ?? record.error ?? `HTTP ${response.status}`);
+    const message = payload
+      ? extractUpstreamErrorMessage(payload, response.status)
+      : /^\s*<(!doctype|html)/i.test(text)
+        ? `上游网关返回了 HTML 错误页（HTTP ${response.status}）`
+        : `HTTP ${response.status}${contentType ? ` ${contentType.split(";")[0]}` : ""}`;
     throw classifyHttpStatus(response.status, `${options.label}: ${message}`);
   }
   return payload;
