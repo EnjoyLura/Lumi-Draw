@@ -34,6 +34,7 @@ const registryPageContracts = [
   "opsHotSearch",
   "opsModel",
   "opsApiProvider",
+  "opsApiPlatformEdit",
   "opsQuality",
   "opsRatio",
   "finance",

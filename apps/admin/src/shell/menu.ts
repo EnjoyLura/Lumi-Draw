@@ -58,6 +58,7 @@ export const PAGE_TITLES: Record<string, string> = {
   dataDetail: "数据详情",
   userDetail: "用户详情",
   workDetail: "作品详情",
+  opsApiPlatformEdit: "API 平台配置",
   reviewDetail: "审核详情",
   ops: "运营配置",
   finance: "财务管理",

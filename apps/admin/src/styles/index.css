@@ -492,6 +492,57 @@ textarea.input { resize: none; line-height: 1.6; }
 
 .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* 分步表单：步骤条与步骤内分组标题 */
+.steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.steps .step {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.steps .step-dot {
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-soft);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  transition: all .2s;
+}
+
+.steps .step-t {
+  font-size: 11px;
+  line-height: 1.25;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steps .step.done .step-dot { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.steps .step.active .step-dot { background: var(--accent); color: #fff; border-color: transparent; box-shadow: var(--shadow-sm); }
+.steps .step.active .step-t { color: var(--accent); font-weight: 700; }
+
+.step-group {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--fg-2);
+  letter-spacing: .2px;
+}
+
 /* 分段 tabs */
 .seg {
   display: flex;

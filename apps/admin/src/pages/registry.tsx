@@ -19,6 +19,7 @@ import { OpsGameplay } from "./OpsGameplay";
 import { OpsHotSearch } from "./OpsHotSearch";
 import { OpsModel } from "./OpsModel";
 import { OpsApiProvider } from "./OpsApiProvider";
+import { OpsApiPlatformEdit } from "./OpsApiPlatformEdit";
 import { OpsQuality } from "./OpsQuality";
 import { OpsRatio } from "./OpsRatio";
 import { OpsStyle } from "./OpsStyle";
@@ -55,6 +56,7 @@ const REAL_PAGES: Record<string, (param?: string) => ReactNode> = {
   opsHotSearch: () => <OpsHotSearch />,
   opsModel: () => <OpsModel />,
   opsApiProvider: () => <OpsApiProvider />,
+  opsApiPlatformEdit: (param) => <OpsApiPlatformEdit param={param} />,
   opsQuality: () => <OpsQuality />,
   opsRatio: () => <OpsRatio />,
   opsCreatorTitle: () => <OpsCreatorTitle />,
