@@ -53,12 +53,12 @@ Always set `GENERATION_CALLBACK_URL` explicitly. When it is missing, the functio
 from `API_CALLBACK_URL` by replacing a trailing `/transfers/complete` with `/executions/complete`,
 which produces the pre-v3 legacy path and silently breaks generation callbacks.
 
-> 2026-09-18 production note: the deployed function still carried the pre-v3 callback URLs
+> 2026-09-18 production note: the deployed function previously carried the pre-v3 callback URLs
 > (`/api/generate/transfers/complete` + derived `/api/generate/executions/complete`), so every
-> FC generation callback 404'd after the legacy generate module was removed. The server nginx
-> (`/etc/nginx/sites-enabled/lumi-draw`) now bridges both legacy paths to the engine callbacks.
-> After updating the FC environment variables to the values above, remove the
-> "Aliyun FC legacy callback bridge" location blocks from nginx.
+> FC generation callback 404'd after the legacy generate module was removed. A temporary nginx
+> bridge kept production alive while the FC environment variables were updated to the values
+> above; the bridge has been removed and the direct new-path callback verified end-to-end
+> (bjhuiqu dry-run succeeded in ~34s).
 
 Runtime requirements:
 
