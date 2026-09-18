@@ -29,12 +29,11 @@ import { useRefresh } from "./opsShared";
 // mock 模式下的适配器元数据（与后端 adapterMetadata() 保持同构，仅离线演示用）
 const MOCK_META: EnginePlatformMeta = {
   adapters: [
-    { kind: "openai-images", label: "OpenAI Images 协议", requestMode: "sync", description: "OpenAI /v1/images/generations、/v1/images/edits 同步协议及兼容聚合平台", requiredFields: ["baseUrl"], optionalFields: ["imageEndpoint", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "textResultMode", "imageResultMode"], defaults: { requestMode: "sync", textResultMode: "url", imageResultMode: "auto", authMode: "bearer", imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size" } },
-    { kind: "gemini", label: "Gemini generateContent 协议", requestMode: "sync", description: "Google Gemini :generateContent 图像协议，参考图以内联 base64 传递", requiredFields: ["baseUrl"], optionalFields: ["requestParams", "sizeMode", "resolutionField", "ratioField", "textResultMode", "imageResultMode"], defaults: { requestMode: "sync", textResultMode: "base64", imageResultMode: "base64", authMode: "raw", authHeaderName: "x-goog-api-key", sizeMode: "ratio-resolution", ratioField: "aspectRatio", resolutionField: "imageSize" } },
-    { kind: "kie", label: "KIE 任务协议", requestMode: "async", description: "KIE createTask/recordInfo 异步任务协议，支持回调", requiredFields: ["baseUrl"], optionalFields: ["queryEndpoint", "responseMapping", "requestParams", "imageRequestParams", "statusEnabled"], defaults: { requestMode: "async", textResultMode: "url", imageResultMode: "url", authMode: "bearer", queryEndpoint: "{baseUrl}/api/v1/jobs/recordInfo" } },
-    { kind: "async-http", label: "通用 HTTP（模板 + 轮询）", requestMode: "sync", description: "请求模板 + 响应映射驱动，接入新的提交/轮询型平台无需写代码", requiredFields: ["baseUrl"], optionalFields: ["imageEndpoint", "queryEndpoint", "requestTemplate", "imageRequestTemplate", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "ratioField", "resolutionField", "statusEnabled", "authMode", "authHeaderName", "authQueryName", "requestHeaders", "queryHeaders", "injectModel", "injectCount"], defaults: { requestMode: "async", textResultMode: "url", imageResultMode: "url", authMode: "bearer", imageInputMode: "url-array", imageInputField: "image_urls", sizeMode: "pixels", pixelSizeField: "size", injectModel: true, injectCount: true } }
+    { kind: "openai-images", label: "OpenAI Images 协议", requestMode: "sync", description: "OpenAI /v1/images/generations、/v1/images/edits 同步协议及兼容聚合平台", requiredFields: ["baseUrl"], optionalFields: ["imageEndpoint", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField"], defaults: { requestMode: "sync", authMode: "bearer", imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size" } },
+    { kind: "gemini", label: "Gemini generateContent 协议", requestMode: "sync", description: "Google Gemini :generateContent 图像协议，参考图以内联 base64 传递", requiredFields: ["baseUrl"], optionalFields: ["requestParams", "sizeMode", "resolutionField", "ratioField"], defaults: { requestMode: "sync", authMode: "raw", authHeaderName: "x-goog-api-key", sizeMode: "ratio-resolution", ratioField: "aspectRatio", resolutionField: "imageSize" } },
+    { kind: "kie", label: "KIE 任务协议", requestMode: "async", description: "KIE createTask/recordInfo 异步任务协议，支持回调", requiredFields: ["baseUrl"], optionalFields: ["queryEndpoint", "responseMapping", "requestParams", "imageRequestParams", "statusEnabled"], defaults: { requestMode: "async", authMode: "bearer", queryEndpoint: "{baseUrl}/api/v1/jobs/recordInfo" } },
+    { kind: "async-http", label: "通用 HTTP（模板 + 轮询）", requestMode: "sync", description: "请求模板 + 响应映射驱动，接入新的提交/轮询型平台无需写代码", requiredFields: ["baseUrl"], optionalFields: ["imageEndpoint", "queryEndpoint", "requestTemplate", "imageRequestTemplate", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "ratioField", "resolutionField", "statusEnabled", "authMode", "authHeaderName", "authQueryName", "requestHeaders", "queryHeaders", "injectModel", "injectCount"], defaults: { requestMode: "async", authMode: "bearer", imageInputMode: "url-array", imageInputField: "image_urls", sizeMode: "pixels", pixelSizeField: "size", injectModel: true, injectCount: true } }
   ],
-  resultModes: ["url", "base64", "auto"],
   requestModes: ["sync", "async"],
   authModes: ["bearer", "raw", "query", "none"],
   imageInputModes: ["multipart", "url", "url-array"],
@@ -55,7 +54,6 @@ const ADAPTER_PRESETS: Record<EngineAdapterKind, { icon: string; scene: string }
   "async-http": { icon: "ri-plug-line", scene: "任何「提交 + 轮询」或自定义 JSON 协议的平台" }
 };
 
-const RESULT_MODE_LABELS: Record<string, string> = { url: "URL（转存原图）", base64: "Base64（FC 直存）", auto: "自动识别" };
 const AUTH_MODE_LABELS: Record<string, string> = { bearer: "Bearer Token", raw: "自定义请求头（原值）", query: "URL 参数", none: "不携带密钥" };
 const IMAGE_INPUT_LABELS: Record<string, string> = { multipart: "Multipart 文件上传", url: "单个 URL 字段", "url-array": "JSON URL 数组" };
 
@@ -94,8 +92,6 @@ const FIELD_DEFS: Record<string, FieldDef> = {
   authQueryName: { label: "鉴权 URL 参数名", group: "auth", type: "text", placeholder: "api_key" },
   textToImageEnabled: { label: "启用文生图", group: "capability", type: "switch", help: "关闭后该平台不接受文生图任务" },
   imageToImageEnabled: { label: "启用图生图", group: "capability", type: "switch", help: "接口不支持图生图时保持关闭" },
-  textResultMode: { label: "文生图返回格式", group: "capability", type: "select", enumLabels: RESULT_MODE_LABELS },
-  imageResultMode: { label: "图生图返回格式", group: "capability", type: "select", enumLabels: RESULT_MODE_LABELS },
   resultUrlRewriteRules: { label: "结果图片域名加速", group: "capability", type: "rules" },
   imageInputMode: { label: "参考图传输方式", group: "reference", type: "select", enumLabels: IMAGE_INPUT_LABELS },
   imageInputField: { label: "参考图字段名", group: "reference", type: "text", placeholder: "image / image[] / image_urls" },
@@ -454,11 +450,12 @@ function StepIcon({ state }: { state: "wait" | "active" | "done" | "fail" }) {
   );
 }
 
-function mockDryRunView(platform: EnginePlatform): EngineDryRunView {
+function mockDryRunView(platform: EnginePlatform, mode: "text-to-image" | "image-to-image"): EngineDryRunView {
   const now = new Date().toISOString();
   return {
     jobId: `mock-dry-${platform.id}`,
     providerId: platform.id,
+    operation: mode,
     status: "succeeded",
     progress: 100,
     stageText: "生成完成（模拟）",
@@ -473,10 +470,12 @@ function mockDryRunView(platform: EnginePlatform): EngineDryRunView {
 
 function DryRunPanel({ platform, useMock }: { platform: EnginePlatform; useMock: boolean }) {
   const [prompt, setPrompt] = useState("");
+  const [mode, setMode] = useState<"text-to-image" | "image-to-image">("text-to-image");
   const [view, setView] = useState<EngineDryRunView | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const supportsImageToImage = platform.config.imageToImageEnabled;
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -507,10 +506,10 @@ function DryRunPanel({ platform, useMock }: { platform: EnginePlatform; useMock:
     try {
       if (useMock) {
         await new Promise((resolve) => setTimeout(resolve, 600));
-        setView(mockDryRunView(platform));
+        setView(mockDryRunView(platform, mode));
         return;
       }
-      const started = await startEngineDryRun(platform.id, prompt.trim() || undefined);
+      const started = await startEngineDryRun(platform.id, { prompt: prompt.trim() || undefined, mode });
       setView(null);
       poll(started.jobId, Date.now());
     } catch (e) {
@@ -527,9 +526,17 @@ function DryRunPanel({ platform, useMock }: { platform: EnginePlatform; useMock:
       <div className="card" style={{ padding: 10, marginBottom: 12, background: "var(--info-soft)" }}>
         <div className="lr-t">全链路试运行「{platform.name}」</div>
         <div className="lr-s" style={{ marginTop: 3 }}>
-          真实调用上游生成 1 张 1K 测试图，并走完 FC 转存 → OSS → CDN 全链路。会消耗该平台少量余额，不扣用户积分、不产生作品。
+          {mode === "image-to-image"
+            ? "用最近一次成功试运行的产物作参考图，真实走一次图生图全链路（上游 → FC 直存/转存 → OSS → CDN）。会消耗该平台少量余额，不扣用户积分、不产生作品。"
+            : "真实调用上游生成 1 张 1K 测试图，并走完 FC 转存/直存 → OSS → CDN 全链路。会消耗该平台少量余额，不扣用户积分、不产生作品。"}
         </div>
       </div>
+      {supportsImageToImage ? (
+        <div className="seg">
+          <div className={`seg-i${mode === "text-to-image" ? " active" : ""}`} onClick={() => { if (!running) setMode("text-to-image"); }}>文生图</div>
+          <div className={`seg-i${mode === "image-to-image" ? " active" : ""}`} onClick={() => { if (!running) setMode("image-to-image"); }}>图生图</div>
+        </div>
+      ) : null}
       <label className="field-label">测试提示词（可选）</label>
       <input className="input" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="留空使用默认测试提示词" maxLength={200} />
       <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} disabled={starting || running} onClick={start}>

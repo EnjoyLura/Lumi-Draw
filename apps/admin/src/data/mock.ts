@@ -233,8 +233,6 @@ export const ENGINE_PLATFORMS: Array<import("./engineApi").EnginePlatform> = [
     config: {
       adapter: "async-http",
       requestMode: "async",
-      textResultMode: "url",
-      imageResultMode: "url",
       baseUrl: "https://ainb.plus/v1/images/generations",
       imageEndpoint: "https://ainb.plus/v1/images/edits",
       queryEndpoint: "https://ainb.plus/v1/images/tasks/{task_id}",
@@ -280,8 +278,6 @@ export const ENGINE_PLATFORMS: Array<import("./engineApi").EnginePlatform> = [
     config: {
       adapter: "gemini",
       requestMode: "sync",
-      textResultMode: "base64",
-      imageResultMode: "base64",
       baseUrl: "https://api.change2pro.com/v1beta",
       imageEndpoint: "",
       queryEndpoint: "",
@@ -327,8 +323,6 @@ export const ENGINE_PLATFORMS: Array<import("./engineApi").EnginePlatform> = [
     config: {
       adapter: "kie",
       requestMode: "async",
-      textResultMode: "url",
-      imageResultMode: "url",
       baseUrl: "https://api.kie.ai/api/v1/jobs/createTask",
       imageEndpoint: "https://api.kie.ai/api/v1/jobs/createTask",
       queryEndpoint: "{baseUrl}/api/v1/jobs/recordInfo",

@@ -87,4 +87,8 @@ export class AdminEngineDryRunDto {
   @IsString()
   @MaxLength(500)
   prompt?: string;
+
+  @IsOptional()
+  @IsIn(["text-to-image", "image-to-image"])
+  mode?: "text-to-image" | "image-to-image";
 }

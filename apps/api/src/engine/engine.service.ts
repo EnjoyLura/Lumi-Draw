@@ -34,12 +34,10 @@ import {
   type NormalizedRequest,
   type ProviderConfig,
   type ProviderErrorKind,
-  type ProviderEvent,
-  type ProviderResultMode
+  type ProviderEvent
 } from "./engine.types";
 import { buildAdapterContext, kieCallbackTaskId, resolveAdapter } from "./adapters";
-import { FAILURE_CODES } from "./provider-config";
-import { readProviderConfig } from "./provider-config";
+import { FAILURE_CODES, readProviderConfig, resolveAdapterKind, resolveFcGeneration } from "./provider-config";
 import { EngineStorageService } from "./engine-storage.service";
 
 type JobWithRelations = EngineJob & { assets: EngineAsset[]; attempts?: EngineAttempt[] };
@@ -49,7 +47,6 @@ type ProviderSnapshot = {
   providerName: string;
   adapterKind: AdapterKind;
   requestMode: "sync" | "async";
-  resultMode: ProviderResultMode;
   providerModel: string;
   config: ProviderConfig;
   apiKeyEncrypted: string;
@@ -186,7 +183,6 @@ export class EngineService {
             providerName: snapshot.providerName,
             adapterKind: snapshot.adapterKind,
             requestMode: snapshot.requestMode,
-            resultMode: snapshot.resultMode,
             providerModel: snapshot.providerModel,
             config: snapshot.config,
             apiKeyEncrypted: snapshot.apiKeyEncrypted,
@@ -254,7 +250,6 @@ export class EngineService {
       providerName: primary.name,
       adapterKind: config.adapter,
       requestMode: config.requestMode,
-      resultMode: operation === "image-to-image" ? config.imageResultMode : config.textResultMode,
       providerModel: normalizeProviderParams(operation === "image-to-image" ? config.imageRequestParams : config.requestParams).model || model.providerModel,
       config,
       apiKeyEncrypted: primary.apiKeyEncrypted,
@@ -300,8 +295,10 @@ export class EngineService {
       params: job.operation === "image-to-image" ? snapshot.config.imageRequestParams : snapshot.config.requestParams
     };
 
-    // base64/auto + 同步协议：整条调用交给 FC，避免大响应经过 API 进程。
-    if (snapshot.resultMode !== "url" && snapshot.requestMode === "sync") {
+    // 同步协议 + FC 可承接：整条上游调用交给 FC 执行器，由它按实际响应自动识别
+    // url/base64（图片字节永不经过 API 进程）。FC 未配置时退回进程内适配器，供本地开发。
+    const fcPlan = resolveFcGeneration(snapshot.config, job.operation as "text-to-image" | "image-to-image", snapshot.providerModel);
+    if (fcPlan && snapshot.requestMode === "sync" && this.storage.isImageFunctionConfigured()) {
       const attempt = await this.createAttempt(job, snapshot, "pending");
       await this.prisma.engineJob.update({
         where: { id: job.id },
@@ -328,7 +325,7 @@ export class EngineService {
       return this.loadJob(job.id);
     }
 
-    const adapter = resolveAdapter(snapshot.adapterKind, snapshot.requestMode);
+    const adapter = resolveAdapter(resolveAdapterKind(snapshot.config, snapshot.config.baseUrl, snapshot.providerModel), snapshot.requestMode);
     const attempt = await this.createAttempt(job, snapshot, "pending");
     // 同步适配器的 submit 本身就是完整生成过程，不能用 2 分钟提交截止时间误杀。
     await this.prisma.engineJob.update({
@@ -505,7 +502,6 @@ export class EngineService {
       providerName: selected.provider.name,
       adapterKind: nextConfig.adapter,
       requestMode: nextConfig.requestMode,
-      resultMode: job.operation === "image-to-image" ? nextConfig.imageResultMode : nextConfig.textResultMode,
       providerModel: params.model || model?.providerModel || this.readSnapshot(job).providerModel,
       config: nextConfig,
       apiKeyEncrypted: selected.provider.apiKeyEncrypted,

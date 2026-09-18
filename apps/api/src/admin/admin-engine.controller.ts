@@ -29,7 +29,7 @@ export class AdminEngineController {
   @Patch("platforms/:id/order") move(@Param("id") id: string, @Body() b: AdminEngineMoveDto) { return this.engine.move(id, b.direction); }
   @Post("platforms/:id/test") test(@Param("id") id: string) { return this.engine.test(id); }
 
-  /** 全链路试运行：真实调用上游并走完 FC 转存 → OSS → CDN，返回试运行任务 ID。 */
-  @Post("platforms/:id/dry-run") dryRun(@Param("id") id: string, @Body() b: AdminEngineDryRunDto) { return this.engine.startDryRun(id, b.prompt); }
+  /** 全链路试运行：真实调用上游并走完 FC 转存/直存 → OSS → CDN，返回试运行任务 ID。 */
+  @Post("platforms/:id/dry-run") dryRun(@Param("id") id: string, @Body() b: AdminEngineDryRunDto) { return this.engine.startDryRun(id, { prompt: b.prompt, mode: b.mode }); }
   @Get("dry-runs/:jobId") dryRunStatus(@Param("jobId") jobId: string) { return this.engine.dryRunStatus(jobId); }
 }

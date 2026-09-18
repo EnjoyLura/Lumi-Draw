@@ -12,7 +12,7 @@ import { EngineService } from "../engine/engine.service";
 
 /** config JSON 里允许由 admin 写入的键（与 ProviderConfig 一一对应，adapter 单独处理）。 */
 const CONFIG_FIELDS = [
-  "requestMode", "textResultMode", "imageResultMode",
+  "requestMode",
   "baseUrl", "imageEndpoint", "queryEndpoint", "statusEnabled",
   "responseMapping", "resultUrlRewriteRules",
   "textToImageEnabled", "imageToImageEnabled",
@@ -43,7 +43,6 @@ export class AdminEngineService {
     const tiers = QUALITY_TIERS.filter((tier) => qualities.some((quality) => extractQualityTier(quality.label) === tier));
     return {
       adapters: adapterMetadata(),
-      resultModes: ["url", "base64", "auto"],
       requestModes: ["sync", "async"],
       authModes: ["bearer", "raw", "query", "none"],
       imageInputModes: ["multipart", "url", "url-array"],
@@ -211,17 +210,24 @@ export class AdminEngineService {
   /**
    * 用真实引擎链路（提交 → 上游 → FC 转存/直存 → OSS → CDN）验证平台配置。
    * 任务挂系统用户、0 积分、不建草稿作品、不计入健康度；复用引擎全部推进与失败分类。
+   * 图生图模式自动取最近一次成功试运行产物作参考图（签名 URL，公开可达）。
    */
-  async startDryRun(id: string, prompt?: string) {
+  async startDryRun(id: string, options?: { prompt?: string; mode?: "text-to-image" | "image-to-image" }) {
     const provider = await this.findOrFail(id);
     const config = readProviderConfig(provider);
-    if (!config.textToImageEnabled) throw new BadRequestException("该平台未启用文生图，无法试运行");
+    const mode: "text-to-image" | "image-to-image" = options?.mode === "image-to-image" ? "image-to-image" : "text-to-image";
+    if (mode === "image-to-image") {
+      if (!config.imageToImageEnabled) throw new BadRequestException("该平台未启用图生图，无法试运行");
+      if (!config.imageEndpoint && !config.baseUrl) throw new BadRequestException("请先填写图生图接口 URL");
+    } else if (!config.textToImageEnabled) {
+      throw new BadRequestException("该平台未启用文生图，无法试运行");
+    }
     if (!config.baseUrl) throw new BadRequestException("请先填写提交接口 URL");
     if (config.authMode !== "none" && !this.resolveApiKey(provider)) {
       throw new BadRequestException("请先配置 API Key 或环境变量密钥");
     }
     const active = await this.prisma.engineJob.findFirst({
-      where: { dryRun: true, providerId: id, status: { in: [...ENGINE_ACTIVE_STATUSES] } },
+      where: { dryRun: true, providerId: id, operation: mode, status: { in: [...ENGINE_ACTIVE_STATUSES] } },
       orderBy: { createdAt: "desc" },
       select: { id: true }
     });
@@ -234,21 +240,22 @@ export class AdminEngineService {
         .then((row) => row ?? this.prisma.ratioConfig.findFirst({ where: { enabled: true }, orderBy: { sort: "asc" } }))
     ]);
     if (!quality || !ratio) throw new BadRequestException("请先在「分辨率配置 / 尺寸比例」中配置至少一个可用档位");
+    const referenceImageUrl = mode === "image-to-image" ? await this.dryRunReferenceImageUrl() : "";
 
     const job = await this.prisma.engineJob.create({
       data: {
         clientRequestId: `dry-run-${id}-${Date.now()}`,
         userId,
-        operation: "text-to-image",
+        operation: mode,
         modelId: "dry-run",
         modelRevision: BigInt(0),
         qualityId: quality.id,
         ratioId: ratio.id,
         ratio: ratio.label,
         quality: quality.label,
-        prompt: prompt?.trim() || DRY_RUN_DEFAULT_PROMPT,
+        prompt: options?.prompt?.trim() || DRY_RUN_DEFAULT_PROMPT,
         count: 1,
-        inputImageUrls: [],
+        inputImageUrls: referenceImageUrl ? [referenceImageUrl] : [],
         providerId: id,
         providerAttemptIndex: 0,
         providerCandidates: [id],
@@ -257,8 +264,7 @@ export class AdminEngineService {
           providerName: provider.name,
           adapterKind: config.adapter,
           requestMode: config.requestMode,
-          resultMode: config.textResultMode,
-          providerModel: config.requestParams.model || "dry-run",
+          providerModel: (mode === "image-to-image" ? config.imageRequestParams.model : config.requestParams.model) || "dry-run",
           config,
           apiKeyEncrypted: provider.apiKeyEncrypted,
           apiKeyEnv: provider.apiKeyEnv
@@ -276,6 +282,17 @@ export class AdminEngineService {
     return { jobId: job.id, reused: false };
   }
 
+  /** 图生图试运行的参考图：最近一次成功试运行产物（私有 CDN 签名 URL）。 */
+  private async dryRunReferenceImageUrl(): Promise<string> {
+    const asset = await this.prisma.engineAsset.findFirst({
+      where: { status: "stored", url: { not: "" }, job: { dryRun: true } },
+      orderBy: { createdAt: "desc" },
+      select: { url: true }
+    });
+    if (!asset?.url) throw new BadRequestException("暂无参考图：请先成功运行一次文生图试运行");
+    return this.uploads.readUrl(asset.url, "private");
+  }
+
   async dryRunStatus(jobId: string) {
     const job = await this.prisma.engineJob.findUnique({
       where: { id: jobId },
@@ -285,6 +302,7 @@ export class AdminEngineService {
     return {
       jobId: job.id,
       providerId: job.providerId,
+      operation: job.operation,
       status: job.status,
       progress: job.progress,
       stageText: job.stageText,
@@ -393,8 +411,6 @@ export class AdminEngineService {
     base.adapter = kind;
     if (!base.baseUrl) throw new BadRequestException("请填写 Base URL");
     if (!["sync", "async"].includes(String(base.requestMode))) throw new BadRequestException("requestMode 无效");
-    if (!["url", "base64", "auto"].includes(String(base.textResultMode))) throw new BadRequestException("textResultMode 无效");
-    if (!["url", "base64", "auto"].includes(String(base.imageResultMode))) throw new BadRequestException("imageResultMode 无效");
     return readProviderConfig({ config: base as unknown as object });
   }
 

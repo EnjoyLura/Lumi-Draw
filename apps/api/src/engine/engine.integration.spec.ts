@@ -181,7 +181,7 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     data: {
       id: `fail-a-${stamp}`, name: "故障平台A", apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
       config: {
-        adapter: "async-http", requestMode: "async", textResultMode: "url", imageResultMode: "url",
+        adapter: "async-http", requestMode: "async",
         baseUrl: "http://127.0.0.1:1/v1/tasks", queryEndpoint: "http://127.0.0.1:1/query?task_id={task_id}",
         authMode: "bearer", textToImageEnabled: true, imageToImageEnabled: false,
         requestParams: {}, imageRequestParams: {}, requestTemplate: {}, imageRequestTemplate: {},
@@ -194,7 +194,7 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     data: {
       id: `ok-b-${stamp}`, name: "正常平台B", apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
       config: {
-        adapter: "async-http", requestMode: "async", textResultMode: "url", imageResultMode: "url",
+        adapter: "async-http", requestMode: "async",
         baseUrl: `http://127.0.0.1:${port}/v1/tasks`, queryEndpoint: `http://127.0.0.1:${port}/query?task_id={task_id}`,
         authMode: "bearer", textToImageEnabled: true, imageToImageEnabled: false,
         requestParams: {}, imageRequestParams: {}, requestTemplate: {}, imageRequestTemplate: {},
@@ -403,7 +403,7 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
         clientRequestId: `test-${stamp}-fcgen`, userId: user.id, operation: "text-to-image",
         modelId: model.id, modelRevision: 0n, qualityId: quality.id, ratioId: ratio.id,
         ratio: "1:1", quality: "1K", prompt: "fc generation", count: 1, providerId: providerB.id,
-        providerSnapshot: { config: { adapter: "openai-images", requestMode: "sync", textResultMode: "base64" } } as never,
+        providerSnapshot: { config: { adapter: "openai-images", requestMode: "sync" } } as never,
         costCredits: 0, billingState: "settled", dryRun: true, status: "running", progress: 5,
         startedAt: new Date(), totalTimeoutAt: new Date(Date.now() + 60_000)
       }
@@ -431,6 +431,77 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
       /invalid image generation token/,
       "错误 token 必须被拒绝"
     );
+  });
+
+  await t.test("同步平台自动走 FC 生成：无返回格式配置，文生图/图生图端点各自正确", async () => {
+    // v3.1 起 url/base64 由 FC 执行器按上游实际响应识别，配置中不再有返回格式项。
+    // 回归：同步协议必须自动派发 FC 生成，否则大响应会经过 4M 带宽的 API 进程。
+    const calls: Array<Record<string, unknown>> = [];
+    const fcTransfer = {
+      isConfigured: () => true,
+      matchesToken: () => false,
+      async dispatchInBackground() {},
+      async dispatchGeneration(payload: Record<string, unknown>) { calls.push(payload); }
+    } as never;
+    const fcStorage = new EngineStorageService(prisma as never, stubUploads(), fcTransfer, billing);
+    const fcEngine = new EngineService(
+      prisma as never, credits as never, wallet, config, stubUploads(),
+      stubSafety(), stubPublishRewards(), billing, fcStorage
+    );
+    const syncConfig = {
+      adapter: "openai-images", requestMode: "sync",
+      baseUrl: "https://upstream.example.com/v1/images/generations",
+      imageEndpoint: "https://upstream.example.com/v1/images/edits",
+      authMode: "bearer", textToImageEnabled: true, imageToImageEnabled: true,
+      requestParams: { model: "gpt-image-2", quality: "high" },
+      imageRequestParams: { model: "gpt-image-2" },
+      requestTemplate: {}, imageRequestTemplate: {}, responseMapping: {}, resultUrlRewriteRules: [],
+      requestHeaders: {}, queryHeaders: {}, injectModel: true, injectCount: true,
+      imageInputMode: "multipart", sizeMode: "pixels"
+    };
+    const providerId = `sync-${stamp}`;
+    const provider = await prisma.generationProvider.create({
+      data: {
+        id: providerId, name: "同步协议平台", apiKeyEnv: "ENGINE_TEST_KEY", enabled: true,
+        config: syncConfig as never
+      }
+    });
+    const makeJob = (operation: "text-to-image" | "image-to-image") => prisma.engineJob.create({
+      data: {
+        clientRequestId: `test-${stamp}-fcsync-${operation}`, userId: user.id, operation,
+        modelId: model.id, modelRevision: 0n, qualityId: quality.id, ratioId: ratio.id,
+        ratio: "1:1", quality: "1K", prompt: "fc sync route", count: 1, providerId,
+        inputImageUrls: operation === "image-to-image" ? ["https://cdn.engine-test.internal/ref.png"] : [],
+        providerSnapshot: {
+          providerId, providerName: provider.name, adapterKind: "openai-images",
+          requestMode: "sync", providerModel: "gpt-image-2", config: syncConfig,
+          apiKeyEncrypted: "", apiKeyEnv: "ENGINE_TEST_KEY"
+        } as never,
+        costCredits: 0, status: "queued"
+      }
+    });
+    const textJob = await makeJob("text-to-image");
+    const imageJob = await makeJob("image-to-image");
+    try {
+      await fcEngine.submitJob(textJob.id);
+      assert.equal(calls.length, 1, "同步平台应自动派发 FC 生成（无需返回格式配置）");
+      const textPayload = calls[0] as { provider: { protocol: string; endpoint: string; params: Record<string, string> } };
+      assert.equal(textPayload.provider.protocol, "openai-images");
+      assert.equal(textPayload.provider.endpoint, "https://upstream.example.com/v1/images/generations", "文生图使用 baseUrl");
+      assert.deepEqual(textPayload.provider.params, { model: "gpt-image-2", quality: "high" }, "文生图使用 requestParams");
+      const textAfter = await prisma.engineJob.findUniqueOrThrow({ where: { id: textJob.id } });
+      assert.equal(textAfter.status, "running");
+      assert.equal(textAfter.submitDeadlineAt, null, "FC 受理后清空提交截止时间");
+
+      await fcEngine.submitJob(imageJob.id);
+      assert.equal(calls.length, 2, "图生图同样自动派发 FC 生成");
+      const imagePayload = calls[1] as { provider: { endpoint: string; params: Record<string, string> } };
+      assert.equal(imagePayload.provider.endpoint, "https://upstream.example.com/v1/images/edits", "图生图自动切到 imageEndpoint");
+      assert.deepEqual(imagePayload.provider.params, { model: "gpt-image-2" }, "图生图使用 imageRequestParams");
+    } finally {
+      await prisma.engineJob.deleteMany({ where: { id: { in: [textJob.id, imageJob.id] } } });
+      await prisma.generationProvider.delete({ where: { id: providerId } }).catch(() => {});
+    }
   });
 
   await t.test("发布生成结果", async () => {

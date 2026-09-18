@@ -25,20 +25,16 @@ export const ENGINE_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 ]);
 export const ENGINE_ACTIVE_STATUSES = ["queued", "submitted", "running", "settling"];
 
-/** 结果模式：url=转存 URL；base64=FC 直存 OSS；auto=由上游实际响应决定。 */
-export type ProviderResultMode = "url" | "base64" | "auto";
-
 export type ProviderAuthMode = "bearer" | "raw" | "query" | "none";
 
 /**
  * 供应商配置的单一来源（GenerationProvider.config JSON）。
  * 引擎与 admin 编辑器都只面向这个结构；旧平面列仅作为迁移前兼容读取。
+ * 返回格式（url/base64）不在配置里：同步平台的响应由 FC 执行器按实际内容自动识别。
  */
 export interface ProviderConfig {
   adapter: AdapterKind;
   requestMode: "sync" | "async";
-  textResultMode: ProviderResultMode;
-  imageResultMode: ProviderResultMode;
   baseUrl: string;
   imageEndpoint: string;
   queryEndpoint: string;

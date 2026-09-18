@@ -16,8 +16,6 @@ export interface EngineAdapterMeta {
 export interface EngineProviderConfig {
   adapter: EngineAdapterKind;
   requestMode: "sync" | "async";
-  textResultMode: "url" | "base64" | "auto";
-  imageResultMode: "url" | "base64" | "auto";
   baseUrl: string;
   imageEndpoint: string;
   queryEndpoint: string;
@@ -65,7 +63,6 @@ export interface EnginePlatform {
 
 export interface EnginePlatformMeta {
   adapters: EngineAdapterMeta[];
-  resultModes: string[];
   requestModes: string[];
   authModes: string[];
   imageInputModes: string[];
@@ -172,6 +169,7 @@ export interface EngineDryRunAsset {
 export interface EngineDryRunView {
   jobId: string;
   providerId: string;
+  operation: "text-to-image" | "image-to-image";
   status: EngineDryRunStatus;
   progress: number;
   stageText: string;
@@ -184,11 +182,14 @@ export interface EngineDryRunView {
   assets: EngineDryRunAsset[];
 }
 
-/** 发起全链路试运行：真实调用上游并走完 FC 转存 → OSS → CDN。 */
-export function startEngineDryRun(id: string, prompt?: string) {
+/** 发起全链路试运行：真实调用上游并走完 FC 转存/直存 → OSS → CDN。 */
+export function startEngineDryRun(id: string, options?: { prompt?: string; mode?: "text-to-image" | "image-to-image" }) {
+  const body: Record<string, string> = {};
+  if (options?.prompt?.trim()) body.prompt = options.prompt.trim();
+  if (options?.mode === "image-to-image") body.mode = "image-to-image";
   return http.post<{ jobId: string; reused: boolean }>(
     `/admin/engine/platforms/${encodeURIComponent(id)}/dry-run`,
-    prompt ? { prompt } : {}
+    body
   );
 }
 

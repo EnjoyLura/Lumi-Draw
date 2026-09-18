@@ -58,7 +58,7 @@ test("update：API Key 留空时保留已存密文", async () => {
     apiKeyEncrypted: "encrypted-payload",
     apiKeyEnv: "",
     adapter: "async-http",
-    config: { adapter: "async-http", requestMode: "async", baseUrl: "https://upstream.example.com/v1/tasks", textResultMode: "url", imageResultMode: "url" },
+    config: { adapter: "async-http", requestMode: "async", baseUrl: "https://upstream.example.com/v1/tasks" },
     createdAt: new Date(),
     updatedAt: new Date()
   };

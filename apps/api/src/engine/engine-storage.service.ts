@@ -8,7 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { EngineBillingService, transferRetryDelayMs, type GeneratedImage } from "./engine-billing.service";
 import type { AdapterOutput, AdapterContext } from "./engine.types";
-import { resolveAdapterKind } from "./provider-config";
+import { resolveFcGeneration } from "./provider-config";
 
 const TRANSFER_DISPATCH_LEASE_MS = 12 * 60_000;
 
@@ -26,6 +26,11 @@ export class EngineStorageService {
     private readonly imageTransfer: ImageTransferClient,
     private readonly billing: EngineBillingService
   ) {}
+
+  /** FC 生成/转存执行器是否就绪；决定同步平台走 FC 自动识别还是进程内适配器。 */
+  isImageFunctionConfigured(): boolean {
+    return this.imageTransfer.isConfigured();
+  }
 
   /**
    * 适配器产出落库：buffer 直接传 OSS（stored），URL 建转存资产并派发 FC。
@@ -221,13 +226,16 @@ export class EngineStorageService {
     return { ok: true };
   }
 
-  /** base64/auto 同步任务：整条生成（含上游调用与 OSS 直存）都交给 FC。 */
+  /** 同步任务：整条生成（含上游调用、url/base64 识别与 OSS 直存）都交给 FC。 */
   async dispatchFcGeneration(job: EngineJob, ctx: AdapterContext, req: { providerModel: string; prompt: string; inputImageUrls: string[]; count: number }) {
-    if (!ctx.config.baseUrl || !ctx.apiKey) throw new Error("Base64 provider configuration is incomplete");
-    if (!this.imageTransfer.isConfigured()) throw new Error("Base64 image function is not configured");
-    const endpoint = ctx.config.baseUrl;
-    const protocol = resolveAdapterKind(ctx.config, endpoint, req.providerModel) === "gemini" ? "gemini" as const : "openai-images" as const;
-    const outputFormat = String(ctx.config.requestParams.output_format || "png").toLowerCase();
+    if (!ctx.config.baseUrl || !ctx.apiKey) throw new Error("Image provider configuration is incomplete");
+    if (!this.imageTransfer.isConfigured()) throw new Error("Image generation function is not configured");
+    const plan = resolveFcGeneration(ctx.config, job.operation as "text-to-image" | "image-to-image", req.providerModel);
+    if (!plan) throw new Error("Provider protocol does not support FC generation dispatch");
+    const { protocol, endpoint } = plan;
+    // 图生图与文生图的请求参数集按操作区分（与适配器同语义）。
+    const operationParams = job.operation === "image-to-image" ? ctx.config.imageRequestParams : ctx.config.requestParams;
+    const outputFormat = String(operationParams.output_format || "png").toLowerCase();
     const contentType = outputFormat === "jpeg" || outputFormat === "jpg" ? "image/jpeg" : outputFormat === "webp" ? "image/webp" : "image/png";
     const objectKeys = Array.from({ length: req.count }, (_, index) => this.uploads.reserveGenerationImage(job.id, index + 1, contentType).ossKey);
     await this.imageTransfer.dispatchGeneration({
@@ -239,7 +247,7 @@ export class EngineStorageService {
         endpoint,
         apiKey: ctx.apiKey,
         model: req.providerModel,
-        params: ctx.config.requestParams,
+        params: operationParams,
         requestMode: ctx.config.requestMode,
         queryEndpoint: ctx.config.queryEndpoint,
         responseMapping: ctx.config.responseMapping,

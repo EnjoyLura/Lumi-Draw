@@ -5,8 +5,7 @@ import { ADAPTER_KINDS, findAdapterMetadata } from "./adapters/adapter-metadata"
 import type {
   AdapterKind,
   ProviderConfig,
-  ProviderErrorKind,
-  ProviderResultMode
+  ProviderErrorKind
 } from "./engine.types";
 
 /**
@@ -31,15 +30,9 @@ function pickTemplate(value: unknown): Record<string, unknown> {
   return normalizeProviderJsonObject(value);
 }
 
-function pickResultMode(value: unknown, fallback: ProviderResultMode): ProviderResultMode {
-  return value === "url" || value === "base64" || value === "auto" ? value : fallback;
-}
-
 /** 全局默认值（协议无关）；适配器默认值在其上覆盖。 */
 const BASE_DEFAULTS = {
   requestMode: "async",
-  textResultMode: "url",
-  imageResultMode: "url",
   imageEndpoint: "",
   queryEndpoint: "",
   statusEnabled: false,
@@ -92,8 +85,6 @@ export function readProviderConfig(row: { config: Prisma.JsonValue }): ProviderC
   return {
     adapter,
     requestMode: value.requestMode === "sync" ? "sync" : "async",
-    textResultMode: pickResultMode(value.textResultMode, defaults.textResultMode),
-    imageResultMode: pickResultMode(value.imageResultMode, defaults.imageResultMode),
     baseUrl: pickString(value.baseUrl, ""),
     imageEndpoint: pickString(value.imageEndpoint, defaults.imageEndpoint),
     queryEndpoint: pickString(value.queryEndpoint, defaults.queryEndpoint),
@@ -139,6 +130,49 @@ export function resolveAdapterKind(config: ProviderConfig, endpoint: string, pro
     return "gemini";
   }
   return config.adapter;
+}
+
+/** OpenAI Images 系图生图端点推导：/v1/images/generations → /v1/images/edits。 */
+export function editEndpointFromGenerations(baseUrl: string): string {
+  const trimmed = baseUrl.replace(/\/$/, "");
+  if (trimmed.endsWith("/generations")) return `${trimmed.slice(0, -"/generations".length)}/edits`;
+  return `${trimmed}/edits`;
+}
+
+/** 按操作解析生成端点：图生图优先 imageEndpoint，Gemini 单端点内替换 {model}。 */
+export function resolveGenerationEndpoint(
+  config: ProviderConfig,
+  protocol: "openai-images" | "gemini",
+  operation: "text-to-image" | "image-to-image",
+  providerModel: string
+): string {
+  if (protocol === "gemini") {
+    if (!config.baseUrl) return "";
+    const base = config.baseUrl.replace(/\/$/, "");
+    return base.includes("{model}")
+      ? base.replace("{model}", encodeURIComponent(providerModel))
+      : `${base}/models/${encodeURIComponent(providerModel)}:generateContent`;
+  }
+  if (operation === "image-to-image") {
+    return config.imageEndpoint || (config.baseUrl ? editEndpointFromGenerations(config.baseUrl) : "");
+  }
+  return config.baseUrl;
+}
+
+/**
+ * FC 生成执行器可承接的同步协议（执行器只实现了 OpenAI Images 与 Gemini 两族）。
+ * 返回 null 表示该平台不能走 FC 生成，需要进程内适配器提交。
+ */
+export function resolveFcGeneration(
+  config: ProviderConfig,
+  operation: "text-to-image" | "image-to-image",
+  providerModel: string
+): { protocol: "openai-images" | "gemini"; endpoint: string } | null {
+  const kind = resolveAdapterKind(config, config.baseUrl, providerModel);
+  if (kind !== "openai-images" && kind !== "gemini") return null;
+  const endpoint = resolveGenerationEndpoint(config, kind, operation, providerModel);
+  if (!endpoint) return null;
+  return { protocol: kind, endpoint };
 }
 
 /** 结构化错误 → 任务失败原因码（三端同源的错误码见 packages/shared）。 */
