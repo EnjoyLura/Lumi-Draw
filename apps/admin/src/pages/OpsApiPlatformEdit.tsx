@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   createEnginePlatform,
   fetchEngineMeta,
@@ -120,6 +120,25 @@ function supportsImageEndpoint(kind: EngineAdapterKind, meta: EnginePlatformMeta
   return [...entry.requiredFields, ...entry.optionalFields].includes("imageEndpoint");
 }
 
+/** 新建平台预填时跳过的字段：接口地址由「基础地址 + 路径」单独维护。 */
+function withoutEndpoints(config: EnginePlatform["config"] | undefined): Record<string, unknown> {
+  if (!config) return {};
+  const { baseUrl: _baseUrl, imageEndpoint: _imageEndpoint, queryEndpoint: _queryEndpoint, ...rest } = config as unknown as Record<string, unknown>;
+  return rest;
+}
+
+/** 同协议已有平台中优先级最高的一条，作为新建平台的预填模板。 */
+function templateForKind(kind: EngineAdapterKind, platforms: EnginePlatform[]): EnginePlatform | undefined {
+  return platforms.find((platform) => platform.adapter === kind);
+}
+
+/** 预填来源：模板平台的地址优先，其次协议默认地址。 */
+function sourceEndpoint(kind: EngineAdapterKind, platforms: EnginePlatform[], meta: EnginePlatformMeta, field: "baseUrl" | "imageEndpoint" | "queryEndpoint"): string {
+  const fromTemplate = templateForKind(kind, platforms)?.config?.[field];
+  if (fromTemplate) return String(fromTemplate);
+  return String(meta.adapters.find((adapter) => adapter.kind === kind)?.defaults?.[field] || "");
+}
+
 export function OpsApiPlatformEdit({ param }: { param?: string }) {
   const { useMock } = useAdminSession();
   const isNew = !param || param === NEW_PLATFORM_PARAM;
@@ -189,25 +208,34 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
 }) {
   const { back, toast } = useNav();
   const initial = item?.config;
+  /** 新建平台的默认预填来源：列表首条（即优先级最高的主力平台）。 */
+  const defaultPrefill = item ? undefined : platforms[0];
+  const initialKind: EngineAdapterKind = item?.adapter || defaultPrefill?.adapter || "openai-images";
+  const [prefillFrom, setPrefillFrom] = useState<string>(defaultPrefill?.id || "none");
   const [step, setStep] = useState<StepKey>("basic");
   const [id, setId] = useState(item?.id || "");
   const [name, setName] = useState(item?.name || "");
-  const [groupName, setGroupName] = useState(item?.groupName || "");
+  const [groupName, setGroupName] = useState(item?.groupName || defaultPrefill?.groupName || "");
+  /** 记住自动带入的分组名，用户改过之后不再跟随预填来源。 */
+  const autoGroupRef = useRef(defaultPrefill?.groupName || "");
   const [enabled, setEnabled] = useState(item?.enabled ?? true);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyEnv, setApiKeyEnv] = useState(item?.apiKeyEnv || "");
-  const [kind, setKind] = useState<EngineAdapterKind>(item?.adapter || "openai-images");
-  const [baseAddress, setBaseAddress] = useState(() => splitEndpoint(initial?.baseUrl || "").base);
-  const [textSuffix, setTextSuffix] = useState(() => item ? splitEndpoint(initial?.baseUrl || "").suffix : seedSuffix(kind, "text", ""));
+  const [kind, setKind] = useState<EngineAdapterKind>(initialKind);
+  const [baseAddress, setBaseAddress] = useState(() => splitEndpoint(item ? initial?.baseUrl || "" : sourceEndpoint(initialKind, platforms, meta, "baseUrl")).base);
+  const [textSuffix, setTextSuffix] = useState(() => item
+    ? splitEndpoint(initial?.baseUrl || "").suffix
+    : splitEndpoint(sourceEndpoint(initialKind, platforms, meta, "baseUrl")).suffix || seedSuffix(initialKind, "text", ""));
   const [imageSuffix, setImageSuffix] = useState(() => {
     if (item) return splitEndpoint(initial?.imageEndpoint || "").suffix;
-    return supportsImageEndpoint(kind, meta) ? seedSuffix(kind, "image", "") : "";
+    if (!supportsImageEndpoint(initialKind, meta)) return "";
+    return splitEndpoint(sourceEndpoint(initialKind, platforms, meta, "imageEndpoint")).suffix || seedSuffix(initialKind, "image", "");
   });
-  const [querySuffix, setQuerySuffix] = useState(() => splitEndpoint(initial?.queryEndpoint || "").suffix);
+  const [querySuffix, setQuerySuffix] = useState(() => splitEndpoint(item ? initial?.queryEndpoint || "" : sourceEndpoint(initialKind, platforms, meta, "queryEndpoint")).suffix);
   const [cfg, setCfg] = useState<Record<string, unknown>>(() => {
     if (item) return { ...item.config } as Record<string, unknown>;
-    const entry = meta.adapters.find((adapter) => adapter.kind === kind) as EngineAdapterMeta;
-    return defaultsForKind(entry);
+    const entry = meta.adapters.find((adapter) => adapter.kind === initialKind) as EngineAdapterMeta;
+    return { ...defaultsForKind(entry), ...withoutEndpoints(defaultPrefill?.config) };
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -215,19 +243,38 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
 
   const entry = meta.adapters.find((adapter) => adapter.kind === kind) as EngineAdapterMeta;
   const stepIndex = STEPS.findIndex((entryStep) => entryStep.key === step);
+  const prefillSource = item || prefillFrom === "none" ? undefined : platforms.find((platform) => platform.id === prefillFrom);
   const update = (key: string, next: unknown) => setCfg((current) => ({ ...current, [key]: next }));
 
-  const switchKind = (nextKind: EngineAdapterKind) => {
-    const nextEntry = meta.adapters.find((adapter) => adapter.kind === nextKind) as EngineAdapterMeta;
+  /** 新建平台预填：按来源平台的协议与配置填充各步骤内容。 */
+  const applyPrefill = (source: EnginePlatform | undefined) => {
+    const targetKind = source?.adapter || kind;
+    const targetEntry = meta.adapters.find((adapter) => adapter.kind === targetKind) as EngineAdapterMeta;
     const preserved: Record<string, unknown> = {};
     for (const key of COMMON_PRESERVED_KEYS) preserved[key] = cfg[key];
-    setKind(nextKind);
-    setCfg({ ...defaultsForKind(nextEntry), ...preserved });
-    setTextSuffix(seedSuffix(nextKind, "text", String(nextEntry.defaults.baseUrl || "")));
-    setImageSuffix(supportsImageEndpoint(nextKind, meta) ? seedSuffix(nextKind, "image", String(nextEntry.defaults.imageEndpoint || "")) : "");
-    setQuerySuffix(splitEndpoint(String(nextEntry.defaults.queryEndpoint || "")).suffix);
+    const template = item ? undefined : source;
+    const nextAutoGroup = template?.groupName || "";
+    const previousAutoGroup = autoGroupRef.current;
+    autoGroupRef.current = nextAutoGroup;
+    setKind(targetKind);
+    setPrefillFrom(source?.id || "none");
+    setGroupName((current) => (current === previousAutoGroup ? nextAutoGroup : current));
+    setCfg({ ...defaultsForKind(targetEntry), ...withoutEndpoints(template?.config), ...preserved });
+    const endpointSource = (field: "baseUrl" | "imageEndpoint" | "queryEndpoint") =>
+      template ? String(template.config?.[field] || "") || String(targetEntry.defaults?.[field] || "") : String(targetEntry.defaults?.[field] || "");
+    setBaseAddress(splitEndpoint(endpointSource("baseUrl")).base);
+    setTextSuffix(splitEndpoint(endpointSource("baseUrl")).suffix || seedSuffix(targetKind, "text", ""));
+    setImageSuffix(supportsImageEndpoint(targetKind, meta)
+      ? splitEndpoint(endpointSource("imageEndpoint")).suffix || seedSuffix(targetKind, "image", "")
+      : "");
+    setQuerySuffix(splitEndpoint(endpointSource("queryEndpoint")).suffix);
     setTestResult(null);
   };
+
+  /** 换协议：自动改选同协议已有平台作为预填来源，没有则回到协议默认值。 */
+  const switchKind = (nextKind: EngineAdapterKind) => applyPrefill(templateForKind(nextKind, platforms));
+
+  const changePrefill = (platformId: string) => applyPrefill(platformId === "none" ? undefined : platforms.find((platform) => platform.id === platformId));
 
   const readParam = (operation: Operation, key: string): string => {
     const map = (cfg[operation === "text" ? "requestParams" : "imageRequestParams"] as Record<string, string>) || {};
@@ -515,6 +562,25 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
           <div className="lr-s" style={{ marginTop: 3, color: "var(--fg-muted)" }}>
             适用：{ADAPTER_PRESETS[kind].scene} · {entry.requestMode === "async" ? "异步轮询" : "同步返回"}
           </div>
+          {!item ? (
+            <label style={{ display: "block", marginTop: 12 }}>
+              <span className="field-label">预填自</span>
+              <select className="input" value={prefillFrom} onChange={(event) => changePrefill(event.target.value)}>
+                <option value="none">不预填，使用协议默认值</option>
+                {platforms.map((platform) => (
+                  <option key={platform.id} value={platform.id}>
+                    {platform.name}（{meta.adapters.find((adapter) => adapter.kind === platform.adapter)?.label || platform.adapter}）
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {prefillSource ? (
+            <div className="lr-s" style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <Badge text={`已带入「${prefillSource.name}」的配置`} type="info" />
+              <span>接口路径、请求参数与鉴权方式已填好，按需修改；API Key 需单独填写。</span>
+            </div>
+          ) : null}
           <label style={{ display: "block", marginTop: 10 }}>
             <span className="field-label">基础地址</span>
             <input
