@@ -32,19 +32,20 @@ import {
 /** 新增入口的 param 标记；编辑入口的 param 为平台标识。 */
 export const NEW_PLATFORM_PARAM = "new";
 
-type StepKey = "basic" | "auth" | "capability" | "advanced";
+type StepKey = "basic" | "capability" | "advanced";
 type Operation = "text" | "image";
 
 const STEPS: Array<{ key: StepKey; title: string }> = [
   { key: "basic", title: "基础信息" },
-  { key: "auth", title: "鉴权与查询" },
   { key: "capability", title: "生成能力" },
   { key: "advanced", title: "高级选项" }
 ];
 
+/** 基础信息步的鉴权字段；实际展示还会按协议可用字段过滤。 */
+const AUTH_KEYS = ["authMode", "authHeaderName", "authQueryName"];
+
 /** 各步骤展示的协议配置键；实际展示还会按协议可用字段过滤。 */
-const STEP_KEYS: Record<"auth" | "advanced", string[]> = {
-  auth: ["requestMode", "authMode", "authHeaderName", "authQueryName", "statusEnabled"],
+const STEP_KEYS: Record<"advanced", string[]> = {
   advanced: ["requestHeaders", "queryHeaders", "injectModel", "injectCount", "requestTemplate", "imageRequestTemplate", "responseMapping", "resultUrlRewriteRules"]
 };
 
@@ -110,6 +111,13 @@ export function joinEndpoint(base: string, suffix: string): string {
 /** 协议的默认完整地址优先，其次带出该协议首个常用后缀。 */
 function seedSuffix(kind: EngineAdapterKind, operation: "text" | "image", fallbackSource: string): string {
   return splitEndpoint(fallbackSource).suffix || ENDPOINT_SUFFIX_PRESETS[kind][operation][0] || "";
+}
+
+/** 协议是否单独提供图生图接口（Gemini 等单端点的图生图与文生图共用地址）。 */
+function supportsImageEndpoint(kind: EngineAdapterKind, meta: EnginePlatformMeta): boolean {
+  const entry = meta.adapters.find((adapter) => adapter.kind === kind);
+  if (!entry) return false;
+  return [...entry.requiredFields, ...entry.optionalFields].includes("imageEndpoint");
 }
 
 export function OpsApiPlatformEdit({ param }: { param?: string }) {
@@ -191,7 +199,10 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
   const [kind, setKind] = useState<EngineAdapterKind>(item?.adapter || "openai-images");
   const [baseAddress, setBaseAddress] = useState(() => splitEndpoint(initial?.baseUrl || "").base);
   const [textSuffix, setTextSuffix] = useState(() => item ? splitEndpoint(initial?.baseUrl || "").suffix : seedSuffix(kind, "text", ""));
-  const [imageSuffix, setImageSuffix] = useState(() => item ? splitEndpoint(initial?.imageEndpoint || "").suffix : seedSuffix(kind, "image", ""));
+  const [imageSuffix, setImageSuffix] = useState(() => {
+    if (item) return splitEndpoint(initial?.imageEndpoint || "").suffix;
+    return supportsImageEndpoint(kind, meta) ? seedSuffix(kind, "image", "") : "";
+  });
   const [querySuffix, setQuerySuffix] = useState(() => splitEndpoint(initial?.queryEndpoint || "").suffix);
   const [cfg, setCfg] = useState<Record<string, unknown>>(() => {
     if (item) return { ...item.config } as Record<string, unknown>;
@@ -213,7 +224,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
     setKind(nextKind);
     setCfg({ ...defaultsForKind(nextEntry), ...preserved });
     setTextSuffix(seedSuffix(nextKind, "text", String(nextEntry.defaults.baseUrl || "")));
-    setImageSuffix(seedSuffix(nextKind, "image", String(nextEntry.defaults.imageEndpoint || "")));
+    setImageSuffix(supportsImageEndpoint(nextKind, meta) ? seedSuffix(nextKind, "image", String(nextEntry.defaults.imageEndpoint || "")) : "");
     setQuerySuffix(splitEndpoint(String(nextEntry.defaults.queryEndpoint || "")).suffix);
     setTestResult(null);
   };
@@ -253,9 +264,11 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
     ...ALWAYS_VISIBLE_KEYS,
     ...[...new Set([...entry.requiredFields, ...entry.optionalFields])].filter((key) => FIELD_DEFS[key])
   ];
-  const keysForStep = (stepKey: "auth" | "advanced") => STEP_KEYS[stepKey].filter((key) => adapterKeys.includes(key) && fieldVisible(key));
+  const keysForStep = (stepKey: "advanced") => STEP_KEYS[stepKey].filter((key) => adapterKeys.includes(key) && fieldVisible(key));
   /** 仅渲染当前协议声明的可选字段，避免出现协议不支持的空白控件。 */
   const supportedKeys = (keys: string[]) => keys.filter((key) => adapterKeys.includes(key));
+  const authKeys = supportedKeys(AUTH_KEYS).filter(fieldVisible);
+  const usesAsyncMode = String(cfg.requestMode || entry.requestMode) === "async";
   const renderKeys = (keys: string[]): ReactNode => {
     let lastGroup = "";
     return keys.map((key) => {
@@ -272,18 +285,19 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
   };
   const advancedTweaks = keysForStep("advanced").filter((key) =>
     JSON.stringify(cfg[key] ?? null) !== JSON.stringify(defaultsForKind(entry)[key] ?? null)).length;
-  const usesQueryEndpoint = entry.requestMode === "async" || String(cfg.requestMode || entry.requestMode) === "async";
+  const usesQueryEndpoint = entry.requestMode === "async" || usesAsyncMode;
   const textEnabled = Boolean(cfg.textToImageEnabled);
   const imageEnabled = Boolean(cfg.imageToImageEnabled);
 
   const textEndpoint = joinEndpoint(baseAddress, textSuffix);
   const imageEndpoint = joinEndpoint(baseAddress, imageSuffix);
   const sizeKeys = supportedKeys(["sizeMode", "pixelSizeField", "ratioField", "resolutionField"]);
+  const supportImageEndpoint = supportsImageEndpoint(kind, meta);
   const composedQueryEndpoint = querySuffix.trim() ? joinEndpoint(baseAddress, querySuffix) : "";
   const composedConfig = (): Record<string, unknown> => ({
     ...cfg,
     baseUrl: textEndpoint,
-    imageEndpoint: imageSuffix.trim() ? imageEndpoint : "",
+    ...(supportImageEndpoint ? { imageEndpoint: imageSuffix.trim() ? imageEndpoint : "" } : {}),
     queryEndpoint: composedQueryEndpoint
   });
 
@@ -299,16 +313,11 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
       if (!item && !apiKey.trim() && !apiKeyEnv.trim()) return "请填写 API Key 或服务器环境变量名";
       return null;
     }
-    if (stepKey === "auth") {
-      if (kind === "async-http" && String(cfg.requestMode || entry.requestMode) === "async" && !querySuffix.trim()) {
-        return "异步接口需要填写查询任务路径";
-      }
-      return null;
-    }
     if (stepKey === "capability") {
       if (textEnabled && !textSuffix.trim()) return "已启用文生图，请填写文生图接口路径";
-      if (imageEnabled && !imageSuffix.trim()) return "已启用图生图，请填写图生图接口路径";
+      if (imageEnabled && supportImageEndpoint && !imageSuffix.trim()) return "已启用图生图，请填写图生图接口路径";
       if (!textEnabled && !imageEnabled) return "请至少启用文生图或图生图之一";
+      if (usesQueryEndpoint && !querySuffix.trim()) return "异步接口需要填写查询任务路径";
       const rules = (cfg.resultUrlRewriteRules as Array<{ sourceHost: string; targetHost: string }>) || [];
       if (rules.some((rule) => !rule.sourceHost.trim() || !rule.targetHost.trim())) {
         return "请完整填写结果图片的原始域名和加速域名";
@@ -409,16 +418,22 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
         </div>
         {cfg[enabledKey] ? (
           <div style={{ marginTop: 12 }}>
-            <span className="field-label">{isText ? "文生图接口路径" : "图生图接口路径"}</span>
-            <EndpointSuffixField
-              presets={presets}
-              value={suffix}
-              placeholder={presets[0] || "/v1/..."}
-              onChange={setSuffix}
-            />
-            <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
-              完整地址：{composed || "（先填写基础地址）"}
-            </div>
+            {isText || supportImageEndpoint ? (
+              <>
+                <span className="field-label">{isText ? "文生图接口路径" : "图生图接口路径"}</span>
+                <EndpointSuffixField
+                  presets={presets}
+                  value={suffix}
+                  placeholder={presets[0] || "/v1/..."}
+                  onChange={setSuffix}
+                />
+                <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
+                  完整地址：{composed || "（先填写基础地址）"}
+                </div>
+              </>
+            ) : (
+              <div className="lr-s">该协议图生图与文生图共用接口地址，无需单独填写路径。</div>
+            )}
             {!isText && referenceKeys.length ? (
               <div style={{ marginTop: 12 }}>
                 {referenceKeys.map((key) => <ConfigField key={key} configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />)}
@@ -510,8 +525,13 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
             />
           </label>
           <div className="lr-s" style={{ marginTop: 4 }}>只填域名（含协议），各接口路径在「生成能力」中分别填写。</div>
+          {kind === "async-http" ? (
+            <div style={{ marginTop: 14 }}>
+              <ConfigField configKey="requestMode" def={FIELD_DEFS.requestMode} value={cfg} onChange={update} />
+            </div>
+          ) : null}
 
-          <div className="step-group" style={{ marginTop: 16 }}>鉴权密钥</div>
+          <div className="step-group" style={{ marginTop: 16 }}>鉴权</div>
           <input
             className="input"
             type="password"
@@ -528,43 +548,16 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
             placeholder="或填写服务器环境变量名，如 KIE_API_KEY"
           />
           <div className="lr-s" style={{ marginTop: 4 }}>API Key 与环境变量名二选一；环境变量需已配置在服务器进程环境中。</div>
+          {authKeys.map((key) => (
+            <div key={key} style={{ marginTop: 10 }}>
+              <ConfigField configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />
+            </div>
+          ))}
 
           <label className="lrow" style={{ cursor: "pointer", marginTop: 14, padding: "4px 0" }}>
             <div className="lr-main"><div className="lr-t">启用该平台</div><div className="lr-s">停用后不参与模型降级链</div></div>
             <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
           </label>
-        </>
-      ) : null}
-
-      {step === "auth" ? (
-        <>
-          {renderKeys(keysForStep("auth").filter((key) => FIELD_DEFS[key].group === "endpoint"))}
-          {renderKeys(keysForStep("auth").filter((key) => FIELD_DEFS[key].group === "auth"))}
-          {usesQueryEndpoint ? (
-            <>
-              <div className="step-group" style={{ marginTop: 14 }}>任务查询</div>
-              <span className="field-label">查询任务路径</span>
-              <EndpointSuffixField
-                presets={ENDPOINT_SUFFIX_PRESETS[kind].query}
-                value={querySuffix}
-                placeholder="/api/v1/jobs/recordInfo?taskId={task_id}"
-                onChange={setQuerySuffix}
-              />
-              <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
-                完整地址：{composedQueryEndpoint || "（留空则使用协议默认地址）"}
-              </div>
-            </>
-          ) : (
-            <div className="lr-s" style={{ marginTop: 14 }}>该协议提交即返回结果，无需配置任务查询地址。</div>
-          )}
-          {item ? (
-            <div style={{ marginTop: 16 }}>
-              <button className="btn btn-ghost btn-block" type="button" disabled={testing} onClick={runTest}>
-                <i className={testing ? "ri-loader-4-line" : "ri-pulse-line"} />{testing ? "测试中" : "测试已保存配置的连通性"}
-              </button>
-              <TestResultRow result={testResult} />
-            </div>
-          ) : null}
         </>
       ) : null}
 
@@ -579,6 +572,26 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
               {sizeKeys.map((key) => <ConfigField key={key} configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />)}
             </div>
           ) : null}
+          {usesQueryEndpoint ? (
+            <div style={{ marginTop: 14 }}>
+              <span className="field-label">查询任务路径</span>
+              <EndpointSuffixField
+                presets={ENDPOINT_SUFFIX_PRESETS[kind].query}
+                value={querySuffix}
+                placeholder="/api/v1/jobs/recordInfo?taskId={task_id}"
+                onChange={setQuerySuffix}
+              />
+              <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
+                完整地址：{composedQueryEndpoint || "（留空则使用协议默认地址）"}
+              </div>
+              <div className="lr-s" style={{ marginTop: 4 }}>异步平台提交任务后按此地址轮询取图，两个能力共用。</div>
+              {supportedKeys(["statusEnabled"]).map((key) => (
+                <div key={key} style={{ marginTop: 10 }}>
+                  <ConfigField configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />
+                </div>
+              ))}
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -591,6 +604,14 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
           {renderKeys(keysForStep("advanced").filter((key) => ["params", "template"].includes(FIELD_DEFS[key].group)))}
           {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "mapping"))}
           {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "result"))}
+          {item ? (
+            <div style={{ marginTop: 16 }}>
+              <button className="btn btn-ghost btn-block" type="button" disabled={testing} onClick={runTest}>
+                <i className={testing ? "ri-loader-4-line" : "ri-pulse-line"} />{testing ? "测试中" : "测试已保存配置的连通性"}
+              </button>
+              <TestResultRow result={testResult} />
+            </div>
+          ) : null}
         </>
       ) : null}
 
