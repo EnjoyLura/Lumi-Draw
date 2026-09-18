@@ -753,6 +753,19 @@ export class EngineService {
     if (result && typeof result === "object" && "error" in result && result.error && input.jobId) {
       const { kind, maybeBilled } = classifyEventError(String(result.error));
       await this.handleProviderFailure(input.jobId, "", String(result.error), kind, maybeBilled, 0);
+    } else if (input.jobId && input.outputs?.length) {
+      // FC 生成成功：把挂起尝试标记为成功，健康统计与试运行面板依赖该终态。
+      const pending = await this.prisma.engineAttempt.findFirst({
+        where: { jobId: input.jobId, state: "pending" },
+        orderBy: { index: "desc" },
+        select: { id: true, startedAt: true }
+      });
+      if (pending) {
+        await this.prisma.engineAttempt.update({
+          where: { id: pending.id },
+          data: { state: "succeeded", latencyMs: Date.now() - pending.startedAt.getTime(), finishedAt: new Date() }
+        });
+      }
     }
     return { ok: true };
   }

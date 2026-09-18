@@ -383,6 +383,56 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     assert.ok(brokenAttempts >= 2, `快速失败应触发同线路重试（实际 ${brokenAttempts} 次尝试）`);
   });
 
+  await t.test("FC 生成回调：成功输出把挂起尝试标记为 succeeded", async () => {
+    // base64+sync 平台经 FC 生成，完成时回调 handleGenerationCallback。
+    // 回归（v3.1 生产验收发现）：成功回调后 attempt 必须离开 pending，
+    // 否则平台健康率统计与试运行面板永远看不到成功终态。
+    const fcTransfer = {
+      isConfigured: () => true,
+      matchesToken: (token?: string) => token === "fc-test-token",
+      async dispatchInBackground() {},
+      async dispatchGeneration() {}
+    } as never;
+    const fcStorage = new EngineStorageService(prisma as never, stubUploads(), fcTransfer, billing);
+    const fcEngine = new EngineService(
+      prisma as never, credits as never, wallet, config, stubUploads(),
+      stubSafety(), stubPublishRewards(), billing, fcStorage
+    );
+    const fcJob = await prisma.engineJob.create({
+      data: {
+        clientRequestId: `test-${stamp}-fcgen`, userId: user.id, operation: "text-to-image",
+        modelId: model.id, modelRevision: 0n, qualityId: quality.id, ratioId: ratio.id,
+        ratio: "1:1", quality: "1K", prompt: "fc generation", count: 1, providerId: providerB.id,
+        providerSnapshot: { config: { adapter: "openai-images", requestMode: "sync", textResultMode: "base64" } } as never,
+        costCredits: 0, billingState: "settled", dryRun: true, status: "running", progress: 5,
+        startedAt: new Date(), totalTimeoutAt: new Date(Date.now() + 60_000)
+      }
+    });
+    const fcAttempt = await prisma.engineAttempt.create({
+      data: { jobId: fcJob.id, index: 1, providerId: providerB.id, adapter: "openai-images", state: "pending" }
+    });
+
+    await fcEngine.handleGenerationCallback("fc-test-token", {
+      jobId: fcJob.id,
+      outputs: [{ objectKey: `uploads/system/generate/202609/${fcJob.id}/1.png`, sizeBytes: 2048, transferUploadMs: 120 }]
+    });
+
+    const settledAttempt = await prisma.engineAttempt.findUniqueOrThrow({ where: { id: fcAttempt.id } });
+    assert.equal(settledAttempt.state, "succeeded", "生成回调成功后 attempt 应到 succeeded");
+    assert.ok(settledAttempt.finishedAt, "attempt 应记录完成时间");
+    assert.ok(typeof settledAttempt.latencyMs === "number", "attempt 应记录耗时");
+    const settledFcJob = await prisma.engineJob.findUniqueOrThrow({ where: { id: fcJob.id }, include: { assets: true } });
+    assert.equal(settledFcJob.status, "succeeded");
+    assert.equal(settledFcJob.assets.length, 1);
+    assert.equal(settledFcJob.assets[0].status, "stored");
+
+    await assert.rejects(
+      () => fcEngine.handleGenerationCallback("wrong-token", { jobId: fcJob.id, outputs: [] }),
+      /invalid image generation token/,
+      "错误 token 必须被拒绝"
+    );
+  });
+
   await t.test("发布生成结果", async () => {
     const publishJob = await prisma.engineJob.create({
       data: {
