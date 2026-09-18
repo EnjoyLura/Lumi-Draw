@@ -656,9 +656,12 @@ AI 模型列表。
 
 反推提示词（限流 5 次/分钟），成功才扣 2 积分。
 
-#### POST `/engine/callbacks/kie?secret=...`、POST `/engine/callbacks/transfer`、POST `/engine/callbacks/generation`
+#### POST `/engine/callbacks/kie?jobId=...&sig=...`、POST `/engine/callbacks/transfer`、POST `/engine/callbacks/generation`
 
 服务端间回调（KIE 任务、FC 转存、生成回调），小程序不直接调用。
+
+- KIE 回调：下发给上游的 callbackUrl 附带 per-job 签名 `jobId` + `sig`（`sig = HMAC-SHA256(CALLBACK_SECRET, jobId)`），服务端 timing-safe 校验并核对回调 taskId 归属该 job；仍兼容旧的共享 `?secret=`。生产环境未配置 `CALLBACK_SECRET` 时直接拒绝。
+- transfer / generation 回调：`X-Lumi-Transfer-Token` 请求头（timing-safe 比较），与 FC 函数共享 `IMAGE_TRANSFER_BEARER_TOKEN`。
 
 ### 4.8 积分、签到、邀请、会员
 
@@ -1047,11 +1050,11 @@ interface AdminModelConfig {
 
 #### GET `/admin/engine/meta`
 
-适配器元数据：`adapters`（kind/label/description/requiredFields/optionalFields/defaults）与枚举 `resultModes`/`requestModes`/`authModes`/`imageInputModes`。管理端表单据此动态渲染。
+适配器元数据：`adapters`（kind/label/description/requiredFields/optionalFields/defaults）与枚举 `resultModes`/`requestModes`/`authModes`/`imageInputModes`，以及 `qualityTiers`（由 quality_configs 标签派生的精度档，如 `["1K","2K","4K"]`，模型线路编辑器与后端路由同源）。管理端表单据此动态渲染。
 
 #### GET `/admin/engine/platforms`
 
-平台列表：`config` JSON 为唯一权威配置，附 `linkedModelIds` 与近 7 天 `health` 统计。
+平台列表：`config` JSON 为唯一权威配置（v3.1 起平面配置列已删除），附 `linkedModelIds` 与近 7 天 `health` 统计（不含试运行）。
 
 #### POST `/admin/engine/platforms`
 
@@ -1065,9 +1068,17 @@ interface AdminModelConfig {
 
 创建副本（配置与密钥整体复制）、组内排序（`{ direction: "up" | "down" }`）、连通性测试（不产生扣费请求）。
 
+#### POST `/admin/engine/platforms/:id/dry-run`
+
+全链路试运行：`{ prompt? }`。用真实引擎链路生成 1 张 1K 测试图（提交 → 上游 → FC 转存/直存 → OSS → CDN），挂系统用户、0 积分、不建草稿作品、不计入健康度。返回 `{ jobId, reused }`（同平台已有进行中试运行时复用）。
+
+#### GET `/admin/engine/dry-runs/:jobId`
+
+试运行进度：`status`/`progress`/`stageText`/`failure` + `attempts`（每次上游提交的 state/errorKind/latencyMs）+ `assets`（转存状态、sizeBytes、transferTtfbMs/DownloadMs/UploadMs、可访问的 imageUrl/cardUrl）。管理端据此渲染阶段化面板。
+
 #### GET `/admin/engine/health`
 
-近 7 天各平台尝试统计（total/succeeded/failed）与进行中任务数。
+近 7 天各平台尝试统计（total/succeeded/failed）、进行中任务数，以及 `imageTransferConfigured`（FC 转存函数是否配置）与 `callbackSecretConfigured`（回调密钥是否配置）两个部署健康标志。
 
 ### 5.7 财务管理
 

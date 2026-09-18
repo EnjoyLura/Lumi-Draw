@@ -474,8 +474,8 @@ export class EngineService {
     }
 
     let targetIndex = decision === "retry-same" ? job.providerAttemptIndex : job.providerAttemptIndex + 1;
-    const model = await this.prisma.modelConfig.findUniqueOrThrow({ where: { id: job.modelId } });
-    const quality = await this.prisma.qualityConfig.findUniqueOrThrow({ where: { id: job.qualityId } });
+    // 试运行任务（modelId="dry-run"）没有 ModelConfig 行；缺失时回落到任务快照里的上游模型名。
+    const model = await this.prisma.modelConfig.findUnique({ where: { id: job.modelId }, select: { providerModel: true } });
     let selected: { provider: GenerationProvider; config: ProviderConfig } | null = null;
     while (targetIndex < candidates.length) {
       const candidateId = candidates[targetIndex];
@@ -506,7 +506,7 @@ export class EngineService {
       adapterKind: nextConfig.adapter,
       requestMode: nextConfig.requestMode,
       resultMode: job.operation === "image-to-image" ? nextConfig.imageResultMode : nextConfig.textResultMode,
-      providerModel: params.model || model.providerModel,
+      providerModel: params.model || model?.providerModel || this.readSnapshot(job).providerModel,
       config: nextConfig,
       apiKeyEncrypted: selected.provider.apiKeyEncrypted,
       apiKeyEnv: selected.provider.apiKeyEnv

@@ -368,6 +368,19 @@ test("engine full lifecycle: idempotency, billing, failover, refund, publish", a
     assert.equal(await prisma.work.count(), worksBefore, "试运行不产生作品");
     const creditsAfterDryRun = await prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { credits: true } });
     assert.equal(creditsAfterDryRun.credits, creditsBefore.credits, "试运行不动用户积分");
+
+    // 回归：试运行任务指向必失败平台时，failover 路径不得因缺少 ModelConfig 崩溃
+    // （v3.1 生产验收发现的 bug：findUniqueOrThrow 抛错导致任务卡 queued 直到提交超时）。
+    const broken = await admin.startDryRun(providerA.id);
+    let brokenJob = await prisma.engineJob.findUniqueOrThrow({ where: { id: broken.jobId } });
+    for (let i = 0; i < 100 && !["succeeded", "partial_failed", "failed", "cancelled"].includes(brokenJob.status); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      brokenJob = await prisma.engineJob.findUniqueOrThrow({ where: { id: broken.jobId } });
+    }
+    assert.equal(brokenJob.status, "failed", "必失败平台的试运行应快速进入失败终态");
+    assert.equal(brokenJob.failureCode, 42001, "network 失败码");
+    const brokenAttempts = await prisma.engineAttempt.count({ where: { jobId: broken.jobId } });
+    assert.ok(brokenAttempts >= 2, `快速失败应触发同线路重试（实际 ${brokenAttempts} 次尝试）`);
   });
 
   await t.test("发布生成结果", async () => {
