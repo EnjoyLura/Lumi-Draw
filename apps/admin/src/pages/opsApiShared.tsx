@@ -18,13 +18,6 @@ export const MOCK_META: EnginePlatformMeta = {
   qualityTiers: ["1K", "2K", "4K"]
 };
 
-export const BASE_URL_HELP: Record<EngineAdapterKind, { placeholder: string; help: string }> = {
-  "openai-images": { placeholder: "https://api.example.com/v1/images/generations", help: "文生图完整接口 URL；图生图接口留空时按 /generations→/edits 自动推导" },
-  gemini: { placeholder: "https://generativelanguage.googleapis.com/v1beta", help: "接口根地址，或包含 {model} 占位符的完整 generateContent URL" },
-  kie: { placeholder: "https://api.kie.ai/api/v1/jobs/createTask", help: "创建任务完整 URL；填站点根地址时自动补 /api/v1/jobs/createTask" },
-  "async-http": { placeholder: "https://api.example.com/v1/tasks", help: "提交任务或生成图片的完整接口 URL" }
-};
-
 export const ADAPTER_PRESETS: Record<EngineAdapterKind, { icon: string; scene: string }> = {
   "openai-images": { icon: "ri-openai-fill", scene: "Change2Pro、OpenAI 及各类 OpenAI 兼容聚合站" },
   gemini: { icon: "ri-sparkling-2-line", scene: "Google Gemini / Nano Banana 官方与中转" },
@@ -228,12 +221,10 @@ function MappingEditor({ value, onChange }: { value: Record<string, string>; onC
 
 const FIELD_CARD_STYLE: React.CSSProperties = { padding: 12, marginTop: 2 };
 
-export function ConfigField({ configKey, def, value, baseUrlPlaceholder, baseUrlHelp, onChange }: {
+export function ConfigField({ configKey, def, value, onChange }: {
   configKey: string;
   def: FieldDef;
   value: Record<string, unknown>;
-  baseUrlPlaceholder: string;
-  baseUrlHelp: string;
   onChange: (key: string, next: unknown) => void;
 }) {
   const options = def.options ?? Object.entries(def.enumLabels ?? {}).map(([v, label]) => [v, label] as [string, string]);
@@ -292,10 +283,10 @@ export function ConfigField({ configKey, def, value, baseUrlPlaceholder, baseUrl
       <input
         className="input"
         value={String(value[configKey] ?? "")}
-        placeholder={configKey === "baseUrl" ? baseUrlPlaceholder : def.placeholder}
+        placeholder={def.placeholder}
         onChange={(event) => onChange(configKey, event.target.value)}
       />
-      {configKey === "baseUrl" ? <div className="lr-s" style={{ marginTop: 4 }}>{baseUrlHelp}</div> : def.help ? <div className="lr-s" style={{ marginTop: 4 }}>{def.help}</div> : null}
+      {def.help ? <div className="lr-s" style={{ marginTop: 4 }}>{def.help}</div> : null}
     </label>
   );
 }

@@ -15,16 +15,16 @@ import { useAdminSession } from "../data/adminSession";
 import { ENGINE_PLATFORMS } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { Badge } from "../ui";
+import { Badge, Switch } from "../ui";
 import {
   ADAPTER_PRESETS,
-  BASE_URL_HELP,
   COMMON_PRESERVED_KEYS,
   ConfigField,
   FIELD_DEFS,
   FOOT_STYLE,
   GROUPS,
   MOCK_META,
+  ParamEditor,
   TestResultRow,
   defaultsForKind
 } from "./opsApiShared";
@@ -32,24 +32,85 @@ import {
 /** 新增入口的 param 标记；编辑入口的 param 为平台标识。 */
 export const NEW_PLATFORM_PARAM = "new";
 
-type StepKey = "basic" | "endpoint" | "capability" | "advanced";
+type StepKey = "basic" | "auth" | "capability" | "advanced";
+type Operation = "text" | "image";
 
 const STEPS: Array<{ key: StepKey; title: string }> = [
   { key: "basic", title: "基础信息" },
-  { key: "endpoint", title: "接口与鉴权" },
+  { key: "auth", title: "鉴权与查询" },
   { key: "capability", title: "生成能力" },
   { key: "advanced", title: "高级选项" }
 ];
 
-/** 各步骤展示的配置键；实际展示还会按协议可用字段过滤。 */
-const STEP_KEYS: Record<Exclude<StepKey, "basic">, string[]> = {
-  endpoint: ["requestMode", "baseUrl", "imageEndpoint", "queryEndpoint", "statusEnabled", "authMode", "authHeaderName", "authQueryName"],
-  capability: ["textToImageEnabled", "imageToImageEnabled", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "ratioField", "resolutionField"],
-  advanced: ["requestParams", "imageRequestParams", "requestHeaders", "queryHeaders", "injectModel", "injectCount", "requestTemplate", "imageRequestTemplate", "responseMapping", "resultUrlRewriteRules"]
+/** 各步骤展示的协议配置键；实际展示还会按协议可用字段过滤。 */
+const STEP_KEYS: Record<"auth" | "advanced", string[]> = {
+  auth: ["requestMode", "authMode", "authHeaderName", "authQueryName", "statusEnabled"],
+  advanced: ["requestHeaders", "queryHeaders", "injectModel", "injectCount", "requestTemplate", "imageRequestTemplate", "responseMapping", "resultUrlRewriteRules"]
 };
 
 /** 所有协议通用、不依赖适配器可选字段清单的配置键。 */
-const ALWAYS_VISIBLE_KEYS = ["textToImageEnabled", "imageToImageEnabled", "resultUrlRewriteRules"];
+const ALWAYS_VISIBLE_KEYS = ["resultUrlRewriteRules"];
+
+const BASIC_PLACEHOLDER: Record<EngineAdapterKind, string> = {
+  "openai-images": "https://api.example.com",
+  gemini: "https://generativelanguage.googleapis.com",
+  kie: "https://api.kie.ai",
+  "async-http": "https://api.example.com"
+};
+
+/** 接口路径常用后缀（按协议与用途），点击即填入，仍可自行输入。 */
+const ENDPOINT_SUFFIX_PRESETS: Record<EngineAdapterKind, Record<Operation | "query", string[]>> = {
+  "openai-images": {
+    text: ["/v1/images/generations", "/v1/chat/completions"],
+    image: ["/v1/images/edits"],
+    query: ["/v1/images/tasks/{task_id}"]
+  },
+  gemini: {
+    text: ["/v1beta/models/{model}:generateContent"],
+    image: ["/v1beta/models/{model}:generateContent"],
+    query: []
+  },
+  kie: {
+    text: ["/api/v1/jobs/createTask"],
+    image: ["/api/v1/jobs/createTask"],
+    query: ["/api/v1/jobs/recordInfo?taskId={task_id}"]
+  },
+  "async-http": {
+    text: ["/v1/images/generations", "/v1/tasks"],
+    image: ["/v1/images/edits", "/v1/tasks"],
+    query: ["/v1/images/generations/{task_id}", "/tasks/{task_id}"]
+  }
+};
+
+/** 常用参数的固定字段：其余键仍走「其他参数」编辑器。 */
+const SHORTCUT_PARAMS: Array<{ key: "model" | "quality"; label: string; placeholder: string }> = [
+  { key: "model", label: "模型（model）", placeholder: "如 gpt-image-2 / gemini-3.1-flash-image-preview" },
+  { key: "quality", label: "质量档（quality）", placeholder: "如 high / medium，留空则不发送" }
+];
+
+/** 拆分完整接口地址为「基础地址 + 路径」；{baseUrl} 模板值只保留路径。 */
+export function splitEndpoint(full: string): { base: string; suffix: string } {
+  const value = String(full || "").trim();
+  if (!value) return { base: "", suffix: "" };
+  if (value.startsWith("{baseUrl}")) return { base: "", suffix: value.slice("{baseUrl}".length) };
+  const match = /^([a-z][a-z0-9+.-]*:\/\/[^/]+)([\s\S]*)$/i.exec(value);
+  if (!match) return { base: "", suffix: value };
+  return { base: match[1], suffix: match[2] || "" };
+}
+
+/** 基础地址 + 路径拼接为完整接口地址。 */
+export function joinEndpoint(base: string, suffix: string): string {
+  const basePart = String(base || "").trim().replace(/\/+$/, "");
+  const suffixPart = String(suffix || "").trim();
+  if (!basePart) return suffixPart;
+  if (!suffixPart) return basePart;
+  return `${basePart}${suffixPart.startsWith("/") ? "" : "/"}${suffixPart}`;
+}
+
+/** 协议的默认完整地址优先，其次带出该协议首个常用后缀。 */
+function seedSuffix(kind: EngineAdapterKind, operation: "text" | "image", fallbackSource: string): string {
+  return splitEndpoint(fallbackSource).suffix || ENDPOINT_SUFFIX_PRESETS[kind][operation][0] || "";
+}
 
 export function OpsApiPlatformEdit({ param }: { param?: string }) {
   const { useMock } = useAdminSession();
@@ -70,6 +131,48 @@ export function OpsApiPlatformEdit({ param }: { param?: string }) {
   return <PlatformEditor item={item} platforms={platforms} meta={meta} useMock={useMock} />;
 }
 
+/** 接口路径输入：常用后缀一键填入，也可自行输入。 */
+function EndpointSuffixField({ presets, value, placeholder, onChange }: {
+  presets: string[];
+  value: string;
+  placeholder: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <>
+      {presets.length ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+          {presets.map((preset) => (
+            <span
+              key={preset}
+              className={`chip${value === preset ? " active" : ""}`}
+              style={{ fontSize: 11, padding: "3px 8px" }}
+              onClick={() => onChange(preset)}
+            >
+              {preset}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <input className="input" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </>
+  );
+}
+
+function ParamShortcutInput({ label, placeholder, value, onChange }: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label style={{ display: "block", marginTop: 8 }}>
+      <span className="field-label">{label}</span>
+      <input className="input" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </label>
+  );
+}
+
 function PlatformEditor({ item, platforms, meta, useMock }: {
   item?: EnginePlatform;
   platforms: EnginePlatform[];
@@ -77,6 +180,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
   useMock: boolean;
 }) {
   const { back, toast } = useNav();
+  const initial = item?.config;
   const [step, setStep] = useState<StepKey>("basic");
   const [id, setId] = useState(item?.id || "");
   const [name, setName] = useState(item?.name || "");
@@ -85,6 +189,10 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
   const [apiKey, setApiKey] = useState("");
   const [apiKeyEnv, setApiKeyEnv] = useState(item?.apiKeyEnv || "");
   const [kind, setKind] = useState<EngineAdapterKind>(item?.adapter || "openai-images");
+  const [baseAddress, setBaseAddress] = useState(() => splitEndpoint(initial?.baseUrl || "").base);
+  const [textSuffix, setTextSuffix] = useState(() => item ? splitEndpoint(initial?.baseUrl || "").suffix : seedSuffix(kind, "text", ""));
+  const [imageSuffix, setImageSuffix] = useState(() => item ? splitEndpoint(initial?.imageEndpoint || "").suffix : seedSuffix(kind, "image", ""));
+  const [querySuffix, setQuerySuffix] = useState(() => splitEndpoint(initial?.queryEndpoint || "").suffix);
   const [cfg, setCfg] = useState<Record<string, unknown>>(() => {
     if (item) return { ...item.config } as Record<string, unknown>;
     const entry = meta.adapters.find((adapter) => adapter.kind === kind) as EngineAdapterMeta;
@@ -96,7 +204,6 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
 
   const entry = meta.adapters.find((adapter) => adapter.kind === kind) as EngineAdapterMeta;
   const stepIndex = STEPS.findIndex((entryStep) => entryStep.key === step);
-  const baseUrlHelp = BASE_URL_HELP[kind];
   const update = (key: string, next: unknown) => setCfg((current) => ({ ...current, [key]: next }));
 
   const switchKind = (nextKind: EngineAdapterKind) => {
@@ -105,7 +212,35 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
     for (const key of COMMON_PRESERVED_KEYS) preserved[key] = cfg[key];
     setKind(nextKind);
     setCfg({ ...defaultsForKind(nextEntry), ...preserved });
+    setTextSuffix(seedSuffix(nextKind, "text", String(nextEntry.defaults.baseUrl || "")));
+    setImageSuffix(seedSuffix(nextKind, "image", String(nextEntry.defaults.imageEndpoint || "")));
+    setQuerySuffix(splitEndpoint(String(nextEntry.defaults.queryEndpoint || "")).suffix);
     setTestResult(null);
+  };
+
+  const readParam = (operation: Operation, key: string): string => {
+    const map = (cfg[operation === "text" ? "requestParams" : "imageRequestParams"] as Record<string, string>) || {};
+    return String(map[key] ?? "");
+  };
+  const writeParam = (operation: Operation, key: string, value: string) => {
+    const configKey = operation === "text" ? "requestParams" : "imageRequestParams";
+    const map = { ...((cfg[configKey] as Record<string, string>) || {}) };
+    if (value.trim()) map[key] = value.trim();
+    else delete map[key];
+    update(configKey, map);
+  };
+  const extraParams = (operation: Operation): Record<string, string> => {
+    const map = (cfg[operation === "text" ? "requestParams" : "imageRequestParams"] as Record<string, string>) || {};
+    return Object.fromEntries(Object.entries(map).filter(([key]) => !SHORTCUT_PARAMS.some((shortcut) => shortcut.key === key)));
+  };
+  const writeExtraParams = (operation: Operation, next: Record<string, string>) => {
+    const configKey = operation === "text" ? "requestParams" : "imageRequestParams";
+    const shortcuts: Record<string, string> = {};
+    for (const shortcut of SHORTCUT_PARAMS) {
+      const value = readParam(operation, shortcut.key);
+      if (value) shortcuts[shortcut.key] = value;
+    }
+    update(configKey, { ...next, ...shortcuts });
   };
 
   const fieldVisible = (key: string) => {
@@ -118,7 +253,9 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
     ...ALWAYS_VISIBLE_KEYS,
     ...[...new Set([...entry.requiredFields, ...entry.optionalFields])].filter((key) => FIELD_DEFS[key])
   ];
-  const keysForStep = (stepKey: Exclude<StepKey, "basic">) => STEP_KEYS[stepKey].filter((key) => adapterKeys.includes(key) && fieldVisible(key));
+  const keysForStep = (stepKey: "auth" | "advanced") => STEP_KEYS[stepKey].filter((key) => adapterKeys.includes(key) && fieldVisible(key));
+  /** 仅渲染当前协议声明的可选字段，避免出现协议不支持的空白控件。 */
+  const supportedKeys = (keys: string[]) => keys.filter((key) => adapterKeys.includes(key));
   const renderKeys = (keys: string[]): ReactNode => {
     let lastGroup = "";
     return keys.map((key) => {
@@ -128,20 +265,27 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
       return (
         <div key={key} style={{ marginTop: heading ? 14 : 10 }}>
           {heading ? <div className="step-group">{heading}</div> : null}
-          <ConfigField
-            configKey={key}
-            def={def}
-            value={cfg}
-            baseUrlPlaceholder={baseUrlHelp.placeholder}
-            baseUrlHelp={baseUrlHelp.help}
-            onChange={update}
-          />
+          <ConfigField configKey={key} def={def} value={cfg} onChange={update} />
         </div>
       );
     });
   };
   const advancedTweaks = keysForStep("advanced").filter((key) =>
     JSON.stringify(cfg[key] ?? null) !== JSON.stringify(defaultsForKind(entry)[key] ?? null)).length;
+  const usesQueryEndpoint = entry.requestMode === "async" || String(cfg.requestMode || entry.requestMode) === "async";
+  const textEnabled = Boolean(cfg.textToImageEnabled);
+  const imageEnabled = Boolean(cfg.imageToImageEnabled);
+
+  const textEndpoint = joinEndpoint(baseAddress, textSuffix);
+  const imageEndpoint = joinEndpoint(baseAddress, imageSuffix);
+  const sizeKeys = supportedKeys(["sizeMode", "pixelSizeField", "ratioField", "resolutionField"]);
+  const composedQueryEndpoint = querySuffix.trim() ? joinEndpoint(baseAddress, querySuffix) : "";
+  const composedConfig = (): Record<string, unknown> => ({
+    ...cfg,
+    baseUrl: textEndpoint,
+    imageEndpoint: imageSuffix.trim() ? imageEndpoint : "",
+    queryEndpoint: composedQueryEndpoint
+  });
 
   const validateStep = (stepKey: StepKey): string | null => {
     if (stepKey === "basic") {
@@ -151,19 +295,25 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
         if (platforms.some((platform) => platform.id === nextId)) return "平台标识已存在，请更换一个标识";
       }
       if (!name.trim()) return "请填写平台名称";
+      if (!baseAddress.trim()) return "请填写基础地址，如 https://api.example.com";
+      if (!item && !apiKey.trim() && !apiKeyEnv.trim()) return "请填写 API Key 或服务器环境变量名";
       return null;
     }
-    if (stepKey === "endpoint") {
-      if (!String(cfg.baseUrl || "").trim()) return "请填写提交接口 URL";
-      if (kind === "async-http" && String(cfg.requestMode || entry.requestMode) === "async" && !String(cfg.queryEndpoint || "").trim()) {
-        return "异步接口需要配置查询任务 URL";
+    if (stepKey === "auth") {
+      if (kind === "async-http" && String(cfg.requestMode || entry.requestMode) === "async" && !querySuffix.trim()) {
+        return "异步接口需要填写查询任务路径";
       }
-      if (!item && !apiKey.trim() && !apiKeyEnv.trim()) return "请填写 API Key 或环境变量名";
       return null;
     }
-    const rules = (cfg.resultUrlRewriteRules as Array<{ sourceHost: string; targetHost: string }>) || [];
-    if (rules.some((rule) => !rule.sourceHost.trim() || !rule.targetHost.trim())) {
-      return "请完整填写结果图片的原始域名和加速域名";
+    if (stepKey === "capability") {
+      if (textEnabled && !textSuffix.trim()) return "已启用文生图，请填写文生图接口路径";
+      if (imageEnabled && !imageSuffix.trim()) return "已启用图生图，请填写图生图接口路径";
+      if (!textEnabled && !imageEnabled) return "请至少启用文生图或图生图之一";
+      const rules = (cfg.resultUrlRewriteRules as Array<{ sourceHost: string; targetHost: string }>) || [];
+      if (rules.some((rule) => !rule.sourceHost.trim() || !rule.targetHost.trim())) {
+        return "请完整填写结果图片的原始域名和加速域名";
+      }
+      return null;
     }
     return null;
   };
@@ -192,6 +342,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
       if (message) { toast(message); setStep(candidate.key); return; }
     }
     const nextId = id.trim().toLowerCase();
+    const nextConfig = composedConfig();
     setSaving(true);
     const body = {
       name: name.trim(),
@@ -200,7 +351,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
       adapter: kind,
       ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
       apiKeyEnv: apiKeyEnv.trim(),
-      config: cfg
+      config: nextConfig
     };
     try {
       if (useMock) {
@@ -212,8 +363,8 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
           enabled,
           sort: item?.sort ?? (platforms.reduce((max, platform) => Math.max(max, platform.sort), 0) + 10),
           adapter: kind,
-          requestMode: String(cfg.requestMode || entry.requestMode) as "sync" | "async",
-          config: cfg as unknown as EnginePlatform["config"],
+          requestMode: String(nextConfig.requestMode || entry.requestMode) as "sync" | "async",
+          config: nextConfig as unknown as EnginePlatform["config"],
           apiKeyHint: apiKey ? `••••${apiKey.slice(-4)}` : item?.apiKeyHint || "",
           apiKeyEnv: apiKeyEnv.trim(),
           hasEncryptedKey: Boolean(apiKey || apiKeyEnv.trim() || item?.hasEncryptedKey),
@@ -237,6 +388,62 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
     } finally {
       setSaving(false);
     }
+  };
+
+  const operationCard = (operation: Operation) => {
+    const isText = operation === "text";
+    const enabledKey = isText ? "textToImageEnabled" : "imageToImageEnabled";
+    const suffix = isText ? textSuffix : imageSuffix;
+    const setSuffix = isText ? setTextSuffix : setImageSuffix;
+    const composed = isText ? textEndpoint : imageEndpoint;
+    const presets = ENDPOINT_SUFFIX_PRESETS[kind][operation];
+    const referenceKeys = isText ? [] : supportedKeys(["imageInputMode", "imageInputField"]);
+    return (
+      <div className="card" style={{ padding: 12, marginTop: 12 }}>
+        <div className="lrow" style={{ cursor: "pointer", padding: 0 }} onClick={() => update(enabledKey, !cfg[enabledKey])}>
+          <div className="lr-main">
+            <div className="lr-t">{isText ? "文生图" : "图生图"}</div>
+            <div className="lr-s">{isText ? "仅根据提示词生成图片" : "带参考图生成，需平台支持编辑接口"}</div>
+          </div>
+          <Switch on={Boolean(cfg[enabledKey])} onToggle={() => update(enabledKey, !cfg[enabledKey])} />
+        </div>
+        {cfg[enabledKey] ? (
+          <div style={{ marginTop: 12 }}>
+            <span className="field-label">{isText ? "文生图接口路径" : "图生图接口路径"}</span>
+            <EndpointSuffixField
+              presets={presets}
+              value={suffix}
+              placeholder={presets[0] || "/v1/..."}
+              onChange={setSuffix}
+            />
+            <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
+              完整地址：{composed || "（先填写基础地址）"}
+            </div>
+            {!isText && referenceKeys.length ? (
+              <div style={{ marginTop: 12 }}>
+                {referenceKeys.map((key) => <ConfigField key={key} configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />)}
+              </div>
+            ) : null}
+            <div className="step-group" style={{ marginTop: 14 }}>{isText ? "文生图参数" : "图生图参数"}</div>
+            {SHORTCUT_PARAMS.map((shortcut) => (
+              <ParamShortcutInput
+                key={shortcut.key}
+                label={shortcut.label}
+                placeholder={shortcut.placeholder}
+                value={readParam(operation, shortcut.key)}
+                onChange={(value) => writeParam(operation, shortcut.key, value)}
+              />
+            ))}
+            <div className="field-label" style={{ marginTop: 12 }}>其他请求参数</div>
+            <ParamEditor
+              key={`${kind}-${operation}-extra`}
+              value={extraParams(operation)}
+              onChange={(next) => writeExtraParams(operation, next)}
+            />
+          </div>
+        ) : null}
+      </div>
+    );
   };
 
   return (
@@ -285,7 +492,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
             {[...new Set(platforms.map((platform) => platform.groupName).filter(Boolean))].map((group) => <option key={group} value={group} />)}
           </datalist>
 
-          <div className="step-group" style={{ marginTop: 16 }}>接口协议</div>
+          <div className="step-group" style={{ marginTop: 16 }}>接入方式</div>
           <select className="input" value={kind} onChange={(event) => switchKind(event.target.value as EngineAdapterKind)}>
             {meta.adapters.map((adapter) => <option key={adapter.kind} value={adapter.kind}>{adapter.label}</option>)}
           </select>
@@ -293,17 +500,17 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
           <div className="lr-s" style={{ marginTop: 3, color: "var(--fg-muted)" }}>
             适用：{ADAPTER_PRESETS[kind].scene} · {entry.requestMode === "async" ? "异步轮询" : "同步返回"}
           </div>
-
-          <label className="lrow" style={{ cursor: "pointer", marginTop: 14, padding: "4px 0" }}>
-            <div className="lr-main"><div className="lr-t">启用该平台</div><div className="lr-s">停用后不参与模型降级链</div></div>
-            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+          <label style={{ display: "block", marginTop: 10 }}>
+            <span className="field-label">基础地址</span>
+            <input
+              className="input"
+              value={baseAddress}
+              onChange={(event) => setBaseAddress(event.target.value)}
+              placeholder={BASIC_PLACEHOLDER[kind]}
+            />
           </label>
-        </>
-      ) : null}
+          <div className="lr-s" style={{ marginTop: 4 }}>只填域名（含协议），各接口路径在「生成能力」中分别填写。</div>
 
-      {step === "endpoint" ? (
-        <>
-          {renderKeys(keysForStep("endpoint").filter((key) => FIELD_DEFS[key].group === "endpoint"))}
           <div className="step-group" style={{ marginTop: 16 }}>鉴权密钥</div>
           <input
             className="input"
@@ -321,7 +528,35 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
             placeholder="或填写服务器环境变量名，如 KIE_API_KEY"
           />
           <div className="lr-s" style={{ marginTop: 4 }}>API Key 与环境变量名二选一；环境变量需已配置在服务器进程环境中。</div>
-          {renderKeys(keysForStep("endpoint").filter((key) => FIELD_DEFS[key].group === "auth"))}
+
+          <label className="lrow" style={{ cursor: "pointer", marginTop: 14, padding: "4px 0" }}>
+            <div className="lr-main"><div className="lr-t">启用该平台</div><div className="lr-s">停用后不参与模型降级链</div></div>
+            <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
+          </label>
+        </>
+      ) : null}
+
+      {step === "auth" ? (
+        <>
+          {renderKeys(keysForStep("auth").filter((key) => FIELD_DEFS[key].group === "endpoint"))}
+          {renderKeys(keysForStep("auth").filter((key) => FIELD_DEFS[key].group === "auth"))}
+          {usesQueryEndpoint ? (
+            <>
+              <div className="step-group" style={{ marginTop: 14 }}>任务查询</div>
+              <span className="field-label">查询任务路径</span>
+              <EndpointSuffixField
+                presets={ENDPOINT_SUFFIX_PRESETS[kind].query}
+                value={querySuffix}
+                placeholder="/api/v1/jobs/recordInfo?taskId={task_id}"
+                onChange={setQuerySuffix}
+              />
+              <div className="lr-s" style={{ marginTop: 4, wordBreak: "break-all" }}>
+                完整地址：{composedQueryEndpoint || "（留空则使用协议默认地址）"}
+              </div>
+            </>
+          ) : (
+            <div className="lr-s" style={{ marginTop: 14 }}>该协议提交即返回结果，无需配置任务查询地址。</div>
+          )}
           {item ? (
             <div style={{ marginTop: 16 }}>
               <button className="btn btn-ghost btn-block" type="button" disabled={testing} onClick={runTest}>
@@ -335,9 +570,15 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
 
       {step === "capability" ? (
         <>
-          {renderKeys(keysForStep("capability").filter((key) => FIELD_DEFS[key].group === "capability"))}
-          {renderKeys(keysForStep("capability").filter((key) => FIELD_DEFS[key].group === "reference"))}
-          {renderKeys(keysForStep("capability").filter((key) => FIELD_DEFS[key].group === "size"))}
+          <div className="lr-s">勾选需要的能力，展开填写该能力的接口路径与请求参数；两个能力共用同一个基础地址。</div>
+          {operationCard("text")}
+          {operationCard("image")}
+          {sizeKeys.length ? (
+            <div style={{ marginTop: 14 }}>
+              <span className="field-label">尺寸参数映射（两个能力共用）</span>
+              {sizeKeys.map((key) => <ConfigField key={key} configKey={key} def={FIELD_DEFS[key]} value={cfg} onChange={update} />)}
+            </div>
+          ) : null}
         </>
       ) : null}
 
@@ -347,8 +588,7 @@ function PlatformEditor({ item, platforms, meta, useMock }: {
             <span className="lr-s">留空即使用协议默认值，大多数平台无需修改。</span>
             {advancedTweaks > 0 ? <Badge text={`已调整 ${advancedTweaks} 项`} type="info" /> : <Badge text="全部默认值" type="muted" />}
           </div>
-          {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "params"))}
-          {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "template"))}
+          {renderKeys(keysForStep("advanced").filter((key) => ["params", "template"].includes(FIELD_DEFS[key].group)))}
           {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "mapping"))}
           {renderKeys(keysForStep("advanced").filter((key) => FIELD_DEFS[key].group === "result"))}
         </>
