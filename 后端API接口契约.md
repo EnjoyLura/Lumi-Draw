@@ -1050,7 +1050,7 @@ interface AdminModelConfig {
 
 #### GET `/admin/engine/meta`
 
-适配器元数据：`adapters`（kind/label/description/requiredFields/optionalFields/defaults）与枚举 `resultModes`/`requestModes`/`authModes`/`imageInputModes`，以及 `qualityTiers`（由 quality_configs 标签派生的精度档，如 `["1K","2K","4K"]`，模型线路编辑器与后端路由同源）。管理端表单据此动态渲染。
+适配器元数据：`adapters`（kind/label/description/requiredFields/optionalFields/defaults）与枚举 `requestModes`/`authModes`/`imageInputModes`，以及 `qualityTiers`（由 quality_configs 标签派生的精度档，如 `["1K","2K","4K"]`，模型线路编辑器与后端路由同源）。管理端表单据此动态渲染。
 
 #### GET `/admin/engine/platforms`
 
@@ -1070,11 +1070,11 @@ interface AdminModelConfig {
 
 #### POST `/admin/engine/platforms/:id/dry-run`
 
-全链路试运行：`{ prompt? }`。用真实引擎链路生成 1 张 1K 测试图（提交 → 上游 → FC 转存/直存 → OSS → CDN），挂系统用户、0 积分、不建草稿作品、不计入健康度。返回 `{ jobId, reused }`（同平台已有进行中试运行时复用）。
+全链路试运行：`{ prompt?, mode? }`；`mode` 取 `text-to-image`（默认）或 `image-to-image`（参考图自动取最近一次成功试运行产物）。用真实引擎链路生成 1 张 1K 测试图（提交 → 上游 → FC 转存/直存 → OSS → CDN），挂系统用户、0 积分、不建草稿作品、不计入健康度。返回 `{ jobId, reused }`（同平台同模式已有进行中试运行时复用）。
 
 #### GET `/admin/engine/dry-runs/:jobId`
 
-试运行进度：`status`/`progress`/`stageText`/`failure` + `attempts`（每次上游提交的 state/errorKind/latencyMs）+ `assets`（转存状态、sizeBytes、transferTtfbMs/DownloadMs/UploadMs、可访问的 imageUrl/cardUrl）。管理端据此渲染阶段化面板。
+试运行进度：`operation`/`status`/`progress`/`stageText`/`failure` + `attempts`（每次上游提交的 state/errorKind/latencyMs）+ `assets`（转存状态、sizeBytes、transferTtfbMs/DownloadMs/UploadMs、可访问的 imageUrl/cardUrl）。管理端据此渲染阶段化面板。
 
 #### GET `/admin/engine/health`
 
