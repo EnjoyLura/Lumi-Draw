@@ -478,7 +478,7 @@ export async function apiDeleteHotSearch(id: number) {
 }
 
 interface ApiModelConfig {
-  id: string; provider?: string; providerRouting?: Partial<Record<"1K" | "2K" | "4K", string | string[]>>; providerModel: string; name: string; description: string;
+  id: string; provider?: string; providerRouting?: Record<string, string | string[]>; providerModel: string; name: string; description: string;
   tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
   supportsTextToImage: boolean; supportsImageToImage: boolean;
 }

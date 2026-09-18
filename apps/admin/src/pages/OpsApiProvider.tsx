@@ -1,22 +1,26 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createEnginePlatform,
   deleteEnginePlatform,
   duplicateEnginePlatform,
+  fetchEngineDryRun,
   fetchEngineHealth,
   fetchEngineMeta,
   fetchEnginePlatforms,
+  isDryRunTerminal,
   moveEnginePlatform,
+  startEngineDryRun,
   testEnginePlatform,
   updateEnginePlatform,
   type EngineAdapterKind,
   type EngineAdapterMeta,
+  type EngineDryRunView,
   type EnginePlatform,
   type EnginePlatformMeta,
   type EngineTestResult
 } from "../data/engineApi";
 import { useAdminSession } from "../data/adminSession";
-import { ENGINE_PLATFORMS } from "../data/mock";
+import { ENGINE_PLATFORMS, IMG } from "../data/mock";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, Chips, CtrlIcons, Switch } from "../ui";
@@ -33,7 +37,8 @@ const MOCK_META: EnginePlatformMeta = {
   resultModes: ["url", "base64", "auto"],
   requestModes: ["sync", "async"],
   authModes: ["bearer", "raw", "query", "none"],
-  imageInputModes: ["multipart", "url", "url-array"]
+  imageInputModes: ["multipart", "url", "url-array"],
+  qualityTiers: ["1K", "2K", "4K"]
 };
 
 const BASE_URL_HELP: Record<EngineAdapterKind, { placeholder: string; help: string }> = {
@@ -41,6 +46,13 @@ const BASE_URL_HELP: Record<EngineAdapterKind, { placeholder: string; help: stri
   gemini: { placeholder: "https://generativelanguage.googleapis.com/v1beta", help: "接口根地址，或包含 {model} 占位符的完整 generateContent URL" },
   kie: { placeholder: "https://api.kie.ai/api/v1/jobs/createTask", help: "创建任务完整 URL；填站点根地址时自动补 /api/v1/jobs/createTask" },
   "async-http": { placeholder: "https://api.example.com/v1/tasks", help: "提交任务或生成图片的完整接口 URL" }
+};
+
+const ADAPTER_PRESETS: Record<EngineAdapterKind, { icon: string; scene: string }> = {
+  "openai-images": { icon: "ri-openai-fill", scene: "Change2Pro、OpenAI 及各类 OpenAI 兼容聚合站" },
+  gemini: { icon: "ri-sparkling-2-line", scene: "Google Gemini / Nano Banana 官方与中转" },
+  kie: { icon: "ri-pulse-line", scene: "KIE.ai 异步任务平台（Seedream 等）" },
+  "async-http": { icon: "ri-plug-line", scene: "任何「提交 + 轮询」或自定义 JSON 协议的平台" }
 };
 
 const RESULT_MODE_LABELS: Record<string, string> = { url: "URL（转存原图）", base64: "Base64（FC 直存）", auto: "自动识别" };
@@ -59,10 +71,11 @@ interface FieldDef {
   help?: string;
 }
 
+// 高级配置分组（基础信息在表单顶部常显，不在此列）
 const GROUPS: Array<[string, string]> = [
   ["endpoint", "端点与协议"],
   ["auth", "鉴权"],
-  ["capability", "能力与结果"],
+  ["capability", "返回格式与域名加速"],
   ["reference", "参考图输入"],
   ["size", "尺寸参数映射"],
   ["params", "请求参数与请求头"],
@@ -100,6 +113,9 @@ const FIELD_DEFS: Record<string, FieldDef> = {
   imageRequestTemplate: { label: "图生图请求体模板", group: "template", type: "json" },
   responseMapping: { label: "响应字段映射", group: "mapping", type: "mapping" }
 };
+
+/** 基础信息区直接展示的字段，其余进「高级配置」折叠区。 */
+const BASIC_CONFIG_KEYS = ["baseUrl", "textToImageEnabled", "imageToImageEnabled"];
 
 const MAPPING_FIELDS: Array<[string, string, string]> = [
   ["taskIdPath", "任务 ID 数据路径", "task_id"],
@@ -362,6 +378,212 @@ function TestResultRow({ result }: { result: EngineTestResult | null }) {
   );
 }
 
+// ---------------- 试运行 ----------------
+
+const DRY_RUN_STEPS = ["提交任务", "上游生成", "转存 OSS", "生成结果"] as const;
+
+function stepState(view: EngineDryRunView | null, step: number): "wait" | "active" | "done" | "fail" {
+  if (!view) return step === 0 ? "active" : "wait";
+  const failed = ["failed", "cancelled"].includes(view.status);
+  const attempt = view.attempts[view.attempts.length - 1];
+  const asset = view.assets[0];
+  if (step === 0) {
+    if (attempt) return "done";
+    return failed ? "fail" : "active";
+  }
+  if (step === 1) {
+    if (asset || view.status === "settling" || ["succeeded", "partial_failed"].includes(view.status)) return "done";
+    if (failed || attempt?.state === "failed") return "fail";
+    return attempt ? "active" : "wait";
+  }
+  if (step === 2) {
+    if (asset?.status === "stored") return "done";
+    if (asset?.status === "failed") return "fail";
+    if (asset || view.status === "settling") return "active";
+    return failed ? "fail" : "wait";
+  }
+  if (["succeeded", "partial_failed"].includes(view.status)) return "done";
+  if (failed) return "fail";
+  return "wait";
+}
+
+function stepDetail(view: EngineDryRunView | null, step: number): string {
+  if (!view) return step === 0 ? "正在创建试运行任务…" : "";
+  const attempt = view.attempts[view.attempts.length - 1];
+  const asset = view.assets[0];
+  if (step === 0) {
+    if (attempt) return `已提交（${attempt.adapter}）`;
+    return view.stageText || "正在创建试运行任务…";
+  }
+  if (step === 1) {
+    if (attempt?.state === "failed") return `${attempt.errorKind || "error"}：${attempt.errorMessage || "上游调用失败"}`;
+    if (attempt?.latencyMs != null && (asset || view.status === "settling" || ["succeeded", "partial_failed"].includes(view.status))) return `上游耗时 ${(attempt.latencyMs / 1000).toFixed(1)}s`;
+    if (view.attempts.length > 1) return `已自动切换线路（第 ${view.attempts.length} 次尝试）`;
+    return attempt ? view.stageText || "上游生成中…" : "";
+  }
+  if (step === 2) {
+    if (asset?.status === "stored") {
+      const parts = [
+        asset.transferTtfbMs != null ? `建连 ${asset.transferTtfbMs}ms` : "",
+        asset.transferDownloadMs != null ? `下载 ${asset.transferDownloadMs}ms` : "",
+        asset.transferUploadMs != null ? `上传 ${asset.transferUploadMs}ms` : "",
+        asset.sizeBytes ? `${(asset.sizeBytes / 1024).toFixed(0)}KB` : ""
+      ].filter(Boolean);
+      return parts.length ? parts.join(" · ") : "已保存到私有 OSS";
+    }
+    if (asset?.status === "failed") return asset.errorMessage || "转存失败";
+    if (asset || view.status === "settling") return "FC 正在下载原图并直存 OSS（不占服务器带宽）…";
+    return "";
+  }
+  if (["succeeded", "partial_failed"].includes(view.status)) return asset?.imageUrl ? "CDN 图片可访问" : "任务完成";
+  if (["failed", "cancelled"].includes(view.status)) return view.failure?.message || view.stageText || "试运行失败";
+  return "";
+}
+
+function StepIcon({ state }: { state: "wait" | "active" | "done" | "fail" }) {
+  const icon = state === "done" ? "ri-check-line" : state === "fail" ? "ri-close-line" : state === "active" ? "ri-loader-4-line" : "ri-more-line";
+  const color = state === "done" ? "var(--success)" : state === "fail" ? "var(--danger)" : state === "active" ? "var(--accent-deep, #5B9FE8)" : "var(--fg-muted)";
+  return (
+    <span style={{
+      width: 22, height: 22, borderRadius: "50%", display: "grid", placeItems: "center", flexShrink: 0,
+      border: `1.5px solid ${state === "wait" ? "var(--border)" : color}`, color,
+      background: state === "wait" ? "var(--bg-soft)" : "transparent"
+    }}>
+      <i className={icon} style={state === "active" ? { animation: "spin 1s linear infinite" } : undefined} />
+    </span>
+  );
+}
+
+function mockDryRunView(platform: EnginePlatform): EngineDryRunView {
+  const now = new Date().toISOString();
+  return {
+    jobId: `mock-dry-${platform.id}`,
+    providerId: platform.id,
+    status: "succeeded",
+    progress: 100,
+    stageText: "生成完成（模拟）",
+    prompt: "一只戴着宇航头盔的橘猫漂浮在星空里",
+    createdAt: now,
+    startedAt: now,
+    finishedAt: now,
+    attempts: [{ index: 1, adapter: platform.adapter, state: "succeeded", latencyMs: 8600, startedAt: now, finishedAt: now }],
+    assets: [{ index: 1, status: "stored", width: 1024, height: 1024, sizeBytes: 1024 * 1024, transferDownloadMs: 1200, transferUploadMs: 320, imageUrl: IMG("work1"), cardUrl: IMG("work1") }]
+  };
+}
+
+function DryRunPanel({ platform, useMock }: { platform: EnginePlatform; useMock: boolean }) {
+  const [prompt, setPrompt] = useState("");
+  const [view, setView] = useState<EngineDryRunView | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const poll = (jobId: string, startedAt: number) => {
+    timerRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const next = await fetchEngineDryRun(jobId);
+          setView(next);
+          if (isDryRunTerminal(next.status)) return;
+        } catch {
+          // 查询失败不等于试运行失败，继续轮询。
+        }
+        if (Date.now() - startedAt > 5 * 60_000) {
+          setError("试运行超过 5 分钟未结束，请稍后在平台健康度中确认结果");
+          return;
+        }
+        poll(jobId, startedAt);
+      })();
+    }, 2000);
+  };
+
+  const start = async () => {
+    if (starting) return;
+    setStarting(true);
+    setError("");
+    setView(null);
+    try {
+      if (useMock) {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        setView(mockDryRunView(platform));
+        return;
+      }
+      const started = await startEngineDryRun(platform.id, prompt.trim() || undefined);
+      setView(null);
+      poll(started.jobId, Date.now());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "试运行启动失败");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const asset = view?.assets[0];
+  const running = Boolean(view && !isDryRunTerminal(view.status));
+  return (
+    <>
+      <div className="card" style={{ padding: 10, marginBottom: 12, background: "var(--info-soft)" }}>
+        <div className="lr-t">全链路试运行「{platform.name}」</div>
+        <div className="lr-s" style={{ marginTop: 3 }}>
+          真实调用上游生成 1 张 1K 测试图，并走完 FC 转存 → OSS → CDN 全链路。会消耗该平台少量余额，不扣用户积分、不产生作品。
+        </div>
+      </div>
+      <label className="field-label">测试提示词（可选）</label>
+      <input className="input" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="留空使用默认测试提示词" maxLength={200} />
+      <button className="btn btn-primary btn-block" style={{ marginTop: 12 }} disabled={starting || running} onClick={start}>
+        <i className={starting || running ? "ri-loader-4-line" : "ri-play-line"} style={starting || running ? { animation: "spin 1s linear infinite" } : undefined} />
+        {running ? "试运行进行中…" : starting ? "正在启动…" : "开始试运行"}
+      </button>
+      {error ? <div className="lr-s" style={{ marginTop: 8, color: "var(--danger)" }}>{error}</div> : null}
+
+      {view || starting ? (
+        <div style={{ marginTop: 16 }}>
+          {DRY_RUN_STEPS.map((label, step) => {
+            const state = starting && !view ? (step === 0 ? "active" : "wait") : stepState(view, step);
+            const detail = stepDetail(view, step);
+            return (
+              <div key={label} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "7px 0" }}>
+                <StepIcon state={state} />
+                <div className="lr-main">
+                  <div className="lr-t" style={{ fontSize: 13 }}>{label}</div>
+                  {detail ? (
+                    <div className="lr-s" style={{ marginTop: 2, color: state === "fail" ? "var(--danger)" : undefined, wordBreak: "break-all" }}>{detail}</div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {asset?.status === "stored" && asset.imageUrl ? (
+        <div className="card" style={{ padding: 10, marginTop: 12, textAlign: "center" }}>
+          <img src={asset.imageUrl} alt="试运行结果" style={{ maxWidth: "100%", maxHeight: 260, borderRadius: 10 }} />
+          <div className="lr-s" style={{ marginTop: 8 }}>
+            {asset.width ? `${asset.width}×${asset.height} · ` : ""}{asset.sizeBytes ? `${(asset.sizeBytes / 1024).toFixed(0)}KB · ` : ""}已存入私有 OSS 并可经 CDN 访问
+          </div>
+        </div>
+      ) : null}
+
+      {view && isDryRunTerminal(view.status) ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12 }}>
+          <Badge
+            text={view.status === "succeeded" ? "试运行通过" : view.status === "partial_failed" ? "部分成功" : "试运行失败"}
+            type={view.status === "succeeded" ? "success" : view.status === "partial_failed" ? "warning" : "danger"}
+          />
+          {view.finishedAt && view.createdAt ? (
+            <span className="lr-s">总耗时 {((new Date(view.finishedAt).getTime() - new Date(view.createdAt).getTime()) / 1000).toFixed(1)}s</span>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+// ---------------- 表单 ----------------
+
 function DuplicatePlatformForm({
   source,
   platforms,
@@ -439,7 +661,7 @@ function DuplicatePlatformForm({
       </label>
       <label className="lrow" style={{ cursor: "pointer" }}>
         <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />
-        <div className="lr-main"><div className="lr-t">创建后立即启用</div><div className="lr-s">建议先测试无误，再加入模型降级链</div></div>
+        <div className="lr-main"><div className="lr-t">创建后立即启用</div><div className="lr-s">建议先试运行通过，再加入模型降级链</div></div>
       </label>
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
@@ -451,12 +673,14 @@ function DuplicatePlatformForm({
 
 function PlatformForm({
   item,
+  presetKind,
   platforms,
   meta,
   useMock,
   onSaved
 }: {
   item?: EnginePlatform;
+  presetKind?: EngineAdapterKind;
   platforms: EnginePlatform[];
   meta: EnginePlatformMeta;
   useMock: boolean;
@@ -470,10 +694,13 @@ function PlatformForm({
   const [enabled, setEnabled] = useState(item?.enabled ?? true);
   const [apiKey, setApiKey] = useState("");
   const [apiKeyEnv, setApiKeyEnv] = useState(item?.apiKeyEnv || "");
-  const [kind, setKind] = useState<EngineAdapterKind>(item?.adapter || "async-http");
+  const [kind, setKind] = useState<EngineAdapterKind>(item?.adapter || presetKind || "async-http");
   const [cfg, setCfg] = useState<Record<string, unknown>>(() => (
-    item ? { ...item.config } as Record<string, unknown> : defaultsForKind(meta.adapters.find((entry) => entry.kind === "async-http") as EngineAdapterMeta)
+    item
+      ? { ...item.config } as Record<string, unknown>
+      : defaultsForKind(meta.adapters.find((entry) => entry.kind === (presetKind || "async-http")) as EngineAdapterMeta)
   ));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<EngineTestResult | null>(null);
@@ -482,6 +709,7 @@ function PlatformForm({
     ...(kind === "async-http" ? ["requestMode"] : []),
     ...[...new Set([...entry.requiredFields, ...entry.optionalFields])].filter((key) => FIELD_DEFS[key])
   ];
+  const advancedKeys = visibleKeys.filter((key) => !BASIC_CONFIG_KEYS.includes(key));
   const update = (key: string, next: unknown) => setCfg((current) => ({ ...current, [key]: next }));
   const switchKind = (nextKind: EngineAdapterKind) => {
     const nextEntry = meta.adapters.find((adapter) => adapter.kind === nextKind) as EngineAdapterMeta;
@@ -496,6 +724,12 @@ function PlatformForm({
     if (key === "authQueryName") return cfg.authMode === "query";
     return true;
   };
+  // 高级配置里被调整过的字段数（与该协议默认值比较），用于折叠区提示。
+  const advancedTweaks = (() => {
+    const defaults = defaultsForKind(entry);
+    return advancedKeys.filter((key) => fieldVisible(key)
+      && JSON.stringify(cfg[key] ?? null) !== JSON.stringify(defaults[key] ?? null)).length;
+  })();
   const runTest = async () => {
     setTesting(true);
     try {
@@ -562,7 +796,7 @@ function PlatformForm({
       }
       closeSheet();
       onSaved();
-      toast(originalId ? "已保存" : "已新增");
+      toast(originalId ? "已保存" : "已新增，建议立即试运行验证全链路");
     } catch (error) {
       toast(error instanceof Error ? error.message : "保存失败");
     } finally {
@@ -595,6 +829,17 @@ function PlatformForm({
       </select>
       <div className="lr-s" style={{ marginTop: 5 }}>{entry.description}</div>
 
+      <div style={{ marginTop: 12 }}>
+        <ConfigField
+          configKey="baseUrl"
+          def={FIELD_DEFS.baseUrl}
+          value={cfg}
+          baseUrlPlaceholder={BASE_URL_HELP[kind].placeholder}
+          baseUrlHelp={BASE_URL_HELP[kind].help}
+          onChange={update}
+        />
+      </div>
+
       <div className="field-label" style={{ marginTop: 16, color: "var(--text)" }}>鉴权密钥</div>
       <input
         className="input"
@@ -612,29 +857,62 @@ function PlatformForm({
         <div className="lr-main"><div className="lr-t">启用该平台</div><div className="lr-s">停用后不参与模型降级链</div></div>
         <Switch on={enabled} onToggle={() => setEnabled((current) => !current)} />
       </label>
+      <div style={{ marginTop: 4 }}>
+        {["textToImageEnabled", "imageToImageEnabled"].map((key) => (
+          <ConfigField
+            key={key}
+            configKey={key}
+            def={FIELD_DEFS[key]}
+            value={cfg}
+            baseUrlPlaceholder={BASE_URL_HELP[kind].placeholder}
+            baseUrlHelp={BASE_URL_HELP[kind].help}
+            onChange={update}
+          />
+        ))}
+      </div>
 
-      {GROUPS.map(([groupKey, groupTitle]) => {
-        const keys = visibleKeys.filter((key) => FIELD_DEFS[key].group === groupKey && fieldVisible(key));
-        if (!keys.length) return null;
-        return (
-          <div key={groupKey} style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>{groupTitle}</div>
-            <div style={{ display: "grid", gap: 12 }}>
-              {keys.map((key) => (
-                <ConfigField
-                  key={key}
-                  configKey={key}
-                  def={FIELD_DEFS[key]}
-                  value={cfg}
-                  baseUrlPlaceholder={BASE_URL_HELP[kind].placeholder}
-                  baseUrlHelp={BASE_URL_HELP[kind].help}
-                  onChange={update}
-                />
-              ))}
-            </div>
+      {/* 高级配置：默认折叠，典型平台预设即可跑通，只有特殊协议才需要展开。 */}
+      <div className="card" style={{ padding: 0, marginTop: 16, overflow: "hidden" }}>
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((open) => !open)}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "12px 14px",
+            background: "transparent", border: "none", cursor: "pointer", textAlign: "left"
+          }}
+        >
+          <i className={advancedOpen ? "ri-arrow-down-s-line" : "ri-arrow-right-s-line"} style={{ fontSize: 18, color: "var(--fg-muted)" }} />
+          <span style={{ fontSize: 13, fontWeight: 750, color: "var(--text)" }}>高级配置</span>
+          {advancedTweaks > 0 ? <Badge text={`已调整 ${advancedTweaks} 项`} type="info" /> : <Badge text="使用协议默认值" type="muted" />}
+          <span className="lr-s" style={{ marginLeft: "auto" }}>端点 / 鉴权 / 返回格式 / 参数 / 模板 / 映射</span>
+        </button>
+        {advancedOpen ? (
+          <div style={{ padding: "0 14px 14px" }}>
+            {GROUPS.map(([groupKey, groupTitle]) => {
+              const keys = advancedKeys.filter((key) => FIELD_DEFS[key].group === groupKey && fieldVisible(key));
+              if (!keys.length) return null;
+              return (
+                <div key={groupKey} style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>{groupTitle}</div>
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {keys.map((key) => (
+                      <ConfigField
+                        key={key}
+                        configKey={key}
+                        def={FIELD_DEFS[key]}
+                        value={cfg}
+                        baseUrlPlaceholder={BASE_URL_HELP[kind].placeholder}
+                        baseUrlHelp={BASE_URL_HELP[kind].help}
+                        onChange={update}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
+        ) : null}
+      </div>
 
       {originalId ? (
         <div style={{ marginTop: 16 }}>
@@ -644,7 +922,7 @@ function PlatformForm({
           <TestResultRow result={testResult} />
         </div>
       ) : (
-        <div className="lr-s" style={{ marginTop: 16 }}>保存后可使用“测试平台连通性”验证接口可达与密钥有效。</div>
+        <div className="lr-s" style={{ marginTop: 16 }}>保存后可用「试运行」验证完整链路：真实生成一张测试图并转存到 OSS/CDN。</div>
       )}
 
       <div style={FOOT_STYLE}>
@@ -655,10 +933,54 @@ function PlatformForm({
   );
 }
 
-function sizeSummary(platform: EnginePlatform) {
-  const config = platform.config;
-  if (config.sizeMode === "ratio-resolution") return `${config.ratioField}=16:9 + ${config.resolutionField}=4k`;
-  return `${config.pixelSizeField}=3840x2160`;
+/** 新增平台第一步：选协议预设。典型平台只需再填 Base URL + API Key。 */
+function PresetPicker({ meta, onPick }: { meta: EnginePlatformMeta; onPick: (kind: EngineAdapterKind) => void }) {
+  const { closeSheet } = useNav();
+  return (
+    <>
+      <div className="lr-s" style={{ marginBottom: 12 }}>
+        选择平台接口协议。预设会自动填好该协议的全部默认配置，大多数平台只需再填写接口地址和 API Key。
+      </div>
+      <div style={{ display: "grid", gap: 10 }}>
+        {meta.adapters.map((adapter) => {
+          const preset = ADAPTER_PRESETS[adapter.kind];
+          return (
+            <button
+              key={adapter.kind}
+              type="button"
+              className="card"
+              style={{ padding: 12, display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", textAlign: "left", width: "100%" }}
+              onClick={() => { closeSheet(); onPick(adapter.kind); }}
+            >
+              <span className="lr-ico" style={{ color: "#5B9FE8", background: "var(--info-soft)", flexShrink: 0 }}><i className={preset?.icon || "ri-plug-line"} /></span>
+              <span className="lr-main">
+                <span className="lr-t">{adapter.label}</span>
+                <span className="lr-s" style={{ display: "block", marginTop: 3 }}>{adapter.description}</span>
+                <span className="lr-s" style={{ display: "block", marginTop: 3, color: "var(--fg-muted)" }}>
+                  适用：{preset?.scene || "—"} · {adapter.requestMode === "async" ? "异步轮询" : "同步返回"}
+                </span>
+              </span>
+              <i className="ri-arrow-right-s-line" style={{ color: "var(--fg-muted)", fontSize: 18, flexShrink: 0 }} />
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// ---------------- 列表 ----------------
+
+function healthRate(health?: { total: number; succeeded: number; failed: number }): number | null {
+  if (!health || health.total <= 0) return null;
+  return Math.round((health.succeeded / health.total) * 1000) / 10;
+}
+
+function rateColor(rate: number | null): string {
+  if (rate === null) return "var(--fg-muted)";
+  if (rate >= 95) return "var(--success)";
+  if (rate >= 80) return "#B7791F";
+  return "var(--danger)";
 }
 
 export function OpsApiProvider() {
@@ -675,6 +997,7 @@ export function OpsApiProvider() {
   const meta = useMock ? MOCK_META : state.data?.meta;
   const platforms = useMock ? ENGINE_PLATFORMS : state.data?.platforms ?? [];
   const activeJobs = useMock ? 0 : healthState.data?.activeJobs ?? 0;
+  const transferMissing = !useMock && healthState.data ? healthState.data.imageTransferConfigured === false : false;
   const groups = [...new Set(platforms.map((platform) => platform.groupName).filter(Boolean))];
   const hasUngrouped = platforms.some((platform) => !platform.groupName);
   const groupFilters = ["全部", ...groups, ...(hasUngrouped ? ["未分组"] : [])];
@@ -692,7 +1015,16 @@ export function OpsApiProvider() {
     if (!meta) { toast("配置元数据未加载，请稍后重试"); return; }
     openSheet(platform ? "编辑 API 平台" : "新增 API 平台", <PlatformForm item={platform} platforms={platforms} meta={meta} useMock={useMock} onSaved={reload} />);
   };
+  const openCreateWithPreset = (kind: EngineAdapterKind) => {
+    if (!meta) { toast("配置元数据未加载，请稍后重试"); return; }
+    openSheet("新增 API 平台", <PlatformForm presetKind={kind} platforms={platforms} meta={meta} useMock={useMock} onSaved={reload} />);
+  };
+  const openCreate = () => {
+    if (!meta) { toast("配置元数据未加载，请稍后重试"); return; }
+    openSheet("新增 API 平台 · 选择协议", <PresetPicker meta={meta} onPick={openCreateWithPreset} />);
+  };
   const copyPlatform = (platform: EnginePlatform) => openSheet("快速创建 API 副本", <DuplicatePlatformForm source={platform} platforms={platforms} useMock={useMock} onSaved={reload} />);
+  const openDryRun = (platform: EnginePlatform) => openSheet("全链路试运行", <DryRunPanel platform={platform} useMock={useMock} />);
 
   const movePlatform = async (platform: EnginePlatform, direction: "up" | "down") => {
     try {
@@ -757,7 +1089,15 @@ export function OpsApiProvider() {
 
   return (
     <>
-      <AddBtn text="新增 API 平台" onClick={() => openForm()} />
+      <AddBtn text="新增 API 平台" onClick={openCreate} />
+      {transferMissing ? (
+        <div className="card" style={{ padding: 10, marginBottom: 10, background: "var(--warning-soft, #FEF3C7)", border: "1px solid rgba(183,121,31,.3)" }}>
+          <div className="lr-t" style={{ color: "#B7791F" }}><i className="ri-alarm-warning-line" /> 图片转存函数（FC）未配置</div>
+          <div className="lr-s" style={{ marginTop: 3 }}>
+            生成图片将由 API 服务器进程内下载转存，占用服务器带宽且速度慢。请尽快配置 IMAGE_TRANSFER_FUNCTION_URL / IMAGE_TRANSFER_BEARER_TOKEN。
+          </div>
+        </div>
+      ) : null}
       <div className="card" style={{ padding: 12, marginBottom: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, textAlign: "center" }}>
           <div><div className="lr-t">{platforms.length}</div><div className="lr-s">平台总数</div></div>
@@ -774,64 +1114,50 @@ export function OpsApiProvider() {
       {state.error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{state.error}</div></div> : null}
       {!state.loading && !state.error && platforms.length > 0 && visiblePlatforms.length === 0 ? <div className="empty"><i className="ri-inbox-2-line" /><div className="et">该分组暂无 API 平台</div></div> : null}
       {visiblePlatforms.map((platform) => {
-        const config = platform.config;
-        const health = platform.health;
-        const successRate = health && health.total > 0 ? Math.round((health.succeeded / health.total) * 1000) / 10 : null;
+        const rate = healthRate(platform.health);
         return (
           <div key={platform.id} className="card" style={{ padding: 12, marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <div className="lr-ico" style={{ color: "#5B9FE8", background: "var(--info-soft)", flexShrink: 0 }}><i className="ri-server-line" /></div>
-              <div className="lr-main">
-                <div className="lr-t">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span
+                title={rate === null ? "近 7 天无调用" : `近 7 天成功率 ${rate}%`}
+                style={{ width: 10, height: 10, borderRadius: "50%", background: platform.enabled ? rateColor(rate) : "var(--fg-muted)", flexShrink: 0, opacity: platform.enabled ? 1 : 0.4 }}
+              />
+              <div className="lr-main" style={{ minWidth: 0 }}>
+                <div className="lr-t" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   {platform.name}
-                  <Badge text={platform.apiKeyHint || (platform.apiKeyEnv ? `环境变量 ${platform.apiKeyEnv}` : "密钥未配置")} type={platform.apiKeyHint || platform.apiKeyEnv ? "success" : "danger"} />
-                </div>
-                <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <Badge text={platform.groupName || "未分组"} type={platform.groupName ? "info" : "muted"} />
                   <Badge text={adapterLabel(platform.adapter)} type="purple" />
+                  {!platform.enabled ? <Badge text="已停用" type="muted" /> : null}
+                  {platform.apiKeyHint || platform.apiKeyEnv
+                    ? null
+                    : <Badge text="密钥未配置" type="danger" />}
                 </div>
-                <div className="lr-s" style={{ wordBreak: "break-all" }}>{config.baseUrl}</div>
-                <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  <Badge text={`文 ${RESULT_MODE_LABELS[config.textResultMode] || config.textResultMode}`} type={config.textResultMode === "base64" ? "purple" : "muted"} />
-                  <Badge text={`图 ${RESULT_MODE_LABELS[config.imageResultMode] || config.imageResultMode}`} type={config.imageResultMode === "base64" ? "purple" : "muted"} />
-                </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-                  {config.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
-                  {config.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
-                  {config.imageToImageEnabled && config.imageInputField
-                    ? <Badge text={`参考图 · ${config.imageInputField}`} type="muted" />
-                    : null}
-                  <Badge text={config.requestMode === "async" ? "异步" : "同步"} type={config.requestMode === "async" ? "info" : "muted"} />
-                  {config.statusEnabled ? <Badge text="真实进度" type="success" /> : null}
-                  <Badge text={sizeSummary(platform)} type="muted" />
-                  {config.resultUrlRewriteRules.length ? <Badge text={`域名加速 ${config.resultUrlRewriteRules.length} 条`} type="success" /> : null}
-                </div>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-                  {platform.linkedModelIds?.length ? platform.linkedModelIds.map((modelId) => <Badge key={modelId} text={modelId} type="info" />) : <Badge text="未关联模型" type="muted" />}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6, marginTop: 9 }}>
-                  <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
-                    <div style={{ fontSize: 14, fontWeight: 750 }}>{successRate === null ? "暂无" : `${successRate}%`}</div>
-                    <div className="lr-s">近7天成功率</div>
-                  </div>
-                  <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
-                    <div style={{ fontSize: 14, fontWeight: 750 }}>{health?.total ?? 0}</div>
-                    <div className="lr-s">尝试次数</div>
-                  </div>
-                  <div style={{ padding: "7px 8px", borderRadius: 9, background: "var(--bg-soft)" }}>
-                    <div style={{ fontSize: 14, fontWeight: 750, color: health?.failed ? "var(--danger)" : undefined }}>{health?.failed ?? 0}</div>
-                    <div className="lr-s">失败次数</div>
-                  </div>
-                </div>
+                <div className="lr-s" style={{ marginTop: 3, wordBreak: "break-all" }}>{platform.config.baseUrl}</div>
               </div>
               <Switch on={platform.enabled} onToggle={() => toggle(platform)} />
             </div>
+            <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              {platform.groupName ? <Badge text={platform.groupName} type="info" /> : null}
+              {platform.config.textToImageEnabled ? <Badge text="文生图" type="success" /> : null}
+              {platform.config.imageToImageEnabled ? <Badge text="图生图" type="info" /> : null}
+              <Badge text={platform.requestMode === "async" ? "异步轮询" : "同步返回"} type="muted" />
+              {platform.linkedModelIds?.length
+                ? <Badge text={`关联 ${platform.linkedModelIds.length} 个模型`} type="info" />
+                : <Badge text="未关联模型" type="muted" />}
+              <span className="lr-s" style={{ marginLeft: "auto" }}>
+                {rate === null
+                  ? "近7天无调用"
+                  : <span style={{ color: rateColor(rate), fontWeight: 700 }}>近7天 {rate}% · {platform.health?.total ?? 0} 次{platform.health?.failed ? ` · ${platform.health.failed} 失败` : ""}</span>}
+              </span>
+            </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)" }}>
-              <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{platform.id} · 组内优先级</span>
+              <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>{platform.id}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <button className="btn btn-ghost" style={{ padding: "5px 10px", fontSize: 12 }} type="button" onClick={() => openDryRun(platform)}>
+                  <i className="ri-play-circle-line" /> 试运行
+                </button>
+                <span className="nav-btn" title="测试连通性" aria-label="测试连通性" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={() => void testFromList(platform)}><i className="ri-pulse-line" /></span>
                 <button className="nav-btn" type="button" aria-label="提高优先级" onClick={() => movePlatform(platform, "up")}><i className="ri-arrow-up-line" /></button>
                 <button className="nav-btn" type="button" aria-label="降低优先级" onClick={() => movePlatform(platform, "down")}><i className="ri-arrow-down-line" /></button>
-                <span className="nav-btn" title="测试连通性" aria-label="测试连通性" style={{ width: 32, height: 32, fontSize: 17, color: "var(--fg-2)" }} onClick={() => void testFromList(platform)}><i className="ri-pulse-line" /></span>
                 <CtrlIcons onCopy={() => copyPlatform(platform)} onEdit={() => openForm(platform)} onDelete={() => remove(platform)} />
               </div>
             </div>

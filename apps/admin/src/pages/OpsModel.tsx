@@ -5,16 +5,16 @@ import { useAdminSession } from "../data/adminSession";
 import { ENGINE_PLATFORMS, IMG, MODEL_BADGES, MODELS, type AdminModel } from "../data/mock";
 import { getModels } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
-import { fetchEnginePlatforms } from "../data/engineApi";
+import { fetchEngineMeta, fetchEnginePlatforms } from "../data/engineApi";
 import { useNav } from "../shell/NavContext";
 import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
 const ICON_STYLE: React.CSSProperties = { height: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fg-muted)", borderStyle: "dashed" };
-const QUALITY_TIERS = ["1K", "2K", "4K"] as const;
-type QualityTier = (typeof QUALITY_TIERS)[number];
-type ProviderRouting = Partial<Record<QualityTier, string[]>>;
+/** 精度档由后端 meta（quality_configs 派生）下发，这里只是离线兜底。 */
+const FALLBACK_TIERS = ["1K", "2K", "4K"];
+type ProviderRouting = Record<string, string[]>;
 
 type ProviderOption = { id: string; name: string; on: boolean };
 
@@ -22,11 +22,15 @@ function ProviderRouteEditor({
   tier,
   value,
   providers,
+  canApplyAll,
+  onApplyAll,
   onChange
 }: {
-  tier: QualityTier;
+  tier: string;
   value: string[];
   providers: ProviderOption[];
+  canApplyAll: boolean;
+  onApplyAll: () => void;
   onChange: (next: string[]) => void;
 }) {
   const available = providers.filter((provider) => !value.includes(provider.id));
@@ -41,7 +45,14 @@ function ProviderRouteEditor({
     <div className="card" style={{ padding: 12, marginBottom: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ fontWeight: 750 }}>{tier} 线路优先级</div>
-        <Badge text={`${value.length} 条线路`} type={value.length ? "info" : "muted"} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {canApplyAll && value.length ? (
+            <button className="btn btn-ghost" style={{ padding: "3px 8px", fontSize: 12 }} type="button" onClick={onApplyAll}>
+              <i className="ri-file-copy-line" /> 复制到全部精度档
+            </button>
+          ) : null}
+          <Badge text={`${value.length} 条线路`} type={value.length ? "info" : "muted"} />
+        </div>
       </div>
       {value.length ? value.map((providerId, index) => {
         const provider = providers.find((item) => item.id === providerId);
@@ -80,7 +91,7 @@ function ProviderRouteEditor({
   );
 }
 
-function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item?: AdminModel; providers: ProviderOption[]; useMock: boolean; onSaved: () => void }) {
+function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: string; item?: AdminModel; providers: ProviderOption[]; tiers: string[]; useMock: boolean; onSaved: () => void }) {
   const { closeSheet, toast } = useNav();
   const m = item ?? (id ? MODELS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(m?.name ?? "");
@@ -90,7 +101,7 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
   const [badge, setBadge] = useState(m?.badge ?? "");
   const [providerModel, setProviderModel] = useState(m?.providerModel ?? id);
   const [providerRouting, setProviderRouting] = useState<ProviderRouting>(() => Object.fromEntries(
-    QUALITY_TIERS.flatMap((tier) => {
+    tiers.flatMap((tier) => {
       const configured = m?.providerRouting?.[tier] || [];
       const route = configured.length ? configured : m?.provider ? [m.provider] : [];
       return route.length ? [[tier, [...route]]] : [];
@@ -100,10 +111,10 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
 
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
-    const firstProvider = QUALITY_TIERS.flatMap((tier) => providerRouting[tier] || [])[0] || m?.provider || providers.find((provider) => provider.on)?.id;
+    const firstProvider = tiers.flatMap((tier) => providerRouting[tier] || [])[0] || m?.provider || providers.find((provider) => provider.on)?.id;
     if (!firstProvider) { toast("请至少配置一条可用 API 线路"); return; }
-    if (QUALITY_TIERS.some((tier) => !(providerRouting[tier] || []).length)) {
-      toast("请为 1K、2K、4K 分别配置至少一条线路");
+    if (tiers.some((tier) => !(providerRouting[tier] || []).length)) {
+      toast(`请为 ${tiers.join("、")} 分别配置至少一条线路`);
       return;
     }
     const data = {
@@ -134,7 +145,12 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
     }
   };
 
-  const updateTier = (tier: QualityTier, next: string[]) => setProviderRouting((current) => ({ ...current, [tier]: next }));
+  const updateTier = (tier: string, next: string[]) => setProviderRouting((current) => ({ ...current, [tier]: next }));
+  const applyToAllTiers = (tier: string) => {
+    const source = providerRouting[tier] || [];
+    setProviderRouting((current) => Object.fromEntries(tiers.map((item) => [item, [...source]])));
+    toast(`已将 ${tier} 线路复制到全部精度档`);
+  };
 
   return (
     <>
@@ -161,8 +177,16 @@ function ModelForm({ id, item, providers, useMock, onSaved }: { id: string; item
       <div className="lr-s" style={{ margin: "4px 0 10px", lineHeight: 1.55 }}>
         按 1 → 2 → 3 顺序调用。同一线路仅在 8 秒内快速失败时重试一次；连续两次快速失败后切换下一线路。
       </div>
-      {QUALITY_TIERS.map((tier) => (
-        <ProviderRouteEditor key={tier} tier={tier} value={providerRouting[tier] || []} providers={providers} onChange={(next) => updateTier(tier, next)} />
+      {tiers.map((tier) => (
+        <ProviderRouteEditor
+          key={tier}
+          tier={tier}
+          value={providerRouting[tier] || []}
+          providers={providers}
+          canApplyAll={tiers.length > 1}
+          onApplyAll={() => applyToAllTiers(tier)}
+          onChange={(next) => updateTier(tier, next)}
+        />
       ))}
       <div style={FOOT_STYLE}>
         <button className="btn btn-ghost btn-block" onClick={closeSheet} disabled={saving}>取消</button>
@@ -178,16 +202,19 @@ export function OpsModel() {
   const refresh = useRefresh();
   const { data, loading, error, reload } = useAsyncData<AdminModel[]>(useMock ? null : () => apiGetModels(), [useMock]);
   const { data: providerData, loading: providersLoading, error: providersError } = useAsyncData<ProviderOption[]>(useMock ? null : async () => (await fetchEnginePlatforms()).map((platform) => ({ id: platform.id, name: platform.name, on: platform.enabled })), [useMock]);
+  const { data: metaData } = useAsyncData(useMock ? null : () => fetchEngineMeta(), [useMock]);
   const models = useMock ? getModels() : data ?? [];
   const providers = useMock ? ENGINE_PLATFORMS.map((platform) => ({ id: platform.id, name: platform.name, on: platform.enabled })) : providerData ?? [];
+  // 精度档与后端 quality_configs 同源；meta 未加载时按兜底档位渲染。
+  const tiers = metaData?.qualityTiers?.length ? metaData.qualityTiers : FALLBACK_TIERS;
   const providerName = (providerId?: string) => providers.find((provider) => provider.id === providerId)?.name || providerId || "未配置";
   const afterSaved = () => useMock ? refresh() : reload();
-  const routeFor = (model: AdminModel, tier: QualityTier) => {
+  const routeFor = (model: AdminModel, tier: string) => {
     const route = model.providerRouting?.[tier] || (model.provider ? [model.provider] : []);
     return route.map(providerName).join(" → ") || "未配置";
   };
 
-  const openForm = (id: string) => openSheet(id ? "编辑模型" : "新增模型", <ModelForm id={id} item={models.find((model) => model.id === id)} providers={providers} useMock={useMock} onSaved={afterSaved} />);
+  const openForm = (id: string) => openSheet(id ? "编辑模型" : "新增模型", <ModelForm id={id} item={models.find((model) => model.id === id)} providers={providers} tiers={tiers} useMock={useMock} onSaved={afterSaved} />);
   const toggle = async (model: AdminModel) => {
     const next = !model.on;
     try {
@@ -238,7 +265,7 @@ export function OpsModel() {
               {model.tags?.length ? <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>{model.tags.map((tag) => <Badge key={tag} text={tag} type="muted" />)}</div> : null}
               <div className="lr-s" style={{ marginTop: 4 }}>消耗 {model.cost} 积分/次</div>
               <div style={{ display: "grid", gap: 3, marginTop: 7 }}>
-                {QUALITY_TIERS.map((tier) => <div key={tier} className="lr-s"><b style={{ color: "var(--fg-2)" }}>{tier}</b>&nbsp; {routeFor(model, tier)}</div>)}
+                {tiers.map((tier) => <div key={tier} className="lr-s"><b style={{ color: "var(--fg-2)" }}>{tier}</b>&nbsp; {routeFor(model, tier)}</div>)}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", marginTop: 2 }}>
