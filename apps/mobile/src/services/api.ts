@@ -13,6 +13,8 @@ interface ApiEnvelope<T> {
 interface RequestOptions {
   skipAuth?: boolean;
   skipRefresh?: boolean;
+  /** 单次请求超时（毫秒）；默认 20s，弱网下防止轮询请求悬挂。 */
+  timeoutMs?: number;
 }
 
 interface RefreshResponse {
@@ -173,7 +175,7 @@ export async function request<T>(method: HttpMethod, path: string, data?: unknow
   }
 
   try {
-    return await rawRequest<T>(method, path, data, headers);
+    return await rawRequest<T>(method, path, data, headers, options?.timeoutMs);
   } catch (error) {
     if (!(error instanceof ApiError) || !shouldRefresh(error, options)) {
       throw error;
@@ -190,13 +192,16 @@ export async function request<T>(method: HttpMethod, path: string, data?: unknow
   }
 }
 
-function rawRequest<T>(method: HttpMethod, path: string, data: unknown, headers: Record<string, string>) {
+const DEFAULT_TIMEOUT_MS = 20_000;
+
+function rawRequest<T>(method: HttpMethod, path: string, data: unknown, headers: Record<string, string>, timeoutMs?: number) {
   return new Promise<T>((resolve, reject) => {
     uni.request({
       url: joinUrl(path),
       method: method as UniApp.RequestOptions["method"],
       data: data as UniApp.RequestOptions["data"],
       header: headers,
+      timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS,
       success(response) {
         const statusCode = response.statusCode;
         const body = response.data as Partial<ApiEnvelope<T>> | undefined;

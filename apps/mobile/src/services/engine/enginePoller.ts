@@ -13,11 +13,13 @@ export interface JobPollingOptions {
 
 const DEFAULT_INTERVAL_MS = 2000;
 const DEFAULT_ERROR_INTERVAL_MS = 5000;
+const MAX_ERROR_INTERVAL_MS = 15_000;
 
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let pollingJobId = "";
 let stoppedByLifecycle = false;
 let lastOptions: JobPollingOptions | undefined;
+let consecutiveErrors = 0;
 
 function schedule(options: JobPollingOptions, intervalMs: number) {
   pollTimer = setTimeout(() => void runTick(options), intervalMs);
@@ -27,12 +29,16 @@ async function runTick(options: JobPollingOptions) {
   if (pollingJobId !== options.jobId) return;
   try {
     const finished = await options.tick(options.jobId);
+    consecutiveErrors = 0;
     if (finished || pollingJobId !== options.jobId) return;
     schedule(options, options.intervalMs ?? DEFAULT_INTERVAL_MS);
   } catch (error) {
     if (pollingJobId !== options.jobId) return;
+    // 查询失败不等于任务失败：递增退避但封顶 15s，网络恢复后自动回到正常节奏。
+    consecutiveErrors += 1;
     options.onError?.(error);
-    schedule(options, options.errorIntervalMs ?? DEFAULT_ERROR_INTERVAL_MS);
+    const base = options.errorIntervalMs ?? DEFAULT_ERROR_INTERVAL_MS;
+    schedule(options, Math.min(base * consecutiveErrors, MAX_ERROR_INTERVAL_MS));
   }
 }
 
@@ -40,6 +46,7 @@ export function startJobPolling(options: JobPollingOptions) {
   stopJobPolling();
   pollingJobId = options.jobId;
   stoppedByLifecycle = false;
+  consecutiveErrors = 0;
   lastOptions = options;
   schedule(options, 0);
 }
@@ -50,6 +57,7 @@ export function stopJobPolling() {
   pollingJobId = "";
   lastOptions = undefined;
   stoppedByLifecycle = false;
+  consecutiveErrors = 0;
 }
 
 /** 页面 onHide 时暂停，onShow 用 resumeJobPolling 续上。 */

@@ -106,6 +106,9 @@ interface GenResult {
 }
 
 const generatedResults = ref<GenResult[]>([]);
+// 结果卡片图片加载失败标记（key = resultId||id）。临时图失败展示"保存中"占位，
+// 永久图失败展示"点击重试"（重拉任务可拿到新签名 URL）。
+const imageLoadFailed = ref<Record<string, boolean>>({});
 const isSavingOriginal = ref(false);
 const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
 const previewData = ref<{
@@ -760,6 +763,44 @@ function applyPermanentResults(results: GenResult[], preserveVisibleCards: boole
   }
 }
 
+function resultKey(item: GenResult) {
+  return item.resultId || item.id;
+}
+
+function onResultImageError(item: GenResult) {
+  imageLoadFailed.value = { ...imageLoadFailed.value, [resultKey(item)]: true };
+  // 临时图失败多半是上游 URL 过期或不可达：立即重拉一次任务，
+  // 若已转存完成会拿到永久 CDN 地址并自动恢复显示。
+  if (item.temporary && activeBackendJobId) void refreshActiveJobOnce();
+}
+
+function onResultImageLoad(item: GenResult) {
+  const key = resultKey(item);
+  if (!imageLoadFailed.value[key]) return;
+  const next = { ...imageLoadFailed.value };
+  delete next[key];
+  imageLoadFailed.value = next;
+}
+
+async function retryResultImage(item: GenResult) {
+  const key = resultKey(item);
+  const next = { ...imageLoadFailed.value };
+  delete next[key];
+  imageLoadFailed.value = next;
+  // 重拉任务获取新签名的 CDN URL（签名 30 分钟窗口，过期是永久图失败的常见原因）。
+  if (activeBackendJobId) await refreshActiveJobOnce();
+}
+
+async function refreshActiveJobOnce() {
+  if (!activeBackendJobId || useMockData.value) return;
+  try {
+    const job = await fetchGenerateJob(activeBackendJobId);
+    applyBackendJob(job);
+  } catch {
+    // 轮询会继续重试，这里不提示。
+  }
+}
+
 function applyBackendJob(job: BackendGenerateJob) {
   const startedAt = new Date(job.createdAt).getTime();
   activeGenerationQuality = job.quality;
@@ -883,6 +924,7 @@ async function resumeBackendJob(jobId: string) {
   isSavingOriginal.value = false;
   progress.value = 0;
   generatedResults.value = [];
+  imageLoadFailed.value = {};
   genMeta.value = null;
   stageText.value = generationStageText(0, "queued");
   startElapsedTimer();
@@ -939,6 +981,7 @@ async function startBackendGenerate(prompt: string) {
   isSavingOriginal.value = false;
   progress.value = 0;
   generatedResults.value = [];
+  imageLoadFailed.value = {};
   genMeta.value = null;
   stageText.value = generationStageText(0, "queued");
   startElapsedTimer();
@@ -1140,6 +1183,12 @@ function closePreview() {
 
 async function zoomPreview() {
   if (!previewData.value) return;
+  // 临时图是上游域名，不在微信 downloadFile 白名单内，previewImage 必然失败；
+  // 等转存完成自动切换为永久 CDN 地址后再放大。
+  if (previewData.value.temporary) {
+    showToast("高清原图正在安全保存，稍后即可放大查看");
+    return;
+  }
   const { fullscreenSrc } = previewData.value;
   const localPath = await preloadImage(fullscreenSrc).catch(() => fullscreenSrc);
   uni.previewImage({ urls: [localPath], current: localPath });
@@ -1147,6 +1196,10 @@ async function zoomPreview() {
 
 async function savePreview() {
   if (!previewData.value || isSavingDrafts.value) return;
+  if (previewData.value.temporary) {
+    showToast("高清原图正在安全保存，请稍后在画廊中保存");
+    return;
+  }
   isSavingDrafts.value = true;
   try {
     const localPath = await preloadImage(previewData.value.originalSrc).catch(() => previewData.value?.originalSrc || "");
@@ -1400,7 +1453,23 @@ function goMine() { goRootTab("/pages/mine/index"); }
                   <text class="fail-msg">{{ item.error }}</text>
                 </view>
                 <view v-else class="result-img" @click="openPreview(item)">
-                  <image :src="resultCardImageSrc(item, 400)" mode="aspectFill" />
+                  <image
+                    v-if="!imageLoadFailed[item.resultId || item.id]"
+                    :src="resultCardImageSrc(item, 400)"
+                    mode="aspectFill"
+                    @error="onResultImageError(item)"
+                    @load="onResultImageLoad(item)"
+                  />
+                  <view v-else class="result-img-fallback" @click.stop="retryResultImage(item)">
+                    <template v-if="item.temporary">
+                      <LumiIcon class="fallback-icon" name="clock-3" :size="18" />
+                      <text class="fallback-text">预览加载慢，原图保存中…</text>
+                    </template>
+                    <template v-else>
+                      <LumiIcon class="fallback-icon" name="images" :size="18" />
+                      <text class="fallback-text">加载失败，点击重试</text>
+                    </template>
+                  </view>
                 </view>
               </template>
             </view>
@@ -1585,9 +1654,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <view class="preview-head">
         <text class="preview-title">图片预览</text>
         <view class="preview-head-actions">
-          <button class="preview-ghost-btn" :disabled="isSavingDrafts" @click="savePreview">
+          <button class="preview-ghost-btn" :disabled="isSavingDrafts || Boolean(previewData?.temporary)" @click="savePreview">
             <LumiIcon class="preview-btn-icon" name="download" :size="15" />
-            <text>{{ isSavingDrafts ? "保存中..." : "保存" }}</text>
+            <text>{{ previewData?.temporary ? "原图保存中..." : isSavingDrafts ? "保存中..." : "保存" }}</text>
           </button>
           <button class="preview-ghost-btn icon" @click="closePreview"><LumiIcon name="x" :size="18" /></button>
         </view>
@@ -1603,7 +1672,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
       </view>
       <view v-if="previewData?.temporary" class="preview-transfer-note">
         <LumiIcon name="download" :size="15" />
-        <text>原图正在后台保存到画廊，当前图片可以正常预览和下载，完成后会自动切换为永久地址。</text>
+        <text>高清原图正在后台安全保存到画廊，完成后自动切换为永久地址，届时可放大查看和保存到相册。</text>
       </view>
     </view>
     <view class="tab-bar">
@@ -2342,6 +2411,26 @@ function goMine() { goRootTab("/pages/mine/index"); }
 .result-img image {
   width: 100%;
   height: 100%;
+}
+
+.result-img-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--bg-soft, #f2f4f8);
+  color: var(--fg-muted, #8a93a6);
+  text-align: center;
+}
+
+.result-img-fallback .fallback-text {
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .result-cell {
