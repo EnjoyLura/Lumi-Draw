@@ -44,8 +44,21 @@ Environment variables:
 - `CDN_PREFETCH_L2=false`, optionally prefetch only to L2 POPs
 - `CDN_API_ENDPOINT=cdn.aliyuncs.com`
 - `TRANSFER_CALLBACK_TOKEN`
-- `API_CALLBACK_URL`, used to finish URL-to-OSS transfers
-- `GENERATION_CALLBACK_URL`, used by Base64 generation and progress callbacks
+- `API_CALLBACK_URL`, used to finish URL-to-OSS transfers. Engine v3 value:
+  `https://ejoyflie.cloud/api/engine/callbacks/transfer`
+- `GENERATION_CALLBACK_URL`, used by Base64 generation and progress callbacks. Engine v3 value:
+  `https://ejoyflie.cloud/api/engine/callbacks/generation`
+
+Always set `GENERATION_CALLBACK_URL` explicitly. When it is missing, the function derives it
+from `API_CALLBACK_URL` by replacing a trailing `/transfers/complete` with `/executions/complete`,
+which produces the pre-v3 legacy path and silently breaks generation callbacks.
+
+> 2026-09-18 production note: the deployed function still carried the pre-v3 callback URLs
+> (`/api/generate/transfers/complete` + derived `/api/generate/executions/complete`), so every
+> FC generation callback 404'd after the legacy generate module was removed. The server nginx
+> (`/etc/nginx/sites-enabled/lumi-draw`) now bridges both legacy paths to the engine callbacks.
+> After updating the FC environment variables to the values above, remove the
+> "Aliyun FC legacy callback bridge" location blocks from nginx.
 
 Runtime requirements:
 
