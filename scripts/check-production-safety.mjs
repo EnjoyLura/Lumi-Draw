@@ -106,7 +106,6 @@ for (const name of [
   "WX_APPID",
   "WX_APPSECRET",
   "WX_CONTENT_SECURITY_TOKEN",
-  "KIE_API_KEY",
   "OSS_ACCESS_KEY_ID",
   "OSS_ACCESS_KEY_SECRET",
   "OSS_BUCKET",
@@ -115,7 +114,8 @@ for (const name of [
   requireValue(name);
 }
 
-requireHttpsUrl("KIE_CALLBACK_URL");
+// 任务回调地址可选：不配置则平台不接收上游回调，配置了必须走 https。
+if (value("ENGINE_CALLBACK_URL")) requireHttpsUrl("ENGINE_CALLBACK_URL");
 
 const corsOrigins = value("CORS_ORIGINS");
 if (!corsOrigins) {

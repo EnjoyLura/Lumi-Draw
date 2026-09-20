@@ -1,8 +1,8 @@
 import type { ProviderSizeConfig } from "../common/provider-size";
 import type { ProviderResultUrlRewriteRule } from "../common/provider-result-url";
 
-/** 协议适配器族。新平台优先用 async-http 配置接入，只有新协议才需要新适配器。 */
-export type AdapterKind = "openai-images" | "gemini" | "kie" | "async-http";
+/** 协议适配器族。新平台一律用 async-http 的配置接入，只有新协议族才需要新适配器。 */
+export type AdapterKind = "openai-images" | "gemini" | "async-http";
 
 /** 引擎任务的内部状态机。 */
 export const ENGINE_JOB_STATUSES = [
@@ -114,7 +114,8 @@ export interface ProviderAdapter {
   readonly requestMode: "sync" | "async";
   submit(ctx: AdapterContext, req: NormalizedRequest): Promise<AdapterSubmitResult>;
   poll?(ctx: AdapterContext, taskId: string): Promise<ProviderEvent>;
-  parseCallback?(payload: unknown): ProviderEvent;
+  /** 上游主动回调的事件解析；异步平台按自身 responseMapping 归一，不需要写代码。 */
+  parseCallback?(payload: unknown, config: ProviderConfig): ProviderEvent;
 }
 
 /** 上游错误分类。引擎的整条重试/退款策略只认这个结构，不再解析错误文案。 */

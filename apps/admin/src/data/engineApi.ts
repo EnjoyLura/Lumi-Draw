@@ -1,7 +1,7 @@
 // 生图引擎 v3 管理端 API：/admin/engine/*（平台 CRUD / 元数据 / 连通性测试 / 健康统计）。
 import { http } from "./http";
 
-export type EngineAdapterKind = "openai-images" | "gemini" | "kie" | "async-http";
+export type EngineAdapterKind = "openai-images" | "gemini" | "async-http";
 
 export interface EngineAdapterMeta {
   kind: EngineAdapterKind;

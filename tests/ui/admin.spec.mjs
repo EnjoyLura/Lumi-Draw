@@ -79,18 +79,18 @@ test("admin manages generation API platforms and model bindings", async ({ page 
   await page.locator(".drawer.show .ditem", { hasText: "API 平台" }).click();
   const ainbCard = page.locator(".page-body .card", { hasText: "Ainb" }).first();
   await expect(ainbCard).toBeVisible();
-  await expect(ainbCard.getByText(/密钥已配置/)).toBeVisible();
+  await expect(ainbCard.getByText("https://ainb.plus/v1/images/generations", { exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: "新增 API 平台" }).click();
-
-  const sheet = page.locator(".sheet.show");
-  await expect(sheet.getByText("接口类型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("生效的创作模型", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("文生图完整接口 URL", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("文生图请求参数", { exact: true })).toBeVisible();
-  await expect(sheet.getByText("启用图生图", { exact: true })).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "添加请求参数" })).toBeVisible();
-  await expect(sheet.locator('input[type="checkbox"]')).toHaveCount(MODEL_COUNT + 2);
-  await expect(sheet.getByRole("button", { name: "保存" })).toBeVisible();
+  const editor = page.locator(".page-body");
+  // 单页渐进披露：常驻只有身份、接入、密钥、能力四段，协议细节默认收起
+  await expect(editor.getByText("平台身份", { exact: true })).toBeVisible();
+  await expect(editor.getByText("接口地址", { exact: true })).toBeVisible();
+  await expect(editor.getByText("生成能力", { exact: true })).toBeVisible();
+  await expect(editor.locator("select").first().locator("option")).toHaveCount(3);
+  await expect(editor.getByText("文生图请求参数", { exact: true })).toBeVisible();
+  await expect(editor.getByText("响应字段映射", { exact: true })).toHaveCount(0);
+  await editor.getByText("协议细节", { exact: true }).click();
+  await expect(editor.getByText("响应字段映射", { exact: true })).toBeVisible();
+  await expect(editor.getByRole("button", { name: "创建平台" })).toBeVisible();
 });
-
-const MODEL_COUNT = 6;

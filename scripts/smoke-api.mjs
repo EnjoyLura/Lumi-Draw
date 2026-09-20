@@ -737,8 +737,9 @@ async function main() {
         "/admin/models",
         {
           id: modelId,
-          provider: "kie",
+          provider: "ainb",
           providerModel: "smoke-provider-model",
+          providerModelImage: "smoke-provider-model-edit",
           name: "smoke model",
           description: "smoke model",
           tags: ["smoke"],

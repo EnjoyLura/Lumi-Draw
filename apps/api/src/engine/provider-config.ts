@@ -139,6 +139,15 @@ export function editEndpointFromGenerations(baseUrl: string): string {
   return `${trimmed}/edits`;
 }
 
+/**
+ * 平台是否承接某个操作。图生图允许只填文生图地址：单端点协议（Gemini）共用地址，
+ * OpenAI 兼容协议按 /generations → /edits 推导，因此不必强制填写图生图端点。
+ */
+export function providerSupportsOperation(config: ProviderConfig, operation: "text-to-image" | "image-to-image"): boolean {
+  if (!config.baseUrl) return false;
+  return operation === "image-to-image" ? Boolean(config.imageToImageEnabled) : Boolean(config.textToImageEnabled);
+}
+
 /** 按操作解析生成端点：图生图优先 imageEndpoint，Gemini 单端点内替换 {model}。 */
 export function resolveGenerationEndpoint(
   config: ProviderConfig,

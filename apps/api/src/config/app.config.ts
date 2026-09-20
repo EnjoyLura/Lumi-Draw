@@ -33,6 +33,7 @@ export const appConfig = registerAs("app", () => ({
   jwtSecret: process.env.JWT_SECRET ?? "dev-jwt-secret",
   adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? "dev-admin-jwt-secret",
   callbackSecret: process.env.CALLBACK_SECRET ?? "",
+  engineCallbackUrl: process.env.ENGINE_CALLBACK_URL ?? "",
   generationProviderEncryptionKey: process.env.GENERATION_PROVIDER_ENCRYPTION_KEY ?? "",
   auth: {
     // 开发环境默认允许 mock 登录；生产需显式开启
@@ -63,11 +64,6 @@ export const appConfig = registerAs("app", () => ({
     virtualPayEnv: parseVirtualPayEnv(process.env.WX_VIRTUAL_PAY_ENV),
     sessionEncryptionKey: process.env.WX_SESSION_ENCRYPTION_KEY ?? "",
     virtualMemberProductPrefix: process.env.WX_VIRTUAL_MEMBER_PRODUCT_PREFIX ?? "lumi_member_"
-  },
-  kie: {
-    apiBase: process.env.KIE_API_BASE ?? "https://api.kie.ai",
-    apiKey: process.env.KIE_API_KEY ?? "",
-    callbackUrl: process.env.KIE_CALLBACK_URL ?? ""
   },
   change2pro: {
     apiBase: process.env.CHANGE2PRO_API_BASE ?? "https://api.change2pro.com",

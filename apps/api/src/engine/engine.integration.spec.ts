@@ -23,7 +23,7 @@ function testConfig(overrides: Record<string, unknown> = {}) {
     "app.generate.allowMock": false,
     "app.callbackSecret": "",
     "app.generationProviderEncryptionKey": "engine-integration-test-master-secret",
-    "app.kie": { callbackUrl: "" },
+    "app.engineCallbackUrl": "",
     ...overrides
   };
   return { get: (key: string) => values[key] } as never;

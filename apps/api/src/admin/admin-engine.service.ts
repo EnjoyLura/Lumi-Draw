@@ -176,9 +176,7 @@ export class AdminEngineService {
         ? "/models"
         : config.adapter === "gemini"
           ? "/v1beta/models"
-          : config.adapter === "kie"
-            ? "/api/v1/jobs/recordInfo"
-            : base.pathname + base.search;
+          : base.pathname + base.search;
       probeUrl = new URL(path, origin);
     } catch {
       throw new BadRequestException("Base URL 无效");

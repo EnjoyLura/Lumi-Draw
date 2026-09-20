@@ -30,7 +30,7 @@ const FIELDS = {
   style: ["name", "prompt", "uses", "imageUrl", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
   hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
-  modelConfig: ["id", "provider", "providerRouting", "providerModel", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
+  modelConfig: ["id", "provider", "providerRouting", "providerModel", "providerModelImage", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
   qualityConfig: ["label", "pixel", "multiplier", "enabled", "sort"],
   ratioConfig: ["label", "description", "enabled", "sort"],
   rechargeTier: ["price", "credits", "bonus", "enabled", "sort"],
@@ -189,7 +189,7 @@ export class AdminConfigService {
     requireFields(b, ["id", "providerModel", "name", "description"]);
     const data = pick(b, FIELDS.modelConfig);
     data.providerRouting = normalizeProviderRouting(data.providerRouting);
-    await this.assertModelProviderRouting(String(data.id), String(data.provider || "kie"), data.providerRouting, Boolean(data.enabled ?? true));
+    await this.assertModelProviderRouting(String(data.id), String(data.provider ?? ""), data.providerRouting, Boolean(data.enabled ?? true));
     return this.prisma.modelConfig.create({ data: data as never });
   }
   async updateModel(id: string, b: Record<string, unknown>) {
@@ -212,7 +212,7 @@ export class AdminConfigService {
 
   private async assertModelProviderRouting(_modelId: string, defaultProvider: string, routingValue: unknown, modelEnabled: boolean) {
     const routing = normalizeProviderRouting(routingValue);
-    const providerIds = [...new Set([defaultProvider, ...Object.values(routing).flat()])];
+    const providerIds = [...new Set([defaultProvider, ...Object.values(routing).flat()])].filter(Boolean);
     const providers = await this.prisma.generationProvider.findMany({
       where: { id: { in: providerIds } },
       select: { id: true, enabled: true }

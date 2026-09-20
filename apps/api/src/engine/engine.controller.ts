@@ -83,9 +83,9 @@ export class EngineController {
     return this.engine.reversePrompt(user.id, dto);
   }
 
-  @Post("callbacks/kie")
-  handleKieCallback(@Body() body: Record<string, unknown>, @Query() query: Record<string, string | undefined>) {
-    return this.engine.handleKieCallback(body, {
+  @Post("callbacks/task")
+  handleTaskCallback(@Body() body: Record<string, unknown>, @Query() query: Record<string, string | undefined>) {
+    return this.engine.handleTaskCallback(body, {
       secret: typeof query.secret === "string" ? query.secret : undefined,
       jobId: typeof query.jobId === "string" ? query.jobId : undefined,
       sig: typeof query.sig === "string" ? query.sig : undefined

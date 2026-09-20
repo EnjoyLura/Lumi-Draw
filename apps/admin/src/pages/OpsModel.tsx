@@ -100,6 +100,7 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
   const [cost, setCost] = useState(String(m?.cost ?? 10));
   const [badge, setBadge] = useState(m?.badge ?? "");
   const [providerModel, setProviderModel] = useState(m?.providerModel ?? id);
+  const [providerModelImage, setProviderModelImage] = useState(m?.providerModelImage ?? "");
   const [providerRouting, setProviderRouting] = useState<ProviderRouting>(() => Object.fromEntries(
     tiers.flatMap((tier) => {
       const configured = m?.providerRouting?.[tier] || [];
@@ -125,7 +126,8 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
       badge: badge === "无" ? "" : badge,
       provider: firstProvider,
       providerRouting,
-      providerModel: providerModel.trim() || id || firstProvider
+      providerModel: providerModel.trim() || id || firstProvider,
+      providerModelImage: providerModelImage.trim()
     };
     setSaving(true);
     try {
@@ -163,6 +165,8 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
       <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="如：GPT Image 2" />
       <label className="field-label" style={{ marginTop: 12 }}>上游模型名称</label>
       <input className="input" value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="未在 API 参数中配置 model 时使用" />
+      <label className="field-label" style={{ marginTop: 12 }}>图生图上游模型名称</label>
+      <input className="input" value={providerModelImage} onChange={(event) => setProviderModelImage(event.target.value)} placeholder="图生图与文生图任务名不同才填，留空沿用上行" />
       <label className="field-label" style={{ marginTop: 12 }}>模型描述</label>
       <input className="input" value={desc} onChange={(event) => setDesc(event.target.value)} placeholder="如：画质细腻·理解力强" />
       <label className="field-label" style={{ marginTop: 12 }}>优势标签</label>

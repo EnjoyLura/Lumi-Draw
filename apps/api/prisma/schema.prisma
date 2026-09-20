@@ -87,9 +87,11 @@ model HotSearch {
 // AI 模型配置 ModelConfig
 model ModelConfig {
   id                   String   @id
-  provider             String   @default("kie")
+  provider             String   @default("")
   providerRouting      Json     @default("{}")
   providerModel        String
+  // 图生图上游任务名：部分平台同一模型的文生图/图生图是两个任务名，留空沿用 providerModel
+  providerModelImage   String?
   name                 String
   description          String
   tags                 String[]

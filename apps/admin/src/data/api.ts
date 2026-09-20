@@ -478,7 +478,7 @@ export async function apiDeleteHotSearch(id: number) {
 }
 
 interface ApiModelConfig {
-  id: string; provider?: string; providerRouting?: Record<string, string | string[]>; providerModel: string; name: string; description: string;
+  id: string; provider?: string; providerRouting?: Record<string, string | string[]>; providerModel: string; providerModelImage?: string | null; name: string; description: string;
   tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
   supportsTextToImage: boolean; supportsImageToImage: boolean;
 }
@@ -492,7 +492,7 @@ function mapModelConfig(m: ApiModelConfig): AdminModel {
     const ids = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
     return ids.length ? [[tier, ids]] : [];
   })) as AdminModel["providerRouting"];
-  return { id: m.id, provider: m.provider, providerRouting, providerModel: m.providerModel, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+  return { id: m.id, provider: m.provider, providerRouting, providerModel: m.providerModel, providerModelImage: m.providerModelImage || undefined, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
 }
 
 export async function apiGetModels() {
@@ -503,9 +503,10 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
   const modelId = id || values.id || `model-${Date.now()}`;
   const body = {
     id: modelId,
-    provider: values.provider || "kie",
+    provider: values.provider || "",
     providerRouting: values.providerRouting || {},
     providerModel: values.providerModel || modelId,
+    providerModelImage: values.providerModelImage || "",
     name: values.name,
     description: values.desc,
     tags: values.tags,

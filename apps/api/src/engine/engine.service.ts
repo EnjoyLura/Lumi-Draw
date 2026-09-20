@@ -12,7 +12,7 @@ import { CreditsService } from "../credits/credits.service";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { resolveProviderIds } from "../common/provider-routing";
 import { decryptProviderApiKey } from "../common/provider-secret";
-import { normalizeProviderParams } from "./provider-runtime";
+import { normalizeProviderParams, resolveModelTaskName } from "./provider-runtime";
 import { normalizeProviderResultUrlRewriteRules, rewriteProviderResultUrl } from "../common/provider-result-url";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
@@ -36,8 +36,8 @@ import {
   type ProviderErrorKind,
   type ProviderEvent
 } from "./engine.types";
-import { buildAdapterContext, kieCallbackTaskId, resolveAdapter } from "./adapters";
-import { FAILURE_CODES, readProviderConfig, resolveAdapterKind, resolveFcGeneration } from "./provider-config";
+import { buildAdapterContext, callbackTaskId, resolveAdapter } from "./adapters";
+import { FAILURE_CODES, providerSupportsOperation, readProviderConfig, resolveAdapterKind, resolveFcGeneration } from "./provider-config";
 import { EngineStorageService } from "./engine-storage.service";
 
 type JobWithRelations = EngineJob & { assets: EngineAsset[]; attempts?: EngineAttempt[] };
@@ -68,8 +68,8 @@ function mockImageUrl(seed: string) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-/** KIE 回调 per-job 签名：HMAC-SHA256(secret, jobId)，回调侧 timing-safe 校验。 */
-export function kieCallbackSignature(secret: string, jobId: string): string {
+/** 任务回调 per-job 签名：HMAC-SHA256(secret, jobId)，回调侧 timing-safe 校验。 */
+export function callbackSignature(secret: string, jobId: string): string {
   return createHmac("sha256", secret).update(jobId).digest("hex");
 }
 
@@ -229,7 +229,7 @@ export class EngineService {
     return this.submitIfQueued(await this.loadJob(created.job.id), created.balance);
   }
 
-  private async resolvePrimaryProvider(model: ModelConfig, quality: QualityConfig, operation: string) {
+  private async resolvePrimaryProvider(model: ModelConfig, quality: QualityConfig, operation: "text-to-image" | "image-to-image") {
     const providerIds = resolveProviderIds(model.provider, model.providerRouting, quality.label);
     const rows = await this.prisma.generationProvider.findMany({ where: { id: { in: providerIds }, enabled: true } });
     const byId = new Map(rows.map((row) => [row.id, row]));
@@ -238,9 +238,8 @@ export class EngineService {
       .filter((row): row is GenerationProvider => {
         if (!row) return false;
         const config = readProviderConfig(row);
-        const endpoint = operation === "image-to-image" ? config.imageEndpoint : config.baseUrl;
-        const enabled = operation === "image-to-image" ? config.imageToImageEnabled && config.imageEndpoint : config.textToImageEnabled && config.baseUrl;
-        return Boolean(enabled && endpoint && (config.authMode === "none" || this.resolveProviderApiKey(row.apiKeyEncrypted, row.apiKeyEnv)));
+        return providerSupportsOperation(config, operation)
+          && (config.authMode === "none" || Boolean(this.resolveProviderApiKey(row.apiKeyEncrypted, row.apiKeyEnv)));
       });
     const primary = usable[0];
     if (!primary) throw new BadRequestException("当前模型和分辨率没有可用的 API 平台，请联系管理员");
@@ -250,7 +249,8 @@ export class EngineService {
       providerName: primary.name,
       adapterKind: config.adapter,
       requestMode: config.requestMode,
-      providerModel: normalizeProviderParams(operation === "image-to-image" ? config.imageRequestParams : config.requestParams).model || model.providerModel,
+      providerModel: normalizeProviderParams(operation === "image-to-image" ? config.imageRequestParams : config.requestParams).model
+        || resolveModelTaskName(model, operation),
       config,
       apiKeyEncrypted: primary.apiKeyEncrypted,
       apiKeyEnv: primary.apiKeyEnv,
@@ -472,18 +472,16 @@ export class EngineService {
 
     let targetIndex = decision === "retry-same" ? job.providerAttemptIndex : job.providerAttemptIndex + 1;
     // 试运行任务（modelId="dry-run"）没有 ModelConfig 行；缺失时回落到任务快照里的上游模型名。
-    const model = await this.prisma.modelConfig.findUnique({ where: { id: job.modelId }, select: { providerModel: true } });
+    const model = await this.prisma.modelConfig.findUnique({ where: { id: job.modelId }, select: { providerModel: true, providerModelImage: true } });
+    const operation = job.operation as "text-to-image" | "image-to-image";
     let selected: { provider: GenerationProvider; config: ProviderConfig } | null = null;
     while (targetIndex < candidates.length) {
       const candidateId = candidates[targetIndex];
       const provider = await this.prisma.generationProvider.findFirst({ where: { id: candidateId, enabled: true } });
       if (provider) {
         const config = readProviderConfig(provider);
-        const endpoint = job.operation === "image-to-image" ? config.imageEndpoint : config.baseUrl;
-        const modeEnabled = job.operation === "image-to-image"
-          ? config.imageToImageEnabled && config.imageEndpoint
-          : config.textToImageEnabled && config.baseUrl;
-        if (modeEnabled && endpoint && (config.authMode === "none" || this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))) {
+        if (providerSupportsOperation(config, operation)
+          && (config.authMode === "none" || this.resolveProviderApiKey(provider.apiKeyEncrypted, provider.apiKeyEnv))) {
           selected = { provider, config };
           break;
         }
@@ -502,7 +500,7 @@ export class EngineService {
       providerName: selected.provider.name,
       adapterKind: nextConfig.adapter,
       requestMode: nextConfig.requestMode,
-      providerModel: params.model || model?.providerModel || this.readSnapshot(job).providerModel,
+      providerModel: params.model || (model ? resolveModelTaskName(model, operation) : "") || this.readSnapshot(job).providerModel,
       config: nextConfig,
       apiKeyEncrypted: selected.provider.apiKeyEncrypted,
       apiKeyEnv: selected.provider.apiKeyEnv
@@ -709,20 +707,20 @@ export class EngineService {
 
   // ---------------- 回调 ----------------
 
-  async handleKieCallback(body: Record<string, unknown>, query: { secret?: string; jobId?: string; sig?: string } = {}) {
+  async handleTaskCallback(body: Record<string, unknown>, query: { secret?: string; jobId?: string; sig?: string } = {}) {
     const callbackSecret = this.config.get<string>("app.callbackSecret") || "";
     let signedJobId = "";
     if (callbackSecret) {
-      const signatureOk = Boolean(query.jobId && query.sig && timingSafeEqualStrings(kieCallbackSignature(callbackSecret, query.jobId), query.sig));
+      const signatureOk = Boolean(query.jobId && query.sig && timingSafeEqualStrings(callbackSignature(callbackSecret, query.jobId), query.sig));
       const sharedOk = timingSafeEqualStrings(query.secret, callbackSecret);
       if (!signatureOk && !sharedOk) throw new UnauthorizedException("invalid callback signature");
       if (signatureOk) signedJobId = query.jobId as string;
     } else if (process.env.NODE_ENV === "production") {
       throw new UnauthorizedException("callback secret not configured");
     } else {
-      this.logger.warn("CALLBACK_SECRET 未配置，开发环境放行 KIE 回调；生产环境将直接拒绝");
+      this.logger.warn("CALLBACK_SECRET 未配置，开发环境放行任务回调；生产环境将直接拒绝");
     }
-    const taskId = kieCallbackTaskId(body);
+    const taskId = callbackTaskId(body);
     if (!taskId) throw new BadRequestException("callback missing taskId");
     const attempt = await this.prisma.engineAttempt.findFirst({
       where: { upstreamTaskId: taskId, state: { in: ["submitted", "pending"] } },
@@ -735,9 +733,10 @@ export class EngineService {
     }
     // 签名回调必须与任务归属一致，防止跨任务重放。
     if (signedJobId && attempt.jobId !== signedJobId) throw new UnauthorizedException("callback signature does not match job");
-    const adapter = resolveAdapter((attempt.adapter || "kie") as AdapterKind, "async");
+    const adapter = resolveAdapter((attempt.adapter || "async-http") as AdapterKind, "async");
     if (!adapter.parseCallback) throw new BadRequestException("adapter does not support callbacks");
-    return this.toJobView(await this.applyProviderEvent(attempt.jobId, adapter.parseCallback(body)));
+    const job = await this.loadJob(attempt.jobId);
+    return this.toJobView(await this.applyProviderEvent(job.id, adapter.parseCallback(body, this.readSnapshot(job).config)));
   }
 
   async handleTransferCallback(token: string | undefined, input: Parameters<EngineStorageService["completeTransfer"]>[1]) {
@@ -882,20 +881,18 @@ export class EngineService {
   }
 
   /**
-   * KIE 回调地址：兼容旧 env（/generate/callback 自动改写为 v3 路由），
-   * 并对具体任务附加 per-job HMAC 签名，回调侧 timing-safe 校验。
+   * 任务回调地址：留空则不下发（通用协议模板里的 {{callback_url}} 渲染为空串）。
+   * 对具体任务附加 per-job HMAC 签名，回调侧 timing-safe 校验。
    */
   private buildCallbackUrl(jobId?: string): string {
-    const kie = this.config.get<{ callbackUrl?: string }>("app.kie");
-    let base = (kie?.callbackUrl || "").trim();
+    const base = (this.config.get<string>("app.engineCallbackUrl") || "").trim();
     if (!base) return "";
-    if (base.includes("/generate/callback")) base = base.replace("/generate/callback", "/engine/callbacks/kie");
     const secret = this.config.get<string>("app.callbackSecret") || "";
     if (!jobId || !secret) return base;
     try {
       const url = new URL(base);
       url.searchParams.set("jobId", jobId);
-      url.searchParams.set("sig", kieCallbackSignature(secret, jobId));
+      url.searchParams.set("sig", callbackSignature(secret, jobId));
       return url.toString();
     } catch {
       return base;

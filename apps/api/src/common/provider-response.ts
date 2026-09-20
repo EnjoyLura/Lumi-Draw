@@ -2,6 +2,18 @@ function asRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
+/** 中转平台常把子结构二次序列化成字符串（如 data.resultJson），路径继续下钻时先解一层。 */
+function unwrapJson(value: unknown) {
+  if (typeof value !== "string") return value;
+  const text = value.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return value;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return value;
+  }
+}
+
 export function valuesAtPath(input: unknown, path: string) {
   if (!path.trim()) return [];
   let values: unknown[] = [input];
@@ -10,7 +22,8 @@ export function valuesAtPath(input: unknown, path: string) {
     const segment = expandsArray ? rawSegment.slice(0, -2) : rawSegment;
     const next: unknown[] = [];
     for (const value of values) {
-      const child = segment ? asRecord(value)?.[segment] : value;
+      const source = unwrapJson(value);
+      const child = segment ? asRecord(source)?.[segment] : source;
       if (expandsArray) {
         if (Array.isArray(child)) next.push(...child);
       } else if (child !== undefined && child !== null) {

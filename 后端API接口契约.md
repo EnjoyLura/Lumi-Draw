@@ -9,13 +9,13 @@
 - 提供统一 REST API，基础路径为 `/api`。
 - 支持微信静默登录、用户资料、积分、作品、配置、AI 生成任务、支付、审核和管理后台。
 - 保留前端模拟数据开关；开关开启时前端走 mock，关闭时走本文档接口。
-- KIE.AI 统一由后端发起任务、接收回调、轮询兜底，前端不直接持有 KIE Key。
+- 生图上游统一由后端发起任务、接收回调并轮询兜底，前端不持有任何平台 Key。
 - OSS 上传、微信支付、微信内容审核等敏感能力全部由后端签名或代理。
 
 非目标：
 
 - 不在前端保存任何真实密钥。
-- 不让小程序直接请求 KIE、OSS 管理接口、微信支付商户接口。
+- 不让小程序直接请求生图平台、OSS 管理接口、微信支付商户接口。
 - 不在本文档写真实密钥值。
 
 ## 2. 通用约定
@@ -208,7 +208,6 @@ interface GenerateJob {
   status: GenerateJobStatus;
   progress: number;
   stageText: string;
-  kieTaskId?: string;
   results: GenerateResult[];
   errorMessage?: string;
   createdAt: string;
@@ -656,11 +655,11 @@ AI 模型列表。
 
 反推提示词（限流 5 次/分钟），成功才扣 2 积分。
 
-#### POST `/engine/callbacks/kie?jobId=...&sig=...`、POST `/engine/callbacks/transfer`、POST `/engine/callbacks/generation`
+#### POST `/engine/callbacks/task?jobId=...&sig=...`、POST `/engine/callbacks/transfer`、POST `/engine/callbacks/generation`
 
-服务端间回调（KIE 任务、FC 转存、生成回调），小程序不直接调用。
+服务端间回调（上游任务回调、FC 转存、生成回调），小程序不直接调用。
 
-- KIE 回调：下发给上游的 callbackUrl 附带 per-job 签名 `jobId` + `sig`（`sig = HMAC-SHA256(CALLBACK_SECRET, jobId)`），服务端 timing-safe 校验并核对回调 taskId 归属该 job；仍兼容旧的共享 `?secret=`。生产环境未配置 `CALLBACK_SECRET` 时直接拒绝。
+- 任务回调：下发给上游的 callbackUrl 附带 per-job 签名 `jobId` + `sig`（`sig = HMAC-SHA256(CALLBACK_SECRET, jobId)`），服务端 timing-safe 校验并核对回调 taskId 归属该 job；回调体按该平台自己的 `responseMapping` 解析，不再区分具体供应商。仍兼容旧的共享 `?secret=`。生产环境未配置 `CALLBACK_SECRET` 时直接拒绝。
 - transfer / generation 回调：`X-Lumi-Transfer-Token` 请求头（timing-safe 比较），与 FC 函数共享 `IMAGE_TRANSFER_BEARER_TOKEN`。
 
 ### 4.8 积分、签到、邀请、会员
@@ -1021,8 +1020,9 @@ MVP 可先做账号密码登录；后续可接企业微信或二次验证。
 ```ts
 interface AdminModelConfig {
   id: string;
-  provider: "kie";
-  providerModel: "gpt-image-2" | "nano-banana-2" | "nano-banana-pro" | "seedream-4-5";
+  provider: string;
+  providerModel: string;
+  providerModelImage?: string | null;
   name: string;
   description: string;
   tags: string[];
@@ -1317,7 +1317,7 @@ MVP 必需表：
 - 积分扣减、失败退款、充值到账有流水。
 - 管理后台关闭 mock 后不再抛未实现错误。
 - 管理后台能查看和修改用户、作品、审核、运营、财务、消息、系统配置。
-- KIE 回调、微信支付回调均可重复调用且幂等。
+- 任务回调、微信支付回调均可重复调用且幂等。
 - 所有敏感配置只存在服务器环境变量或本地 `agent.md`，不进入 Git。
 
 ## 10. 当前实现补充：作品互动 / 社交闭环

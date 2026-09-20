@@ -13,7 +13,7 @@ export function adapterMetadata() {
       requestMode: "sync" as const,
       description: "OpenAI /v1/images/generations、/v1/images/edits 同步协议及兼容聚合平台",
       requiredFields: ["baseUrl"],
-      optionalFields: ["imageEndpoint", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField"],
+      optionalFields: ["imageEndpoint", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "resultUrlRewriteRules"],
       defaults: { requestMode: "sync", authMode: "bearer", imageInputMode: "multipart", imageInputField: "image", sizeMode: "pixels", pixelSizeField: "size" }
     },
     {
@@ -22,25 +22,16 @@ export function adapterMetadata() {
       requestMode: "sync" as const,
       description: "Google Gemini :generateContent 图像协议，参考图以内联 base64 传递",
       requiredFields: ["baseUrl"],
-      optionalFields: ["requestParams", "sizeMode", "resolutionField", "ratioField"],
+      optionalFields: ["requestParams", "ratioField", "resolutionField", "resultUrlRewriteRules"],
       defaults: { requestMode: "sync", authMode: "raw", authHeaderName: "x-goog-api-key", sizeMode: "ratio-resolution", ratioField: "aspectRatio", resolutionField: "imageSize" }
-    },
-    {
-      kind: "kie" as const,
-      label: "KIE 任务协议",
-      requestMode: "async" as const,
-      description: "KIE createTask/recordInfo 异步任务协议，支持回调",
-      requiredFields: ["baseUrl"],
-      optionalFields: ["queryEndpoint", "responseMapping", "requestParams", "imageRequestParams", "statusEnabled"],
-      defaults: { requestMode: "async", authMode: "bearer", queryEndpoint: "{baseUrl}/api/v1/jobs/recordInfo" }
     },
     {
       kind: "async-http" as const,
       label: "通用 HTTP（模板 + 轮询）",
       requestMode: "sync" as const,
-      description: "请求模板 + 响应映射驱动，接入新的提交/轮询型平台无需写代码",
+      description: "请求模板 + 响应字段映射驱动，接入任何「提交即返回」或「提交 + 轮询/回调」型平台都无需改代码",
       requiredFields: ["baseUrl"],
-      optionalFields: ["imageEndpoint", "queryEndpoint", "requestTemplate", "imageRequestTemplate", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "ratioField", "resolutionField", "statusEnabled", "authMode", "authHeaderName", "authQueryName", "requestHeaders", "queryHeaders", "injectModel", "injectCount"],
+      optionalFields: ["requestMode", "imageEndpoint", "queryEndpoint", "statusEnabled", "requestTemplate", "imageRequestTemplate", "responseMapping", "requestParams", "imageRequestParams", "imageInputMode", "imageInputField", "sizeMode", "pixelSizeField", "ratioField", "resolutionField", "authMode", "authHeaderName", "authQueryName", "requestHeaders", "queryHeaders", "injectModel", "injectCount", "resultUrlRewriteRules"],
       defaults: { requestMode: "async", authMode: "bearer", imageInputMode: "url-array", imageInputField: "image_urls", sizeMode: "pixels", pixelSizeField: "size", injectModel: true, injectCount: true }
     }
   ];
@@ -52,4 +43,4 @@ export function findAdapterMetadata(kind: string): AdapterMetaEntry | undefined 
   return adapterMetadata().find((entry) => entry.kind === kind);
 }
 
-export const ADAPTER_KINDS: AdapterKind[] = ["openai-images", "gemini", "kie", "async-http"];
+export const ADAPTER_KINDS: AdapterKind[] = ["openai-images", "gemini", "async-http"];

@@ -40,8 +40,8 @@ export class GeminiAdapter implements ProviderAdapter {
       Object.entries(req.params)
         .filter(([key]) => key !== "model")
         .forEach(([key, value]) => { imageConfig[key] = value; });
-      imageConfig.imageSize = req.quality.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() ?? "1K";
-      imageConfig.aspectRatio = SUPPORTED_RATIOS.has(req.ratio) ? req.ratio : "1:1";
+      imageConfig[config.resolutionField || "imageSize"] = req.quality.match(/\b(1K|2K|4K)\b/i)?.[1]?.toUpperCase() ?? "1K";
+      imageConfig[config.ratioField || "aspectRatio"] = SUPPORTED_RATIOS.has(req.ratio) ? req.ratio : "1:1";
       const payload = await requestJson(endpoint, {
         method: "POST",
         headers: {

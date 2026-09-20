@@ -1,4 +1,4 @@
-import { firstStringAtPath, stringValuesAtPath } from "../../common/provider-response";
+import { firstNumberAtPath, firstStringAtPath, stringValuesAtPath } from "../../common/provider-response";
 import { buildProviderSizeParams, sizeParamKeys, requestJson, authHeaders, authenticatedUrl, downloadReferenceImage, extensionFor, renderTemplate, asRecord } from "./adapter-http";
 import type {
   AdapterContext,
@@ -6,6 +6,7 @@ import type {
   AdapterSubmitResult,
   NormalizedRequest,
   ProviderAdapter,
+  ProviderConfig,
   ProviderEvent
 } from "../engine.types";
 
@@ -20,7 +21,6 @@ type Mapping = {
   errorPath: string;
   successValue: string;
   failureValue: string;
-  pendingValues: string[];
 };
 
 /**
@@ -99,6 +99,11 @@ export class AsyncHttpAdapter implements ProviderAdapter {
     return { state: "running", imageUrls: [], stageText: "", errorMessage: "" };
   }
 
+  /** 上游主动回调与轮询共用同一份响应映射。 */
+  parseCallback(payload: unknown, config: ProviderConfig): ProviderEvent {
+    return this.toEvent(payload, config, normalizeMapping(config.responseMapping));
+  }
+
   /** 单次状态查询，绝不内部循环——轮询节奏由引擎 watchdog 统一调度。 */
   private async pollSingle(ctx: AdapterContext, taskId: string, mapping: Mapping): Promise<ProviderEvent> {
     const config = ctx.config;
@@ -107,16 +112,21 @@ export class AsyncHttpAdapter implements ProviderAdapter {
       method: "GET",
       headers: authHeaders(ctx.apiKey, { ...config, requestHeaders: config.queryHeaders })
     }, { billed: false, timeoutMs: 60_000, label: "async-http poll" });
+    return this.toEvent(payload, config, mapping);
+  }
+
+  private toEvent(payload: unknown, config: ProviderConfig, mapping: Mapping): ProviderEvent {
     const status = firstStringAtPath(payload, mapping.statusPath).toUpperCase();
+    const progress = config.statusEnabled ? normalizeProgress(firstNumberAtPath(payload, mapping.progressPath)) : undefined;
     if (status === mapping.successValue.toUpperCase()) {
       const imageUrls = stringValuesAtPath(payload, mapping.resultUrlPath);
       if (!imageUrls.length) throw new Error("上游任务成功但没有返回图片");
-      return { state: "succeeded", imageUrls, stageText: "", errorMessage: "" };
+      return { state: "succeeded", imageUrls, stageText: "", errorMessage: "", progress: 100 };
     }
     if (status === mapping.failureValue.toUpperCase()) {
       return { state: "failed", imageUrls: [], stageText: "", errorMessage: firstStringAtPath(payload, mapping.errorPath) || "上游任务失败" };
     }
-    return { state: "running", imageUrls: [], stageText: "", errorMessage: "" };
+    return { state: "running", imageUrls: [], stageText: "", errorMessage: "", progress };
   }
 
   private buildJsonPayload(ctx: AdapterContext, req: NormalizedRequest): Record<string, unknown> {
@@ -134,7 +144,9 @@ export class AsyncHttpAdapter implements ProviderAdapter {
       resolution: sizeParams[config.resolutionField] || "",
       size: sizeParams[config.pixelSizeField] || req.ratio,
       image_url: req.inputImageUrls[0] || "",
-      image_urls: req.inputImageUrls
+      image_urls: req.inputImageUrls,
+      callback_url: ctx.callbackUrl,
+      attempt_id: req.attemptId
     };
     const hasTemplate = Object.keys(template).length > 0;
     const source = hasTemplate ? template : req.params;
@@ -190,9 +202,13 @@ export function normalizeMapping(value: Record<string, string>): Mapping {
     resultUrlPath: value.resultUrlPath || "data.data.data[].url",
     errorPath: value.errorPath || "data.fail_reason",
     successValue: value.successValue || "SUCCESS",
-    failureValue: value.failureValue || "FAILURE",
-    pendingValues: (value.pendingValue || "IN_PROGRESS,PENDING,QUEUED").split(/[,\s|]+/).map((item) => item.trim().toUpperCase()).filter(Boolean)
+    failureValue: value.failureValue || "FAILURE"
   };
+}
+
+function normalizeProgress(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  return Math.max(0, Math.min(100, Math.round(value)));
 }
 
 function mappedTaskId(payload: unknown, mapping: Mapping): string {
