@@ -93,8 +93,11 @@ export class UploadsService {
   }
 
   readUrl(url: string, visibility: "private" | "public" = "private") {
-    const oss = this.ossConfig();
     if (!url) return url;
+    // data URI / 外部地址等非托管资源不需要 OSS；OSS 未配置时原样返回而不是报错，
+    // 否则 mock 直出（data URI 资产）的任务视图在无 OSS 环境必然失败。
+    const oss = this.ossConfigOptional();
+    if (!oss) return url;
     const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
     const cdnBaseUrl = this.cdnBaseUrlForVisibility(oss, visibility);
@@ -137,8 +140,9 @@ export class UploadsService {
   }
 
   private readProcessedImageUrl(url: string, visibility: "private" | "public", imageProcess: string) {
-    const oss = this.ossConfig();
     if (!url) return url;
+    const oss = this.ossConfigOptional();
+    if (!oss) return url;
     const ossKey = this.objectKeyFromUrl(url, oss);
     if (!ossKey) return url;
     const cdnBaseUrl = this.cdnBaseUrlForVisibility(oss, visibility);
@@ -304,6 +308,12 @@ export class UploadsService {
   private ossConfig() {
     const oss = this.config.get<OssConfig>("app.oss");
     if (!oss?.accessKeyId || !oss.accessKeySecret || !oss.bucket || !oss.endpoint) throw new BadRequestException("OSS 未配置");
+    return oss;
+  }
+
+  private ossConfigOptional() {
+    const oss = this.config.get<OssConfig>("app.oss");
+    if (!oss?.accessKeyId || !oss.accessKeySecret || !oss.bucket || !oss.endpoint) return null;
     return oss;
   }
 

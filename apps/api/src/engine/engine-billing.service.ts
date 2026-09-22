@@ -201,6 +201,8 @@ export class EngineBillingService {
           await this.credits.addTransactionInTx(tx, job.userId, "refund", partial.refundCredits, "AI生成部分失败返还", refId);
         }
       }
+      // 调用方（创建任务响应等）可能直接消费本次返回体构建视图，
+      // 必须带上 assets，否则同步结算的任务会以"终态+空结果"返回给前端。
       return tx.engineJob.update({
         where: { id: job.id },
         data: {
@@ -213,7 +215,8 @@ export class EngineBillingService {
           ...(walletAdjustment ? { walletBillNo: walletAdjustment.billNo, walletRefunded: walletAdjustment.refunded } : {}),
           startedAt: job.startedAt ?? new Date(),
           finishedAt: new Date()
-        }
+        },
+        include: { assets: true }
       });
     });
   }

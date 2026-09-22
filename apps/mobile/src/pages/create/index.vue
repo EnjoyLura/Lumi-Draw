@@ -1007,6 +1007,12 @@ async function startBackendGenerate(prompt: string) {
     activeBackendJobId = created.jobId;
     addActiveGenerateJobId(created.jobId);
     if (typeof created.creditsAfter === "number") updateCurrentUser({ credits: created.creditsAfter });
+    if (isTerminalJob(created.job.status) && !created.job.results.length) {
+      // 响应即终态但结果列表为空（旧版后端结算体未带 assets）：
+      // 直接渲染会停留空结果页，改走一次轮询拉取完整任务视图补齐资产。
+      beginJobPolling(created.jobId);
+      return;
+    }
     applyBackendJob(created.job);
     if (!isTerminalJob(created.job.status)) {
       notifyGalleryGenerateTaskStarted({
@@ -1032,6 +1038,17 @@ async function startBackendGenerate(prompt: string) {
 }
 
 async function startGenerate() {
+  try {
+    await runStartGenerate();
+  } catch (error) {
+    // 兜底：入口内任何未预期异常都不能让点击"无任何反馈"。
+    isGenerating.value = false;
+    isSubmittingGenerate.value = false;
+    showToast(error instanceof Error && error.message ? error.message : "操作未完成，请稍后重试");
+  }
+}
+
+async function runStartGenerate() {
   if (isGenerationBusy.value) {
     showToast("当前任务仍在生成中，请完成后再提交新的创作");
     return;
