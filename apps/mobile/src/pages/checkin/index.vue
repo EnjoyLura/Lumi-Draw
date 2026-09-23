@@ -26,6 +26,7 @@ const checkinDone = ref(false);
 const checkinStreak = ref(0);
 const nextCredits = ref(0);
 const signedDays = ref<number[]>([]);
+const milestoneList = ref<Array<{ days: number; reward: number }>>(milestones.map(({ days, reward }) => ({ days, reward })));
 const milestoneStates = ref<Record<number, Milestone["state"]>>({});
 const streakPulse = ref(false);
 const todayPulse = ref(false);
@@ -40,10 +41,15 @@ let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 // 里程碑奖励由后端在连续天数恰达标当天随签到自动发放，不存在"可领未领"时刻，
 // 因此不提供 available 状态；提前亮"可领"会让用户误以为当下能领。
 function buildMilestoneStates(streak: number) {
-  return milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
+  return milestoneList.value.reduce<Record<number, Milestone["state"]>>((next, item) => {
     next[item.days] = streak >= item.days ? "claimed" : "locked";
     return next;
   }, {});
+}
+
+function resetMilestones() {
+  milestoneList.value = milestones.map(({ days, reward }) => ({ days, reward }));
+  milestoneStates.value = buildMilestoneStates(0);
 }
 
 milestoneStates.value = buildMilestoneStates(0);
@@ -59,7 +65,7 @@ const calendarDays = computed(() => {
   const endDay = checkinDone.value ? currentDay : currentDay - 1;
   const startDay = checkinStreak.value > 0 ? Math.max(1, endDay - checkinStreak.value + 1) : 0;
   const milestoneDays = new Set(
-    milestones
+    milestoneList.value
       .map((item) => startDay + item.days - 1)
       .filter((day) => startDay > 0 && day >= startDay && day <= daysInCurrentMonth)
   );
@@ -107,6 +113,7 @@ async function loadStatus() {
     checkinDone.value = false;
     checkinStreak.value = 7;
     nextCredits.value = 10;
+    resetMilestones();
     signedDays.value = buildVisibleSignedDays(checkinStreak.value, false);
     milestoneStates.value = buildMilestoneStates(checkinStreak.value);
     loginRequired.value = false;
@@ -117,7 +124,7 @@ async function loadStatus() {
     checkinStreak.value = 0;
     nextCredits.value = 0;
     signedDays.value = [];
-    milestoneStates.value = buildMilestoneStates(0);
+    resetMilestones();
     loginRequired.value = true;
     return;
   }
@@ -125,7 +132,7 @@ async function loadStatus() {
   checkinDone.value = false;
   checkinStreak.value = 0;
   signedDays.value = [];
-  milestoneStates.value = buildMilestoneStates(0);
+  resetMilestones();
 
   isLoading.value = true;
   try {
@@ -133,6 +140,7 @@ async function loadStatus() {
     checkinDone.value = status.checkedToday;
     checkinStreak.value = status.continuousDays;
     nextCredits.value = status.nextCredits;
+    milestoneList.value = status.milestones;
     signedDays.value = buildVisibleSignedDays(status.continuousDays, status.checkedToday);
     milestoneStates.value = buildMilestoneStates(status.continuousDays);
   } catch {
@@ -256,7 +264,7 @@ async function doCheckin() {
         </view>
         <view class="milestone-grid">
           <view
-            v-for="item in milestones"
+            v-for="item in milestoneList"
             :key="item.days"
             class="milestone-card"
             :class="milestoneStates[item.days]"

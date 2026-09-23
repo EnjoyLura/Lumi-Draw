@@ -1,6 +1,6 @@
 // Real API adapter: maps backend responses into the shapes already used by pages.
 import { http, type Paginated } from "./http";
-import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinTier, MemberPlan, VersionItem } from "./mock";
+import type { AdminAnnounce, AdminBanner, AdminCategory, AdminFeedback, AdminGameplay, AdminHotSearch, AdminModel, AdminPush, AdminQuality, AdminRatio, AdminRecharge, AdminReport, AdminStyle, AdminTxn, AdminUser, AdminVersion, AdminWork, CheckinMilestone, CheckinTier, MemberPlan, VersionItem } from "./mock";
 import type { DashboardTodos, TodayMetric } from "./service";
 
 export async function adminLogin(username: string, password: string): Promise<string> {
@@ -626,18 +626,31 @@ export async function apiDeleteMemberPlan(id: number) {
 interface ApiCheckinConfig {
   base?: number;
   tiers?: number[] | CheckinTier[];
+  milestones?: CheckinMilestone[];
 }
+
+export type { CheckinMilestone };
 
 export interface AdminCheckinConfig {
   base: number;
   tiers: CheckinTier[];
+  milestones: CheckinMilestone[];
 }
+
+const DEFAULT_MILESTONES: CheckinMilestone[] = [
+  { days: 3, credits: 20 },
+  { days: 7, credits: 50 },
+  { days: 14, credits: 100 },
+  { days: 30, credits: 300 }
+];
 
 function mapCheckinConfig(c: ApiCheckinConfig): AdminCheckinConfig {
   const raw = c.tiers ?? [2, 2, 2, 3, 3, 3, 5];
+  const rawMilestones = Array.isArray(c.milestones) && c.milestones.length > 0 ? c.milestones : DEFAULT_MILESTONES;
   return {
     base: Number(c.base ?? 2),
-    tiers: raw.map((t, i) => typeof t === "number" ? { day: i + 1, c: t } : { day: t.day, c: t.c })
+    tiers: raw.map((t, i) => typeof t === "number" ? { day: i + 1, c: t } : { day: t.day, c: t.c }),
+    milestones: rawMilestones.map((m) => ({ days: Number(m.days), credits: Number(m.credits) }))
   };
 }
 
@@ -648,7 +661,8 @@ export async function apiGetCheckinConfig() {
 export async function apiSaveCheckinConfig(config: AdminCheckinConfig) {
   return mapCheckinConfig(await http.put<ApiCheckinConfig>("/admin/checkin-config", {
     base: config.base,
-    tiers: config.tiers
+    tiers: config.tiers,
+    milestones: config.milestones
   }));
 }
 

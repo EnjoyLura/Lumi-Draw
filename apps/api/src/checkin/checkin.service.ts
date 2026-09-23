@@ -5,11 +5,15 @@ import { readCheckinConfig } from "../credits/reward-policy";
 import { PrismaService } from "../prisma/prisma.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
 
-const MILESTONE_DAYS = new Set([3, 7, 14, 30]);
-
 function tierCredits(tiers: number[], continuousDays: number) {
   const idx = ((continuousDays - 1) % 7 + 7) % 7;
   return tiers[idx] ?? tiers[0] ?? 0;
+}
+
+type CheckinMilestone = { days: number; credits: number };
+
+function milestoneCredits(milestones: CheckinMilestone[], day: number) {
+  return milestones.find((item) => item.days === day)?.credits ?? 0;
 }
 
 function dateStr(d: Date) {
@@ -55,11 +59,13 @@ export class CheckinService {
     if (checkedToday) currentStreak = todayRec.continuousDays;
     else if (latest && latest.date === this.yesterday()) currentStreak = latest.continuousDays;
     const nextDay = checkedToday ? currentStreak : currentStreak + 1;
+    const nextMilestoneTotal = milestoneCredits(policy.milestones, nextDay) + (plan?.milestoneBonus ?? 0);
     return {
       checkedToday,
       continuousDays: currentStreak,
-      nextCredits: tierCredits(policy.tiers, nextDay || 1) + (plan?.checkinBonus ?? 0) + (MILESTONE_DAYS.has(nextDay) ? (plan?.milestoneBonus ?? 0) : 0),
+      nextCredits: tierCredits(policy.tiers, nextDay || 1) + (plan?.checkinBonus ?? 0) + nextMilestoneTotal,
       tiers: policy.tiers.map((credits, i) => ({ day: i + 1, credits: credits + (plan?.checkinBonus ?? 0) })),
+      milestones: policy.milestones.map((item) => ({ days: item.days, reward: item.credits + (plan?.milestoneBonus ?? 0) })),
       memberBenefits: plan ? { checkinBonus: plan.checkinBonus, milestoneBonus: plan.milestoneBonus } : null
     };
   }
@@ -79,9 +85,9 @@ export class CheckinService {
       if (!user) throw new NotFoundException("用户不存在");
       const latest = await tx.checkinRecord.findFirst({ where: { userId }, orderBy: { date: "desc" } });
       const continuousDays = latest && latest.date === this.yesterday() ? latest.continuousDays + 1 : 1;
-      const milestoneBonus = MILESTONE_DAYS.has(continuousDays) ? (plan?.milestoneBonus ?? 0) : 0;
-      const credits = tierCredits(policy.tiers, continuousDays) + dailyBonus + milestoneBonus;
-      const bonusText = [dailyBonus ? `会员日签 +${dailyBonus}` : "", milestoneBonus ? `里程碑 +${milestoneBonus}` : ""].filter(Boolean).join("，");
+      const milestoneTotal = milestoneCredits(policy.milestones, continuousDays) + (plan?.milestoneBonus ?? 0);
+      const credits = tierCredits(policy.tiers, continuousDays) + dailyBonus + milestoneTotal;
+      const bonusText = [dailyBonus ? `会员日签 +${dailyBonus}` : "", milestoneTotal ? `里程碑 +${milestoneTotal}` : ""].filter(Boolean).join("，");
       const reason = `签到第${continuousDays}天${bonusText ? `（${bonusText}）` : ""}`;
       const walletGift = await this.wallet.present(userId, credits, `checkin_${userId}_${today.replace(/-/g, "")}`, reason);
       const { balance } = walletGift

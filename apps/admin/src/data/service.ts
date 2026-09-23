@@ -1,7 +1,7 @@
 // 统一 mock 数据服务层：readUseMockData() 为真时返回静态 mock。
 // 真实后端数据统一走 data/api.ts 适配层，保留非 mock 保护避免旧页面误用。
 import { readUseMockData } from "../dataMode";
-import { ANNOUNCEMENTS, BANNERS, CATEGORIES, CHECKIN, FEEDBACKS, GAMEPLAYS, HOT_SEARCHES, MEMBER_PLANS, MODELS, PUSHES, QUALITIES, RATIOS, RECHARGE_TIERS, REPORTS, SENSITIVE, STYLES, TRANSACTIONS, TREND, USERS, VERSIONS, WORKS, type AdminAnnounce, type AdminBanner, type AdminCategory, type AdminFeedback, type AdminGameplay, type AdminHotSearch, type AdminModel, type AdminPush, type AdminQuality, type AdminRatio, type AdminRecharge, type AdminReport, type AdminStyle, type AdminTxn, type AdminUser, type AdminVersion, type AdminWork, type CheckinTier, type MemberPlan } from "./mock";
+import { ANNOUNCEMENTS, BANNERS, CATEGORIES, CHECKIN, FEEDBACKS, GAMEPLAYS, HOT_SEARCHES, MEMBER_PLANS, MODELS, PUSHES, QUALITIES, RATIOS, RECHARGE_TIERS, REPORTS, SENSITIVE, STYLES, TRANSACTIONS, TREND, USERS, VERSIONS, WORKS, type AdminAnnounce, type AdminBanner, type AdminCategory, type AdminFeedback, type AdminGameplay, type AdminHotSearch, type AdminModel, type AdminPush, type AdminQuality, type AdminRatio, type AdminRecharge, type AdminReport, type AdminStyle, type AdminTxn, type AdminUser, type AdminVersion, type AdminWork, type CheckinMilestone, type CheckinTier, type MemberPlan } from "./mock";
 
 export interface DashboardTodos {
   review: number;
@@ -127,7 +127,7 @@ export function getMemberPlans(): MemberPlan[] {
   return MEMBER_PLANS;
 }
 
-export function getCheckin(): { base: number; tiers: CheckinTier[] } {
+export function getCheckin(): { base: number; tiers: CheckinTier[]; milestones: CheckinMilestone[] } {
   if (!readUseMockData()) return notImplemented("getCheckin");
   return CHECKIN;
 }

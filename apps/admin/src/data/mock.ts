@@ -486,7 +486,12 @@ export interface CheckinTier {
   c: number;
 }
 
-export const CHECKIN: { base: number; tiers: CheckinTier[] } = {
+export interface CheckinMilestone {
+  days: number;
+  credits: number;
+}
+
+export const CHECKIN: { base: number; tiers: CheckinTier[]; milestones: CheckinMilestone[] } = {
   base: 2,
   tiers: [
     { day: 1, c: 2 },
@@ -496,6 +501,12 @@ export const CHECKIN: { base: number; tiers: CheckinTier[] } = {
     { day: 5, c: 3 },
     { day: 6, c: 3 },
     { day: 7, c: 5 }
+  ],
+  milestones: [
+    { days: 3, credits: 20 },
+    { days: 7, credits: 50 },
+    { days: 14, credits: 100 },
+    { days: 30, credits: 300 }
   ]
 };
 

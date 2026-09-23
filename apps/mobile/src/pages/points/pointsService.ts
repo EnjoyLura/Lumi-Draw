@@ -36,6 +36,7 @@ interface CheckinStatus {
   continuousDays: number;
   nextCredits: number;
   tiers: Array<{ day: number; credits: number }>;
+  milestones: Array<{ days: number; reward: number }>;
 }
 
 interface CheckinResult {

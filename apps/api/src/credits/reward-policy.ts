@@ -9,7 +9,13 @@ export const DEFAULT_CREDITS_CONFIG = {
 
 export const DEFAULT_CHECKIN_CONFIG = {
   base: 2,
-  tiers: [2, 2, 2, 3, 3, 3, 5]
+  tiers: [2, 2, 2, 3, 3, 3, 5],
+  milestones: [
+    { days: 3, credits: 20 },
+    { days: 7, credits: 50 },
+    { days: 14, credits: 100 },
+    { days: 30, credits: 300 }
+  ]
 };
 
 export const DEFAULT_INVITE_CONFIG = {
@@ -50,6 +56,18 @@ export async function readCreditsConfig(prisma: PrismaService) {
   };
 }
 
+function normalizeMilestones(raw: unknown) {
+  const source = Array.isArray(raw) && raw.length > 0 ? raw : DEFAULT_CHECKIN_CONFIG.milestones;
+  const byDays = new Map<number, number>();
+  for (const item of source) {
+    const row = asObject(item);
+    const days = nonNegativeInt(row.days, 0);
+    if (days < 1 || days > 365 || byDays.has(days)) continue;
+    byDays.set(days, nonNegativeInt(row.credits, 0));
+  }
+  return [...byDays.entries()].sort((a, b) => a[0] - b[0]).map(([days, credits]) => ({ days, credits }));
+}
+
 export async function readCheckinConfig(prisma: PrismaService) {
   const value = asObject(await readSetting(prisma, "checkinConfig", DEFAULT_CHECKIN_CONFIG));
   const rawTiers = Array.isArray(value.tiers) ? value.tiers : DEFAULT_CHECKIN_CONFIG.tiers;
@@ -60,7 +78,7 @@ export async function readCheckinConfig(prisma: PrismaService) {
     return nonNegativeInt(item, DEFAULT_CHECKIN_CONFIG.tiers[index] ?? DEFAULT_CHECKIN_CONFIG.base);
   });
   while (tiers.length < 7) tiers.push(DEFAULT_CHECKIN_CONFIG.tiers[tiers.length] ?? DEFAULT_CHECKIN_CONFIG.base);
-  return { base: nonNegativeInt(value.base, DEFAULT_CHECKIN_CONFIG.base), tiers };
+  return { base: nonNegativeInt(value.base, DEFAULT_CHECKIN_CONFIG.base), tiers, milestones: normalizeMilestones(value.milestones) };
 }
 
 export async function readInviteConfig(prisma: PrismaService) {
