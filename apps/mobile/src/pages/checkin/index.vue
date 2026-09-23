@@ -37,9 +37,11 @@ const isInitialContentReady = ref(false);
 let lastMockMode: boolean | null = null;
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 
+// 里程碑奖励由后端在连续天数恰达标当天随签到自动发放，不存在"可领未领"时刻，
+// 因此不提供 available 状态；提前亮"可领"会让用户误以为当下能领。
 function buildMilestoneStates(streak: number) {
   return milestones.reduce<Record<number, Milestone["state"]>>((next, item) => {
-    next[item.days] = streak >= item.days ? "claimed" : streak + 1 >= item.days ? "available" : "locked";
+    next[item.days] = streak >= item.days ? "claimed" : "locked";
     return next;
   }, {});
 }
@@ -205,10 +207,6 @@ async function doCheckin() {
   }
 }
 
-function claimMilestone(item: Milestone) {
-  if (milestoneStates.value[item.days] !== "available") return;
-  uni.showToast({ title: "里程碑奖励已由每日签到自动发放", icon: "none" });
-}
 </script>
 
 <template>
@@ -262,7 +260,6 @@ function claimMilestone(item: Milestone) {
             :key="item.days"
             class="milestone-card"
             :class="milestoneStates[item.days]"
-            @click="claimMilestone(item)"
           >
             <view class="milestone-icon" :class="milestoneStates[item.days]">
               <LumiIcon name="gift-filled" :size="16" />
