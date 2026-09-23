@@ -1,6 +1,7 @@
 /**
  * 生图任务轮询的唯一入口：页面不再自建 setTimeout 轮询链。
  * 生成进度由服务端 watchdog 推进，这里只负责把最新状态拉给 UI。
+ * 支持同一用户最多 5 个任务并行轮询，每个任务独立计时与错误退避。
  */
 export interface JobPollingOptions {
   jobId: string;
@@ -15,65 +16,83 @@ const DEFAULT_INTERVAL_MS = 2000;
 const DEFAULT_ERROR_INTERVAL_MS = 5000;
 const MAX_ERROR_INTERVAL_MS = 15_000;
 
-let pollTimer: ReturnType<typeof setTimeout> | undefined;
-let pollingJobId = "";
-let stoppedByLifecycle = false;
-let lastOptions: JobPollingOptions | undefined;
-let consecutiveErrors = 0;
-
-function schedule(options: JobPollingOptions, intervalMs: number) {
-  pollTimer = setTimeout(() => void runTick(options), intervalMs);
+interface PollingEntry {
+  options: JobPollingOptions;
+  timer?: ReturnType<typeof setTimeout>;
+  consecutiveErrors: number;
 }
 
-async function runTick(options: JobPollingOptions) {
-  if (pollingJobId !== options.jobId) return;
+const entries = new Map<string, PollingEntry>();
+let lifecyclePaused = false;
+
+function clearEntryTimer(entry: PollingEntry) {
+  if (entry.timer) clearTimeout(entry.timer);
+  entry.timer = undefined;
+}
+
+function schedule(entry: PollingEntry, intervalMs: number) {
+  clearEntryTimer(entry);
+  entry.timer = setTimeout(() => void runTick(entry), intervalMs);
+}
+
+async function runTick(entry: PollingEntry) {
+  entry.timer = undefined;
+  const { options } = entry;
+  if (entries.get(options.jobId) !== entry) return;
   try {
     const finished = await options.tick(options.jobId);
-    consecutiveErrors = 0;
-    if (finished || pollingJobId !== options.jobId) return;
-    schedule(options, options.intervalMs ?? DEFAULT_INTERVAL_MS);
+    if (entries.get(options.jobId) !== entry) return;
+    entry.consecutiveErrors = 0;
+    if (finished) {
+      entries.delete(options.jobId);
+      return;
+    }
+    if (!lifecyclePaused) schedule(entry, options.intervalMs ?? DEFAULT_INTERVAL_MS);
   } catch (error) {
-    if (pollingJobId !== options.jobId) return;
+    if (entries.get(options.jobId) !== entry) return;
     // 查询失败不等于任务失败：递增退避但封顶 15s，网络恢复后自动回到正常节奏。
-    consecutiveErrors += 1;
+    entry.consecutiveErrors += 1;
     options.onError?.(error);
+    if (lifecyclePaused) return;
     const base = options.errorIntervalMs ?? DEFAULT_ERROR_INTERVAL_MS;
-    schedule(options, Math.min(base * consecutiveErrors, MAX_ERROR_INTERVAL_MS));
+    schedule(entry, Math.min(base * entry.consecutiveErrors, MAX_ERROR_INTERVAL_MS));
   }
 }
 
 export function startJobPolling(options: JobPollingOptions) {
-  stopJobPolling();
-  pollingJobId = options.jobId;
-  stoppedByLifecycle = false;
-  consecutiveErrors = 0;
-  lastOptions = options;
-  schedule(options, 0);
+  stopJobPolling(options.jobId);
+  const entry: PollingEntry = { options, consecutiveErrors: 0 };
+  entries.set(options.jobId, entry);
+  if (!lifecyclePaused) schedule(entry, 0);
 }
 
-export function stopJobPolling() {
-  if (pollTimer) clearTimeout(pollTimer);
-  pollTimer = undefined;
-  pollingJobId = "";
-  lastOptions = undefined;
-  stoppedByLifecycle = false;
-  consecutiveErrors = 0;
+export function stopJobPolling(jobId?: string) {
+  if (jobId === undefined) {
+    entries.forEach((entry) => clearEntryTimer(entry));
+    entries.clear();
+    return;
+  }
+  const entry = entries.get(jobId);
+  if (!entry) return;
+  clearEntryTimer(entry);
+  entries.delete(jobId);
 }
 
-/** 页面 onHide 时暂停，onShow 用 resumeJobPolling 续上。 */
+/** 页面 onHide 时暂停全部，onShow 用 resumeJobPolling 续上。 */
 export function pauseJobPolling() {
-  if (!pollingJobId) return;
-  if (pollTimer) clearTimeout(pollTimer);
-  pollTimer = undefined;
-  stoppedByLifecycle = true;
+  if (!entries.size) return;
+  lifecyclePaused = true;
+  entries.forEach((entry) => clearEntryTimer(entry));
 }
 
 export function resumeJobPolling() {
-  if (!stoppedByLifecycle || !lastOptions || !pollingJobId) return;
-  stoppedByLifecycle = false;
-  schedule(lastOptions, 0);
+  if (!lifecyclePaused) return;
+  lifecyclePaused = false;
+  entries.forEach((entry) => {
+    if (!entry.timer) schedule(entry, 0);
+  });
 }
 
-export function activePolledJobId() {
-  return pollingJobId;
+export function activePolledJobIds() {
+  return Array.from(entries.keys());
 }

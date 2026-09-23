@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { onHide, onLoad, onShow } from "@dcloudio/uni-app";
-import { startJobPolling, stopJobPolling } from "../../services/engine/enginePoller";
+import { pauseJobPolling, resumeJobPolling, startJobPolling, stopJobPolling } from "../../services/engine/enginePoller";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { refreshWechatSession, useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
@@ -19,7 +19,7 @@ import {
   type QualityOption,
   type RatioOption
 } from "./createData";
-import { createGenerateJob, fetchActiveGenerateJob, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
+import { createGenerateJob, fetchActiveGenerateJobs, fetchCreateConfig, fetchGenerateJob, type BackendGenerateJob } from "./createService";
 import { fetchCreditsBalance } from "../points/pointsService";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
@@ -33,8 +33,7 @@ import {
   GENERATION_PROGRESS_STAGES,
   generationDurationSeconds,
   generationStageForPercent,
-  mergeGenerationProgress,
-  simulateGenerationProgress
+  mergeGenerationProgress
 } from "../../services/generationProgress";
 
 const { themeClass } = useTheme();
@@ -75,7 +74,6 @@ const lastAppliedGameplayName = ref("");
 const promptImages = ref<ChosenImage[]>([]);
 const promptUploadedImageUrls = ref<string[]>([]);
 const MAX_PROMPT_IMAGES = 5;
-const isGenerating = ref(false);
 const isSubmittingGenerate = ref(false);
 const modelDrawerOpen = ref(false);
 const ratioSheetOpen = ref(false);
@@ -87,9 +85,27 @@ const isUploadingPromptImage = ref(false);
 const isSavingDrafts = ref(false);
 const configLoadFailed = ref(false);
 const isInitialContentReady = ref(false);
-const progress = ref(0);
-const stageText = ref("点击「开始创作」生成作品");
-const generationElapsedSeconds = ref(0);
+
+const MAX_CONCURRENT_GENERATE_TASKS = 5;
+const maxConcurrentGenerateTasks = MAX_CONCURRENT_GENERATE_TASKS;
+
+interface ActiveGenerateTask {
+  jobId: string;
+  modelName: string;
+  qualityLabel: string;
+  ratioLabel: string;
+  count: number;
+  cost: number;
+  startedAt: number;
+  progress: number;
+  stageText: string;
+  elapsedSeconds: number;
+  backendProgress: number;
+  finalizing: boolean;
+  finalResultsRendered: boolean;
+}
+
+const activeTasks = ref<ActiveGenerateTask[]>([]);
 
 interface GenResult {
   id: string;
@@ -109,8 +125,7 @@ const generatedResults = ref<GenResult[]>([]);
 // 结果卡片图片加载失败标记（key = resultId||id）。临时图失败展示"保存中"占位，
 // 永久图失败展示"点击重试"（重拉任务可拿到新签名 URL）。
 const imageLoadFailed = ref<Record<string, boolean>>({});
-const isSavingOriginal = ref(false);
-const genMeta = ref<{ time: string; resolution: string; size: string } | null>(null);
+const genMeta = ref<{ time: string; resolution: string; size: string; model: string; ratio: string } | null>(null);
 const previewData = ref<{
   key: string;
   src: string;
@@ -124,17 +139,16 @@ const previewData = ref<{
   savedWorkId?: number;
 } | null>(null);
 
-let finishTimer: ReturnType<typeof setTimeout> | undefined;
-let elapsedTimer: ReturnType<typeof setInterval> | undefined;
-let generationStartedAt = 0;
-let activeGenerationQuality = "";
-let activeBackendJobId = "";
+let taskTicker: ReturnType<typeof setInterval> | undefined;
+let lastFinishedJobId = "";
 let nextPollErrorToastAt = 0;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
 let initialContentTimer: ReturnType<typeof setTimeout> | undefined;
 let previewWarmRequest = 0;
+let activeJobsRestorePromise: Promise<void> | undefined;
 const syncedTerminalJobIds = new Set<string>();
+const mockTimers = new Set<ReturnType<typeof setTimeout>>();
 const warmedPreviewUrls = new Set<string>();
 const warmedPreviewLocalPaths = new Map<string, string>();
 const MAX_WARMED_PREVIEWS = 12;
@@ -168,7 +182,6 @@ const refundCredits = computed(() => Math.ceil(failCount.value * selectedModel.v
 const createConfigUnavailable = computed(
   () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
 );
-const isGenerationBusy = computed(() => isGenerating.value || isSavingOriginal.value || isSubmittingGenerate.value);
 
 function generationStageText(progressValue: number, status?: BackendGenerateJob["status"]) {
   if (status === "failed") return "生成失败：积分已按规则退回";
@@ -195,26 +208,74 @@ function selectQuality(index: number) {
   selectedQualityIndex.value = index;
 }
 
-function startElapsedTimer(startedAt = Date.now(), quality = selectedQuality.value.label) {
-  if (elapsedTimer) clearInterval(elapsedTimer);
-  generationStartedAt = startedAt;
-  activeGenerationQuality = quality;
-  const update = () => {
-    generationElapsedSeconds.value = Math.max(0, Math.floor((Date.now() - generationStartedAt) / 1000));
-    if (isGenerating.value || isSavingOriginal.value) {
-      const simulated = simulateGenerationProgress(generationElapsedSeconds.value, activeGenerationQuality);
-      progress.value = Math.max(progress.value, simulated.percent);
-      stageText.value = generationStageText(progress.value);
-    }
-  };
-  update();
-  elapsedTimer = setInterval(update, 1000);
+function modelNameForJob(modelId: string) {
+  return modelOptions.value.find((model) => model.id === modelId)?.name || modelId;
 }
 
-function stopElapsedTimer(finalSeconds?: number) {
-  if (elapsedTimer) clearInterval(elapsedTimer);
-  elapsedTimer = undefined;
-  if (typeof finalSeconds === "number") generationElapsedSeconds.value = Math.max(0, Math.round(finalSeconds));
+function taskStageText(task: ActiveGenerateTask) {
+  return task.finalizing ? "生成完成，正在安全保存到画廊" : generationStageText(task.progress);
+}
+
+function upsertGenerateTask(job: BackendGenerateJob) {
+  const startedAt = new Date(job.createdAt).getTime();
+  const elapsedSeconds = Number.isFinite(startedAt) ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
+  const merged = mergeGenerationProgress(elapsedSeconds, job.quality, job.status, job.progress);
+  const existing = activeTasks.value.find((task) => task.jobId === job.id);
+  if (existing) {
+    existing.backendProgress = Math.max(existing.backendProgress, job.progress);
+    existing.progress = Math.max(existing.progress, merged.percent);
+    if (job.status === "finalizing") existing.finalizing = true;
+    existing.stageText = taskStageText(existing);
+    return existing;
+  }
+  const task: ActiveGenerateTask = {
+    jobId: job.id,
+    modelName: modelNameForJob(job.modelId || job.providerModel || ""),
+    qualityLabel: job.quality,
+    ratioLabel: job.ratio,
+    count: job.count,
+    cost: job.costCredits,
+    startedAt: Number.isFinite(startedAt) ? startedAt : Date.now(),
+    progress: merged.percent,
+    stageText: merged.stage,
+    elapsedSeconds,
+    backendProgress: job.progress,
+    finalizing: job.status === "finalizing",
+    finalResultsRendered: false
+  };
+  if (task.finalizing) task.stageText = taskStageText(task);
+  activeTasks.value = [...activeTasks.value, task];
+  startTaskTicker();
+  return task;
+}
+
+function removeGenerateTask(jobId: string) {
+  activeTasks.value = activeTasks.value.filter((task) => task.jobId !== jobId);
+  stopTaskTickerIfIdle();
+}
+
+function startTaskTicker() {
+  if (taskTicker) return;
+  taskTicker = setInterval(() => {
+    activeTasks.value.forEach((task) => {
+      task.elapsedSeconds = Math.max(0, Math.floor((Date.now() - task.startedAt) / 1000));
+      const merged = mergeGenerationProgress(
+        task.elapsedSeconds,
+        task.qualityLabel,
+        task.finalizing ? "finalizing" : undefined,
+        task.backendProgress
+      );
+      task.progress = Math.max(task.progress, merged.percent);
+      task.stageText = taskStageText(task);
+    });
+  }, 1000);
+}
+
+function stopTaskTickerIfIdle() {
+  if (!activeTasks.value.length && taskTicker) {
+    clearInterval(taskTicker);
+    taskTicker = undefined;
+  }
 }
 
 function randomError() {
@@ -301,11 +362,8 @@ onShow(() => {
     uni.removeStorageSync("lumiCreatePromptDraft");
   }
 
-  if (activeBackendJobId && (isGenerating.value || isSavingOriginal.value)) {
-    beginJobPolling(activeBackendJobId);
-  } else {
-    void restoreActiveBackendJob();
-  }
+  resumeJobPolling();
+  void restoreActiveGenerateJobs();
 
 });
 
@@ -334,9 +392,11 @@ onUnmounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (finishTimer) clearTimeout(finishTimer);
+  mockTimers.forEach((timer) => clearTimeout(timer));
+  mockTimers.clear();
   stopJobPolling();
-  stopElapsedTimer();
+  if (taskTicker) clearInterval(taskTicker);
+  taskTicker = undefined;
 });
 
 watch(activeEmbeddedPrimaryTab, (tab) => {
@@ -771,7 +831,7 @@ function onResultImageError(item: GenResult) {
   imageLoadFailed.value = { ...imageLoadFailed.value, [resultKey(item)]: true };
   // 临时图失败多半是上游 URL 过期或不可达：立即重拉一次任务，
   // 若已转存完成会拿到永久 CDN 地址并自动恢复显示。
-  if (item.temporary && activeBackendJobId) void refreshActiveJobOnce();
+  if (item.temporary && lastFinishedJobId) void refreshActiveJobOnce();
 }
 
 function onResultImageLoad(item: GenResult) {
@@ -788,80 +848,69 @@ async function retryResultImage(item: GenResult) {
   delete next[key];
   imageLoadFailed.value = next;
   // 重拉任务获取新签名的 CDN URL（签名 30 分钟窗口，过期是永久图失败的常见原因）。
-  if (activeBackendJobId) await refreshActiveJobOnce();
+  if (lastFinishedJobId) await refreshActiveJobOnce();
 }
 
 async function refreshActiveJobOnce() {
-  if (!activeBackendJobId || useMockData.value) return;
+  if (!lastFinishedJobId || useMockData.value) return;
   try {
-    const job = await fetchGenerateJob(activeBackendJobId);
-    applyBackendJob(job);
+    const job = await fetchGenerateJob(lastFinishedJobId);
+    if (!job.results.length) return;
+    applyPermanentResults(toGeneratedResults(job), generatedResults.value.length > 0);
+    syncOpenPreviewResult(generatedResults.value);
   } catch {
     // 轮询会继续重试，这里不提示。
   }
 }
 
-function applyBackendJob(job: BackendGenerateJob) {
-  const startedAt = new Date(job.createdAt).getTime();
-  activeGenerationQuality = job.quality;
-  if (!isTerminalJob(job.status) && Number.isFinite(startedAt) && startedAt !== generationStartedAt) {
-    startElapsedTimer(startedAt, job.quality);
-  }
-  const elapsedSeconds = Number.isFinite(startedAt)
-    ? Math.max(0, (Date.now() - startedAt) / 1000)
-    : generationElapsedSeconds.value;
-  if (!isTerminalJob(job.status)) {
-    const merged = mergeGenerationProgress(elapsedSeconds, job.quality, job.status, job.progress);
-    progress.value = Math.max(progress.value, merged.percent);
-  }
-  stageText.value = generationStageText(progress.value, job.status);
-
-  if (job.status === "finalizing" && job.results.length) {
-    isGenerating.value = false;
-    isSavingOriginal.value = true;
-    const results = toGeneratedResults(job);
-    generatedResults.value = results;
-    syncOpenPreviewResult(results);
-    const providerFinishedAt = job.results
-      .map((item) => new Date(item.createdAt || "").getTime())
-      .filter(Number.isFinite)
-      .sort((a, b) => a - b)[0];
-    const providerElapsed = providerFinishedAt
-      ? Math.max(1, (providerFinishedAt - new Date(job.createdAt).getTime()) / 1000)
-      : elapsedSeconds;
-    stopElapsedTimer(providerElapsed);
-    genMeta.value = {
-      time: providerElapsed.toFixed(1),
-      resolution: qualityShortLabel(job.quality),
-      size: `${job.costCredits - job.refundCredits}积分`
-    };
-    return;
-  }
-
-  if (!isTerminalJob(job.status)) return;
-
-  stopJobPolling();
-  removeActiveGenerateJobIds([job.id]);
-  activeBackendJobId = "";
-  void syncCreditsAfterTerminalJob(job);
-  progress.value = job.status === "succeeded" || job.status === "partial_failed" ? 100 : progress.value;
-  isGenerating.value = false;
-  const preserveVisibleCards = isSavingOriginal.value;
-  isSavingOriginal.value = false;
+function renderJobResults(job: BackendGenerateJob, preserveVisibleCards: boolean) {
   const results = toGeneratedResults(job);
   applyPermanentResults(results, preserveVisibleCards);
   syncOpenPreviewResult(results);
+}
+
+function updateFinishedJobMeta(job: BackendGenerateJob, modelName: string) {
+  const startedAtMs = new Date(job.createdAt).getTime();
   const providerFinishedAt = job.results
     .map((item) => new Date(item.createdAt || "").getTime())
     .filter(Number.isFinite)
     .sort((a, b) => a - b)[0];
-  const elapsed = Math.max(1, ((providerFinishedAt || new Date(job.updatedAt).getTime()) - new Date(job.createdAt).getTime()) / 1000);
-  stopElapsedTimer(elapsed);
+  const elapsed = Number.isFinite(startedAtMs)
+    ? Math.max(1, ((providerFinishedAt || new Date(job.updatedAt).getTime()) - startedAtMs) / 1000)
+    : 1;
   genMeta.value = {
     time: elapsed.toFixed(1),
     resolution: qualityShortLabel(job.quality),
-    size: `${job.costCredits - job.refundCredits}积分`
+    size: `${job.costCredits - job.refundCredits}积分`,
+    model: modelName,
+    ratio: job.ratio
   };
+}
+
+function applyGenerateTaskUpdate(job: BackendGenerateJob) {
+  if (isTerminalJob(job.status)) {
+    finishGenerateTask(job);
+    return;
+  }
+  const task = upsertGenerateTask(job);
+  if (job.status === "finalizing" && job.results.length) {
+    lastFinishedJobId = job.id;
+    const preserveVisibleCards = task.finalResultsRendered;
+    task.finalResultsRendered = true;
+    renderJobResults(job, preserveVisibleCards);
+    updateFinishedJobMeta(job, task.modelName);
+  }
+}
+
+function finishGenerateTask(job: BackendGenerateJob) {
+  stopJobPolling(job.id);
+  removeActiveGenerateJobIds([job.id]);
+  const task = activeTasks.value.find((item) => item.jobId === job.id);
+  removeGenerateTask(job.id);
+  void syncCreditsAfterTerminalJob(job);
+  lastFinishedJobId = job.id;
+  renderJobResults(job, !!task?.finalResultsRendered);
+  updateFinishedJobMeta(job, task?.modelName || modelNameForJob(job.modelId));
 
   const autoSaved = job.results.some((item) => item.workId);
   if (autoSaved) {
@@ -880,11 +929,10 @@ function beginJobPolling(jobId: string) {
     jobId,
     tick: async (id) => {
       const job = await fetchGenerateJob(id);
-      applyBackendJob(job);
+      applyGenerateTaskUpdate(job);
       return isTerminalJob(job.status);
     },
     onError: () => {
-      isGenerating.value = true;
       if (Date.now() >= nextPollErrorToastAt) {
         nextPollErrorToastAt = Date.now() + 30_000;
         showToast("任务状态获取失败，请稍后在画廊查看");
@@ -893,41 +941,49 @@ function beginJobPolling(jobId: string) {
   });
 }
 
-async function pollBackendJob(jobId: string) {
-  beginJobPolling(jobId);
-}
+async function restoreActiveGenerateJobs() {
+  if (useMockData.value || !isLoggedIn.value || activeJobsRestorePromise) return;
 
-let activeJobRestorePromise: Promise<void> | undefined;
-
-async function restoreActiveBackendJob() {
-  if (useMockData.value || !isLoggedIn.value || isGenerationBusy.value || activeJobRestorePromise) return;
-
-  activeJobRestorePromise = (async () => {
+  activeJobsRestorePromise = (async () => {
     try {
-      const job = await fetchActiveGenerateJob();
-      if (job) await resumeBackendJob(job.id);
+      const jobs = await fetchActiveGenerateJobs();
+      const serverIds = new Set(jobs.map((job) => job.id));
+      jobs.forEach((job) => {
+        if (!activeTasks.value.some((task) => task.jobId === job.id)) {
+          upsertGenerateTask(job);
+          addActiveGenerateJobId(job.id);
+        }
+        beginJobPolling(job.id);
+      });
+      // 本地仍在跟踪、但服务端列表已消失的任务：多半是在其他页面/端完成了，
+      // 拉一次终态补渲染；状态未知（请求失败）则保留卡片并恢复轮询。
+      const missingTasks = activeTasks.value
+        .filter((task) => !task.jobId.startsWith("pending-") && !task.jobId.startsWith("mock-") && !serverIds.has(task.jobId));
+      missingTasks.forEach((task) => stopJobPolling(task.jobId));
+      for (const task of missingTasks) {
+        try {
+          const job = await fetchGenerateJob(task.jobId);
+          if (isTerminalJob(job.status)) {
+            finishGenerateTask(job);
+          } else {
+            beginJobPolling(job.id);
+          }
+        } catch {
+          beginJobPolling(task.jobId);
+        }
+      }
     } catch {
       // A later onShow or gallery task refresh will retry the persisted job lookup.
     } finally {
-      activeJobRestorePromise = undefined;
+      activeJobsRestorePromise = undefined;
     }
   })();
-  await activeJobRestorePromise;
+  await activeJobsRestorePromise;
 }
 
 async function resumeBackendJob(jobId: string) {
-  if (finishTimer) clearTimeout(finishTimer);
-  stopJobPolling();
-  activeBackendJobId = jobId;
-
-  isGenerating.value = true;
-  isSavingOriginal.value = false;
-  progress.value = 0;
-  generatedResults.value = [];
-  imageLoadFailed.value = {};
-  genMeta.value = null;
-  stageText.value = generationStageText(0, "queued");
-  startElapsedTimer();
+  stopJobPolling(jobId);
+  removeGenerateTask(jobId);
 
   try {
     const job = await fetchGenerateJob(jobId);
@@ -945,15 +1001,14 @@ async function resumeBackendJob(jobId: string) {
     applyPendingRouteOptions();
     const countIndex = countOptions.findIndex((item) => item === job.count);
     if (countIndex >= 0) selectedCountIndex.value = countIndex;
-    applyBackendJob(job);
-    if (!isTerminalJob(job.status)) {
-      addActiveGenerateJobId(jobId);
-      beginJobPolling(jobId);
+    if (isTerminalJob(job.status)) {
+      finishGenerateTask(job);
+      return;
     }
+    addActiveGenerateJobId(jobId);
+    upsertGenerateTask(job);
+    beginJobPolling(jobId);
   } catch {
-    activeBackendJobId = "";
-    isGenerating.value = false;
-    stopElapsedTimer();
     showToast("生成任务读取失败，请稍后重试");
   }
 }
@@ -974,17 +1029,24 @@ async function resolvePromptImageUrls() {
 }
 
 async function startBackendGenerate(prompt: string) {
-  if (finishTimer) clearTimeout(finishTimer);
-  stopJobPolling();
-
-  isGenerating.value = true;
-  isSavingOriginal.value = false;
-  progress.value = 0;
-  generatedResults.value = [];
-  imageLoadFailed.value = {};
-  genMeta.value = null;
-  stageText.value = generationStageText(0, "queued");
-  startElapsedTimer();
+  const pendingKey = `pending-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const pendingTask: ActiveGenerateTask = {
+    jobId: pendingKey,
+    modelName: selectedModel.value.name,
+    qualityLabel: selectedQuality.value.label,
+    ratioLabel: selectedRatio.value.label,
+    count: selectedCount.value,
+    cost: totalCost.value,
+    startedAt: Date.now(),
+    progress: 2,
+    stageText: "正在提交任务...",
+    elapsedSeconds: 0,
+    backendProgress: 0,
+    finalizing: false,
+    finalResultsRendered: false
+  };
+  activeTasks.value = [...activeTasks.value, pendingTask];
+  startTaskTicker();
 
   try {
     // Virtual-currency deductions require the current wx.login session key.
@@ -1004,7 +1066,8 @@ async function startBackendGenerate(prompt: string) {
       quality: selectedQuality.value.label,
       count: selectedCount.value
     });
-    activeBackendJobId = created.jobId;
+    pendingTask.jobId = created.jobId;
+    if (created.job.costCredits) pendingTask.cost = created.job.costCredits;
     addActiveGenerateJobId(created.jobId);
     if (typeof created.creditsAfter === "number") updateCurrentUser({ credits: created.creditsAfter });
     if (isTerminalJob(created.job.status) && !created.job.results.length) {
@@ -1013,7 +1076,7 @@ async function startBackendGenerate(prompt: string) {
       beginJobPolling(created.jobId);
       return;
     }
-    applyBackendJob(created.job);
+    applyGenerateTaskUpdate(created.job);
     if (!isTerminalJob(created.job.status)) {
       notifyGalleryGenerateTaskStarted({
         jobId: created.jobId,
@@ -1029,9 +1092,7 @@ async function startBackendGenerate(prompt: string) {
       beginJobPolling(created.jobId);
     }
   } catch (error) {
-    activeBackendJobId = "";
-    isGenerating.value = false;
-    stopElapsedTimer();
+    removeGenerateTask(pendingKey);
     const message = error instanceof Error ? error.message : "提交失败，请稍后重试";
     showToast(message);
   }
@@ -1042,18 +1103,19 @@ async function startGenerate() {
     await runStartGenerate();
   } catch (error) {
     // 兜底：入口内任何未预期异常都不能让点击"无任何反馈"。
-    isGenerating.value = false;
     isSubmittingGenerate.value = false;
     showToast(error instanceof Error && error.message ? error.message : "操作未完成，请稍后重试");
   }
 }
 
 async function runStartGenerate() {
-  if (isGenerationBusy.value) {
-    showToast("当前任务仍在生成中，请完成后再提交新的创作");
+  if (isSubmittingGenerate.value) return;
+  if (!ensureLogin()) return;
+
+  if (activeTasks.value.length >= MAX_CONCURRENT_GENERATE_TASKS) {
+    showToast(`最多同时进行 ${MAX_CONCURRENT_GENERATE_TASKS} 个生成任务，请等待完成后再试`);
     return;
   }
-  if (!ensureLogin()) return;
 
   const userPrompt = promptText.value.trim();
   if (!userPrompt) {
@@ -1078,25 +1140,32 @@ async function runStartGenerate() {
     return;
   }
 
-  if (finishTimer) clearTimeout(finishTimer);
-  stopJobPolling();
-
-  isGenerating.value = true;
-  isSavingOriginal.value = false;
-  progress.value = 0;
-  generatedResults.value = [];
-  genMeta.value = null;
-  stageText.value = GENERATION_PROGRESS_STAGES[0];
+  // Mock 模式同样支持多任务并行：每个任务独立计时、独立完成渲染。
+  const stamp = Date.now();
+  const mockJobId = `mock-${stamp.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const mockDurationSeconds = generationDurationSeconds(selectedQuality.value.label);
-  startElapsedTimer(Date.now(), selectedQuality.value.label);
+  const task: ActiveGenerateTask = {
+    jobId: mockJobId,
+    modelName: selectedModel.value.name,
+    qualityLabel: selectedQuality.value.label,
+    ratioLabel: selectedRatio.value.label,
+    count: selectedCount.value,
+    cost: totalCost.value,
+    startedAt: stamp,
+    progress: 2,
+    stageText: GENERATION_PROGRESS_STAGES[0],
+    elapsedSeconds: 0,
+    backendProgress: 0,
+    finalizing: false,
+    finalResultsRendered: false
+  };
+  activeTasks.value = [...activeTasks.value, task];
+  startTaskTicker();
   showToast(`创作任务已提交，正在生成 ${selectedCount.value} 张图片`);
 
-  finishTimer = setTimeout(() => {
-    progress.value = 100;
-    stageText.value = generationStageText(100, "succeeded");
-
-    const count = selectedCount.value;
-    const stamp = Date.now();
+  const finishTimer = setTimeout(() => {
+    mockTimers.delete(finishTimer);
+    const count = task.count;
     const results: GenResult[] = Array.from({ length: count }, (_, index) => {
       const failed = Math.random() < 0.15;
       return {
@@ -1109,18 +1178,21 @@ async function runStartGenerate() {
     generatedResults.value = results;
     genMeta.value = {
       time: mockDurationSeconds.toFixed(1),
-      resolution: qualityShortLabel(selectedQuality.value.label),
-      size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`
+      resolution: qualityShortLabel(task.qualityLabel),
+      size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`,
+      model: task.modelName,
+      ratio: task.ratioLabel
     };
-    isGenerating.value = false;
-    stopElapsedTimer(Number(genMeta.value.time));
+    lastFinishedJobId = mockJobId;
+    removeGenerateTask(mockJobId);
 
     const fails = results.filter((item) => item.failed).length;
     const refund = Math.ceil(fails * selectedModel.value.cost * selectedQuality.value.multiplier);
-    if (fails === 0) showToast(`生成成功！消耗${totalCost.value}积分`);
-    else if (fails === count) showToast(`全部生成失败，${totalCost.value}积分已退还`);
+    if (fails === 0) showToast(`生成成功！消耗${task.cost}积分`);
+    else if (fails === count) showToast(`全部生成失败，${task.cost}积分已退还`);
     else showToast(`${count - fails}张成功，${fails}张失败，退还${refund}积分`);
   }, mockDurationSeconds * 1000);
+  mockTimers.add(finishTimer);
 }
 
 function openPreview(item: GenResult) {
@@ -1135,7 +1207,7 @@ function openPreview(item: GenResult) {
     originalSrc: resultOriginalImageSrc(item),
     resolution: genMeta.value.resolution,
     size: genMeta.value.size,
-    ratio: selectedRatio.value.label,
+    ratio: genMeta.value.ratio,
     temporary: item.temporary,
     resultId: item.resultId,
     savedWorkId: item.savedWorkId
@@ -1445,24 +1517,27 @@ function goMine() { goRootTab("/pages/mine/index"); }
         </view>
 
         <view class="section result-section">
-          <view class="section-title">生成结果</view>
-          <view v-if="isGenerating" class="generating-card">
-            <view class="progress-ring" :style="{ '--progress': progress }">
-              <view class="progress-num">{{ progress }}%</view>
+          <view class="section-title with-more">
+            <text>生成结果</text>
+            <text v-if="activeTasks.length" class="active-task-count">进行中 {{ activeTasks.length }}/{{ maxConcurrentGenerateTasks }}</text>
+          </view>
+          <view v-for="task in activeTasks" :key="task.jobId" class="generating-card">
+            <view class="progress-ring" :style="{ '--progress': task.progress }">
+              <view class="progress-num">{{ task.progress }}%</view>
             </view>
-            <text class="stage-text">{{ stageText }}</text>
+            <text class="stage-text">{{ task.stageText }}</text>
             <view class="generation-elapsed">
               <LumiIcon name="clock-3" :size="13" />
-              <text>已耗时 {{ generationElapsedSeconds }}s</text>
+              <text>已耗时 {{ task.elapsedSeconds }}s</text>
             </view>
             <view class="progress-track">
-              <view class="progress-bar" :style="{ width: `${progress}%` }" />
+              <view class="progress-bar" :style="{ width: `${task.progress}%` }" />
             </view>
             <text class="generation-meta">
-              消耗 {{ totalCost }} 积分 · 使用 {{ selectedModel.name }} · {{ qualityShortLabel(selectedQuality.label) }}
+              消耗 {{ task.cost }} 积分 · 使用 {{ task.modelName }} · {{ qualityShortLabel(task.qualityLabel) }}
             </text>
           </view>
-          <view v-else-if="generatedResults.length" class="result-wrap">
+          <view v-if="generatedResults.length" class="result-wrap">
             <view class="result-grid">
               <template v-for="item in generatedResults" :key="item.id">
                 <view v-if="item.failed" class="result-cell failed">
@@ -1494,21 +1569,17 @@ function goMine() { goRootTab("/pages/mine/index"); }
               <text v-if="successCount > 0">{{ failCount }}张生成失败，已退还 {{ refundCredits }} 积分</text>
               <text v-else>全部失败，已退还 {{ totalCost }} 积分</text>
             </view>
-            <view v-if="isSavingOriginal" class="draft-saved-note">
-              <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
-              <text>图片已生成，高清原图正在安全保存到画廊。</text>
-            </view>
             <view v-if="genMeta" class="result-meta">
               <text class="meta-item">耗时 {{ genMeta.time }}s</text>
               <text class="meta-item">{{ genMeta.resolution }}</text>
               <text class="meta-item">{{ genMeta.size }}</text>
-              <text class="meta-item">{{ selectedModel.name }}</text>
+              <text class="meta-item">{{ genMeta.model }}</text>
             </view>
-            <view v-if="!isSavingOriginal && hasAutoSavedDrafts" class="draft-saved-note">
+            <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
               <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
               <text>生成作品已自动保存到画廊，可在画廊发布和下载作品。</text>
             </view>
-            <view v-if="!isSavingOriginal" class="result-actions">
+            <view class="result-actions">
               <button class="result-action ghost" @click="goPublish">
                 <LumiIcon class="result-action-icon" name="send" :size="15" />
                 <text>发布作品</text>
@@ -1519,7 +1590,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               </button>
             </view>
           </view>
-          <view v-else class="empty-result">
+          <view v-if="!activeTasks.length && !generatedResults.length" class="empty-result">
             <LumiIcon class="empty-icon" name="images" :size="32" />
             <text>点击「开始创作」生成作品</text>
           </view>
@@ -1532,9 +1603,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <view class="create-bottom-row">
           <view
             class="create-btn"
-            :class="{ disabled: !isLoggedIn || isGenerationBusy }"
+            :class="{ disabled: !isLoggedIn || isSubmittingGenerate || activeTasks.length >= maxConcurrentGenerateTasks }"
             role="button"
-            :aria-disabled="!isLoggedIn || isGenerationBusy"
+            :aria-disabled="!isLoggedIn || isSubmittingGenerate || activeTasks.length >= maxConcurrentGenerateTasks"
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >
@@ -1684,7 +1755,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <view v-if="previewData" class="preview-info">
         <text class="meta-item">{{ previewData.resolution }}</text>
         <text class="meta-item">{{ previewData.size }}</text>
-        <text class="meta-item">{{ selectedModel.name }}</text>
+        <text class="meta-item">{{ genMeta?.model }}</text>
         <text class="meta-item">{{ previewData.ratio }}</text>
       </view>
       <view v-if="previewData?.temporary" class="preview-transfer-note">
@@ -2341,9 +2412,16 @@ function goMine() { goRootTab("/pages/mine/index"); }
   gap: 14px;
   align-items: center;
   padding: 24px 16px;
+  margin-bottom: 10px;
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 14px;
+}
+
+.active-task-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 @property --progress {

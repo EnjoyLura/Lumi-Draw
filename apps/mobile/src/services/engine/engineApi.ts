@@ -125,10 +125,6 @@ export function fetchEngineJobs(statuses: string[], page: number, pageSize: numb
   return api.get<{ items: EngineJobView[]; page: number; pageSize: number; total: number; hasMore: boolean }>(`/engine/jobs?status=${statusQuery}&page=${page}&pageSize=${pageSize}`);
 }
 
-export function fetchEngineActiveJob() {
-  return fetchEngineJobs(["queued", "submitted", "running", "settling"], 1, 1);
-}
-
 export function cancelEngineJob(jobId: string) {
   return api.post<EngineJobView & { creditsAfter?: number; refundCredits?: number }>(`/engine/jobs/${encodeURIComponent(jobId)}/cancel`, {});
 }

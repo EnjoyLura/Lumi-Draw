@@ -22,6 +22,7 @@ import { decideFailure } from "./engine-failover";
 import {
   ASYNC_POLL_INTERVAL_MS,
   ENGINE_ACTIVE_STATUSES,
+  ENGINE_MAX_CONCURRENT_JOBS_PER_USER,
   ENGINE_TERMINAL_STATUSES,
   GENERATION_TOTAL_TIMEOUT_MS,
   MAX_ATTEMPTS_PER_PROVIDER,
@@ -147,11 +148,12 @@ export class EngineService {
     const created = await this.prisma.$transaction(async (tx) => {
       // 用户级串行化：并发点击/多端同时提交不能重复扣费。
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(${userId})`);
-      const activeJob = await tx.engineJob.findFirst({
-        where: { userId, status: { in: ENGINE_ACTIVE_STATUSES } },
-        select: { id: true }
+      const activeJobCount = await tx.engineJob.count({
+        where: { userId, status: { in: ENGINE_ACTIVE_STATUSES } }
       });
-      if (activeJob) throw new ConflictException("当前已有任务正在生成，请等待完成后再试");
+      if (activeJobCount >= ENGINE_MAX_CONCURRENT_JOBS_PER_USER) {
+        throw new ConflictException(`最多同时进行 ${ENGINE_MAX_CONCURRENT_JOBS_PER_USER} 个生成任务，请等待完成后再试`);
+      }
 
       const walletUser = this.wallet.enabled
         ? await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } })

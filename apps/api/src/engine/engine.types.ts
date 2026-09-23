@@ -25,6 +25,9 @@ export const ENGINE_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
 ]);
 export const ENGINE_ACTIVE_STATUSES = ["queued", "submitted", "running", "settling"];
 
+/** 每个用户允许同时进行的生成任务数上限。 */
+export const ENGINE_MAX_CONCURRENT_JOBS_PER_USER = 5;
+
 export type ProviderAuthMode = "bearer" | "raw" | "query" | "none";
 
 /**

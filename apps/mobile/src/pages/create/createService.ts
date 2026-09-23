@@ -2,7 +2,7 @@ import { api } from "../../services/api";
 import {
   createEngineJob,
   engineJobToCompat,
-  fetchEngineActiveJob,
+  fetchEngineJobs,
   fetchEngineJob,
   publishEngineAsset,
   type CompatGenerateJob,
@@ -254,10 +254,9 @@ export async function fetchGenerateJob(jobId: string): Promise<BackendGenerateJo
   return toCompatJob(await fetchEngineJob(jobId));
 }
 
-export async function fetchActiveGenerateJob(): Promise<BackendGenerateJob | undefined> {
-  const result = await fetchEngineActiveJob();
-  const job = result.items[0];
-  return job ? toCompatJob(job) : undefined;
+export async function fetchActiveGenerateJobs(): Promise<BackendGenerateJob[]> {
+  const result = await fetchEngineJobs(["queued", "submitted", "running", "settling"], 1, 10);
+  return Promise.all(result.items.map((job) => toCompatJob(job)));
 }
 
 export function publishGenerateResult(resultId: string, payload: PublishGenerateResultPayload) {
