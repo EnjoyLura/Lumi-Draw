@@ -184,14 +184,21 @@ function normalizeModelName(value?: string) {
   return (value || "").toLowerCase().replace(/[\s_-]+/g, "");
 }
 
-const deckGenTasks = computed<GalleryGenTask[]>(() => {
+// isFront 随任务数据下发驱动主卡样式；不要用 v-for 索引驱动 wx:if，
+// keyed 重排后索引分支在视图层不会刷新（换主位时内容错乱的根因）。
+const deckGenTasks = computed<(GalleryGenTask & { isFront: boolean })[]>(() => {
   if (!genTasks.value.length) return [];
   const front = genTasks.value.find((task) => String(task.id) === frontGenTaskId.value) || genTasks.value[0];
-  return [front, ...genTasks.value.filter((task) => task !== front)];
+  return [
+    { ...front, isFront: true },
+    ...genTasks.value.filter((task) => task !== front).map((task) => ({ ...task, isFront: false }))
+  ];
 });
 
-function bringGenTaskToFront(task: GalleryGenTask) {
-  frontGenTaskId.value = String(task.id);
+function onGenCardTap(event: Event) {
+  const target = event?.currentTarget as { dataset?: { taskId?: string } } | null;
+  const taskId = target?.dataset?.taskId;
+  if (taskId) frontGenTaskId.value = taskId;
 }
 
 const filteredWorks = computed(() => {
@@ -1205,33 +1212,32 @@ function openWork(work: HomeWork) {
               v-for="(task, depth) in deckGenTasks"
               :key="task.id"
               class="gen-task-card gen-deck-card"
-              :class="{ front: depth === 0 }"
+              :class="{ front: task.isFront }"
               :style="{ zIndex: deckGenTasks.length - depth, transform: `translateY(${depth * GEN_DECK_PEEK_HEIGHT}px)` }"
-              @click="bringGenTaskToFront(task)"
+              :data-task-id="String(task.id)"
+              @click="onGenCardTap"
             >
               <view class="shimmer-bg" />
-              <template v-if="depth === 0">
-                <view class="gen-inner">
-                  <view class="gen-row1">
-                    <view class="gen-info">
-                      <view class="gen-prompt">{{ task.prompt }}</view>
-                      <view class="gen-meta">{{ task.model }} · {{ task.count }}张 · {{ task.ratio }} · {{ task.quality }}</view>
-                    </view>
-                    <view class="gen-status">
-                      <text class="gen-percent">{{ task.percent }}%</text>
-                      <text class="gen-elapsed">{{ task.elapsed }}s</text>
-                    </view>
+              <view class="gen-inner">
+                <view class="gen-row1">
+                  <view class="gen-info">
+                    <view class="gen-prompt">{{ task.prompt }}</view>
+                    <view class="gen-meta">{{ task.model }} · {{ task.count }}张 · {{ task.ratio }} · {{ task.quality }}</view>
                   </view>
-                  <view class="gen-row2">
-                    <view class="gen-track">
-                      <view class="gen-fill" :style="{ width: `${task.percent}%` }" />
-                    </view>
-                    <view class="gen-spinner" />
-                    <text class="gen-stage">{{ task.stage }}</text>
+                  <view class="gen-status">
+                    <text class="gen-percent">{{ task.percent }}%</text>
+                    <text class="gen-elapsed">{{ task.elapsed }}s</text>
                   </view>
                 </view>
-              </template>
-              <view v-else class="gen-peek">
+                <view class="gen-row2">
+                  <view class="gen-track">
+                    <view class="gen-fill" :style="{ width: `${task.percent}%` }" />
+                  </view>
+                  <view class="gen-spinner" />
+                  <text class="gen-stage">{{ task.stage }}</text>
+                </view>
+              </view>
+              <view class="gen-peek">
                 <text class="gen-peek-pct">{{ task.percent }}%</text>
                 <text class="gen-peek-stage">{{ task.stage }}</text>
                 <view class="gen-peek-track">
@@ -2069,6 +2075,14 @@ function openWork(work: HomeWork) {
 
 .gen-deck-card.front {
   justify-content: flex-start;
+}
+
+.gen-deck-card:not(.front) .gen-inner {
+  display: none;
+}
+
+.gen-deck-card.front .gen-peek {
+  display: none;
 }
 
 .gen-peek {

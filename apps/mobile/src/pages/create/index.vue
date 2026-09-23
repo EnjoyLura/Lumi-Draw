@@ -230,14 +230,21 @@ function taskStageText(task: ActiveGenerateTask) {
   return task.finalizing ? "生成完成，正在安全保存到画廊" : generationStageText(task.progress);
 }
 
-const deckTasks = computed<ActiveGenerateTask[]>(() => {
+// isFront 随任务数据下发，供视图层切换主卡样式；不要用 v-for 索引驱动 wx:if，
+// keyed 重排后索引分支在视图层不会刷新（换主位时内容错乱的根因）。
+const deckTasks = computed<(ActiveGenerateTask & { isFront: boolean })[]>(() => {
   if (!activeTasks.value.length) return [];
   const front = activeTasks.value.find((task) => task.jobId === frontTaskJobId.value) || activeTasks.value[0];
-  return [front, ...activeTasks.value.filter((task) => task !== front)];
+  return [
+    { ...front, isFront: true },
+    ...activeTasks.value.filter((task) => task !== front).map((task) => ({ ...task, isFront: false }))
+  ];
 });
 
-function bringTaskToFront(task: ActiveGenerateTask) {
-  frontTaskJobId.value = task.jobId;
+function onDeckCardTap(event: Event) {
+  const target = event?.currentTarget as { dataset?: { jobId?: string } } | null;
+  const jobId = target?.dataset?.jobId;
+  if (jobId) frontTaskJobId.value = jobId;
 }
 
 function upsertGenerateTask(job: BackendGenerateJob) {
@@ -1585,11 +1592,12 @@ function goMine() { goRootTab("/pages/mine/index"); }
               v-for="(task, depth) in deckTasks"
               :key="task.jobId"
               class="generating-card task-deck-card"
-              :class="{ front: depth === 0 }"
+              :class="{ front: task.isFront }"
               :style="{ zIndex: deckTasks.length - depth, transform: `translateY(${depth * TASK_DECK_PEEK_HEIGHT}px)` }"
-              @click="bringTaskToFront(task)"
+              :data-job-id="task.jobId"
+              @click="onDeckCardTap"
             >
-              <template v-if="depth === 0">
+              <view class="task-card-body">
                 <view class="progress-ring" :style="{ '--progress': task.progress }">
                   <view class="progress-num">{{ task.progress }}%</view>
                 </view>
@@ -1604,8 +1612,8 @@ function goMine() { goRootTab("/pages/mine/index"); }
                 <text class="generation-meta">
                   消耗 {{ task.cost }} 积分 · 使用 {{ task.modelName }} · {{ qualityShortLabel(task.qualityLabel) }}
                 </text>
-              </template>
-              <view v-else class="deck-peek">
+              </view>
+              <view class="deck-peek">
                 <text class="peek-pct">{{ task.progress }}%</text>
                 <text class="peek-stage">{{ task.stageText }}</text>
                 <view class="peek-track">
@@ -2528,6 +2536,22 @@ function goMine() { goRootTab("/pages/mine/index"); }
   gap: 0;
   align-items: stretch;
   padding: 0;
+}
+
+.task-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+}
+
+.task-deck-card:not(.front) .task-card-body {
+  display: none;
+}
+
+.task-deck-card.front .deck-peek {
+  display: none;
 }
 
 .deck-peek {
