@@ -88,6 +88,9 @@ const isInitialContentReady = ref(false);
 
 const MAX_CONCURRENT_GENERATE_TASKS = 5;
 const maxConcurrentGenerateTasks = MAX_CONCURRENT_GENERATE_TASKS;
+// 堆叠卡组：主卡默认是最早提交的任务，点击后面的抽屉条可把该任务置顶。
+const TASK_DECK_PEEK_HEIGHT = 30;
+const frontTaskJobId = ref("");
 
 interface ActiveGenerateTask {
   jobId: string;
@@ -121,11 +124,21 @@ interface GenResult {
   error: string;
 }
 
-const generatedResults = ref<GenResult[]>([]);
+// 结果按完成任务分组：新组插到最上面，超过上限后最旧的组移出页面（结果仍自动保存在画廊）。
+const MAX_RESULT_GROUPS = 5;
+interface ResultGroup {
+  jobId: string;
+  label: string;
+  results: GenResult[];
+  meta: { time: string; resolution: string; size: string; model: string; ratio: string };
+  failCount: number;
+  refundCredits: number;
+}
+
+const resultGroups = ref<ResultGroup[]>([]);
 // 结果卡片图片加载失败标记（key = resultId||id）。临时图失败展示"保存中"占位，
 // 永久图失败展示"点击重试"（重拉任务可拿到新签名 URL）。
 const imageLoadFailed = ref<Record<string, boolean>>({});
-const genMeta = ref<{ time: string; resolution: string; size: string; model: string; ratio: string } | null>(null);
 const previewData = ref<{
   key: string;
   src: string;
@@ -134,6 +147,7 @@ const previewData = ref<{
   resolution: string;
   size: string;
   ratio: string;
+  model: string;
   temporary?: boolean;
   resultId?: string;
   savedWorkId?: number;
@@ -141,6 +155,7 @@ const previewData = ref<{
 
 let taskTicker: ReturnType<typeof setInterval> | undefined;
 let lastFinishedJobId = "";
+let finishedTaskSeq = 0;
 let nextPollErrorToastAt = 0;
 let lastConfigMode: boolean | null = null;
 let lastRouteSignature = "";
@@ -171,14 +186,13 @@ const inlineRatios = computed(() => ratioList.value);
 const moreStyleSelected = computed(() => {
   return !!selectedStyleName.value && allStyles.value.findIndex((style) => style.name === selectedStyleName.value) > 6;
 });
-const failCount = computed(() => generatedResults.value.filter((item) => item.failed).length);
-const successCount = computed(() => generatedResults.value.filter((item) => !item.failed).length);
-const savedDraftCount = computed(() => generatedResults.value.filter((item) => !item.failed && item.savedWorkId).length);
+const allGeneratedResults = computed(() => resultGroups.value.flatMap((group) => group.results));
+const successCount = computed(() => allGeneratedResults.value.filter((item) => !item.failed).length);
+const savedDraftCount = computed(() => allGeneratedResults.value.filter((item) => !item.failed && item.savedWorkId).length);
 const allSuccessfulResultsSaved = computed(
-  () => successCount.value > 0 && generatedResults.value.filter((item) => !item.failed).every((item) => item.savedWorkId)
+  () => successCount.value > 0 && allGeneratedResults.value.filter((item) => !item.failed).every((item) => item.savedWorkId)
 );
 const hasAutoSavedDrafts = computed(() => !useMockData.value && savedDraftCount.value > 0);
-const refundCredits = computed(() => Math.ceil(failCount.value * selectedModel.value.cost * selectedQuality.value.multiplier));
 const createConfigUnavailable = computed(
   () => !useMockData.value && (configLoadFailed.value || !modelOptions.value.length || !qualityList.value.length || !ratioList.value.length)
 );
@@ -214,6 +228,16 @@ function modelNameForJob(modelId: string) {
 
 function taskStageText(task: ActiveGenerateTask) {
   return task.finalizing ? "生成完成，正在安全保存到画廊" : generationStageText(task.progress);
+}
+
+const deckTasks = computed<ActiveGenerateTask[]>(() => {
+  if (!activeTasks.value.length) return [];
+  const front = activeTasks.value.find((task) => task.jobId === frontTaskJobId.value) || activeTasks.value[0];
+  return [front, ...activeTasks.value.filter((task) => task !== front)];
+});
+
+function bringTaskToFront(task: ActiveGenerateTask) {
+  frontTaskJobId.value = task.jobId;
 }
 
 function upsertGenerateTask(job: BackendGenerateJob) {
@@ -797,14 +821,16 @@ function toGeneratedResults(job: BackendGenerateJob): GenResult[] {
   }));
 }
 
-function applyPermanentResults(results: GenResult[], preserveVisibleCards: boolean) {
+function applyPermanentResults(results: GenResult[], preserveVisibleCards: boolean, jobId = "") {
+  const group = resultGroups.value.find((entry) => entry.jobId === jobId) || resultGroups.value[0];
+  if (!group) return;
   if (!preserveVisibleCards) {
-    generatedResults.value = results;
+    group.results = results;
     return;
   }
-  const previousById = new Map(generatedResults.value.map((item) => [item.resultId || item.id, item]));
+  const previousById = new Map(group.results.map((item) => [item.resultId || item.id, item]));
   const transitions: Array<{ key: string; temporaryCard: string; permanent: GenResult; permanentCard: string }> = [];
-  generatedResults.value = results.map((result) => {
+  group.results = results.map((result) => {
     const key = result.resultId || result.id;
     const previous = previousById.get(key);
     if (!previous || previous.failed || result.failed) return result;
@@ -816,9 +842,9 @@ function applyPermanentResults(results: GenResult[], preserveVisibleCards: boole
   });
   for (const transition of transitions) {
     void preloadImage(transition.permanentCard).then(() => {
-      const index = generatedResults.value.findIndex((item) => (item.resultId || item.id) === transition.key);
-      if (index < 0 || generatedResults.value[index]?.cardUrl !== transition.temporaryCard) return;
-      generatedResults.value[index] = transition.permanent;
+      const index = group.results.findIndex((item) => (item.resultId || item.id) === transition.key);
+      if (index < 0 || group.results[index]?.cardUrl !== transition.temporaryCard) return;
+      group.results[index] = transition.permanent;
     }).catch(() => undefined);
   }
 }
@@ -856,20 +882,36 @@ async function refreshActiveJobOnce() {
   try {
     const job = await fetchGenerateJob(lastFinishedJobId);
     if (!job.results.length) return;
-    applyPermanentResults(toGeneratedResults(job), generatedResults.value.length > 0);
-    syncOpenPreviewResult(generatedResults.value);
+    applyPermanentResults(toGeneratedResults(job), resultGroups.value.length > 0, job.id);
+    const group = resultGroups.value.find((entry) => entry.jobId === job.id);
+    if (group) syncOpenPreviewResult(group.results);
   } catch {
     // 轮询会继续重试，这里不提示。
   }
 }
 
-function renderJobResults(job: BackendGenerateJob, preserveVisibleCards: boolean) {
-  const results = toGeneratedResults(job);
-  applyPermanentResults(results, preserveVisibleCards);
-  syncOpenPreviewResult(results);
+function renderJobResults(job: BackendGenerateJob, preserveVisibleCards: boolean, modelName: string) {
+  let group = resultGroups.value.find((entry) => entry.jobId === job.id);
+  if (!group) {
+    finishedTaskSeq += 1;
+    group = {
+      jobId: job.id,
+      label: `任务 ${finishedTaskSeq}`,
+      results: [],
+      meta: { time: "0.0", resolution: qualityShortLabel(job.quality), size: `${job.costCredits - job.refundCredits}积分`, model: modelName, ratio: job.ratio },
+      failCount: 0,
+      refundCredits: job.refundCredits
+    };
+    resultGroups.value = [group, ...resultGroups.value].slice(0, MAX_RESULT_GROUPS);
+  }
+  applyPermanentResults(toGeneratedResults(job), preserveVisibleCards, job.id);
+  group.failCount = group.results.filter((item) => item.failed).length;
+  syncOpenPreviewResult(group.results);
 }
 
 function updateFinishedJobMeta(job: BackendGenerateJob, modelName: string) {
+  const group = resultGroups.value.find((entry) => entry.jobId === job.id);
+  if (!group) return;
   const startedAtMs = new Date(job.createdAt).getTime();
   const providerFinishedAt = job.results
     .map((item) => new Date(item.createdAt || "").getTime())
@@ -878,13 +920,14 @@ function updateFinishedJobMeta(job: BackendGenerateJob, modelName: string) {
   const elapsed = Number.isFinite(startedAtMs)
     ? Math.max(1, ((providerFinishedAt || new Date(job.updatedAt).getTime()) - startedAtMs) / 1000)
     : 1;
-  genMeta.value = {
+  group.meta = {
     time: elapsed.toFixed(1),
     resolution: qualityShortLabel(job.quality),
     size: `${job.costCredits - job.refundCredits}积分`,
     model: modelName,
     ratio: job.ratio
   };
+  group.refundCredits = job.refundCredits;
 }
 
 function applyGenerateTaskUpdate(job: BackendGenerateJob) {
@@ -897,7 +940,7 @@ function applyGenerateTaskUpdate(job: BackendGenerateJob) {
     lastFinishedJobId = job.id;
     const preserveVisibleCards = task.finalResultsRendered;
     task.finalResultsRendered = true;
-    renderJobResults(job, preserveVisibleCards);
+    renderJobResults(job, preserveVisibleCards, task.modelName);
     updateFinishedJobMeta(job, task.modelName);
   }
 }
@@ -909,7 +952,7 @@ function finishGenerateTask(job: BackendGenerateJob) {
   removeGenerateTask(job.id);
   void syncCreditsAfterTerminalJob(job);
   lastFinishedJobId = job.id;
-  renderJobResults(job, !!task?.finalResultsRendered);
+  renderJobResults(job, !!task?.finalResultsRendered, task?.modelName || modelNameForJob(job.modelId));
   updateFinishedJobMeta(job, task?.modelName || modelNameForJob(job.modelId));
 
   const autoSaved = job.results.some((item) => item.workId);
@@ -1175,19 +1218,29 @@ async function runStartGenerate() {
         error: failed ? randomError() : ""
       };
     });
-    generatedResults.value = results;
-    genMeta.value = {
-      time: mockDurationSeconds.toFixed(1),
-      resolution: qualityShortLabel(task.qualityLabel),
-      size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`,
-      model: task.modelName,
-      ratio: task.ratioLabel
-    };
+    const fails = results.filter((item) => item.failed).length;
+    const refund = Math.ceil(fails * selectedModel.value.cost * selectedQuality.value.multiplier);
+    finishedTaskSeq += 1;
+    resultGroups.value = [
+      {
+        jobId: mockJobId,
+        label: `任务 ${finishedTaskSeq}`,
+        results,
+        meta: {
+          time: mockDurationSeconds.toFixed(1),
+          resolution: qualityShortLabel(task.qualityLabel),
+          size: `${(Math.random() * 3 + 1.5).toFixed(1)}MB`,
+          model: task.modelName,
+          ratio: task.ratioLabel
+        },
+        failCount: fails,
+        refundCredits: refund
+      },
+      ...resultGroups.value
+    ].slice(0, MAX_RESULT_GROUPS);
     lastFinishedJobId = mockJobId;
     removeGenerateTask(mockJobId);
 
-    const fails = results.filter((item) => item.failed).length;
-    const refund = Math.ceil(fails * selectedModel.value.cost * selectedQuality.value.multiplier);
     if (fails === 0) showToast(`生成成功！消耗${task.cost}积分`);
     else if (fails === count) showToast(`全部生成失败，${task.cost}积分已退还`);
     else showToast(`${count - fails}张成功，${fails}张失败，退还${refund}积分`);
@@ -1196,7 +1249,8 @@ async function runStartGenerate() {
 }
 
 function openPreview(item: GenResult) {
-  if (item.failed || !genMeta.value) return;
+  const group = resultGroups.value.find((entry) => entry.results.some((result) => resultKey(result) === resultKey(item)));
+  if (item.failed || !group) return;
   const key = item.resultId || item.id;
   const cardSrc = resultCardImageSrc(item);
   const fullscreenSrc = resultPreviewImageSrc(item);
@@ -1205,9 +1259,10 @@ function openPreview(item: GenResult) {
     src: warmedPreviewUrls.has(fullscreenSrc) ? fullscreenSrc : cardSrc,
     fullscreenSrc,
     originalSrc: resultOriginalImageSrc(item),
-    resolution: genMeta.value.resolution,
-    size: genMeta.value.size,
-    ratio: genMeta.value.ratio,
+    resolution: group.meta.resolution,
+    size: group.meta.size,
+    ratio: group.meta.ratio,
+    model: group.meta.model,
     temporary: item.temporary,
     resultId: item.resultId,
     savedWorkId: item.savedWorkId
@@ -1306,7 +1361,7 @@ async function saveAllResults() {
   if (!ensureLogin()) return;
   if (isSavingDrafts.value) return;
 
-  const successfulResults = generatedResults.value.filter((item) => !item.failed);
+  const successfulResults = allGeneratedResults.value.filter((item) => !item.failed);
   if (!successfulResults.length) {
     showToast("暂无可保存图片");
     return;
@@ -1326,10 +1381,10 @@ async function saveAllResults() {
 
 async function goPublish() {
   if (!ensureLogin()) return;
-  if (useMockData.value && generatedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
+  if (useMockData.value && allGeneratedResults.value.some((item) => !item.failed && !item.savedWorkId)) {
     await saveAllResults();
   }
-  const draftId = generatedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
+  const draftId = allGeneratedResults.value.find((item) => !item.failed && item.savedWorkId)?.savedWorkId;
   if (!useMockData.value && !draftId) {
     showToast("生成结果正在同步到画廊，请稍后刷新查看");
     return;
@@ -1521,59 +1576,89 @@ function goMine() { goRootTab("/pages/mine/index"); }
             <text>生成结果</text>
             <text v-if="activeTasks.length" class="active-task-count">进行中 {{ activeTasks.length }}/{{ maxConcurrentGenerateTasks }}</text>
           </view>
-          <view v-for="task in activeTasks" :key="task.jobId" class="generating-card">
-            <view class="progress-ring" :style="{ '--progress': task.progress }">
-              <view class="progress-num">{{ task.progress }}%</view>
-            </view>
-            <text class="stage-text">{{ task.stageText }}</text>
-            <view class="generation-elapsed">
-              <LumiIcon name="clock-3" :size="13" />
-              <text>已耗时 {{ task.elapsedSeconds }}s</text>
-            </view>
-            <view class="progress-track">
-              <view class="progress-bar" :style="{ width: `${task.progress}%` }" />
-            </view>
-            <text class="generation-meta">
-              消耗 {{ task.cost }} 积分 · 使用 {{ task.modelName }} · {{ qualityShortLabel(task.qualityLabel) }}
-            </text>
-          </view>
-          <view v-if="generatedResults.length" class="result-wrap">
-            <view class="result-grid">
-              <template v-for="item in generatedResults" :key="item.id">
-                <view v-if="item.failed" class="result-cell failed">
-                  <text class="fail-icon">✕</text>
-                  <text class="fail-msg">{{ item.error }}</text>
+          <view
+            v-if="deckTasks.length"
+            class="task-deck"
+            :style="{ paddingBottom: `${(deckTasks.length - 1) * TASK_DECK_PEEK_HEIGHT}px` }"
+          >
+            <view
+              v-for="(task, depth) in deckTasks"
+              :key="task.jobId"
+              class="generating-card task-deck-card"
+              :class="{ front: depth === 0 }"
+              :style="{ zIndex: deckTasks.length - depth, transform: `translateY(${depth * TASK_DECK_PEEK_HEIGHT}px)` }"
+              @click="bringTaskToFront(task)"
+            >
+              <template v-if="depth === 0">
+                <view class="progress-ring" :style="{ '--progress': task.progress }">
+                  <view class="progress-num">{{ task.progress }}%</view>
                 </view>
-                <view v-else class="result-img" @click="openPreview(item)">
-                  <image
-                    v-if="!imageLoadFailed[item.resultId || item.id]"
-                    :src="resultCardImageSrc(item, 400)"
-                    mode="aspectFill"
-                    @error="onResultImageError(item)"
-                    @load="onResultImageLoad(item)"
-                  />
-                  <view v-else class="result-img-fallback" @click.stop="retryResultImage(item)">
-                    <template v-if="item.temporary">
-                      <LumiIcon class="fallback-icon" name="clock-3" :size="18" />
-                      <text class="fallback-text">预览加载慢，原图保存中…</text>
-                    </template>
-                    <template v-else>
-                      <LumiIcon class="fallback-icon" name="images" :size="18" />
-                      <text class="fallback-text">加载失败，点击重试</text>
-                    </template>
-                  </view>
+                <text class="stage-text">{{ task.stageText }}</text>
+                <view class="generation-elapsed">
+                  <LumiIcon name="clock-3" :size="13" />
+                  <text>已耗时 {{ task.elapsedSeconds }}s</text>
                 </view>
+                <view class="progress-track">
+                  <view class="progress-bar" :style="{ width: `${task.progress}%` }" />
+                </view>
+                <text class="generation-meta">
+                  消耗 {{ task.cost }} 积分 · 使用 {{ task.modelName }} · {{ qualityShortLabel(task.qualityLabel) }}
+                </text>
               </template>
+              <view v-else class="deck-peek">
+                <text class="peek-pct">{{ task.progress }}%</text>
+                <text class="peek-stage">{{ task.stageText }}</text>
+                <view class="peek-track">
+                  <view class="peek-fill" :style="{ width: `${task.progress}%` }" />
+                </view>
+                <text class="peek-elapsed">{{ task.elapsedSeconds }}s</text>
+              </view>
             </view>
-            <view v-if="failCount > 0" class="refund-note">
-              <text v-if="successCount > 0">{{ failCount }}张生成失败，已退还 {{ refundCredits }} 积分</text>
-              <text v-else>全部失败，已退还 {{ totalCost }} 积分</text>
-            </view>
-            <view v-if="genMeta" class="result-meta">
-              <text class="meta-item">耗时 {{ genMeta.time }}s</text>
-              <text class="meta-item">{{ genMeta.resolution }}</text>
-              <text class="meta-item">{{ genMeta.size }}</text>
-              <text class="meta-item">{{ genMeta.model }}</text>
+          </view>
+          <view v-if="resultGroups.length" class="result-wrap">
+            <view v-for="(group, groupIndex) in resultGroups" :key="group.jobId" class="result-group-card">
+              <view class="result-group-head">
+                <text class="group-name">{{ group.label }}</text>
+                <text v-if="groupIndex === 0 && resultGroups.length > 1" class="group-new-badge">新</text>
+                <text class="group-sub">{{ group.meta.model }} · {{ group.results.length }}张</text>
+              </view>
+              <view class="result-grid">
+                <template v-for="item in group.results" :key="item.id">
+                  <view v-if="item.failed" class="result-cell failed">
+                    <text class="fail-icon">✕</text>
+                    <text class="fail-msg">{{ item.error }}</text>
+                  </view>
+                  <view v-else class="result-img" @click="openPreview(item)">
+                    <image
+                      v-if="!imageLoadFailed[item.resultId || item.id]"
+                      :src="resultCardImageSrc(item, 400)"
+                      mode="aspectFill"
+                      @error="onResultImageError(item)"
+                      @load="onResultImageLoad(item)"
+                    />
+                    <view v-else class="result-img-fallback" @click.stop="retryResultImage(item)">
+                      <template v-if="item.temporary">
+                        <LumiIcon class="fallback-icon" name="clock-3" :size="18" />
+                        <text class="fallback-text">预览加载慢，原图保存中…</text>
+                      </template>
+                      <template v-else>
+                        <LumiIcon class="fallback-icon" name="images" :size="18" />
+                        <text class="fallback-text">加载失败，点击重试</text>
+                      </template>
+                    </view>
+                  </view>
+                </template>
+              </view>
+              <view v-if="group.failCount > 0" class="refund-note">
+                <text v-if="group.failCount < group.results.length">{{ group.failCount }}张生成失败，已退还 {{ group.refundCredits }} 积分</text>
+                <text v-else>全部失败，已退还 {{ group.refundCredits }} 积分</text>
+              </view>
+              <view class="result-meta">
+                <text class="meta-item">耗时 {{ group.meta.time }}s</text>
+                <text class="meta-item">{{ group.meta.resolution }}</text>
+                <text class="meta-item">{{ group.meta.size }}</text>
+                <text class="meta-item">{{ group.meta.model }}</text>
+              </view>
             </view>
             <view v-if="hasAutoSavedDrafts" class="draft-saved-note">
               <LumiIcon class="draft-saved-icon" name="file-text" :size="15" />
@@ -1590,7 +1675,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
               </button>
             </view>
           </view>
-          <view v-if="!activeTasks.length && !generatedResults.length" class="empty-result">
+          <view v-if="!deckTasks.length && !resultGroups.length" class="empty-result">
             <LumiIcon class="empty-icon" name="images" :size="32" />
             <text>点击「开始创作」生成作品</text>
           </view>
@@ -1603,9 +1688,9 @@ function goMine() { goRootTab("/pages/mine/index"); }
         <view class="create-bottom-row">
           <view
             class="create-btn"
-            :class="{ disabled: !isLoggedIn || isSubmittingGenerate || activeTasks.length >= maxConcurrentGenerateTasks }"
+            :class="{ disabled: !isLoggedIn || activeTasks.length >= maxConcurrentGenerateTasks }"
             role="button"
-            :aria-disabled="!isLoggedIn || isSubmittingGenerate || activeTasks.length >= maxConcurrentGenerateTasks"
+            :aria-disabled="!isLoggedIn || activeTasks.length >= maxConcurrentGenerateTasks"
             hover-class="create-btn-pressed"
             @click="startGenerate"
           >
@@ -1755,7 +1840,7 @@ function goMine() { goRootTab("/pages/mine/index"); }
       <view v-if="previewData" class="preview-info">
         <text class="meta-item">{{ previewData.resolution }}</text>
         <text class="meta-item">{{ previewData.size }}</text>
-        <text class="meta-item">{{ genMeta?.model }}</text>
+        <text class="meta-item">{{ previewData?.model }}</text>
         <text class="meta-item">{{ previewData.ratio }}</text>
       </view>
       <view v-if="previewData?.temporary" class="preview-transfer-note">
@@ -2412,10 +2497,120 @@ function goMine() { goRootTab("/pages/mine/index"); }
   gap: 14px;
   align-items: center;
   padding: 24px 16px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   background: var(--bg-card);
   border: 1px solid var(--card-border);
   border-radius: 14px;
+}
+
+/* 堆叠卡组：所有卡片占同一个 grid 单元格，后面的卡下移露出 30px 抽屉条。 */
+.task-deck {
+  position: relative;
+  display: grid;
+  margin-bottom: 10px;
+}
+
+.task-deck-card {
+  grid-area: 1 / 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: transform 0.35s ease;
+}
+
+.task-deck-card.front {
+  justify-content: flex-start;
+}
+
+.task-deck-card:not(.front) {
+  gap: 0;
+  align-items: stretch;
+  padding: 0;
+}
+
+.deck-peek {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+}
+
+.peek-pct {
+  flex: 0 0 auto;
+  min-width: 34px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.peek-stage {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peek-track {
+  flex: 0 0 64px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.peek-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #b8a5e3, #5b9fe8, #6fd4b0);
+  border-radius: 2px;
+  transition: width 0.35s ease;
+}
+
+.peek-elapsed {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* 结果分组卡：每个完成任务独立成组，新组在上。 */
+.result-group-card {
+  padding: 14px 12px;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+}
+
+.result-group-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.group-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.group-new-badge {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(90deg, #b8a5e3, #5b9fe8);
+  border-radius: 999px;
+}
+
+.group-sub {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--fg-muted);
 }
 
 .active-task-count {

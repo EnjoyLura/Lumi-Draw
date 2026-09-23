@@ -121,6 +121,9 @@ const renderedTab = ref<GalleryTab>("all");
 const works = ref<HomeWork[]>(useMockData.value ? galleryWorks : []);
 const profile = ref(useMockData.value ? galleryUser : EMPTY_PROFILE);
 const genTasks = ref<GalleryGenTask[]>(useMockData.value ? galleryGenTasks : []);
+// 堆叠卡组：主卡默认最新任务，点击后面的抽屉条可把该任务置顶。
+const GEN_DECK_PEEK_HEIGHT = 30;
+const frontGenTaskId = ref("");
 const manageMode = ref(false);
 const selectedIds = ref<Set<number>>(new Set());
 const isLoading = ref(!useMockData.value && isLoggedIn.value);
@@ -179,6 +182,16 @@ const mergedGenerationJobs = new Set<string>();
 const modelOptions = computed(() => availableModels.value);
 function normalizeModelName(value?: string) {
   return (value || "").toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+const deckGenTasks = computed<GalleryGenTask[]>(() => {
+  if (!genTasks.value.length) return [];
+  const front = genTasks.value.find((task) => String(task.id) === frontGenTaskId.value) || genTasks.value[0];
+  return [front, ...genTasks.value.filter((task) => task !== front)];
+});
+
+function bringGenTaskToFront(task: GalleryGenTask) {
+  frontGenTaskId.value = String(task.id);
 }
 
 const filteredWorks = computed(() => {
@@ -1187,25 +1200,44 @@ function openWork(work: HomeWork) {
 
       <view v-if="isInitialContentReady && isLoggedIn" class="gallery-content">
         <view v-if="genTasks.length" class="gen-cards">
-          <view v-for="task in genTasks" :key="task.id" class="gen-task-card">
-            <view class="shimmer-bg" />
-            <view class="gen-inner">
-              <view class="gen-row1">
-                <view class="gen-info">
-                  <view class="gen-prompt">{{ task.prompt }}</view>
-                  <view class="gen-meta">{{ task.model }} · {{ task.count }}张 · {{ task.ratio }} · {{ task.quality }}</view>
+          <view class="gen-deck" :style="{ paddingBottom: `${(deckGenTasks.length - 1) * GEN_DECK_PEEK_HEIGHT}px` }">
+            <view
+              v-for="(task, depth) in deckGenTasks"
+              :key="task.id"
+              class="gen-task-card gen-deck-card"
+              :class="{ front: depth === 0 }"
+              :style="{ zIndex: deckGenTasks.length - depth, transform: `translateY(${depth * GEN_DECK_PEEK_HEIGHT}px)` }"
+              @click="bringGenTaskToFront(task)"
+            >
+              <view class="shimmer-bg" />
+              <template v-if="depth === 0">
+                <view class="gen-inner">
+                  <view class="gen-row1">
+                    <view class="gen-info">
+                      <view class="gen-prompt">{{ task.prompt }}</view>
+                      <view class="gen-meta">{{ task.model }} · {{ task.count }}张 · {{ task.ratio }} · {{ task.quality }}</view>
+                    </view>
+                    <view class="gen-status">
+                      <text class="gen-percent">{{ task.percent }}%</text>
+                      <text class="gen-elapsed">{{ task.elapsed }}s</text>
+                    </view>
+                  </view>
+                  <view class="gen-row2">
+                    <view class="gen-track">
+                      <view class="gen-fill" :style="{ width: `${task.percent}%` }" />
+                    </view>
+                    <view class="gen-spinner" />
+                    <text class="gen-stage">{{ task.stage }}</text>
+                  </view>
                 </view>
-                <view class="gen-status">
-                  <text class="gen-percent">{{ task.percent }}%</text>
-                  <text class="gen-elapsed">{{ task.elapsed }}s</text>
-                </view>
-              </view>
-              <view class="gen-row2">
-                <view class="gen-track">
+              </template>
+              <view v-else class="gen-peek">
+                <text class="gen-peek-pct">{{ task.percent }}%</text>
+                <text class="gen-peek-stage">{{ task.stage }}</text>
+                <view class="gen-peek-track">
                   <view class="gen-fill" :style="{ width: `${task.percent}%` }" />
                 </view>
-                <view class="gen-spinner" />
-                <text class="gen-stage">{{ task.stage }}</text>
+                <text class="gen-peek-elapsed">{{ task.elapsed }}s</text>
               </view>
             </view>
           </view>
@@ -2016,6 +2048,68 @@ function openWork(work: HomeWork) {
   border: 1.5px solid var(--accent-soft);
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(91, 159, 232, 0.1);
+}
+
+/* 堆叠卡组：主卡完整展示，其余任务下移露出 30px 抽屉条，点击置顶。 */
+.gen-deck {
+  position: relative;
+  display: grid;
+}
+
+.gen-deck-card {
+  grid-area: 1 / 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  margin-bottom: 0;
+  transition: transform 0.35s ease;
+}
+
+.gen-deck-card.front {
+  justify-content: flex-start;
+}
+
+.gen-peek {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+}
+
+.gen-peek-pct {
+  flex: 0 0 auto;
+  min-width: 32px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.gen-peek-stage {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--fg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gen-peek-track {
+  flex: 0 0 64px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.gen-peek-elapsed {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: var(--fg-muted);
 }
 
 .shimmer-bg {
