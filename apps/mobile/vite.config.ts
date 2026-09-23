@@ -5,6 +5,15 @@ const uni = typeof uniPlugin === "function" ? uniPlugin : (uniPlugin as { defaul
 
 export default defineConfig({
   plugins: [uni()],
+  build: {
+    minify: "terser",
+    terserOptions: {
+      compress: { drop_console: false },
+      // 微信开发者工具的 es6→es5 转译会把块级 const 提升为函数级 var，
+      // 与顶层 import 的压缩短名重名时会让调用读到 undefined，因此保留原始标识符。
+      mangle: false
+    }
+  },
   server: {
     proxy: {
       "/api": {
