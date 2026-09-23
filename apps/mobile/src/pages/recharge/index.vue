@@ -47,7 +47,8 @@ const activeRecordState = computed(() => recordState[activeTab.value]);
 const selectedTier = computed(() => tiers.value[selectedTierIdx.value]);
 const customValue = computed(() => Number.parseFloat(customAmount.value));
 const customCredits = computed(() => (Number.isNaN(customValue.value) || customValue.value < 1 ? 0 : Math.floor(customValue.value * 100)));
-const customBonus = computed(() => Math.floor(customCredits.value * 0.05));
+const customNormalized = computed(() => (Number.isNaN(customValue.value) ? 0 : Math.round(customValue.value * 100) / 100));
+const customBonus = computed(() => (customNormalized.value > 6 ? Math.floor(customCredits.value * 0.05) : 0));
 
 function clampTierIndex() {
   selectedTierIdx.value = tiers.value.length ? Math.max(0, Math.min(selectedTierIdx.value, tiers.value.length - 1)) : 0;

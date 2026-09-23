@@ -171,7 +171,8 @@ export class PaymentsService {
     if (!amount || !Number.isFinite(amount) || amount < 1) throw new BadRequestException("充值金额不能低于1元");
     const normalized = Math.round(amount * 100) / 100;
     const credits = Math.floor(normalized * 100);
-    const bonusCredits = Math.floor(credits * 0.05);
+    // 与最低档位（6 元）对齐：不超过 6 元的自定义充值不赠送积分
+    const bonusCredits = normalized > 6 ? Math.floor(credits * 0.05) : 0;
     return {
       amountFen: Math.round(normalized * 100),
       credits,
