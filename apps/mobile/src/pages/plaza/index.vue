@@ -469,16 +469,20 @@ async function reloadPlazaData() {
   isLoading.value = !workList.value.length;
   loadFailed.value = false;
   try {
-    const [config] = await Promise.all([fetchPlazaConfig(), loadDrawerProfile()]);
-    categoryOptions.value = config.categories;
-    modelFilterOptions.value = config.models.length ? config.models : fallbackModelFilters;
-    sizeFilterOptions.value = config.ratios.length ? config.ratios : fallbackSizeFilters;
-    qualityFilterOptions.value = config.qualities.length ? config.qualities : fallbackQualityFilters;
-    activeCategoryIndex.value = categoryOptions.value.length
-      ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
-      : 0;
-    renderedCategoryIndex.value = activeCategoryIndex.value;
-    await loadCurrentPlazaPage(1, false);
+    // 筛选配置与作品列表并行拉取：首次进入时作品请求走默认"全部"筛选，
+    // 与 config 无依赖；config 到达后立即驱动分类条 UI，不再串行等待。
+    const configPromise = Promise.all([fetchPlazaConfig(), loadDrawerProfile()]).then(([config]) => {
+      categoryOptions.value = config.categories;
+      modelFilterOptions.value = config.models.length ? config.models : fallbackModelFilters;
+      sizeFilterOptions.value = config.ratios.length ? config.ratios : fallbackSizeFilters;
+      qualityFilterOptions.value = config.qualities.length ? config.qualities : fallbackQualityFilters;
+      activeCategoryIndex.value = categoryOptions.value.length
+        ? Math.max(0, Math.min(activeCategoryIndex.value, categoryOptions.value.length - 1))
+        : 0;
+      renderedCategoryIndex.value = activeCategoryIndex.value;
+      return config;
+    });
+    await Promise.all([configPromise, loadCurrentPlazaPage(1, false)]);
     visibleWorkCount.value = 10;
     renderKey.value += 1;
     lastLoadedAt = Date.now();

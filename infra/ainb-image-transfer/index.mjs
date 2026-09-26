@@ -402,12 +402,16 @@ function cdnObjectUrl(objectKey, imageProcess) {
 }
 
 function cdnClient(context) {
+  // 预热只调用 CDN API（推送 URL 列表，不搬运图片字节），静态 AK 与角色凭证等价。
   const credentials = context?.credentials || {};
-  if (!credentials.accessKeyId || !credentials.accessKeySecret) throw new Error("FC runtime credentials are unavailable for CDN prefetch");
+  const useEnv = !credentials.accessKeyId && process.env.OSS_ACCESS_KEY_ID && process.env.OSS_ACCESS_KEY_SECRET;
+  const accessKeyId = useEnv ? process.env.OSS_ACCESS_KEY_ID : credentials.accessKeyId;
+  const accessKeySecret = useEnv ? process.env.OSS_ACCESS_KEY_SECRET : credentials.accessKeySecret;
+  if (!accessKeyId || !accessKeySecret) throw new Error("CDN prefetch credentials are unavailable");
   const config = new OpenApiConfig({
-    accessKeyId: credentials.accessKeyId,
-    accessKeySecret: credentials.accessKeySecret,
-    securityToken: credentials.securityToken,
+    accessKeyId,
+    accessKeySecret,
+    securityToken: useEnv ? undefined : credentials.securityToken,
     endpoint: process.env.CDN_API_ENDPOINT || "cdn.aliyuncs.com",
     regionId: process.env.CDN_API_REGION || process.env.OSS_REGION || "cn-beijing"
   });
@@ -773,8 +777,8 @@ async function notify(payload, url = callbackUrl()) {
 
 function ossClient(context) {
   // 香港区域部署（fetchRegion="hk" 线路）：函数不绑 FC RAM 角色，OSS 鉴权来自
-  // 环境变量静态凭证；同时必须设置 OSS_INTERNAL=false（跨区域内网端点不可达），
-  // CDN 预取依赖角色凭证，海外副本以 CDN_PREFETCH_ENABLED=false 关闭。
+  // 环境变量静态凭证；同时必须设置 OSS_INTERNAL=false（跨区域内网端点不可达）。
+  // CDN 预取同样回退到静态凭证（仅 CDN API 调用），由 CDN_PREFETCH_ENABLED 控制。
   const creds = (context && context.credentials) || {};
   const useEnv = !creds.accessKeyId && process.env.OSS_ACCESS_KEY_ID && process.env.OSS_ACCESS_KEY_SECRET;
   return new OSS({
@@ -836,8 +840,8 @@ async function runGeneration(payload, context) {
       ));
     }
     if (!stored.length) throw new Error("provider returned no usable images");
-    await notify({ jobId: payload.jobId, outputs: stored });
     await prewarmCdnVariants(stored.map((item) => item.objectKey), context, { jobId: payload.jobId, operation: "generate" });
+    await notify({ jobId: payload.jobId, outputs: stored });
     logEvent("info", "generation.complete", { jobId: payload.jobId, elapsedMs: Date.now() - startedAt, outputCount: stored.length, totalBytes: stored.reduce((sum, item) => sum + item.sizeBytes, 0) });
     return { ok: true, outputs: stored };
   } finally {
@@ -864,6 +868,8 @@ async function runTransfer(payload, context) {
   });
   const transferUploadMs = Date.now() - startedAt;
   logEvent("info", "oss.upload.complete", { jobId: payload.jobId, resultId: payload.resultId, objectKey: payload.objectKey, bytes: image.buffer.byteLength, elapsedMs: transferUploadMs });
+  // 预热放在回调之前：回调失败会触发 FC 重试，但缓存预热不该跟着重试推迟。
+  await prewarmCdnVariants([payload.objectKey], context, { jobId: payload.jobId, resultId: payload.resultId, operation: "transfer" });
   await notify({
     jobId: payload.jobId,
     resultId: payload.resultId,
@@ -875,7 +881,6 @@ async function runTransfer(payload, context) {
     transferDownloadMs: image.metrics?.transferDownloadMs,
     transferUploadMs
   }, process.env.API_CALLBACK_URL);
-  await prewarmCdnVariants([payload.objectKey], context, { jobId: payload.jobId, resultId: payload.resultId, operation: "transfer" });
   return { ok: true };
 }
 
