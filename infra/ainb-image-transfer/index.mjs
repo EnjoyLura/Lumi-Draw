@@ -772,12 +772,17 @@ async function notify(payload, url = callbackUrl()) {
 }
 
 function ossClient(context) {
+  // 香港区域部署（fetchRegion="hk" 线路）：函数不绑 FC RAM 角色，OSS 鉴权来自
+  // 环境变量静态凭证；同时必须设置 OSS_INTERNAL=false（跨区域内网端点不可达），
+  // CDN 预取依赖角色凭证，海外副本以 CDN_PREFETCH_ENABLED=false 关闭。
+  const creds = (context && context.credentials) || {};
+  const useEnv = !creds.accessKeyId && process.env.OSS_ACCESS_KEY_ID && process.env.OSS_ACCESS_KEY_SECRET;
   return new OSS({
     region: process.env.OSS_REGION,
     bucket: process.env.OSS_BUCKET,
-    accessKeyId: context.credentials.accessKeyId,
-    accessKeySecret: context.credentials.accessKeySecret,
-    stsToken: context.credentials.securityToken,
+    accessKeyId: useEnv ? process.env.OSS_ACCESS_KEY_ID : creds.accessKeyId,
+    accessKeySecret: useEnv ? process.env.OSS_ACCESS_KEY_SECRET : creds.accessKeySecret,
+    stsToken: useEnv ? undefined : creds.securityToken,
     authorizationV4: true,
     internal: process.env.OSS_INTERNAL !== "false"
   });
