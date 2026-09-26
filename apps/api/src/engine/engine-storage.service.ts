@@ -36,7 +36,7 @@ export class EngineStorageService {
    * 适配器产出落库：buffer 直接传 OSS（stored），URL 建转存资产并派发 FC。
    * 返回 direct images（全部无需转存时交账务直接结算），否则返回 null 由回调驱动。
    */
-  async stageOutputs(job: EngineJob, outputs: AdapterOutput[], rules: unknown): Promise<GeneratedImage[] | null> {
+  async stageOutputs(job: EngineJob, outputs: AdapterOutput[], rules: unknown, fetchRegion: "" | "hk" = ""): Promise<GeneratedImage[] | null> {
     const selected = outputs.slice(0, job.count);
     const expected = resolveGeneratedImageSize(job.ratio, job.quality);
     const direct: GeneratedImage[] = [];
@@ -84,7 +84,7 @@ export class EngineStorageService {
         data: { status: "settling", progress: 96, stageText: "图片已生成，正在安全保存原图" }
       });
       for (const item of transferring) {
-        await this.dispatchTransfer(job.id, item.assetId, item.sourceUrl, rules);
+        await this.dispatchTransfer(job.id, item.assetId, item.sourceUrl, rules, fetchRegion);
       }
       return null;
     }
@@ -120,7 +120,7 @@ export class EngineStorageService {
   }
 
   /** FC 转存任务派发：条件更新做租约，防并发重复派发。 */
-  async dispatchTransfer(jobId: string, assetId: string, sourceUrl: string, rules: unknown) {
+  async dispatchTransfer(jobId: string, assetId: string, sourceUrl: string, rules: unknown, fetchRegion: "" | "hk" = "") {
     const now = new Date();
     const leased = await this.prisma.engineAsset.updateMany({
       where: {
@@ -146,6 +146,7 @@ export class EngineStorageService {
     try {
       await this.imageTransfer.dispatchInBackground({
         invocationKey: `${asset.id}:${asset.transferAttempts}`,
+        fetchRegion,
         jobId,
         resultId: asset.id,
         sourceUrl: rewritten.url,
@@ -241,6 +242,7 @@ export class EngineStorageService {
     await this.imageTransfer.dispatchGeneration({
       operation: "generate",
       invocationKey: `${job.id}:${job.providerAttemptIndex}:${job.startedAt?.getTime() || 0}`,
+      fetchRegion: ctx.config.fetchRegion,
       jobId: job.id,
       provider: {
         protocol,
@@ -340,7 +342,7 @@ export class EngineStorageService {
       take: batch
     });
     for (const asset of pending) {
-      await this.dispatchTransfer(asset.jobId, asset.id, asset.sourceUrl || asset.providerUrl, asset.job.providerSnapshot);
+      await this.dispatchTransfer(asset.jobId, asset.id, asset.sourceUrl || asset.providerUrl, asset.job.providerSnapshot, snapshotFetchRegion(asset.job.providerSnapshot));
     }
   }
 
@@ -357,7 +359,7 @@ export class EngineStorageService {
         data: { status: "settling", stageText: "图片已生成，正在重试安全保存原图" }
       });
       const assets = await this.prisma.engineAsset.findMany({ where: { jobId, status: "transferring" } });
-      for (const asset of assets) await this.dispatchTransfer(jobId, asset.id, asset.sourceUrl || asset.providerUrl, job.providerSnapshot);
+      for (const asset of assets) await this.dispatchTransfer(jobId, asset.id, asset.sourceUrl || asset.providerUrl, job.providerSnapshot, snapshotFetchRegion(job.providerSnapshot));
     }
     return updated.count;
   }
@@ -380,4 +382,9 @@ export class EngineStorageService {
 
 function finiteMs(value: number | undefined) {
   return Number.isFinite(value) ? Math.max(0, Math.floor(value as number)) : null;
+}
+
+function snapshotFetchRegion(snapshot: unknown): "" | "hk" {
+  const config = (snapshot as { config?: { fetchRegion?: unknown } } | null)?.config;
+  return config && config.fetchRegion === "hk" ? "hk" : "";
 }

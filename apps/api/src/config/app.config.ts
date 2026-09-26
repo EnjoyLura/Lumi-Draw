@@ -76,6 +76,8 @@ export const appConfig = registerAs("app", () => ({
   },
   imageTransfer: {
     functionUrl: process.env.IMAGE_TRANSFER_FUNCTION_URL ?? "",
+    // 执行器海外线路（fetchRegion="hk" 的平台走这里）；未配置时该区域派发直接报错。
+    hkFunctionUrl: process.env.IMAGE_TRANSFER_FUNCTION_URL_HK ?? "",
     bearerToken: process.env.IMAGE_TRANSFER_BEARER_TOKEN ?? "",
     // FC HTTP triggers must have asynchronous invocation enabled. Keep this
     // enabled by default so large image transfers never hold an API request

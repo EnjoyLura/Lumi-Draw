@@ -393,7 +393,7 @@ export class EngineService {
           where: { id: job.id },
           data: { startedAt: job.startedAt ?? new Date(), totalTimeoutAt: null }
         });
-        const direct = await this.storage.stageOutputs(job, outputs, snapshot.config.resultUrlRewriteRules);
+        const direct = await this.storage.stageOutputs(job, outputs, snapshot.config.resultUrlRewriteRules, snapshot.config.fetchRegion);
         if (direct) {
           const settled = await this.billing.settleWithDrafts(await this.loadJob(job.id), direct, "生成完成");
           return settled;
@@ -590,7 +590,7 @@ export class EngineService {
       }
       const outputs: AdapterOutput[] = event.imageUrls.map((url) => ({ url }));
       const snapshot = this.readSnapshot(job);
-      const direct = await this.storage.stageOutputs(job, outputs, snapshot.config.resultUrlRewriteRules);
+      const direct = await this.storage.stageOutputs(job, outputs, snapshot.config.resultUrlRewriteRules, snapshot.config.fetchRegion);
       if (direct) {
         return this.billing.settleWithDrafts(await this.loadJob(jobId), direct, "生成完成");
       }

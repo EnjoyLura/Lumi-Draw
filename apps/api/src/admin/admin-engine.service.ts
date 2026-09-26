@@ -22,7 +22,8 @@ const CONFIG_FIELDS = [
   "requestHeaders", "queryHeaders", "requestTemplate", "imageRequestTemplate",
   "injectModel", "injectCount", "requestParams", "imageRequestParams",
   "imageInputMode", "imageInputField",
-  "sizeMode", "pixelSizeField", "ratioField", "resolutionField"
+  "sizeMode", "pixelSizeField", "ratioField", "resolutionField",
+  "fetchRegion"
 ] as const;
 
 /** 试运行任务挂在这个系统用户下，与真实用户数据完全隔离。 */

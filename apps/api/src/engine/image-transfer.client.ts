@@ -7,6 +7,7 @@ import type { ProviderResultUrlRewriteRule } from "../common/provider-result-url
 
 type ImageTransferConfig = {
   functionUrl: string;
+  hkFunctionUrl: string;
   bearerToken: string;
   asyncInvocation: boolean;
 };
@@ -14,6 +15,8 @@ type ImageTransferConfig = {
 export type ImageTransferRequest = {
   operation?: "transfer";
   invocationKey?: string;
+  /** 产物执行器区域（来自供应商配置 fetchRegion）；缺省=默认区域。 */
+  fetchRegion?: "" | "hk";
   jobId: string;
   resultId: string;
   sourceUrl: string;
@@ -24,6 +27,7 @@ export type ImageTransferRequest = {
 export type ImageGenerationRequest = {
   operation: "generate";
   invocationKey?: string;
+  fetchRegion?: "" | "hk";
   jobId: string;
   provider: {
     protocol: "openai-images" | "gemini";
@@ -64,10 +68,11 @@ export class ImageTransferClient {
   }
 
   dispatch(input: ImageTransferRequest) {
-    const { invocationKey, ...payload } = input;
+    const { invocationKey, fetchRegion, ...payload } = input;
     return this.dispatchRequest(
       { ...payload, operation: "transfer" },
-      this.taskId("transfer", invocationKey || input.resultId)
+      this.taskId("transfer", invocationKey || input.resultId),
+      fetchRegion
     );
   }
 
@@ -76,17 +81,23 @@ export class ImageTransferClient {
   }
 
   private dispatchGenerationOnce(input: ImageGenerationRequest) {
-    const { invocationKey, ...payload } = input;
-    return this.dispatchRequest(payload, this.taskId("generate", invocationKey || input.jobId));
+    const { invocationKey, fetchRegion, ...payload } = input;
+    return this.dispatchRequest(payload, this.taskId("generate", invocationKey || input.jobId), fetchRegion);
   }
 
   private taskId(prefix: string, value: string) {
     return `${prefix}-${createHash("sha256").update(value).digest("hex").slice(0, 40)}`;
   }
 
-  private dispatchRequest(input: ImageTransferRequest | ImageGenerationRequest, taskId: string) {
+  private dispatchRequest(input: ImageTransferRequest | ImageGenerationRequest, taskId: string, fetchRegion: "" | "hk" = "") {
     const config = this.getConfig();
-    if (!config.functionUrl || !config.bearerToken) throw new Error("Image transfer function is not configured");
+    const functionUrl = this.resolveFunctionUrl(fetchRegion);
+    if (!functionUrl || !config.bearerToken) {
+      throw new Error(fetchRegion === "hk" && !config.hkFunctionUrl
+        ? "Image transfer function for region hk is not configured"
+        : "Image transfer function is not configured");
+    }
+    if (fetchRegion) this.logger.log(`Image function dispatch region=${fetchRegion} task=${taskId}`);
     const body = JSON.stringify(input);
     const timestamp = String(Date.now());
     const signature = createHmac("sha256", config.bearerToken).update(`${timestamp}.${body}`).digest("hex");
@@ -100,7 +111,7 @@ export class ImageTransferClient {
       headers["X-Fc-Invocation-Type"] = "Async";
       headers["X-Fc-Async-Task-Id"] = taskId.slice(0, 128);
     }
-    return fetch(config.functionUrl, {
+    return fetch(functionUrl, {
       method: "POST",
       headers,
       body,
@@ -146,8 +157,15 @@ export class ImageTransferClient {
     const value = this.config.get<ImageTransferConfig>("app.imageTransfer");
     return {
       functionUrl: (value?.functionUrl || "").replace(/\/+$/, ""),
+      hkFunctionUrl: (value?.hkFunctionUrl || "").replace(/\/+$/, ""),
       bearerToken: value?.bearerToken || "",
       asyncInvocation: value?.asyncInvocation !== false
     };
+  }
+
+  /** fetchRegion="hk" 走海外执行器；未配置视为该区域不可用，由派发处报错。 */
+  private resolveFunctionUrl(fetchRegion: "" | "hk") {
+    const config = this.getConfig();
+    return fetchRegion === "hk" ? config.hkFunctionUrl : config.functionUrl;
   }
 }

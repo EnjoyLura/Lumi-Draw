@@ -63,6 +63,8 @@ export interface ProviderConfig {
   pixelSizeField: string;
   ratioField: string;
   resolutionField: string;
+  /** 产物执行器（同步生成/URL 转存）所在的 FC 区域；空值=默认区域。 */
+  fetchRegion: "" | "hk";
 }
 
 /** 引擎传给适配器的规范化请求。 */

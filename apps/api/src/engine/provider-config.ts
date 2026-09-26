@@ -57,6 +57,7 @@ export function providerConfigDefaults(kind: AdapterKind): ProviderConfig {
   return {
     adapter: kind,
     baseUrl: "",
+    fetchRegion: "",
     responseMapping: {},
     resultUrlRewriteRules: [],
     requestHeaders: {},
@@ -115,7 +116,8 @@ export function readProviderConfig(row: { config: Prisma.JsonValue }): ProviderC
     sizeMode: pickString(value.sizeMode, defaults.sizeMode) === "ratio-resolution" ? "ratio-resolution" : "pixels",
     pixelSizeField: pickString(value.pixelSizeField, defaults.pixelSizeField || "size"),
     ratioField: pickString(value.ratioField, defaults.ratioField || "size"),
-    resolutionField: pickString(value.resolutionField, defaults.resolutionField || "resolution")
+    resolutionField: pickString(value.resolutionField, defaults.resolutionField || "resolution"),
+    fetchRegion: pickString(value.fetchRegion, "") === "hk" ? "hk" : ""
   };
 }
 
