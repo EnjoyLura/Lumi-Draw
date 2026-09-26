@@ -214,3 +214,16 @@ export const FAILURE_USER_MESSAGES: Record<ProviderErrorKind, string> = {
   ambiguous: "生成结果未确认，积分已退还，请稍后重试",
   unknown: "生成失败，请稍后重试"
 };
+
+/**
+ * 面向用户的失败阶段：小程序只按主要步骤区分，不摊开上游五花八门的错误码。
+ * 内部 kind 仍然决定重试/退款策略并供后台统计，两者职责分离。
+ */
+export type FailureStage = "upstream" | "download" | "platform";
+
+/** 退款由 failJob 统一追加“（已返还 N 积分）”，文案里不重复提积分。 */
+export const FAILURE_STAGE_MESSAGES: Record<FailureStage, string> = {
+  upstream: "上游生成失败，请稍后重试",
+  download: "图片下载失败，请稍后重试",
+  platform: "服务处理异常，请稍后重试"
+};

@@ -165,6 +165,16 @@ export const GENERATION_TOTAL_TIMEOUT_MS = 35 * 60_000;
 export const RETRY_BACKOFF_MS = 800;
 export const WATCHDOG_INTERVAL_MS = 20_000;
 export const ASYNC_POLL_INTERVAL_MS = 20_000;
+/**
+ * 单条线路等待上游响应（同步返回或 FC 回调）的上限。超时即按该线路失败处理，
+ * 不再陪上游挂到 GENERATION_TOTAL_TIMEOUT_MS——部分聚合平台会把连接挂住数分钟
+ * 最后才吐一个账号级错误，用户等 8 分钟才看到失败。
+ */
+export const PROVIDER_RESPONSE_TIMEOUT_MS = 5 * 60_000;
+/** 连续失败达到该次数的平台自动降级，不再作为候选线路。 */
+export const PROVIDER_DEGRADE_FAILURE_THRESHOLD = 5;
+/** 降级冷却期：超过后放行一次探测，成功即自愈，无需人工恢复。 */
+export const PROVIDER_DEGRADE_COOLDOWN_MS = 30 * 60_000;
 export const STARTUP_SUBMISSION_GRACE_MS = 2 * 60_000;
 export const TRANSFER_RETRY_SCAN_INTERVAL_MS = 60_000;
 export const TRANSFER_RETRY_BATCH_SIZE = 30;

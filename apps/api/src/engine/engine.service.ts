@@ -18,7 +18,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
 import { EngineBillingService, type GeneratedImage } from "./engine-billing.service";
-import { decideFailure } from "./engine-failover";
+import { decideFailure, isProviderDegraded } from "./engine-failover";
 import {
   ASYNC_POLL_INTERVAL_MS,
   ENGINE_ACTIVE_STATUSES,
@@ -26,6 +26,8 @@ import {
   ENGINE_TERMINAL_STATUSES,
   GENERATION_TOTAL_TIMEOUT_MS,
   MAX_ATTEMPTS_PER_PROVIDER,
+  PROVIDER_DEGRADE_FAILURE_THRESHOLD,
+  PROVIDER_RESPONSE_TIMEOUT_MS,
   QUICK_FAILURE_WINDOW_MS,
   RETRY_BACKOFF_MS,
   SUBMIT_DEADLINE_MS,
@@ -38,7 +40,7 @@ import {
   type ProviderEvent
 } from "./engine.types";
 import { buildAdapterContext, callbackTaskId, resolveAdapter } from "./adapters";
-import { FAILURE_CODES, providerSupportsOperation, readProviderConfig, resolveAdapterKind, resolveFcGeneration } from "./provider-config";
+import { FAILURE_CODES, providerSupportsOperation, readProviderConfig, resolveAdapterKind, resolveFcGeneration, type FailureStage } from "./provider-config";
 import { EngineStorageService } from "./engine-storage.service";
 
 type JobWithRelations = EngineJob & { assets: EngineAsset[]; attempts?: EngineAttempt[] };
@@ -243,7 +245,11 @@ export class EngineService {
         return providerSupportsOperation(config, operation)
           && (config.authMode === "none" || Boolean(this.resolveProviderApiKey(row.apiKeyEncrypted, row.apiKeyEnv)));
       });
-    const primary = usable[0];
+    // 连续失败达阈值的线路先让开；全都在冷却里时照旧放行，保证还能出图
+    const degraded = await this.degradedProviderIds(usable.map((row) => row.id));
+    const healthy = usable.filter((row) => !degraded.has(row.id));
+    const pool = healthy.length ? healthy : usable;
+    const primary = pool[0];
     if (!primary) throw new BadRequestException("当前模型和分辨率没有可用的 API 平台，请联系管理员");
     const config = readProviderConfig(primary);
     return {
@@ -256,8 +262,29 @@ export class EngineService {
       config,
       apiKeyEncrypted: primary.apiKeyEncrypted,
       apiKeyEnv: primary.apiKeyEnv,
-      candidates: usable.map((row) => row.id)
+      candidates: pool.map((row) => row.id)
     };
+  }
+
+  /**
+   * 自动降级：某平台最近连续 PROVIDER_DEGRADE_FAILURE_THRESHOLD 条终态记录全部失败
+   * 时不再选用它；冷却期过后放行一次探测，成功即自愈。试运行不计入。
+   */
+  private async degradedProviderIds(providerIds: string[], now = new Date()) {
+    const degraded = new Set<string>();
+    for (const id of providerIds) {
+      const recent = await this.prisma.engineAttempt.findMany({
+        where: { providerId: id, state: { in: ["succeeded", "failed"] }, finishedAt: { not: null }, job: { dryRun: false } },
+        orderBy: { finishedAt: "desc" },
+        take: PROVIDER_DEGRADE_FAILURE_THRESHOLD,
+        select: { state: true, finishedAt: true }
+      });
+      if (isProviderDegraded(recent, now)) {
+        degraded.add(id);
+        this.logger.warn(`engine provider ${id} degraded after ${recent.length} consecutive failures`);
+      }
+    }
+    return degraded;
   }
 
   // ---------------- 提交 ----------------
@@ -309,20 +336,17 @@ export class EngineService {
           progress: 5,
           stageText: "任务已提交，正在生成",
           startedAt: job.startedAt ?? new Date(),
-          submitDeadlineAt: new Date(Date.now() + SUBMIT_DEADLINE_MS),
+          submitDeadlineAt: new Date(Date.now() + PROVIDER_RESPONSE_TIMEOUT_MS),
           totalTimeoutAt: new Date(Date.now() + GENERATION_TOTAL_TIMEOUT_MS)
         }
       });
       try {
         await this.storage.dispatchFcGeneration(job, ctx, req);
-        // FC 已受理（异步调用毫秒级返回）；生成耗时由 totalTimeoutAt 兜底。
-        await this.prisma.engineJob.updateMany({
-          where: { id: job.id, status: "running" },
-          data: { submitDeadlineAt: null }
-        });
+        // FC 已受理（异步调用毫秒级返回）。保留 submitDeadlineAt 作为“结果到达”截止时间：
+        // 上游偶尔把连接挂住数分钟才回账号级错误，不能让任务一直等到 35 分钟兜底。
       } catch (error) {
         const message = error instanceof Error ? error.message : "FC generation dispatch failed";
-        await this.handleProviderFailure(job.id, snapshot.adapterKind, message, "network", true, 0, attempt.id);
+        await this.handleProviderFailure(job.id, snapshot.adapterKind, message, "network", true, 0, attempt.id, "platform");
       }
       return this.loadJob(job.id);
     }
@@ -333,7 +357,7 @@ export class EngineService {
     await this.prisma.engineJob.update({
       where: { id: job.id },
       data: {
-        submitDeadlineAt: new Date(Date.now() + (snapshot.requestMode === "sync" ? GENERATION_TOTAL_TIMEOUT_MS : SUBMIT_DEADLINE_MS)),
+        submitDeadlineAt: new Date(Date.now() + (snapshot.requestMode === "sync" ? PROVIDER_RESPONSE_TIMEOUT_MS : SUBMIT_DEADLINE_MS)),
         totalTimeoutAt: new Date(Date.now() + GENERATION_TOTAL_TIMEOUT_MS)
       }
     });
@@ -430,7 +454,8 @@ export class EngineService {
     kind: ProviderErrorKind,
     maybeBilled: boolean,
     latencyMs: number,
-    attemptId?: string
+    attemptId?: string,
+    stage: FailureStage = "upstream"
   ) {
     const job = await this.loadJob(jobId);
     if (ENGINE_TERMINAL_STATUSES.has(job.status)) return job;
@@ -468,7 +493,7 @@ export class EngineService {
     });
 
     if (decision === "fail") {
-      await this.billing.failJob(jobId, kind, message);
+      await this.billing.failJob(jobId, kind, message, stage);
       return this.loadJob(jobId);
     }
 
@@ -477,8 +502,15 @@ export class EngineService {
     const model = await this.prisma.modelConfig.findUnique({ where: { id: job.modelId }, select: { providerModel: true, providerModelImage: true } });
     const operation = job.operation as "text-to-image" | "image-to-image";
     let selected: { provider: GenerationProvider; config: ProviderConfig } | null = null;
+    const degraded = await this.degradedProviderIds(candidates);
+    // 全部候选都在降级冷却时不再拦截，留一次探测机会
+    const skipDegraded = candidates.some((id) => !degraded.has(id));
     while (targetIndex < candidates.length) {
       const candidateId = candidates[targetIndex];
+      if (skipDegraded && degraded.has(candidateId)) {
+        targetIndex += 1;
+        continue;
+      }
       const provider = await this.prisma.generationProvider.findFirst({ where: { id: candidateId, enabled: true } });
       if (provider) {
         const config = readProviderConfig(provider);
@@ -491,7 +523,7 @@ export class EngineService {
       targetIndex += 1;
     }
     if (!selected) {
-      await this.billing.failJob(jobId, kind, message);
+      await this.billing.failJob(jobId, kind, message, stage);
       return this.loadJob(jobId);
     }
 

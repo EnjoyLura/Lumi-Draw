@@ -1,4 +1,5 @@
 import type { ProviderErrorKind } from "./engine.types";
+import { PROVIDER_DEGRADE_COOLDOWN_MS, PROVIDER_DEGRADE_FAILURE_THRESHOLD } from "./engine.types";
 
 export type FailureDecision = "retry-same" | "fallback" | "fail";
 
@@ -32,4 +33,30 @@ export function decideFailure(input: {
     && input.attemptsForProvider < input.maxAttemptsPerProvider;
   if (canRetrySame) return "retry-same";
   return input.hasNextProvider ? "fallback" : "fail";
+}
+
+/** 平台最近终态尝试记录（按完成时间倒序传入）。 */
+export interface TerminalAttemptSample {
+  state: string;
+  finishedAt: Date | null;
+}
+
+/**
+ * 平台自动降级判定（纯函数，穷举测试用）。
+ * 最近连续 PROVIDER_DEGRADE_FAILURE_THRESHOLD 条终态记录全是失败，且最新一条仍在
+ * 冷却期内，则判定该线路不可用；超过冷却期返回 false 放行一次探测，上游恢复即自愈，
+ * 不需要人工恢复。样本不足阈值不降级，避免新平台或低流量时段被误伤。
+ */
+export function isProviderDegraded(
+  recentTerminalAttemptsDesc: TerminalAttemptSample[],
+  now: Date,
+  threshold = PROVIDER_DEGRADE_FAILURE_THRESHOLD,
+  cooldownMs = PROVIDER_DEGRADE_COOLDOWN_MS
+): boolean {
+  const sample = recentTerminalAttemptsDesc.slice(0, threshold);
+  if (sample.length < threshold) return false;
+  if (!sample.every((item) => item.state === "failed")) return false;
+  const newest = sample[0].finishedAt;
+  if (!newest) return false;
+  return now.getTime() - new Date(newest).getTime() < cooldownMs;
 }

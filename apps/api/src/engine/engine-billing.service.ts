@@ -3,7 +3,7 @@ import type { EngineJob } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { WechatWalletService } from "../payments/wechat-wallet.service";
-import { FAILURE_CODES, FAILURE_USER_MESSAGES } from "./provider-config";
+import { FAILURE_CODES, FAILURE_STAGE_MESSAGES, FAILURE_USER_MESSAGES, type FailureStage } from "./provider-config";
 import { resolveGeneratedImageSize } from "../common/generated-image-size";
 import type { ProviderErrorKind } from "./engine.types";
 
@@ -60,8 +60,16 @@ export class EngineBillingService {
     return index ? `${base} ${index}` : base;
   }
 
-  failure(kind: ProviderErrorKind) {
-    return { code: FAILURE_CODES[kind] ?? 42004, message: FAILURE_USER_MESSAGES[kind] ?? FAILURE_USER_MESSAGES.unknown };
+  /**
+   * 用户可见文案按失败阶段给，只有用户自己能处置的几类（内容安全、尺寸、参数）
+   * 才保留按 kind 的细文案；其余一律“上游/下载/平台”三档，不摊开上游错误码。
+   */
+  failure(kind: ProviderErrorKind, stage: FailureStage = "upstream") {
+    const actionable = kind === "policy" || kind === "size" || kind === "invalid_request";
+    const message = actionable
+      ? FAILURE_USER_MESSAGES[kind] ?? FAILURE_USER_MESSAGES.unknown
+      : FAILURE_STAGE_MESSAGES[stage] ?? FAILURE_STAGE_MESSAGES.upstream;
+    return { code: FAILURE_CODES[kind] ?? 42004, message };
   }
 
   /** 终态失败退款。返回实际记入的退款积分。 */
@@ -228,7 +236,7 @@ export class EngineBillingService {
     if (["succeeded", "partial_failed", "failed"].includes(job.status)) return job;
     const successful = job.assets.filter((asset) => asset.status === "stored" && asset.url).slice(0, job.count);
     if (!successful.length) {
-      await this.failJob(jobId, "parse", transferError || "图片永久保存失败");
+      await this.failJob(jobId, "parse", transferError || "图片永久保存失败", "download");
       return null;
     }
     const partial = calculatePartialRefund(job.costCredits, job.refundCredits, job.count, successful.length);
@@ -285,8 +293,8 @@ export class EngineBillingService {
     });
   }
 
-  async failJob(jobId: string, kind: ProviderErrorKind, rawMessage: string) {
-    const failure = this.failure(kind);
+  async failJob(jobId: string, kind: ProviderErrorKind, rawMessage: string, stage: FailureStage = "upstream") {
+    const failure = this.failure(kind, stage);
     const current = await this.prisma.engineJob.findUnique({ where: { id: jobId } });
     if (!current || ["succeeded", "partial_failed", "failed", "cancelled"].includes(current.status)) return current;
     const refundedCredits = await this.refundJob(current, "AI生成任务失败返还", `engine_refund:${jobId}`);

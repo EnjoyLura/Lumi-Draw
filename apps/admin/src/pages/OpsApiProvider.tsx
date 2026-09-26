@@ -478,6 +478,9 @@ export function OpsApiProvider() {
                   {platform.name}
                   <Badge text={adapterLabel(platform.adapter)} type="purple" />
                   {!platform.enabled ? <Badge text="已停用" type="muted" /> : null}
+                  {platform.health?.degraded
+                    ? <Badge text={`已降级·连续失败${platform.health.consecutiveFailures ?? ""}`} type="danger" />
+                    : null}
                   {platform.apiKeyHint || platform.apiKeyEnv
                     ? null
                     : <Badge text="密钥未配置" type="danger" />}

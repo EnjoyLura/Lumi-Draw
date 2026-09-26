@@ -56,7 +56,7 @@ export interface EnginePlatform {
   apiKeyEnv: string;
   hasEncryptedKey: boolean;
   linkedModelIds?: string[];
-  health?: { total: number; succeeded: number; failed: number };
+  health?: { total: number; succeeded: number; failed: number; consecutiveFailures?: number; degraded?: boolean };
   createdAt: string;
   updatedAt: string;
 }

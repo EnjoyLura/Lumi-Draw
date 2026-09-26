@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import type { GenerationProvider } from "@prisma/client";
 import { decryptProviderApiKey, encryptProviderApiKey, providerApiKeyHint } from "../common/provider-secret";
 import { extractQualityTier, QUALITY_TIERS } from "../common/provider-routing";
+import { isProviderDegraded } from "../engine/engine-failover";
+import { PROVIDER_DEGRADE_FAILURE_THRESHOLD } from "../engine/engine.types";
 import { PrismaService } from "../prisma/prisma.service";
 import { UploadsService } from "../uploads/uploads.service";
 import { adapterMetadata, findAdapterMetadata } from "../engine/adapters/adapter-metadata";
@@ -373,13 +375,27 @@ export class AdminEngineService {
       where: { startedAt: { gte: since }, job: { dryRun: false } },
       _count: { _all: true }
     });
-    const map = new Map<string, { total: number; succeeded: number; failed: number }>();
+    const map = new Map<string, { total: number; succeeded: number; failed: number; consecutiveFailures: number; degraded: boolean }>();
     for (const row of attempts) {
-      const entry = map.get(row.providerId) ?? { total: 0, succeeded: 0, failed: 0 };
+      const entry = map.get(row.providerId) ?? { total: 0, succeeded: 0, failed: 0, consecutiveFailures: 0, degraded: false };
       entry.total += row._count._all;
       if (row.state === "succeeded") entry.succeeded += row._count._all;
       if (row.state === "failed") entry.failed += row._count._all;
       map.set(row.providerId, entry);
+    }
+    // 与选路一致的自动降级判定，让后台能直接看到“这条线路现在不会被用”
+    const now = new Date();
+    for (const [providerId, entry] of map.entries()) {
+      const recent = await this.prisma.engineAttempt.findMany({
+        where: { providerId, state: { in: ["succeeded", "failed"] }, finishedAt: { not: null }, job: { dryRun: false } },
+        orderBy: { finishedAt: "desc" },
+        take: PROVIDER_DEGRADE_FAILURE_THRESHOLD,
+        select: { state: true, finishedAt: true }
+      });
+      let streak = 0;
+      while (streak < recent.length && recent[streak].state === "failed") streak += 1;
+      entry.consecutiveFailures = streak;
+      entry.degraded = isProviderDegraded(recent, now);
     }
     return map;
   }
