@@ -295,7 +295,7 @@ export class EngineService {
       jobId: submitted.id,
       clientRequestId: submitted.clientRequestId,
       status: submitted.status,
-      job: this.toJobView(submitted),
+      job: this.toJobView(submitted, await this.modelNameOf(submitted.modelId)),
       creditsAfter: balance
     };
   }
@@ -628,7 +628,7 @@ export class EngineService {
   async getJob(userId: number, id: string) {
     const job = await this.loadJob(id);
     if (job.userId !== userId) throw new ForbiddenException("无权查看该任务");
-    return this.toJobView(job);
+    return this.toJobView(job, await this.modelNameOf(job.modelId));
   }
 
   async listJobs(userId: number, status: string | undefined, page: number, pageSize: number) {
@@ -642,7 +642,8 @@ export class EngineService {
       this.prisma.engineJob.findMany({ where, include: { assets: true }, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.engineJob.count({ where })
     ]);
-    return buildPage(rows.map((job) => this.toJobView(job)), total, page, pageSize);
+    const modelNames = await this.modelNamesOf(rows.map((job) => job.modelId));
+    return buildPage(rows.map((job) => this.toJobView(job, modelNames.get(job.modelId))), total, page, pageSize);
   }
 
   async findJobByClientRequest(userId: number, clientRequestId: string) {
@@ -651,7 +652,7 @@ export class EngineService {
       include: { assets: true }
     });
     if (!job || job.userId !== userId) return null;
-    return this.toJobView(job);
+    return this.toJobView(job, await this.modelNameOf(job.modelId));
   }
 
   // ---------------- 取消 / 发布 / 重试转存 ----------------
@@ -671,7 +672,7 @@ export class EngineService {
     const fresh = await this.loadJob(id);
     const refundCredits = await this.billing.refundJob(fresh, "取消生成任务退回积分", `engine_cancel_refund:${id}`);
     const updated = await this.loadJob(id);
-    return { ...this.toJobView(updated), refundCredits, creditsAfter: await this.readCredits(userId) };
+    return { ...this.toJobView(updated, await this.modelNameOf(updated.modelId)), refundCredits, creditsAfter: await this.readCredits(userId) };
   }
 
   private async readCredits(userId: number) {
@@ -763,14 +764,18 @@ export class EngineService {
     if (!attempt) {
       const finished = await this.prisma.engineAttempt.findFirst({ where: { upstreamTaskId: taskId }, orderBy: { index: "desc" } });
       if (!finished) throw new NotFoundException("engine job not found");
-      return this.toJobView(await this.loadJob(finished.jobId));
+      const finishedJob = await this.loadJob(finished.jobId);
+      return this.toJobView(finishedJob, await this.modelNameOf(finishedJob.modelId));
     }
     // 签名回调必须与任务归属一致，防止跨任务重放。
     if (signedJobId && attempt.jobId !== signedJobId) throw new UnauthorizedException("callback signature does not match job");
     const adapter = resolveAdapter((attempt.adapter || "async-http") as AdapterKind, "async");
     if (!adapter.parseCallback) throw new BadRequestException("adapter does not support callbacks");
     const job = await this.loadJob(attempt.jobId);
-    return this.toJobView(await this.applyProviderEvent(job.id, adapter.parseCallback(body, this.readSnapshot(job).config)));
+    return this.toJobView(
+      await this.applyProviderEvent(job.id, adapter.parseCallback(body, this.readSnapshot(job).config)),
+      await this.modelNameOf(job.modelId)
+    );
   }
 
   async handleTransferCallback(token: string | undefined, input: Parameters<EngineStorageService["completeTransfer"]>[1]) {
@@ -951,13 +956,28 @@ export class EngineService {
     return [...hosts];
   }
 
-  toJobView(job: EngineJob & { assets?: EngineAsset[] }) {
+  /** 任务列表按 modelId 批量取模型名，避免逐任务查询。 */
+  private async modelNamesOf(modelIds: string[]) {
+    const ids = [...new Set(modelIds.filter(Boolean))];
+    if (!ids.length) return new Map<string, string>();
+    const models = await this.prisma.modelConfig.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+    return new Map(models.map((model) => [model.id, model.name]));
+  }
+
+  private async modelNameOf(modelId: string) {
+    if (!modelId) return undefined;
+    const model = await this.prisma.modelConfig.findUnique({ where: { id: modelId }, select: { name: true } });
+    return model?.name;
+  }
+
+  toJobView(job: EngineJob & { assets?: EngineAsset[] }, modelName?: string) {
     const rules = this.readSnapshotSafe(job)?.config.resultUrlRewriteRules ?? [];
     return {
       id: job.id,
       clientRequestId: job.clientRequestId,
       operation: job.operation,
       modelId: job.modelId,
+      modelName: modelName ?? undefined,
       prompt: job.prompt,
       inputImageUrls: this.readInputImageUrls(job).map((url) => this.uploads.readUrl(url, "private")),
       styleId: job.styleId ?? undefined,
