@@ -41,6 +41,7 @@ interface CatalogModel {
   description: string;
   badge?: string;
   tags?: string[];
+  imageUrl?: string;
   costCredits: number;
 }
 
@@ -158,7 +159,7 @@ function toCreateConfig(catalog: {
         description: item.description || fallback.description,
         tags: item.tags?.length ? item.tags : fallback.tags,
         cost: item.costCredits || fallback.cost,
-        image: fallback.image,
+        image: item.imageUrl || fallback.image,
         badge: item.badge || fallback.badge,
         badgeColor: fallback.badgeColor
       };
