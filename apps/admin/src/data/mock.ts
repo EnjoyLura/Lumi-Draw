@@ -53,6 +53,7 @@ export interface AdminModel {
   providerRouting?: Record<string, string[]>;
   providerModel?: string;
   providerModelImage?: string;
+  imageUrl?: string;
   name: string;
   desc: string;
   tags: string[];

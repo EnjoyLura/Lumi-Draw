@@ -45,6 +45,7 @@ export class EngineCatalogService {
       description: model.description,
       badge: model.badge,
       tags: model.tags,
+      imageUrl: model.imageUrl ? this.uploads.readUrl(model.imageUrl, "public") : "",
       costCredits: model.costCredits,
       supportsTextToImage: model.supportsTextToImage,
       supportsImageToImage: model.supportsImageToImage,

@@ -429,7 +429,7 @@ export async function apiDeleteStyle(id: number) {
   return http.del<ApiStyle>(`/admin/styles/${id}`);
 }
 
-export async function apiUploadConfigImage(scene: "gameplay" | "style", file: File) {
+export async function apiUploadConfigImage(scene: "gameplay" | "style" | "model", file: File) {
   const form = new FormData();
   form.append("file", file, file.name);
   return http.upload<{ imageUrl: string; ossKey: string; sizeBytes: number; contentType: string }>(`/admin/config-media/${scene}`, form);
@@ -479,6 +479,7 @@ export async function apiDeleteHotSearch(id: number) {
 
 interface ApiModelConfig {
   id: string; provider?: string; providerRouting?: Record<string, string | string[]>; providerModel: string; providerModelImage?: string | null; name: string; description: string;
+  imageUrl?: string | null; thumbnailUrl?: string | null;
   tags: string[] | string; costCredits: number; badge: string; enabled: boolean; sort: number;
   supportsTextToImage: boolean; supportsImageToImage: boolean;
 }
@@ -492,7 +493,7 @@ function mapModelConfig(m: ApiModelConfig): AdminModel {
     const ids = (Array.isArray(value) ? value : [value]).map(String).filter(Boolean);
     return ids.length ? [[tier, ids]] : [];
   })) as AdminModel["providerRouting"];
-  return { id: m.id, provider: m.provider, providerRouting, providerModel: m.providerModel, providerModelImage: m.providerModelImage || undefined, name: m.name, desc: m.description, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
+  return { id: m.id, provider: m.provider, providerRouting, providerModel: m.providerModel, providerModelImage: m.providerModelImage || undefined, name: m.name, desc: m.description, imageUrl: m.imageUrl || undefined, tags: modelTags(m.tags), cost: m.costCredits, badge: m.badge, on: m.enabled };
 }
 
 export async function apiGetModels() {
@@ -507,6 +508,7 @@ export async function apiSaveModel(id: string, values: Omit<AdminModel, "id"> & 
     providerRouting: values.providerRouting || {},
     providerModel: values.providerModel || modelId,
     providerModelImage: values.providerModelImage || "",
+    imageUrl: values.imageUrl || "",
     name: values.name,
     description: values.desc,
     tags: values.tags,

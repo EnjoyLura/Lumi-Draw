@@ -94,6 +94,8 @@ model ModelConfig {
   providerModelImage   String?
   name                 String
   description          String
+  // 模型图标：OSS key，管理后台上传，走 CDN 展示
+  imageUrl             String   @default("")
   tags                 String[]
   costCredits          Int      @default(0)
   badge                String   @default("")

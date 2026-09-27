@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AdminImage } from "../components/AdminImage";
-import { apiDeleteModel, apiGetModels, apiSaveModel, apiSetModelEnabled } from "../data/api";
+import { apiDeleteModel, apiGetModels, apiSaveModel, apiSetModelEnabled, apiUploadConfigImage } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { ENGINE_PLATFORMS, IMG, MODEL_BADGES, MODELS, type AdminModel } from "../data/mock";
 import { getModels } from "../data/service";
@@ -11,10 +11,26 @@ import { AddBtn, Badge, CtrlIcons, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
-const ICON_STYLE: React.CSSProperties = { height: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fg-muted)", borderStyle: "dashed" };
+const ICON_STYLE: React.CSSProperties = { position: "relative", height: 88, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, color: "var(--fg-muted)", borderStyle: "dashed", cursor: "pointer" };
 /** 精度档由后端 meta（quality_configs 派生）下发，这里只是离线兜底。 */
 const FALLBACK_TIERS = ["1K", "2K", "4K"];
+const MAX_MODEL_ICON_BYTES = 10 * 1024 * 1024;
 type ProviderRouting = Record<string, string[]>;
+
+function readModelIconAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("图片读取失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepareModelIcon(useMock: boolean, file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("请选择图片文件");
+  if (file.size > MAX_MODEL_ICON_BYTES) throw new Error("模型图标不能超过10MB");
+  return useMock ? readModelIconAsDataUrl(file) : apiUploadConfigImage("model", file).then((result) => result.imageUrl);
+}
 
 type ProviderOption = { id: string; name: string; on: boolean };
 
@@ -96,6 +112,8 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
   const m = item ?? (id ? MODELS.find((x) => x.id === id) : undefined);
   const [name, setName] = useState(m?.name ?? "");
   const [desc, setDesc] = useState(m?.desc ?? "");
+  const [imageUrl, setImageUrl] = useState(m?.imageUrl ?? "");
+  const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState((m?.tags ?? []).join("、"));
   const [cost, setCost] = useState(String(m?.cost ?? 10));
   const [badge, setBadge] = useState(m?.badge ?? "");
@@ -110,6 +128,26 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
   ));
   const [saving, setSaving] = useState(false);
 
+  const chooseImage = () => {
+    if (uploading || saving) return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      void prepareModelIcon(useMock, file)
+        .then((url) => {
+          setImageUrl(url);
+          toast(useMock ? "图标已选择" : "图标已上传");
+        })
+        .catch((error) => toast(error instanceof Error ? error.message : "图标处理失败"))
+        .finally(() => setUploading(false));
+    };
+    input.click();
+  };
+
   const save = async () => {
     if (!name.trim()) { toast("请输入名称"); return; }
     const firstProvider = tiers.flatMap((tier) => providerRouting[tier] || [])[0] || m?.provider || providers.find((provider) => provider.on)?.id;
@@ -121,6 +159,7 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
     const data = {
       name: name.trim(),
       desc,
+      imageUrl,
       tags: tags.split(/[、,，]/).map((s) => s.trim()).filter(Boolean),
       cost: parseInt(cost) || 0,
       badge: badge === "无" ? "" : badge,
@@ -157,9 +196,25 @@ function ModelForm({ id, item, providers, tiers, useMock, onSaved }: { id: strin
   return (
     <>
       <label className="field-label">模型图标</label>
-      <div className="card" style={ICON_STYLE}>
-        {id ? <AdminImage eager className="thumb" src={IMG("model" + id)} style={{ width: 56, height: 56 }} alt="" /> : null}
-        <div style={{ textAlign: "center" }}><i className="ri-upload-cloud-line" style={{ fontSize: 22 }} /><div style={{ fontSize: 12 }}>点击上传</div></div>
+      <div
+        className="card"
+        role="button"
+        tabIndex={0}
+        style={ICON_STYLE}
+        onClick={chooseImage}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") chooseImage(); }}
+      >
+        {imageUrl ? (
+          <>
+            <AdminImage eager className="thumb" src={imageUrl} style={{ width: 56, height: 56, borderRadius: 10, objectFit: "cover" }} alt="" />
+            <span style={{ fontSize: 12 }}>{uploading ? "处理中" : "点击更换"}</span>
+          </>
+        ) : (
+          <div style={{ textAlign: "center" }}>
+            <i className={uploading ? "ri-loader-4-line" : "ri-upload-cloud-line"} style={{ fontSize: 22 }} />
+            <div style={{ fontSize: 12 }}>{uploading ? "处理中" : "点击上传"}</div>
+          </div>
+        )}
       </div>
       <label className="field-label" style={{ marginTop: 12 }}>模型名称</label>
       <input className="input" value={name} onChange={(event) => setName(event.target.value)} placeholder="如：GPT Image 2" />
@@ -262,7 +317,7 @@ export function OpsModel() {
       <div className="card">
         {models.map((model) => (
           <div key={model.id} className="lrow" style={{ cursor: "default", alignItems: "flex-start" }}>
-            <AdminImage className="thumb" src={IMG("model" + model.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
+            <AdminImage className="thumb" src={model.imageUrl || IMG("model" + model.id)} style={{ width: 44, height: 44, marginTop: 2 }} alt="" />
             <div className="lr-main">
               <div className="lr-t">{model.name}{model.badge ? <>&nbsp;<Badge text={model.badge} type="info" /></> : null}</div>
               <div className="lr-s">{model.desc}</div>

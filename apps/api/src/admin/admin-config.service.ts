@@ -30,7 +30,7 @@ const FIELDS = {
   style: ["name", "prompt", "uses", "imageUrl", "enabled", "sort"],
   category: ["name", "count", "sort", "enabled"],
   hotSearch: ["keyword", "hot", "top", "enabled", "sort"],
-  modelConfig: ["id", "provider", "providerRouting", "providerModel", "providerModelImage", "name", "description", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
+  modelConfig: ["id", "provider", "providerRouting", "providerModel", "providerModelImage", "name", "description", "imageUrl", "tags", "costCredits", "badge", "supportsTextToImage", "supportsImageToImage", "enabled", "sort"],
   qualityConfig: ["label", "pixel", "multiplier", "enabled", "sort"],
   ratioConfig: ["label", "description", "enabled", "sort"],
   rechargeTier: ["price", "credits", "bonus", "enabled", "sort"],
@@ -62,7 +62,7 @@ export class AdminConfigService {
   }
 
   uploadConfigImage(scene: string, file?: UploadedImage) {
-    if (scene !== "gameplay" && scene !== "style") throw new BadRequestException("不支持的配置图片类型");
+    if (scene !== "gameplay" && scene !== "style" && scene !== "model") throw new BadRequestException("不支持的配置图片类型");
     if (!file) throw new BadRequestException("请选择封面图片");
     return this.uploads.uploadBuffer(scene, file.originalname, file.mimetype, file.buffer);
   }
@@ -90,7 +90,11 @@ export class AdminConfigService {
     return this.prisma.hotSearch.findMany(bySort);
   }
   models() {
-    return this.prisma.modelConfig.findMany(bySort);
+    return this.prisma.modelConfig.findMany(bySort).then((rows) => rows.map((row) => ({
+      ...row,
+      imageUrl: this.uploads.readUrl(row.imageUrl, "public"),
+      thumbnailUrl: this.uploads.readAdminThumbnailImageUrl(row.imageUrl, "public")
+    })));
   }
   qualities() {
     return this.prisma.qualityConfig.findMany(bySort);
