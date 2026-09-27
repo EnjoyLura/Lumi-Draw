@@ -59,6 +59,7 @@ export interface EngineJobView {
   clientRequestId: string;
   operation: "text-to-image" | "image-to-image";
   modelId: string;
+  modelName?: string;
   prompt: string;
   inputImageUrls: string[];
   styleId?: number;
@@ -167,6 +168,7 @@ export interface CompatGenerateJob {
   id: string;
   mode: "text-to-image" | "image-to-image";
   modelId: string;
+  modelName?: string;
   providerModel?: string;
   prompt: string;
   inputImageUrl?: string;
@@ -202,6 +204,7 @@ export function engineJobToCompat(job: EngineJobView, styleName = ""): CompatGen
     id: job.id,
     mode: job.operation,
     modelId: job.modelId,
+    modelName: job.modelName || undefined,
     prompt: job.prompt,
     inputImageUrls: job.inputImageUrls?.length ? job.inputImageUrls : undefined,
     gameplayId: job.gameplayId,

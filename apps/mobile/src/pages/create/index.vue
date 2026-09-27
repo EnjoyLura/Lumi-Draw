@@ -261,7 +261,7 @@ function upsertGenerateTask(job: BackendGenerateJob) {
   }
   const task: ActiveGenerateTask = {
     jobId: job.id,
-    modelName: modelNameForJob(job.modelId || job.providerModel || ""),
+    modelName: job.modelName || modelNameForJob(job.modelId || job.providerModel || ""),
     qualityLabel: job.quality,
     ratioLabel: job.ratio,
     count: job.count,
@@ -2164,11 +2164,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .model-name {
-  overflow: hidden;
   font-size: 15px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--fg-primary);
+  word-break: break-word;
 }
 
 .model-badge {
@@ -3062,12 +3061,10 @@ function goMine() { goRootTab("/pages/mine/index"); }
 }
 
 .drawer-model-name {
-  overflow: hidden;
   font-size: 15px;
   font-weight: 700;
   color: var(--fg-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .drawer-model-badge {

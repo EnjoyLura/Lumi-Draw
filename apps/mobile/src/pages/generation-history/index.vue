@@ -133,7 +133,7 @@ function formatTime(value: string) {
 }
 
 function formatMeta(job: GenerateHistoryJob) {
-  return [job.modelId || job.providerModel || "AI模型", `${job.count}张`, job.ratio, job.quality].filter(Boolean).join(" · ");
+  return [job.modelName || job.modelId || job.providerModel || "AI模型", `${job.count}张`, job.ratio, job.quality].filter(Boolean).join(" · ");
 }
 
 function statusLabel(status: GenerateJobStatus) {

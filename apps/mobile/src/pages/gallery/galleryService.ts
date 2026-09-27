@@ -52,6 +52,7 @@ interface BackendGenerateJob {
   id: string;
   prompt: string;
   modelId: string;
+  modelName?: string;
   providerModel?: string;
   count: number;
   ratio: string;
@@ -163,7 +164,7 @@ function toGalleryGenTask(job: BackendGenerateJob): GalleryGenTask {
   return {
     id: job.id,
     prompt: job.prompt,
-    model: job.modelId || job.providerModel || "AI",
+    model: job.modelName || job.modelId || job.providerModel || "AI",
     count: job.count,
     ratio: job.ratio,
     quality: job.quality,

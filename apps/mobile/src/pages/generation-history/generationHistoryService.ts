@@ -30,6 +30,7 @@ export interface GenerateHistoryJob {
   id: string;
   mode: "text-to-image" | "image-to-image";
   modelId: string;
+  modelName?: string;
   providerModel?: string;
   prompt: string;
   ratio: string;
@@ -71,6 +72,7 @@ function toHistoryJob(compat: ReturnType<typeof engineJobToCompat>): GenerateHis
     id: compat.id,
     mode: compat.mode,
     modelId: compat.modelId,
+    modelName: compat.modelName,
     prompt: compat.prompt,
     ratio: compat.ratio,
     quality: compat.quality,
