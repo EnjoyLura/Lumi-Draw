@@ -28,6 +28,8 @@ import {
   type GalleryGenerateTaskStartedEvent
 } from "../../services/galleryWorkEvents";
 import { fetchUnreadMessageCount } from "../mine/mineService";
+import { isSameJson, readFeedCache, writeFeedCache } from "../../services/feedCache";
+import { prewarmImages } from "../../services/imagePrewarm";
 import {
   addNotifiedGenerateJobIds,
   readActiveGenerateJobIds,
@@ -434,12 +436,27 @@ function galleryFeedKey() {
   return `${props.pageMode}|${renderedTab.value}|${getStatusForTab() || "all"}`;
 }
 
+type GalleryFeedSeed = { works: HomeWork[]; page: number; hasMore: boolean };
+
+function galleryFeedCacheKey() {
+  return `gallery-feed-${galleryFeedKey()}-${galleryOwnerId()}-${isLoggedIn.value ? "auth" : "guest"}`;
+}
+
+function readGalleryFeedSeed(): GalleryFeedSeed | undefined {
+  const seed = readFeedCache<GalleryFeedSeed>(galleryFeedCacheKey());
+  return seed?.works.length ? seed : undefined;
+}
+
 function prefetchNextGalleryPage() {
   if (useMockData.value || renderedTab.value === "favorite" || !pageState.hasMore) return;
   const page = pageState.page + 1;
   const key = galleryFeedKey();
   if (prefetchedGalleryPage?.key === key && prefetchedGalleryPage.page === page) return;
-  const request = fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE, ownerId: galleryOwnerId() });
+  const request = fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE, ownerId: galleryOwnerId() }).then((result) => {
+    // 下一页 JSON 已到，顺手预热前几张缩略图，翻页即显。
+    prewarmImages(result.works.slice(0, 4).map((work) => work.image));
+    return result;
+  });
   prefetchedGalleryPage = { key, page, request };
   void request.catch(() => {
     if (prefetchedGalleryPage?.request === request) prefetchedGalleryPage = undefined;
@@ -654,12 +671,15 @@ async function loadGalleryPage(page = 1, append = false) {
   const result = await (
     cached?.request ?? fetchGalleryWorks({ status: getStatusForTab(), page, pageSize: PAGE_SIZE, ownerId: galleryOwnerId() })
   );
+  const previousWorks = works.value;
   const ownWorks = assignGalleryOwner(result.works);
   works.value = append ? [...works.value, ...ownWorks] : ownWorks;
   preloadWorkDetailSnapshots(ownWorks.map((work) => ({ work, user: getWorkAuthor(work) })));
+  if (!append && page === 1) writeFeedCache(galleryFeedCacheKey(), { works: ownWorks, page: result.page, hasMore: result.hasMore });
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
-  waterfallEnterKey.value += 1;
+  // 刷新结果与种子一致时跳过入场动画重放。
+  if (!isSameJson(previousWorks, works.value)) waterfallEnterKey.value += 1;
   void prefetchNextGalleryPage();
 }
 
@@ -687,7 +707,15 @@ async function reloadGalleryData() {
 
   if (isPageRequesting.value) return;
   isPageRequesting.value = true;
+  // SWR 种子：冷进入先上屏上次的作品列表（图片命中微信磁盘缓存），后台刷新后 diff 更新。
+  const seed = useMockData.value ? undefined : readGalleryFeedSeed();
+  if (seed && !works.value.length) {
+    works.value = seed.works;
+    pageState.page = seed.page;
+    pageState.hasMore = seed.hasMore;
+  }
   isLoading.value = !works.value.length;
+  const seededWorks = works.value;
   try {
     const profilePromise = fetchGalleryUser();
     const taskPromise = loadGenerateTasks(true);
@@ -695,7 +723,8 @@ async function reloadGalleryData() {
 
     await loadGalleryPage(1, false);
     visibleCount.value = PAGE_SIZE;
-    renderKey.value += 1;
+    // 刷新结果与种子一致时跳过重渲染，避免重复进入时卡片动画重放。
+    if (!isSameJson(works.value, seededWorks)) renderKey.value += 1;
     isLoading.value = false;
 
     const [profileResult] = await Promise.allSettled([profilePromise, taskPromise, unreadPromise]);

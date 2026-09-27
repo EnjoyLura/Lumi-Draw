@@ -20,7 +20,9 @@ import {
   type HomeUser,
   type HomeWork
 } from "./homeData";
-import { fetchHomeBootstrap, fetchHomeFeed, getCachedHomeBootstrap, prewarmHomeBootstrapImages, type HomeFeedView } from "./homeService";
+import { fetchHomeBootstrap, fetchHomeFeed, getCachedHomeBootstrap, getCachedHomeFeed, prewarmHomeBootstrapImages, type HomeBootstrapView, type HomeFeedView } from "./homeService";
+import { isSameJson } from "../../services/feedCache";
+import { prewarmImages } from "../../services/imagePrewarm";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
@@ -53,7 +55,11 @@ const prefetchedFeeds = new Map<string, Promise<HomeFeedView>>();
 const pageInstance = getCurrentInstance();
 let unsubscribeWorkVisibility: (() => void) | undefined;
 const { useMockData } = useDataMode();
+const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const cachedBootstrap = useMockData.value ? undefined : getCachedHomeBootstrap();
+// SWR 种子：上次会话的作品列表先同步上屏（图片命中微信磁盘缓存），后台刷新后 diff 更新。
+const cachedRecommendFeed = useMockData.value ? undefined : getCachedHomeFeed("recommend", isLoggedIn.value);
+const cachedLatestFeed = useMockData.value ? undefined : getCachedHomeFeed("latest", isLoggedIn.value);
 
 const statusBarHeight = ref(0);
 const navigationBarHeight = ref(50);
@@ -67,16 +73,18 @@ const renderedHomeTab = ref<HomeTab>("recommend");
 const bannerList = ref<HomeBanner[]>(useMockData.value ? mockHomeBanners : cachedBootstrap?.banners ?? []);
 const announcementList = ref<HomeAnnouncement[]>(useMockData.value ? mockHomeAnnouncements : cachedBootstrap?.announcements ?? []);
 const gameplayList = ref<Gameplay[]>(useMockData.value ? mockGameplays : cachedBootstrap?.gameplays ?? []);
-const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : []);
-const recommendWorks = ref<HomeWork[]>(useMockData.value ? mockHomeWorks : []);
-const latestWorks = ref<HomeWork[]>(useMockData.value ? [...mockHomeWorks].reverse() : []);
+const userList = ref<HomeUser[]>(useMockData.value ? mockHomeUsers : [...(cachedRecommendFeed?.users ?? []), ...(cachedLatestFeed?.users ?? [])]);
+const recommendWorks = ref<HomeWork[]>(useMockData.value ? mockHomeWorks : cachedRecommendFeed?.works ?? []);
+const latestWorks = ref<HomeWork[]>(useMockData.value ? [...mockHomeWorks].reverse() : cachedLatestFeed?.works ?? []);
 const likedWorkIds = ref<Set<number>>(new Set());
+if (cachedRecommendFeed) syncLikedWorkIds(cachedRecommendFeed.works, likedWorkIds.value);
+if (cachedLatestFeed) syncLikedWorkIds(cachedLatestFeed.works, likedWorkIds.value);
 const likePendingIds = ref<Set<number>>(new Set());
 const showLoginSheet = ref(false);
 const showAnnouncementPopup = ref(false);
 const unreadMessageCount = ref(0);
 const visibleWorkCount = ref(8);
-const isPageLoading = ref(!useMockData.value && !cachedBootstrap);
+const isPageLoading = ref(!useMockData.value && !cachedBootstrap && !cachedRecommendFeed && !cachedLatestFeed);
 const isRefreshing = ref(false);
 const isWorksSwitching = ref(false);
 const isLoadingMore = ref(false);
@@ -88,7 +96,6 @@ const galleryMounted = ref(false);
 const mineMounted = ref(false);
 const createMounted = ref(false);
 const { themeClass } = useTheme();
-const { isLoggedIn, login: commitLogin, requireLogin } = useAuth();
 const feedState = reactive({
   recommend: { page: 1, hasMore: false },
   new: { page: 1, hasMore: false }
@@ -264,39 +271,57 @@ async function loadHomeData(forceBootstrap = false) {
   await refreshTabPage(timestampKey, async () => {
   isPageLoading.value = !recommendWorks.value.length && !latestWorks.value.length;
   loadFailed.value = false;
-  try {
-    const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
-    const [bootstrap, recommendFeed, latestFeed] = await Promise.all([
-      fetchHomeBootstrap({ force: forceBootstrap }),
-      fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE, requestOptions),
-      fetchHomeFeed("latest", 1, FEED_PAGE_SIZE, requestOptions)
-    ]);
+  const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
+  let failedCount = 0;
 
+  const applyBootstrap = (bootstrap: HomeBootstrapView) => {
     bannerList.value = bootstrap.banners;
     announcementList.value = bootstrap.announcements;
     gameplayList.value = bootstrap.gameplays;
     prewarmHomeBootstrapImages(bootstrap);
-    recommendWorks.value = recommendFeed.works;
-    latestWorks.value = latestFeed.works;
-    syncLikedWorkIds([...recommendFeed.works, ...latestFeed.works]);
-    userList.value = [];
-    mergeUsers([...recommendFeed.users, ...latestFeed.users]);
-    preloadWorkDetailSnapshots([
-      ...recommendFeed.works.map((work) => ({ work, user: recommendFeed.users.find((user) => user.id === work.userId) ?? getUser(work.userId) })),
-      ...latestFeed.works.map((work) => ({ work, user: latestFeed.users.find((user) => user.id === work.userId) ?? getUser(work.userId) }))
-    ]);
-    feedState.recommend = { page: recommendFeed.page, hasMore: recommendFeed.hasMore };
-    feedState.new = { page: latestFeed.page, hasMore: latestFeed.hasMore };
-    visibleWorkCount.value = 8;
-    worksRenderKey.value += 1;
-    void prefetchNextFeed("recommend");
-    void prefetchNextFeed("new");
     scheduleAnnouncementPopup();
-  } catch (error) {
-    if (!recommendWorks.value.length && !latestWorks.value.length) clearRealHomeData();
-    loadFailed.value = true;
-    uni.showToast({ title: "首页数据加载失败，请稍后重试", icon: "none" });
-    throw error;
+  };
+
+  const applyFeed = (tab: HomeTab, feed: HomeFeedView) => {
+    const previousWorks = tab === "new" ? latestWorks.value : recommendWorks.value;
+    if (tab === "new") {
+      latestWorks.value = feed.works;
+      feedState.new = { page: feed.page, hasMore: feed.hasMore };
+    } else {
+      recommendWorks.value = feed.works;
+      feedState.recommend = { page: feed.page, hasMore: feed.hasMore };
+    }
+    mergeUsers(feed.users);
+    syncLikedWorkIds(feed.works, likedWorkIds.value);
+    preloadWorkDetailSnapshots(feed.works.map((work) => ({ work, user: feed.users.find((user) => user.id === work.userId) ?? getUser(work.userId) })));
+    // 刷新结果与种子一致时跳过重渲染，避免重复进入时瀑布流动画重放。
+    if (!isSameJson(previousWorks, feed.works)) {
+      visibleWorkCount.value = 8;
+      worksRenderKey.value += 1;
+    }
+    void prefetchNextFeed(tab);
+  };
+
+  try {
+    await Promise.all([
+      fetchHomeBootstrap({ force: forceBootstrap }).then(applyBootstrap).catch(() => { failedCount += 1; }),
+      fetchHomeFeed("recommend", 1, FEED_PAGE_SIZE, requestOptions)
+        .then((feed) => applyFeed("recommend", feed))
+        .catch(() => { failedCount += 1; }),
+      fetchHomeFeed("latest", 1, FEED_PAGE_SIZE, requestOptions)
+        .then((feed) => applyFeed("new", feed))
+        .catch(() => { failedCount += 1; })
+    ]);
+    // 渐进渲染：三个请求谁先回来先画谁，不再等最慢的接口。
+    if (failedCount === 3) {
+      const hasRenderedWorks = Boolean(recommendWorks.value.length || latestWorks.value.length);
+      if (!hasRenderedWorks) {
+        clearRealHomeData();
+        loadFailed.value = true;
+      }
+      uni.showToast({ title: "首页数据加载失败，请稍后重试", icon: "none" });
+      throw new Error("home data load failed");
+    }
   } finally {
     isPageLoading.value = false;
   }
@@ -453,7 +478,12 @@ function prefetchNextFeed(tab: HomeTab) {
   const key = feedPrefetchKey(tab, page);
   if (prefetchedFeeds.has(key)) return;
   const requestOptions = isLoggedIn.value ? undefined : { skipAuth: true };
-  const request = fetchHomeFeed(tab === "new" ? "latest" : "recommend", page, FEED_PAGE_SIZE, requestOptions);
+  const request = fetchHomeFeed(tab === "new" ? "latest" : "recommend", page, FEED_PAGE_SIZE, requestOptions)
+    .then((view) => {
+      // 下一页 JSON 已到，顺手把前几张缩略图拉进微信图片缓存，翻页即显。
+      prewarmImages(view.works.slice(0, 4).map((work) => work.image));
+      return view;
+    });
   prefetchedFeeds.set(key, request);
   void request.catch(() => {
     if (prefetchedFeeds.get(key) === request) prefetchedFeeds.delete(key);

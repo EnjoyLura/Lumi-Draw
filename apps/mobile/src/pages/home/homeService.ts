@@ -1,5 +1,7 @@
 import type { PageResult } from "../../services/page-result";
 import { api } from "../../services/api";
+import { readFeedCache, writeFeedCache } from "../../services/feedCache";
+import { prewarmImages } from "../../services/imagePrewarm";
 import { normalizeAspectRatio } from "../../services/aspectRatio";
 import { mockImage } from "../../services/mockImages";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
@@ -108,9 +110,16 @@ type CachedHomeBootstrap = {
 const HOME_BOOTSTRAP_CACHE_KEY = "lumi-home-bootstrap-v2";
 const HOME_BOOTSTRAP_CACHE_TTL = 5 * 60_000;
 const HOME_BOOTSTRAP_MAX_STALE = 24 * 60 * 60_000;
-const warmedBootstrapImages = new Set<string>();
 let memoryBootstrapCache: CachedHomeBootstrap | undefined;
 let bootstrapRequest: Promise<HomeBootstrapView> | undefined;
+
+export function homeFeedCacheKey(tab: FeedTab, isLoggedIn: boolean) {
+  return `home-feed-${tab}-${isLoggedIn ? "auth" : "guest"}`;
+}
+
+export function getCachedHomeFeed(tab: FeedTab, isLoggedIn: boolean): HomeFeedView | undefined {
+  return readFeedCache<HomeFeedView>(homeFeedCacheKey(tab, isLoggedIn));
+}
 
 function fallbackByIndex<T>(items: T[], index: number) {
   return items[index % items.length];
@@ -173,23 +182,10 @@ export function getCachedHomeBootstrap() {
 }
 
 export function prewarmHomeBootstrapImages(data: Pick<HomeBootstrapView, "banners" | "gameplays">) {
-  const urls = [
+  prewarmImages([
     ...data.banners.slice(0, 2).map((item) => item.image),
     ...data.gameplays.slice(0, 4).map((item) => item.image)
-  ].filter((url) => url && !warmedBootstrapImages.has(url));
-  urls.forEach((url) => warmedBootstrapImages.add(url));
-
-  const queue = [...urls];
-  const worker = async () => {
-    while (queue.length) {
-      const src = queue.shift();
-      if (!src) return;
-      await new Promise<void>((resolve) => {
-        uni.getImageInfo({ src, success: () => resolve(), fail: () => resolve() });
-      });
-    }
-  };
-  void Promise.all([worker(), worker()]);
+  ]);
 }
 
 function normalizeBannerAction(action: string, title = "") {
@@ -325,10 +321,12 @@ export async function fetchHomeBootstrap(options?: { force?: boolean }): Promise
 export async function fetchHomeFeed(tab: FeedTab, page: number, pageSize: number, options?: { skipAuth?: boolean }): Promise<HomeFeedView> {
   const result = await api.get<PageResult<BackendWork>>(`/works/feed?tab=${tab}&page=${page}&pageSize=${pageSize}`, options);
   const users = result.items.map((item) => toHomeUser(item.author));
-  return {
+  const view: HomeFeedView = {
     works: result.items.map(toHomeWork),
     users: uniqueUsers(users),
     page: result.page,
     hasMore: result.hasMore
   };
+  if (page === 1) writeFeedCache(homeFeedCacheKey(tab, !options?.skipAuth), view);
+  return view;
 }

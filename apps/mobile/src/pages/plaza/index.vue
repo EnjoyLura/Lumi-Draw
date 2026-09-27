@@ -26,6 +26,8 @@ import { mineUser, type MineUser } from "../mine/mineData";
 import { homeUsers as mockHomeUsers, homeWorks as mockHomeWorks, type HomeUser, type HomeWork } from "../home/homeData";
 import { plazaCategories, plazaTabs, type PlazaTab } from "./plazaData";
 import { fetchPlazaConfig, fetchPlazaWorks, type PlazaCategoryOption, type PlazaFilterOption, type PlazaWorkPage } from "./plazaService";
+import { isSameJson, readFeedCache, writeFeedCache } from "../../services/feedCache";
+import { prewarmImages } from "../../services/imagePrewarm";
 import {
   getWaterfallAnimationClass,
   getWaterfallDirection,
@@ -332,6 +334,22 @@ function plazaFeedKey() {
   ].join("|");
 }
 
+function plazaFeedCacheKey() {
+  return `plaza-feed-${plazaFeedKey()}`;
+}
+
+type PlazaFeedSeed = { works: HomeWork[]; users: HomeUser[] };
+
+function readPlazaFeedSeed(): PlazaFeedSeed | undefined {
+  const seed = readFeedCache<PlazaFeedSeed>(plazaFeedCacheKey());
+  return seed?.works.length ? seed : undefined;
+}
+
+function writePlazaFeedCache(page: number, append: boolean, works: HomeWork[], users: HomeUser[]) {
+  if (append || page !== 1) return;
+  writeFeedCache(plazaFeedCacheKey(), { works, users });
+}
+
 function getPlazaFeedParams(page: number) {
   const categoryId = selectedCategoryIds().length ? undefined : categoryOptions.value[renderedCategoryIndex.value]?.id;
   return {
@@ -353,7 +371,11 @@ function prefetchNextPlazaPage() {
   const page = pageState.page + 1;
   const key = plazaFeedKey();
   if (prefetchedPlazaPage?.key === key && prefetchedPlazaPage.page === page) return;
-  const request = fetchPlazaWorks(getPlazaFeedParams(page));
+  const request = fetchPlazaWorks(getPlazaFeedParams(page)).then((result) => {
+    // 下一页 JSON 已到，顺手预热前几张缩略图，翻页即显。
+    prewarmImages(result.works.slice(0, 4).map((work) => work.image));
+    return result;
+  });
   prefetchedPlazaPage = { key, page, request };
   void request.catch(() => {
     if (prefetchedPlazaPage?.request === request) prefetchedPlazaPage = undefined;
@@ -393,6 +415,7 @@ async function loadCurrentPlazaPage(page = 1, append = false) {
   workList.value = append ? [...workList.value, ...result.works] : result.works;
   syncInteractionIds(result.works, append);
   preloadWorkDetailSnapshots(result.works.map((work) => ({ work, user: result.users.find((user) => user.id === work.userId) ?? getUser(work) })));
+  writePlazaFeedCache(page, append, workList.value, userList.value);
   pageState.page = result.page;
   pageState.hasMore = result.hasMore;
   void prefetchNextPlazaPage();
@@ -466,6 +489,15 @@ async function reloadPlazaData() {
 
   if (isPageRequesting.value) return;
   isPageRequesting.value = true;
+  // SWR 种子：冷进入先上屏上次的作品列表（图片命中微信磁盘缓存），后台刷新后 diff 更新。
+  const seed = useMockData.value ? undefined : readPlazaFeedSeed();
+  if (seed && !workList.value.length) {
+    workList.value = seed.works;
+    userList.value = seed.users;
+    syncInteractionIds(seed.works, false);
+    preloadWorkDetailSnapshots(seed.works.map((work) => ({ work, user: seed.users.find((user) => user.id === work.userId) ?? getUser(work) })));
+  }
+  const seededWorks = workList.value;
   isLoading.value = !workList.value.length;
   loadFailed.value = false;
   try {
@@ -484,7 +516,8 @@ async function reloadPlazaData() {
     });
     await Promise.all([configPromise, loadCurrentPlazaPage(1, false)]);
     visibleWorkCount.value = 10;
-    renderKey.value += 1;
+    // 刷新结果与种子一致时跳过重渲染，避免重复进入时卡片动画重放。
+    if (!isSameJson(workList.value, seededWorks)) renderKey.value += 1;
     lastLoadedAt = Date.now();
   } catch {
     clearRealPlazaData();
