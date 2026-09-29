@@ -39,7 +39,9 @@ export class PublishRewardsService {
       });
       if (alreadyRewarded) return 0;
 
-      const rewardedToday = await tx.creditTransaction.findFirst({
+      // 每日上限按“当天已发放条数”计（0 表示不限次），达到上限后当天不再发放。
+      const dailyLimit = policy.publishDailyLimit;
+      const today = await tx.creditTransaction.findMany({
         where: {
           userId,
           refId: { startsWith: "publish_reward:" },
@@ -47,7 +49,8 @@ export class PublishRewardsService {
         },
         select: { id: true }
       });
-      if (rewardedToday) return 0;
+      if (dailyLimit > 0 && today.length >= dailyLimit) return 0;
+      const todayIndex = today.length + 1;
 
       const user = await tx.user.findUnique({
         where: { id: userId },
@@ -64,17 +67,20 @@ export class PublishRewardsService {
 
       const amount = Math.max(0, policy.publishReward) + memberBonus;
       if (!amount) return 0;
-      const reason = memberBonus > 0 ? `发布作品奖励（会员加成 +${memberBonus}）` : "发布作品奖励";
+      // 钱包幂等键按天固定，一天多次发放需带序号，否则同天第二笔会被微信判为重复单。
+      const day = start.toISOString().slice(0, 10).replace(/-/g, "");
+      const reason = [...(memberBonus > 0 ? [`会员加成 +${memberBonus}`] : []), dailyLimit === 1 ? "" : `今日第${todayIndex}次`]
+        .filter(Boolean).join("，");
       const walletGift = await this.wallet.present(
         userId,
         amount,
-        `publish_${userId}_${start.toISOString().slice(0, 10).replace(/-/g, "")}`,
-        reason
+        `publish_${userId}_${day}_${todayIndex}`,
+        reason ? `发布作品奖励（${reason}）` : "发布作品奖励"
       );
       if (walletGift) {
-        await this.credits.syncExternalBalanceInTx(tx, userId, "adjust", amount, walletGift.balance, reason, refId);
+        await this.credits.syncExternalBalanceInTx(tx, userId, "adjust", amount, walletGift.balance, reason ? `发布作品奖励（${reason}）` : "发布作品奖励", refId);
       } else {
-        await this.credits.addTransactionInTx(tx, userId, "adjust", amount, reason, refId);
+        await this.credits.addTransactionInTx(tx, userId, "adjust", amount, reason ? `发布作品奖励（${reason}）` : "发布作品奖励", refId);
       }
       return amount;
     });

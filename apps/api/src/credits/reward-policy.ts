@@ -3,6 +3,7 @@ import type { PrismaService } from "../prisma/prisma.service";
 export const DEFAULT_CREDITS_CONFIG = {
   registerGift: 50,
   publishReward: 2,
+  publishDailyLimit: 1,
   favoriteReward: 0,
   inviteReward: 10
 };
@@ -51,6 +52,7 @@ export async function readCreditsConfig(prisma: PrismaService) {
   return {
     registerGift: nonNegativeInt(value.registerGift, DEFAULT_CREDITS_CONFIG.registerGift),
     publishReward: nonNegativeInt(value.publishReward, DEFAULT_CREDITS_CONFIG.publishReward),
+    publishDailyLimit: nonNegativeInt(value.publishDailyLimit, DEFAULT_CREDITS_CONFIG.publishDailyLimit),
     favoriteReward: nonNegativeInt(value.favoriteReward, DEFAULT_CREDITS_CONFIG.favoriteReward),
     inviteReward: nonNegativeInt(value.inviteReward, DEFAULT_CREDITS_CONFIG.inviteReward)
   };
