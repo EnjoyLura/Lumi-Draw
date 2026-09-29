@@ -10,6 +10,7 @@ export function SetBase() {
   const { data, loading, error, reload } = useAsyncData<AdminCreditsConfig>(useMock ? null : () => apiGetCreditsConfig(), [useMock]);
   const [signup, setSignup] = useState("50");
   const [publish, setPublish] = useState("2");
+  const [publishLimit, setPublishLimit] = useState("1");
   const [fav, setFav] = useState("0");
   const [invite, setInvite] = useState("10");
   const [saving, setSaving] = useState(false);
@@ -18,6 +19,7 @@ export function SetBase() {
     if (!useMock && data) {
       setSignup(String(data.registerGift));
       setPublish(String(data.publishReward));
+      setPublishLimit(String(data.publishDailyLimit));
       setFav(String(data.favoriteReward));
       setInvite(String(data.inviteReward));
     }
@@ -30,6 +32,7 @@ export function SetBase() {
         await apiSaveCreditsConfig({
           registerGift: parseInt(signup) || 0,
           publishReward: parseInt(publish) || 0,
+          publishDailyLimit: parseInt(publishLimit) || 0,
           favoriteReward: parseInt(fav) || 0,
           inviteReward: parseInt(invite) || 0
         });
@@ -52,6 +55,9 @@ export function SetBase() {
         <input className="input" type="number" value={signup} onChange={(e) => setSignup(e.target.value)} />
         <label className="field-label" style={{ marginTop: 12 }}>发布作品奖励积分</label>
         <input className="input" type="number" value={publish} onChange={(e) => setPublish(e.target.value)} />
+        <label className="field-label" style={{ marginTop: 12 }}>发布奖励每日上限（次）</label>
+        <input className="input" type="number" value={publishLimit} onChange={(e) => setPublishLimit(e.target.value)} />
+        <div className="lr-s" style={{ marginTop: 4 }}>每个用户每天最多发放几次发布奖励，填 0 表示不限次</div>
       </div>
       <div className="actionbar"><button className="btn btn-primary btn-block" onClick={save} disabled={saving}>{saving ? "保存中" : "保存配置"}</button></div>
     </>

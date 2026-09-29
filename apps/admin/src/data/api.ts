@@ -695,6 +695,7 @@ export async function apiSaveInviteConfig(config: AdminInviteConfig) {
 export interface AdminCreditsConfig {
   registerGift: number;
   publishReward: number;
+  publishDailyLimit: number;
   favoriteReward: number;
   inviteReward: number;
 }
@@ -703,6 +704,7 @@ function mapCreditsConfig(c: Partial<AdminCreditsConfig>): AdminCreditsConfig {
   return {
     registerGift: Number(c.registerGift ?? 50),
     publishReward: Number(c.publishReward ?? 2),
+    publishDailyLimit: Number(c.publishDailyLimit ?? 1),
     favoriteReward: Number(c.favoriteReward ?? 0),
     inviteReward: Number(c.inviteReward ?? 10)
   };
