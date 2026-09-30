@@ -51,6 +51,27 @@ test("builds non-cropping 2048px Q95 WebP images for work detail and full-screen
   assert.match(decodeURIComponent(url), /image\/resize,m_lfit,w_2048,h_2048\/quality,Q_95\/format,webp/);
 });
 
+test("downscales catalog thumbnails and icons instead of serving operator originals", () => {
+  const uploads = service();
+
+  const banner = uploads.readCatalogBannerImageUrl("https://bucket.oss.example.com/uploads/system/banner/image.png");
+  const thumbnail = uploads.readCatalogThumbnailImageUrl("https://bucket.oss.example.com/uploads/system/style/image.png");
+  const icon = uploads.readCatalogIconImageUrl("https://bucket.oss.example.com/uploads/system/model/image.png");
+
+  assert.match(decodeURIComponent(banner), /image\/resize,w_1080\/quality,q_85\/format,webp/);
+  assert.match(decodeURIComponent(thumbnail), /image\/resize,w_360\/quality,q_82\/format,webp/);
+  assert.match(decodeURIComponent(icon), /image\/resize,w_240\/quality,q_82\/format,webp/);
+});
+
+test("keeps unstyled catalog images untouched when OSS is not configured", () => {
+  const config = { get: () => undefined } as unknown as ConfigService;
+
+  assert.equal(
+    new UploadsService(config).readCatalogThumbnailImageUrl("https://cdn.example.com/uploads/system/style/image.png"),
+    "https://cdn.example.com/uploads/system/style/image.png"
+  );
+});
+
 test("reprocesses historical CDN URLs instead of leaving the original image", () => {
   const url = service().readAdminPreviewImageUrl(
     "https://cdn.example.com/uploads/work/image.png?auth_key=old&x-oss-process=old",

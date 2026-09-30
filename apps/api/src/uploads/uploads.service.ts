@@ -12,6 +12,11 @@ const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,Q_95/format,webp";
 const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
 const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
+// 目录图（走马灯/风格/玩法/模型图标）在端上都是小尺寸展示，运营上传的却是 1K 级原图
+// （单张 2-3.6MB）。按展示宽度的 3 倍屏换算下发压缩变体，避免目录页加载原图。
+const CATALOG_BANNER_IMAGE_PROCESS = "image/resize,w_1080/quality,q_85/format,webp";
+const CATALOG_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_360/quality,q_82/format,webp";
+const CATALOG_ICON_IMAGE_PROCESS = "image/resize,w_240/quality,q_82/format,webp";
 const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -125,6 +130,21 @@ export class UploadsService {
 
   readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
     return this.readProcessedImageUrl(url, visibility, LIST_IMAGE_PROCESS);
+  }
+
+  /** 首页走马灯：端上按整屏宽展示，1080 宽足够 3 倍屏。 */
+  readCatalogBannerImageUrl(url: string) {
+    return this.readProcessedImageUrl(url, "public", CATALOG_BANNER_IMAGE_PROCESS);
+  }
+
+  /** 风格/玩法封面：列表与抽屉都是小方块，不用下发 1254px 原图。 */
+  readCatalogThumbnailImageUrl(url: string) {
+    return this.readProcessedImageUrl(url, "public", CATALOG_THUMBNAIL_IMAGE_PROCESS);
+  }
+
+  /** 模型图标：卡片与抽屉里最宽 56px，240 宽已覆盖 3 倍屏。 */
+  readCatalogIconImageUrl(url: string) {
+    return this.readProcessedImageUrl(url, "public", CATALOG_ICON_IMAGE_PROCESS);
   }
 
   readDetailPreviewImageUrl(url: string, visibility: "private" | "public" = "private") {

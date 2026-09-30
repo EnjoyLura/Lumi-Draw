@@ -77,7 +77,7 @@ export class ConfigService {
       id: b.id,
       title: b.title,
       description: b.description,
-      imageUrl: this.uploads.readUrl(b.imageUrl, "public"),
+      imageUrl: this.uploads.readCatalogBannerImageUrl(b.imageUrl),
       action: resolveBannerAction(b.action, b.title),
       sort: b.sort
     }));
@@ -90,7 +90,7 @@ export class ConfigService {
       name: g.name,
       description: g.description,
       prompt: g.prompt,
-      imageUrl: this.uploads.readUrl(g.imageUrl, "public"),
+      imageUrl: this.uploads.readCatalogThumbnailImageUrl(g.imageUrl),
       uses: g.uses,
       hot: g.hot
     }));
@@ -102,7 +102,7 @@ export class ConfigService {
       id: s.id,
       name: s.name,
       prompt: s.prompt,
-      imageUrl: this.uploads.readUrl(s.imageUrl, "public"),
+      imageUrl: this.uploads.readCatalogThumbnailImageUrl(s.imageUrl),
       uses: s.uses
     }));
   }

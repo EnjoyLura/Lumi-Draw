@@ -45,7 +45,7 @@ export class EngineCatalogService {
       description: model.description,
       badge: model.badge,
       tags: model.tags,
-      imageUrl: model.imageUrl ? this.uploads.readUrl(model.imageUrl, "public") : "",
+      imageUrl: model.imageUrl ? this.uploads.readCatalogIconImageUrl(model.imageUrl) : "",
       costCredits: model.costCredits,
       supportsTextToImage: model.supportsTextToImage,
       supportsImageToImage: model.supportsImageToImage,
@@ -90,7 +90,7 @@ export class EngineCatalogService {
       id: style.id,
       name: style.name,
       prompt: style.prompt,
-      imageUrl: style.imageUrl ? this.uploads.readUrl(style.imageUrl, "public") : "",
+      imageUrl: style.imageUrl ? this.uploads.readCatalogThumbnailImageUrl(style.imageUrl) : "",
       uses: style.uses
     };
   }
@@ -102,7 +102,7 @@ export class EngineCatalogService {
       description: gameplay.description,
       uses: gameplay.uses,
       hot: gameplay.hot,
-      imageUrl: gameplay.imageUrl ? this.uploads.readUrl(gameplay.imageUrl, "public") : ""
+      imageUrl: gameplay.imageUrl ? this.uploads.readCatalogThumbnailImageUrl(gameplay.imageUrl) : ""
     };
   }
 
