@@ -10,6 +10,7 @@ import { aspectRatioFromDimensions, toCssAspectRatio } from "../../services/aspe
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
+import { membershipEnabled } from "../../services/appFeatures";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { fetchFavorites, toHomeUser as toFavoriteUser, toHomeWork as toFavoriteWork } from "../../services/social";
 import { goRootTab } from "../../services/tabNavigation";
@@ -151,10 +152,10 @@ const waterfallEnterKey = ref(0);
 const waterfallAnimationClass = ref("");
 const { themeClass } = useTheme();
 const pageState = reactive({ page: 1, hasMore: false });
-const sideQuickActions: SideQuick[] = [
+const sideQuickActions = computed<SideQuick[]>(() => [
   ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请有礼", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : []),
-  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
-];
+  ...(membershipEnabled.value ? [{ icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" }] : []),
+]);
 const sideRows = ref<SideRow[]>([
   { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
   { icon: "rotate-ccw", label: "生成记录", url: "/pages/generation-history/index", color: "var(--lavender)" },
@@ -1173,7 +1174,7 @@ function openWork(work: HomeWork) {
             </view>
             <view class="edit-home-btn" @click="goEditProfile"><LumiIcon class="edit-home-icon" name="pencil" :size="16" /><text>编辑资料</text></view>
           </view>
-          <view class="membership-banner" @click="navigateSide('/pages/membership/index')">
+          <view v-if="membershipEnabled" class="membership-banner" @click="navigateSide('/pages/membership/index')">
             <view class="membership-mark"><LumiIcon class="membership-glyph" name="crown" :size="24" /></view>
             <view class="membership-copy">
               <view class="membership-title">{{ membershipTitle }}</view>

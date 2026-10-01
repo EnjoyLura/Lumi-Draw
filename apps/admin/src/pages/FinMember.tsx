@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { apiDeleteMemberPlan, apiGetMemberPlans, apiSaveMemberPlan } from "../data/api";
+import { useEffect, useState } from "react";
+import { apiDeleteMemberPlan, apiGetMemberPlans, apiGetMembershipConfig, apiSaveMemberPlan, apiSaveMembershipConfig } from "../data/api";
 import { useAdminSession } from "../data/adminSession";
 import { MEMBER_PLANS, nextId, type MemberPlan } from "../data/mock";
 import { getMemberPlans } from "../data/service";
 import { useAsyncData } from "../data/useAsyncData";
 import { useNav } from "../shell/NavContext";
-import { AddBtn, Badge } from "../ui";
+import { AddBtn, Badge, Switch } from "../ui";
 import { useRefresh } from "./opsShared";
 
 const FOOT_STYLE: React.CSSProperties = { display: "flex", gap: 10, margin: "12px -18px 0", padding: "12px 18px 0", borderTop: "1px solid var(--border)" };
@@ -67,6 +67,53 @@ function MemberForm({ id, item, useMock, onSaved }: { id: number; item?: MemberP
   );
 }
 
+/** 会员总开关：关闭后小程序收起入口，服务端同时拒绝会员下单。 */
+function MembershipGate() {
+  const { toast } = useNav();
+  const { useMock } = useAdminSession();
+  const { data, loading, reload } = useAsyncData<{ enabled: boolean }>(useMock ? null : () => apiGetMembershipConfig(), [useMock]);
+  const [on, setOn] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!useMock && data) setOn(data.enabled);
+  }, [data, useMock]);
+
+  const toggle = () => {
+    if (saving) return;
+    const next = !on;
+    setOn(next);
+    setSaving(true);
+    void (async () => {
+      try {
+        if (!useMock) {
+          await apiSaveMembershipConfig({ enabled: next });
+          reload();
+        }
+        toast(next ? "已开放会员中心" : "已关闭会员中心，小程序端不再展示入口");
+      } catch (e) {
+        setOn(!next);
+        toast(e instanceof Error ? e.message : "保存失败");
+      } finally {
+        setSaving(false);
+      }
+    })();
+  };
+
+  if (loading) return null;
+  return (
+    <div className="card" style={{ padding: "2px 14px 12px", marginBottom: 10 }}>
+      <div className="kv">
+        <span className="k" style={{ fontWeight: 600, color: "var(--fg-2)" }}>开放会员中心</span>
+        <Switch on={on} onToggle={toggle} disabled={saving} />
+      </div>
+      <div style={{ fontSize: 12, color: "var(--fg-muted)" }}>
+        关闭后小程序隐藏会员入口、会员页显示「暂未开放」，服务端同时拒绝会员下单。官方虚拟支付能力开通前请先关闭。
+      </div>
+    </div>
+  );
+}
+
 export function FinMember() {
   const { openSheet, toast, confirmDlg } = useNav();
   const { useMock } = useAdminSession();
@@ -96,6 +143,7 @@ export function FinMember() {
 
   return (
     <>
+      <MembershipGate />
       <AddBtn text="新增会员方案" onClick={() => openForm(0)} />
       {loading ? <div className="empty"><i className="ri-loader-4-line" /><div className="et">加载会员方案中</div></div> : null}
       {error ? <div className="empty"><i className="ri-error-warning-line" /><div className="et">{error}</div></div> : null}

@@ -1,11 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { FeatureFlagsService } from "../config-center/feature-flags.service";
 
 @Injectable()
 export class MembershipService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly flags: FeatureFlagsService
+  ) {}
 
   async plans() {
+    if (!(await this.flags.membershipEnabled())) return [];
     const rows = await this.prisma.memberPlan.findMany({
       where: { enabled: true },
       orderBy: [{ sort: "asc" }, { id: "asc" }]

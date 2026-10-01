@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
+import { initAppFeatures } from "./services/appFeatures";
 import { initAuth } from "./services/auth";
 import { initDataMode } from "./services/dataMode";
 import { initNavigationTitleSync } from "./services/navigationTitle";
@@ -10,6 +11,7 @@ onLaunch(() => {
   initDataMode();
   initAuth();
   initNavigationTitleSync();
+  initAppFeatures();
 });
 </script>
 

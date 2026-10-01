@@ -1,11 +1,22 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Header, Param } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { ConfigService } from "./config.service";
+import { FeatureFlagsService } from "./feature-flags.service";
 
 @ApiTags("config")
 @Controller("config")
 export class ConfigController {
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly flags: FeatureFlagsService
+  ) {}
+
+  /** 运营开关。开关要能立刻生效，所以明确禁用缓存。 */
+  @Get("features")
+  @Header("Cache-Control", "no-store")
+  async features() {
+    return { membershipEnabled: await this.flags.membershipEnabled() };
+  }
 
   @Get("banners")
   banners() {

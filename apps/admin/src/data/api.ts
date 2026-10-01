@@ -692,6 +692,19 @@ export async function apiSaveInviteConfig(config: AdminInviteConfig) {
   return mapInviteConfig(await http.put<Partial<AdminInviteConfig>>("/admin/invite-config", config));
 }
 
+export interface AdminMembershipConfig {
+  enabled: boolean;
+}
+
+export async function apiGetMembershipConfig() {
+  const config = await http.get<Partial<AdminMembershipConfig>>("/admin/membership-config");
+  return { enabled: config.enabled !== false };
+}
+
+export async function apiSaveMembershipConfig(config: AdminMembershipConfig) {
+  return http.put<AdminMembershipConfig>("/admin/membership-config", { enabled: config.enabled });
+}
+
 export interface AdminCreditsConfig {
   registerGift: number;
   publishReward: number;

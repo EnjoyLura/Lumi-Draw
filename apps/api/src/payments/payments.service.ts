@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { ConfigService } from "@nestjs/config";
 import type { PaymentOrder, Prisma } from "@prisma/client";
 import { CreditsService } from "../credits/credits.service";
+import { FeatureFlagsService } from "../config-center/feature-flags.service";
 import { PrismaService } from "../prisma/prisma.service";
 import type { CreateMembershipOrderDto, CreateRechargeOrderDto } from "./payments.dto";
 import {
@@ -31,7 +32,8 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly credits: CreditsService,
     private readonly config: ConfigService,
-    private readonly wallet: WechatWalletService
+    private readonly wallet: WechatWalletService,
+    private readonly flags: FeatureFlagsService
   ) {}
 
   async createRechargeOrder(userId: number, dto: CreateRechargeOrderDto, userIp = "") {
@@ -58,6 +60,7 @@ export class PaymentsService {
   }
 
   async createMembershipOrder(userId: number, dto: CreateMembershipOrderDto, userIp = "") {
+    if (!(await this.flags.membershipEnabled())) throw new BadRequestException("会员功能暂未开放");
     const virtualSession = await this.prepareVirtualSession(userId, dto.wxCode, userIp);
     const plan = await this.prisma.memberPlan.findFirst({ where: { id: dto.planId, enabled: true } });
     if (!plan) throw new NotFoundException("会员方案不存在");

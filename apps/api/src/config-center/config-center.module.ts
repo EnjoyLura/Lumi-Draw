@@ -2,11 +2,13 @@ import { Module } from "@nestjs/common";
 import { AppBootstrapController } from "./app.controller";
 import { ConfigController } from "./config.controller";
 import { ConfigService } from "./config.service";
+import { FeatureFlagsService } from "./feature-flags.service";
 import { UploadsModule } from "../uploads/uploads.module";
 
 @Module({
   imports: [UploadsModule],
   controllers: [AppBootstrapController, ConfigController],
-  providers: [ConfigService]
+  providers: [ConfigService, FeatureFlagsService],
+  exports: [FeatureFlagsService]
 })
 export class ConfigCenterModule {}

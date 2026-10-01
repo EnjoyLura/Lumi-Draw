@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, ref } from "vue";
 import { onReady, onShow } from "@dcloudio/uni-app";
 import LumiLoginSheet from "../../components/LumiLoginSheet.vue";
 import { useAuth } from "../../services/auth";
+import { membershipEnabled, refreshAppFeatures } from "../../services/appFeatures";
 import { useDataMode } from "../../services/dataMode";
 import { memberBenefits, memberPlans, type MemberBenefit, type MemberPlan } from "../points/pointsData";
 import { createMembershipOrder, fetchCreditsBalance, fetchMemberPlans, fetchMemberStatus, reconcilePendingPayments, requestOrderPayment } from "../points/pointsService";
@@ -78,6 +79,7 @@ onShow(() => {
     lastMockMode = useMockData.value;
     selectedPlanIdx.value = 1;
   }
+  void refreshAppFeatures();
   void loadMembership();
 });
 
@@ -199,7 +201,13 @@ function showAgreement() {
     <LumiPageHeader title="会员中心" />
     <view v-if="!isInitialContentReady" class="page-first-frame" />
     <scroll-view v-else class="page-scroll" scroll-y>
-      <view class="page-content">
+      <view v-if="!membershipEnabled && !useMockData" class="page-content">
+        <view class="empty-config">
+          <view class="empty-title">会员功能暂未开放</view>
+          <view class="empty-sub">会员开通正在接入官方支付能力，敬请期待。</view>
+        </view>
+      </view>
+      <view v-else class="page-content">
         <view class="member-card">
           <view class="member-head">
             <view class="crown"><LumiIcon name="crown" :size="26" /></view>

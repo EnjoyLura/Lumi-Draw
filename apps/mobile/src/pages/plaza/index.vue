@@ -10,6 +10,7 @@ import { useAuth } from "../../services/auth";
 import { useDataMode } from "../../services/dataMode";
 import { useTheme } from "../../services/theme";
 import { inviteRewardsEnabled } from "../../services/featureFlags";
+import { membershipEnabled } from "../../services/appFeatures";
 import { getNavigationMetrics } from "../../services/navigationMetrics";
 import { aspectRatioFromDimensions } from "../../services/aspectRatio";
 import { goRootTab } from "../../services/tabNavigation";
@@ -161,11 +162,11 @@ const pageState = reactive({ page: 1, hasMore: false });
 const filterModels = computed(() => ["全部", ...modelFilterOptions.value.map((item) => item.label)]);
 const filterSizes = computed(() => ["全部", ...sizeFilterOptions.value.map((item) => item.label)]);
 const filterQualities = computed(() => ["全部", ...qualityFilterOptions.value.map((item) => item.label)]);
-const sideQuickActions: SideQuick[] = [
+const sideQuickActions = computed<SideQuick[]>(() => [
   { icon: "calendar-check", label: "签到", url: "/pages/checkin/index", gradient: "linear-gradient(135deg,#ffd4c8,#ffc8d6)" },
-  { icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" },
+  ...(membershipEnabled.value ? [{ icon: "crown", label: "会员", url: "/pages/membership/index", gradient: "linear-gradient(135deg,#d4c8f0,#b8a8e0)" }] : []),
   ...(inviteRewardsEnabled ? [{ icon: "gift", label: "邀请", url: "/pages/invite/index", gradient: "linear-gradient(135deg,#a3e4cc,#8bd8b8)" }] : [])
-];
+]);
 const sideRows = ref<SideRow[]>([
   { icon: "send", label: "发布作品", url: "/pages/publish/index", color: "var(--accent)" },
   { icon: "history", label: "浏览记录", url: "/pages/history/index", color: "var(--mint)" },

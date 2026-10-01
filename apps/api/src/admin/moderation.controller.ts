@@ -133,6 +133,8 @@ export class ModerationController {
   @Put("invite-config") putInviteConfig(@Body() b: Body_) { return this.mod.putInviteConfig(b); }
   @Get("credits/config") getCreditsConfig() { return this.mod.getCreditsConfig(); }
   @Put("credits/config") putCreditsConfig(@Body() b: Body_) { return this.mod.putCreditsConfig(b); }
+  @Get("membership-config") getMembershipConfig() { return this.mod.getMembershipConfig(); }
+  @Put("membership-config") putMembershipConfig(@Body() b: Body_) { return this.mod.putMembershipConfig(b); }
   @Get("creator-titles") getCreatorTitlesConfig() { return this.mod.getCreatorTitlesConfig(); }
   @Put("creator-titles") putCreatorTitlesConfig(@Body() b: Body_) { return this.mod.putCreatorTitlesConfig(b); }
 }

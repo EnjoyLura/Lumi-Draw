@@ -7,6 +7,7 @@ import { UploadsService } from "../uploads/uploads.service";
 import { DEFAULT_CREATOR_TITLE_TIERS, normalizeCreatorTitleTiers } from "../common/creator-titles";
 import { PublishRewardsService } from "../credits/publish-rewards.service";
 import { DEFAULT_CHECKIN_CONFIG, DEFAULT_CREDITS_CONFIG, DEFAULT_INVITE_CONFIG } from "../credits/reward-policy";
+import { DEFAULT_MEMBERSHIP_CONFIG } from "../config-center/feature-flags.service";
 import { WechatContentSafetyService } from "../content-safety/wechat-content-safety.service";
 
 function pick(body: Record<string, unknown>, keys: string[]) {
@@ -360,6 +361,12 @@ export class ModerationService {
   }
   putCreditsConfig(body: Record<string, unknown>) {
     return this.putJsonConfig("creditsConfig", body);
+  }
+  getMembershipConfig() {
+    return this.getJsonConfig("membershipConfig", DEFAULT_MEMBERSHIP_CONFIG);
+  }
+  putMembershipConfig(body: Record<string, unknown>) {
+    return this.putJsonConfig("membershipConfig", { enabled: body?.enabled !== false });
   }
   async getCreatorTitlesConfig() {
     const config = await this.getJsonConfig("creatorTitlesConfig", { tiers: DEFAULT_CREATOR_TITLE_TIERS });

@@ -42,7 +42,12 @@ function submitLogin() {
 <template>
   <view v-if="open" class="login-overlay" @click="emit('close')" />
   <view class="login-sheet" :class="{ 'login-sheet-show': open }">
-    <view class="sheet-handle" />
+    <view class="sheet-top">
+      <view class="sheet-handle" />
+      <view class="sheet-close" @click="emit('close')">
+        <LumiIcon name="x" :size="18" />
+      </view>
+    </view>
     <view class="login-logo"><LumiIcon name="pencil" :size="30" /></view>
     <view class="login-title">登录露米绘画</view>
     <view class="login-sub">登录后即可体验AI创作、收藏作品等功能</view>
@@ -51,6 +56,7 @@ function submitLogin() {
       <LumiIcon v-else name="log-in" :size="18" />
       <text>{{ isLoggingIn ? "登录中..." : "微信一键登录" }}</text>
     </button>
+    <view class="login-skip" @click="emit('close')">暂不登录，先随便看看</view>
     <view class="login-agree">
       <view class="agree-label" @click="toggleAgreement">
         <view class="agree-checkbox" :class="{ checked: agreed }">
@@ -94,12 +100,42 @@ function submitLogin() {
   transform: translateY(0);
 }
 
+.sheet-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  margin: 0 -24px 12px;
+}
+
 .sheet-handle {
   width: 36px;
   height: 4px;
-  margin: 0 auto 20px;
   background: var(--border-strong, rgba(91, 159, 232, 0.32));
   border-radius: 999px;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--fg-muted);
+}
+
+.login-skip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: var(--fg-muted);
 }
 
 .login-logo {
