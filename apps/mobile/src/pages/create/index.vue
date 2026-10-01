@@ -2157,12 +2157,6 @@ function goMine() { goRootTab("/pages/mine/index"); }
   border-radius: 12px;
 }
 
-.model-name-row {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-}
-
 .model-name {
   font-size: 15px;
   font-weight: 700;
@@ -2170,14 +2164,18 @@ function goMine() { goRootTab("/pages/mine/index"); }
   word-break: break-word;
 }
 
+/* 名字行按原型为普通块级流：名字占满整行宽度，徽章为行内上标，放不下时整体落到下一行。 */
 .model-badge {
-  flex: 0 0 auto;
   padding: 1px 4px;
-  margin-left: 4px;
+  margin-left: 2px;
   font-size: 8px;
   font-weight: 600;
+  line-height: 1;
   background: rgba(91, 159, 232, 0.12);
   border-radius: 3px;
+  position: relative;
+  top: -6px;
+  white-space: nowrap;
 }
 
 .tag-row {
@@ -3054,12 +3052,6 @@ function goMine() { goRootTab("/pages/mine/index"); }
   min-width: 0;
 }
 
-.drawer-model-name-row {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-}
-
 .drawer-model-name {
   font-size: 15px;
   font-weight: 700;
@@ -3067,16 +3059,18 @@ function goMine() { goRootTab("/pages/mine/index"); }
   word-break: break-word;
 }
 
+/* 与选中卡片一致：普通块级流 + 行内上标徽章（原型结构）。 */
 .drawer-model-badge {
-  flex: 0 0 auto;
   padding: 1px 4px;
-  margin-left: 4px;
+  margin-left: 2px;
   font-size: 8px;
   font-weight: 600;
   line-height: 1;
   background: rgba(91, 159, 232, 0.12);
   border-radius: 3px;
-  transform: translateY(-6px);
+  position: relative;
+  top: -6px;
+  white-space: nowrap;
 }
 
 .drawer-model-desc {
