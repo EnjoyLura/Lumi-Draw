@@ -98,6 +98,8 @@ const isOwn = computed(() => {
   const viewerId = useMockData.value ? 1 : Number(currentUser.value?.id || 0);
   return ownerId > 0 && viewerId > 0 && ownerId === viewerId;
 });
+// 匿名作品对非作者下发 author.id=0（后端脱敏），此时不提供主页跳转与关注入口。
+const anonymousAuthor = computed(() => !isOwn.value && Number(user.value?.id || 0) <= 0);
 const isPendingReview = computed(() => work.value?.status === "pending");
 const managePrimaryIcon = computed(() => (work.value?.published ? "pencil" : isPendingReview.value ? "clock-3" : "send"));
 const managePrimaryText = computed(() => {
@@ -569,7 +571,7 @@ async function toggleFavorite() {
 }
 
 async function toggleFollow() {
-  if (!user.value) return;
+  if (!user.value || anonymousAuthor.value) return;
   if (!following.value) {
     if (!useMockData.value && !ensureLogin()) return;
     try {
@@ -613,7 +615,7 @@ function goReport() {
 }
 
 function goUserProfile() {
-  if (!user.value) return;
+  if (!user.value || anonymousAuthor.value) return;
   uni.navigateTo({ url: `/pages/user-profile/index?id=${user.value.id}` });
 }
 
@@ -940,7 +942,7 @@ function handleDetailPreviewLoad() {
               <LumiIcon class="btn-icon" name="settings" :size="14" />
               <text>管理</text>
             </button>
-            <button v-else class="small-btn" :class="following ? 'muted' : 'primary'" @click="toggleFollow">
+            <button v-else-if="!anonymousAuthor" class="small-btn" :class="following ? 'muted' : 'primary'" @click="toggleFollow">
               {{ following ? "已关注" : "+ 关注" }}
             </button>
           </view>

@@ -510,6 +510,8 @@ function goMessages() {
 }
 
 function goUserProfile(userId: number) {
+  // 匿名作品的作者被脱敏为 id=0，不允许进入个人主页。
+  if (userId <= 0) return;
   uni.navigateTo({
     url: `/pages/user-profile/index?id=${userId}`
   });

@@ -159,7 +159,9 @@ function resolveRouteId(query?: Record<string, unknown>) {
       }
     | undefined;
   const pageId = Number(current?.options?.id || current?.$page?.options?.id || 0);
-  return Number.isFinite(pageId) && pageId > 0 ? pageId : 1;
+  // 无有效 id 时不允许兜底到固定用户：真实模式下返回 0，由 loadProfile 展示失败态；
+  // 模拟数据模式保留 1 以兼容原型直开页面的场景。
+  return Number.isFinite(pageId) && pageId > 0 ? pageId : useMockData.value ? 1 : 0;
 }
 
 function toProfileView(profile: BackendUserProfile): ProfileView {
@@ -187,6 +189,14 @@ async function loadProfile() {
   if (useMockData.value) {
     realProfile.value = null;
     realWorks.value = [];
+    return;
+  }
+  if (userId.value <= 0) {
+    // 无有效用户 id（如匿名作者被脱敏为 0）时直接进入失败态，不发无效请求。
+    realProfile.value = null;
+    realWorks.value = [];
+    pageState.value = { page: 1, hasMore: false };
+    loadFailed.value = true;
     return;
   }
   loading.value = true;

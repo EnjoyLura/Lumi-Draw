@@ -42,7 +42,7 @@ async function openWork(work: HomeWork) {
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
-            <view class="author" @click.stop="emit('openUser', work.userId)">
+            <view class="author" @click.stop="work.userId > 0 && emit('openUser', work.userId)">
               <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
               <text class="author-name">{{ getUser(work).name }}</text>
             </view>
@@ -63,7 +63,7 @@ async function openWork(work: HomeWork) {
         <view class="work-body">
           <view class="work-title">{{ work.title }}</view>
           <view class="work-meta">
-            <view class="author" @click.stop="emit('openUser', work.userId)">
+            <view class="author" @click.stop="work.userId > 0 && emit('openUser', work.userId)">
               <view class="avatar" :style="{ background: getUser(work).color }">{{ getUser(work).avatar }}</view>
               <text class="author-name">{{ getUser(work).name }}</text>
             </view>
