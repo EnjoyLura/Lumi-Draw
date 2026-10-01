@@ -545,8 +545,9 @@ async function confirmRechargeOrder(orderId: string) {
 .tier-card {
   position: relative;
   box-sizing: border-box;
-  min-height: 86px;
-  padding: 12px 8px 6px;
+  /* 顶部净空要让开右上角的"推荐"角标（top:6px + 高约 10px），4 位数金额不再被遮挡 */
+  min-height: 92px;
+  padding: 18px 8px 6px;
   text-align: center;
   border: 2px solid var(--border);
   border-radius: 10px;
@@ -564,6 +565,7 @@ async function confirmRechargeOrder(orderId: string) {
   padding: 1px 6px;
   font-size: 8px;
   font-weight: 700;
+  line-height: 1;
   color: var(--accent);
   background: var(--accent-soft);
   border-radius: 999px;
