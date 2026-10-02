@@ -680,6 +680,12 @@ function applyPendingRouteOptions() {
   applySelectedRatio(pendingRouteOptions.value.ratio);
   applySelectedQuality(pendingRouteOptions.value.quality);
   applySelectedStyle(pendingRouteOptions.value.style);
+  // 一次性桥接：路由/重新生成带入的参数在配置就绪后应用成功即清除。
+  // 否则 pendingRouteOptions 常驻，之后每次 onShow 的配置强制刷新都会把
+  // 用户手动改过的模型、分辨率、风格又拉回重新生成时的旧值。
+  if (modelOptions.value.length) {
+    pendingRouteOptions.value = { model: "", ratio: "", quality: "", style: "" };
+  }
 }
 
 function openModelDrawer() {
