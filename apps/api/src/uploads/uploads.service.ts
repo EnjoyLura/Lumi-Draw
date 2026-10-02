@@ -11,6 +11,8 @@ const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 // 作品卡片缩略图：瀑布流/列表里卡片仅约半屏宽（~170pt），480 宽已覆盖 3 倍屏；
 // 实测 640/Q95 单张 98-283KB，滚动连刷时下载解码压力大，降到 480/q82 后单张 19-47KB。
 const LIST_IMAGE_PROCESS = "image/resize,w_480/quality,q_82/format,webp";
+// 模糊占位图（LQIP）：先于清晰图下发打底，实测单张不到 200 字节。
+const BLUR_IMAGE_PROCESS = "image/resize,w_24/blur,r_50,s_2/format,webp";
 const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
 const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
@@ -132,6 +134,11 @@ export class UploadsService {
 
   readResponsiveImageUrl(url: string, visibility: "private" | "public" = "private") {
     return this.readProcessedImageUrl(url, visibility, LIST_IMAGE_PROCESS);
+  }
+
+  /** 作品卡片的模糊占位图：滚动时先显示它，清晰图加载完后淡入替换。 */
+  readBlurImageUrl(url: string, visibility: "private" | "public" = "private") {
+    return this.readProcessedImageUrl(url, visibility, BLUR_IMAGE_PROCESS);
   }
 
   /** 首页走马灯：端上按整屏宽展示，1080 宽足够 3 倍屏。 */

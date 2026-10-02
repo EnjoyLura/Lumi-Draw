@@ -37,6 +37,7 @@ export interface HomeUser {
 export interface HomeWork {
   id: number;
   image: string;
+  blur?: string;
   userId: number;
   title: string;
   prompt: string;

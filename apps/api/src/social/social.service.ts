@@ -116,7 +116,8 @@ export class SocialService {
     return {
       ...toWorkCard(work, modelName, currentUserId),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
-      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public"),
+      blurUrl: this.uploads.readBlurImageUrl(work.imageUrl, "public")
     };
   }
 

@@ -186,22 +186,6 @@ let lastLoadedAt = 0;
 let prefetchedPlazaPage: { key: string; page: number; request: Promise<PlazaWorkPage> } | undefined;
 
 const displayedWorks = computed(() => filteredWorks.value.slice(0, visibleWorkCount.value));
-const waterfallColumns = computed(() => {
-  const columns: [HomeWork[], HomeWork[]] = [[], []];
-  const heights = [0, 0];
-
-  displayedWorks.value.forEach((work) => {
-    const [width, height] = work.ratio.split(":").map(Number);
-    const estimatedHeight = width && height ? height / width + 0.34 : 1.34;
-    const columnIndex = heights[0] <= heights[1] ? 0 : 1;
-    columns[columnIndex].push(work);
-    heights[columnIndex] += estimatedHeight;
-  });
-
-  return columns;
-});
-const leftColumnWorks = computed(() => waterfallColumns.value[0]);
-const rightColumnWorks = computed(() => waterfallColumns.value[1]);
 const hasMoreWorks = computed(() => visibleWorkCount.value < filteredWorks.value.length || (!useMockData.value && pageState.hasMore));
 const displayCategories = computed(() => categoryOptions.value.map((category) => category.name));
 const isWaterfallSwitching = computed(() => activeTab.value !== renderedTab.value || activeCategoryIndex.value !== renderedCategoryIndex.value);
@@ -375,7 +359,7 @@ function prefetchNextPlazaPage() {
   if (prefetchedPlazaPage?.key === key && prefetchedPlazaPage.page === page) return;
   const request = fetchPlazaWorks(getPlazaFeedParams(page)).then((result) => {
     // 下一页 JSON 已到，顺手预热前几张缩略图，翻页即显。
-    prewarmImages(result.works.slice(0, 4).map((work) => work.image));
+    prewarmImages(result.works.slice(0, 10).map((work) => work.image));
     return result;
   });
   prefetchedPlazaPage = { key, page, request };
@@ -832,6 +816,11 @@ async function login() {
 }
 
 function handleReachBottom() {
+  advanceRenderedWindow();
+}
+
+/** 滚动接近底部（<1.5 屏）时由 onPlazaScroll 提前调用，触底时作为兜底。 */
+function advanceRenderedWindow() {
   if (isLoading.value || isLoadingMore.value || !hasMoreWorks.value) return;
   isLoadingMore.value = true;
   if (loadMoreTimer) clearTimeout(loadMoreTimer);
@@ -847,6 +836,29 @@ function handleReachBottom() {
     isLoadingMore.value = false;
   }, 500);
 }
+
+const plazaScrollTop = ref(0);
+let lastScrollCheckAt = 0;
+const plazaViewportHeight = uni.getSystemInfoSync().windowHeight || 667;
+
+function onPlazaScroll(event: Event) {
+  const detail = (event as unknown as { detail?: { scrollTop?: number; scrollHeight?: number } }).detail;
+  const scrollTop = Number(detail?.scrollTop || 0);
+  const scrollHeight = Number(detail?.scrollHeight || 0);
+  if (!scrollHeight) return;
+  plazaScrollTop.value = scrollTop;
+
+  const now = Date.now();
+  if (now - lastScrollCheckAt < 200) return;
+  lastScrollCheckAt = now;
+
+  // 距底部不足 1.5 屏就提前预取下一页并放行渲染，触底零等待。
+  const distanceToBottom = scrollHeight - scrollTop - plazaViewportHeight;
+  if (distanceToBottom <= plazaViewportHeight * 1.5) {
+    prefetchNextPlazaPage();
+    advanceRenderedWindow();
+  }
+}
 </script>
 
 <template>
@@ -858,6 +870,7 @@ function handleReachBottom() {
       :refresher-triggered="isRefreshing"
       :lower-threshold="320"
       @refresherrefresh="handlePlazaRefresh"
+      @scroll="onPlazaScroll"
       @scrolltolower="handleReachBottom"
     >
       <view class="plaza-content">
@@ -924,11 +937,11 @@ function handleReachBottom() {
           :animation-class="waterfallAnimationClass"
           :display-like-count="displayLikeCount"
           :get-user="getUser"
-          :left-works="leftColumnWorks"
           :liked-work-ids="likedWorkIds"
           :render-key="renderKey"
-          :right-works="rightColumnWorks"
+          :scroll-top-value="plazaScrollTop"
           :switching="isWaterfallSwitching"
+          :works="displayedWorks"
           @image-load="syncWorkImageRatio"
           @open-work="openWorkDetail"
           @open-user="goUserProfile"

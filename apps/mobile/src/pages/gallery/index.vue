@@ -685,6 +685,20 @@ async function loadGalleryPage(page = 1, append = false) {
   void prefetchNextGalleryPage();
 }
 
+const workImageLoaded = ref<Record<string, boolean>>({});
+
+function handleWorkImageLoad(work: HomeWork, event: Event) {
+  workImageLoaded.value = { ...workImageLoaded.value, [String(work.id)]: true };
+  syncWorkImageRatio(work.id, event);
+}
+
+function galleryMediaStyle(work: HomeWork) {
+  return {
+    aspectRatio: toCssAspectRatio(work.ratio),
+    backgroundImage: work.blur ? `url("${work.blur}")` : ""
+  };
+}
+
 function syncWorkImageRatio(workId: number, event: Event) {
   const detail = (event as unknown as { detail?: { width?: number; height?: number } }).detail;
   const width = Number(detail?.width);
@@ -1296,8 +1310,8 @@ function openWork(work: HomeWork) {
             <view v-for="work in leftColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
-                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
+              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="galleryMediaStyle(work)">
+                <image class="work-img" :class="{ 'img-shown': !work.blur || workImageLoaded[String(work.id)] }" :src="work.image" mode="aspectFill" lazy-load @load="handleWorkImageLoad(work, $event)" />
               </view>
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
@@ -1316,8 +1330,8 @@ function openWork(work: HomeWork) {
             <view v-for="work in rightColumnWorks" :id="`lumi-work-card-${work.id}`" :key="work.id" class="work-card" @click="openWork(work)">
               <view v-if="manageMode" class="select-dot" :class="{ selected: selectedIds.has(work.id) }" @click="toggleSelect($event, work.id)"><LumiIcon v-if="selectedIds.has(work.id)" name="check" :size="14" /></view>
               <view class="status-badge" :class="statusBadgeClass(work)">{{ statusBadgeText(work) }}</view>
-              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="{ aspectRatio: toCssAspectRatio(work.ratio) }">
-                <image class="work-img" :src="work.image" mode="aspectFill" lazy-load @load="syncWorkImageRatio(work.id, $event)" />
+              <view :id="`lumi-gallery-work-media-${work.id}`" class="work-media" :style="galleryMediaStyle(work)">
+                <image class="work-img" :class="{ 'img-shown': !work.blur || workImageLoaded[String(work.id)] }" :src="work.image" mode="aspectFill" lazy-load @load="handleWorkImageLoad(work, $event)" />
               </view>
               <view class="work-body">
                 <view class="work-title">{{ displayTitle(work) }}</view>
@@ -2321,12 +2335,20 @@ function openWork(work: HomeWork) {
   width: 100%;
   overflow: hidden;
   background: var(--bg-soft);
+  background-size: cover;
+  background-position: center;
 }
 
 .work-img {
   display: block;
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity 0.16s ease-out;
+}
+
+.work-img.img-shown {
+  opacity: 1;
 }
 
 .status-badge {

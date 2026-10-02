@@ -128,6 +128,7 @@ export class WorksService {
       ...toCard(work, currentUserId),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
       thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public"),
+      blurUrl: this.uploads.readBlurImageUrl(work.imageUrl, "public"),
       modelName: modelName ?? work.modelId
     };
   }
@@ -404,10 +405,13 @@ export class WorksService {
         dimensions.set(result.workId, size);
       }
     });
-    const items = rows.map((w) => ({
+    const items = rows.map((w) => {
+      const visibility: "private" | "public" = w.status === "published" && w.isPublic ? "public" : "private";
+      return {
       id: w.id,
-      imageUrl: this.uploads.readUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
-      thumbnailUrl: this.uploads.readResponsiveImageUrl(w.imageUrl, w.status === "published" && w.isPublic ? "public" : "private"),
+      imageUrl: this.uploads.readUrl(w.imageUrl, visibility),
+      thumbnailUrl: this.uploads.readResponsiveImageUrl(w.imageUrl, visibility),
+      blurUrl: this.uploads.readBlurImageUrl(w.imageUrl, visibility),
       title: w.title,
       description: w.description,
       prompt: w.prompt,
@@ -425,7 +429,8 @@ export class WorksService {
       width: dimensions.get(w.id)?.width,
       height: dimensions.get(w.id)?.height,
       createdAt: w.createdAt.toISOString()
-    }));
+      };
+    });
     return buildPage(items, total, page, pageSize);
   }
 }

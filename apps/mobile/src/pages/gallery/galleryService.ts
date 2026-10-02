@@ -31,6 +31,7 @@ interface BackendWork {
   id: number;
   imageUrl: string;
   thumbnailUrl?: string;
+  blurUrl?: string;
   title: string;
   prompt?: string;
   ratio: string;
@@ -104,6 +105,7 @@ function toHomeWork(item: BackendWork, ownerId = 0): HomeWork {
   return {
     id: item.id,
     image: item.thumbnailUrl || item.imageUrl,
+    blur: item.blurUrl || "",
     userId: ownerId,
     title: item.title,
     prompt: item.prompt || item.title,
