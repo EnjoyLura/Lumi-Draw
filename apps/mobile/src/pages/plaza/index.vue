@@ -430,6 +430,10 @@ function syncWorkImageRatio(workId: number, event: Event) {
   if (!width || !height) return;
 
   const ratio = aspectRatioFromDimensions(width, height);
+  // 卡片已按 work.ratio 渲染，绝大多数加载结果比例一致；
+  // 未变化时直接返回，避免滚动期每张图 onload 都重建数组触发全列表 diff。
+  const target = workList.value.find((work) => work.id === workId);
+  if (!target || target.ratio === ratio) return;
   workList.value = workList.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
   patchWorkDetailSnapshot(workId, { ratio });
 }

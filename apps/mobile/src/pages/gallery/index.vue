@@ -692,6 +692,9 @@ function syncWorkImageRatio(workId: number, event: Event) {
   if (!width || !height) return;
 
   const ratio = aspectRatioFromDimensions(width, height);
+  // 同广场页：比例未变化时不重建数组，避免滚动期连续全列表 diff。
+  const target = works.value.find((work) => work.id === workId);
+  if (!target || target.ratio === ratio) return;
   works.value = works.value.map((work) => (work.id === workId && work.ratio !== ratio ? { ...work, ratio } : work));
   patchWorkDetailSnapshot(workId, { ratio });
 }

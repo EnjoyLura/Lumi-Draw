@@ -8,7 +8,9 @@ const UPLOAD_EXPIRES_SECONDS = 5 * 60;
 const PRIVATE_READ_EXPIRES_SECONDS = 30 * 60;
 const DEFAULT_CDN_AUTH_URL_WINDOW_SECONDS = 30 * 60;
 const IMMUTABLE_CACHE_CONTROL = "public, max-age=31536000, immutable";
-const LIST_IMAGE_PROCESS = "image/resize,w_640/quality,Q_95/format,webp";
+// 作品卡片缩略图：瀑布流/列表里卡片仅约半屏宽（~170pt），480 宽已覆盖 3 倍屏；
+// 实测 640/Q95 单张 98-283KB，滚动连刷时下载解码压力大，降到 480/q82 后单张 19-47KB。
+const LIST_IMAGE_PROCESS = "image/resize,w_480/quality,q_82/format,webp";
 const DETAIL_IMAGE_PROCESS = "image/resize,m_lfit,w_2048,h_2048/quality,Q_95/format,webp";
 const ADMIN_THUMBNAIL_IMAGE_PROCESS = "image/resize,w_480/quality,q_70/format,webp";
 const ADMIN_PREVIEW_IMAGE_PROCESS = "image/resize,w_1200/quality,q_80/format,webp";
