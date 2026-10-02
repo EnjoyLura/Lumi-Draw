@@ -1131,7 +1131,7 @@ async function startBackendGenerate(prompt: string) {
       notifyGalleryGenerateTaskStarted({
         jobId: created.jobId,
         prompt: created.job.prompt,
-        model: created.job.modelId || created.job.providerModel || "AI",
+        model: created.job.modelName || created.job.modelId || created.job.providerModel || "AI",
         count: created.job.count,
         ratio: created.job.ratio,
         quality: created.job.quality,

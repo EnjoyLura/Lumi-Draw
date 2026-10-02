@@ -41,7 +41,7 @@ function toAuthor(user: User, anonymous = false) {
   };
 }
 
-function toWorkCard(work: WorkWithAuthor, currentUserId?: number) {
+function toWorkCard(work: WorkWithAuthor, modelName: string | undefined, currentUserId?: number) {
   return {
     id: work.id,
     imageUrl: work.imageUrl,
@@ -54,7 +54,7 @@ function toWorkCard(work: WorkWithAuthor, currentUserId?: number) {
     description: work.description,
     quality: work.quality,
     modelId: work.modelId,
-    modelName: work.modelId,
+    modelName: modelName ?? work.modelId,
     style: work.style,
     tags: work.tags,
     status: work.status,
@@ -112,12 +112,20 @@ export class SocialService {
     private readonly safety: WechatContentSafetyService
   ) {}
 
-  private toWorkCard(work: WorkWithAuthor, currentUserId?: number) {
+  private toWorkCard(work: WorkWithAuthor, modelName?: string, currentUserId?: number) {
     return {
-      ...toWorkCard(work, currentUserId),
+      ...toWorkCard(work, modelName, currentUserId),
       imageUrl: this.uploads.readUrl(work.imageUrl, "public"),
       thumbnailUrl: this.uploads.readResponsiveImageUrl(work.imageUrl, "public")
     };
+  }
+
+  /** 作品卡片按 modelId 批量取模型名，避免逐作品查询。 */
+  private async modelNamesOf(modelIds: string[]) {
+    const ids = [...new Set(modelIds.filter(Boolean))];
+    if (!ids.length) return new Map<string, string>();
+    const models = await this.prisma.modelConfig.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } });
+    return new Map(models.map((model) => [model.id, model.name]));
   }
 
   private async publicWork(id: number) {
@@ -308,7 +316,12 @@ export class SocialService {
       this.prisma.work.findMany({ where, include: { user: true }, orderBy: { createdAt: "desc" }, ...skipTake(page, pageSize) }),
       this.prisma.work.count({ where })
     ]);
-    const items = await withInteractionState(this.prisma, currentUserId, rows.map((work) => this.toWorkCard(work, currentUserId)));
+    const modelNames = await this.modelNamesOf(rows.map((work) => work.modelId));
+    const items = await withInteractionState(
+      this.prisma,
+      currentUserId,
+      rows.map((work) => this.toWorkCard(work, modelNames.get(work.modelId), currentUserId))
+    );
     return buildPage(items, total, page, pageSize);
   }
 
@@ -397,10 +410,11 @@ export class SocialService {
       include: { user: true }
     });
     const byId = new Map(works.map((work) => [work.id, work]));
+    const modelNames = await this.modelNamesOf(works.map((work) => work.modelId));
     const cards = views
       .map((view) => {
         const work = byId.get(view.workId);
-        return work ? { ...this.toWorkCard(work, userId), viewedAt: view.viewedAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work, modelNames.get(work.modelId), userId), viewedAt: view.viewedAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);
@@ -422,10 +436,11 @@ export class SocialService {
       include: { user: true }
     });
     const byId = new Map(works.map((work) => [work.id, work]));
+    const modelNames = await this.modelNamesOf(works.map((work) => work.modelId));
     const cards = favorites
       .map((favorite) => {
         const work = byId.get(favorite.workId);
-        return work ? { ...this.toWorkCard(work, userId), favoritedAt: favorite.createdAt.toISOString() } : null;
+        return work ? { ...this.toWorkCard(work, modelNames.get(work.modelId), userId), favoritedAt: favorite.createdAt.toISOString() } : null;
       })
       .filter((work): work is NonNullable<typeof work> => Boolean(work));
     const items = await withInteractionState(this.prisma, userId, cards);
