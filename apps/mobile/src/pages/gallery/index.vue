@@ -81,6 +81,7 @@ const EMPTY_PROFILE: GalleryUser = {
   id: 0,
   name: "未同步资料",
   avatar: "U",
+  avatarUrl: "",
   color: "var(--accent)",
   points: "0",
   userNo: "-",
@@ -1138,7 +1139,8 @@ function openWork(work: HomeWork) {
         <view v-if="isMineMode && isInitialContentReady && isLoggedIn && hasProfileData" class="profile-area">
           <view class="profile-row">
             <view class="avatar-wrap">
-              <view class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
+              <image v-if="profile.avatarUrl" class="profile-avatar" :src="profile.avatarUrl" mode="aspectFill" />
+              <view v-else class="profile-avatar" :style="{ background: profile.color }">{{ profile.avatar }}</view>
             </view>
             <view class="profile-main">
               <view class="profile-name">{{ profile.name }}</view>
@@ -1403,6 +1405,7 @@ function openWork(work: HomeWork) {
       :open="sideOpen"
       :user-name="profile.name"
       :user-avatar="profile.avatar"
+      :user-avatar-url="profile.avatarUrl"
       :user-color="profile.color"
       :user-points="profile.points"
       :quick-actions="sideQuickActions"

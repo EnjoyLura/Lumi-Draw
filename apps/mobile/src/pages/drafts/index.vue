@@ -23,6 +23,7 @@ const EMPTY_PROFILE: GalleryUser = {
   id: 0,
   name: "未同步资料",
   avatar: "U",
+  avatarUrl: "",
   color: "var(--accent)",
   points: "0",
   userNo: "-",

@@ -19,13 +19,15 @@ withDefaults(
     open: boolean;
     userName: string;
     userAvatar: string;
+    userAvatarUrl?: string;
     userColor: string;
     userPoints?: string;
     quickActions: DrawerQuickAction[];
     rows: DrawerRow[];
   }>(),
   {
-    userPoints: "0"
+    userPoints: "0",
+    userAvatarUrl: ""
   }
 );
 
@@ -40,7 +42,8 @@ const emit = defineEmits<{
   <view class="side-drawer" :class="{ show: open }">
     <view class="side-head">
       <view class="side-user">
-        <view class="side-avatar" :style="{ background: userColor }"><text v-if="userAvatar">{{ userAvatar }}</text><LumiIcon v-else name="user" :size="22" /></view>
+        <image v-if="userAvatarUrl" class="side-avatar" :src="userAvatarUrl" mode="aspectFill" />
+        <view v-else class="side-avatar" :style="{ background: userColor }"><text v-if="userAvatar">{{ userAvatar }}</text><LumiIcon v-else name="user" :size="22" /></view>
         <view class="side-info">
           <view class="side-name">{{ userName }}</view>
           <view class="side-points">

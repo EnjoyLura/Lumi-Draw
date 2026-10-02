@@ -14,6 +14,7 @@ interface BackendUser {
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;
+  avatarUrl?: string | null;
   bio?: string | null;
   credits: number;
   memberPlan?: string | null;
@@ -81,6 +82,7 @@ export function toGalleryUser(user: BackendUser): GalleryUser {
     id: user.id,
     name,
     avatar: user.avatarText || name.slice(0, 1) || "U",
+    avatarUrl: user.avatarUrl || "",
     color: user.avatarColor || "var(--accent)",
     points: `${user.credits}`,
     userNo: formatPublicUserId(user.publicId, user.id),

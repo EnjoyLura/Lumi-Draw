@@ -70,6 +70,7 @@ const { useMockData } = useDataMode();
 const EMPTY_DRAWER_PROFILE: MineUser = {
   name: "未同步用户",
   avatar: "U",
+  avatarUrl: "",
   color: "var(--accent)",
   userNo: "-",
   credits: 0
@@ -983,6 +984,7 @@ function handleReachBottom() {
       :open="sideOpen"
       :user-name="isLoggedIn ? drawerDisplay.name : '点击登录'"
       :user-avatar="isLoggedIn ? drawerDisplay.avatar : ''"
+      :user-avatar-url="isLoggedIn ? drawerDisplay.avatarUrl : ''"
       :user-color="isLoggedIn ? drawerDisplay.color : 'var(--bg-soft)'"
       :user-points="String(drawerDisplay.credits)"
       :quick-actions="sideQuickActions"

@@ -8,6 +8,7 @@ interface BackendMineProfile {
   nickname: string;
   avatarText?: string | null;
   avatarColor?: string | null;
+  avatarUrl?: string | null;
   credits: number;
 }
 
@@ -17,6 +18,7 @@ export function toMineUser(profile: BackendMineProfile): MineUser {
   return {
     name,
     avatar: profile.avatarText || name.slice(0, 1) || "U",
+    avatarUrl: profile.avatarUrl || "",
     color: profile.avatarColor || "var(--accent)",
     userNo: formatPublicUserId(profile.publicId, profile.id),
     credits: profile.credits

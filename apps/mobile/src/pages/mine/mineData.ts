@@ -3,6 +3,7 @@ import { inviteRewardsEnabled } from "../../services/featureFlags";
 export interface MineUser {
   name: string;
   avatar: string;
+  avatarUrl: string;
   color: string;
   userNo: string;
   credits: number;
@@ -27,6 +28,7 @@ export interface MineListItem {
 export const mineUser: MineUser = {
   name: "云端造梦师",
   avatar: "梦",
+  avatarUrl: "",
   color: "var(--accent)",
   userNo: "LUMI_KRPD",
   credits: 2860

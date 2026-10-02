@@ -13,6 +13,7 @@ export interface GalleryUser {
   id: number;
   name: string;
   avatar: string;
+  avatarUrl: string;
   color: string;
   points: string;
   userNo: string;
@@ -33,6 +34,7 @@ export const galleryUser: GalleryUser = {
   id: 1,
   name: "云端造梦师",
   avatar: "梦",
+  avatarUrl: "",
   color: "var(--accent)",
   points: "2860",
   userNo: "LUMI_KRPD",

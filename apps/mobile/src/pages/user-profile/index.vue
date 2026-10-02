@@ -51,6 +51,7 @@ interface ProfileView {
   publicId: string;
   name: string;
   avatar: string;
+  avatarUrl: string;
   color: string;
   bio: string;
   works: number;
@@ -67,6 +68,7 @@ const emptyProfile = computed<ProfileView>(() => ({
   publicId: "",
   name: "",
   avatar: "",
+  avatarUrl: "",
   color: "var(--accent)",
   bio: "",
   works: 0,
@@ -172,6 +174,7 @@ function toProfileView(profile: BackendUserProfile): ProfileView {
     publicId: profile.publicId || "",
     name,
     avatar: profile.avatarText || name.slice(0, 1) || "U",
+    avatarUrl: profile.avatarUrl || "",
     color: profile.avatarColor || "var(--accent)",
     bio: profile.bio || "这个用户还没有填写简介",
     works: profile.worksCount,
@@ -373,7 +376,8 @@ async function confirmUnfollow() {
 
       <template v-else>
       <view class="profile-header">
-        <view class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
+        <image v-if="user.avatarUrl" class="avatar" :src="user.avatarUrl" mode="aspectFill" />
+        <view v-else class="avatar" :style="{ background: user.color }">{{ user.avatar }}</view>
         <view class="header-main">
           <view class="user-name">{{ user.name }}</view>
           <view class="id-row">

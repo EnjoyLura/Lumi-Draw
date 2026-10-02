@@ -7,6 +7,7 @@ export interface ProfileUser {
   publicId: string;
   name: string;
   avatar: string;
+  avatarUrl?: string;
   color: string;
   bio: string;
   works: number;
